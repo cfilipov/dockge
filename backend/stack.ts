@@ -14,7 +14,7 @@ import {
     EXITED, getCombinedTerminalName,
     getComposeTerminalName, getContainerExecTerminalName,
     PROGRESS_TERMINAL_ROWS,
-    RUNNING, TERMINAL_ROWS,
+    RUNNING, RUNNING_AND_EXITED, UNHEALTHY, TERMINAL_ROWS,
     UNKNOWN
 } from "../common/util-common";
 import { InteractiveTerminal, Terminal } from "./terminal";
@@ -386,7 +386,7 @@ export class Stack {
                 stackList.set(composeStack.Name, stack);
             }
 
-            stack._status = await this.statusConvert(composeStack);
+            stack._status = this.statusConvert(composeStack);
             stack._configFilePath = composeStack.ConfigFiles;
         }
 
@@ -411,89 +411,58 @@ export class Stack {
         let composeList = JSON.parse(res.stdout.toString());
 
         for (let composeStack of composeList) {
-            statusList.set(composeStack.Name, await this.statusConvert(composeStack));
+            statusList.set(composeStack.Name, this.statusConvert(composeStack));
         }
 
         return statusList;
     }
 
     /**
-     * Get the detailed status of a single compose stack, listing every container in the stack
+     * Convert the status string from `docker compose ls` to the status number.
+     * Parses the status string to count running and exited containers individually,
+     * correctly handling mixed states like "running(2), exited(1)".
+     *
+     * Input Examples:
+     *   "running(2)"
+     *   "exited(2)"
+     *   "running(2), exited(1)"
+     *   "created(1)"
+     * @param composeStack A single entry from `docker compose ls --format json`
      */
-    static async getSingleComposeStatus(composeName : string) : Promise<any[] | null> {
+    static statusConvert(composeStack : any) : number {
+        const status : string = composeStack.Status;
 
-        let res = await childProcessAsync.spawn("docker", [ "ps", "-a", "--filter", `label=com.docker.compose.project=${composeName}`, "--format", "json" ], {
-            encoding: "utf-8",
-        });
-
-        if (!res.stdout) {
-            return null;
-        }
-        let dockerResponse = res.stdout.toString();
-        let composeList;
-        try {
-            composeList = JSON.parse(dockerResponse);
-        } catch (error) {
-            // Optional: Log the error for debugging purposes
-            console.error("Failed to parse JSON from res.stdout: ", res.dockerResponse);
-            return null;
+        if (status.startsWith("created")) {
+            return CREATED_STACK;
         }
 
-        return composeList;
-    }
+        // Parse counts from the status string, e.g. "running(2), exited(1)"
+        let runningCount = 0;
+        let exitedCount = 0;
 
-    /**
-     * Check if the compose stack is exited cleanly
-     * First, we need to get the number of containers that are in the exited state
-     * Then read all the containers and check if they are exited with status 0 (OK) or something else (Not OK)
-     */
-    static async isComposeExitClean(composeStack : any[]) : Promise<number> {
-        const expectedContainersExited = parseInt(composeStack.Status.split("(")[1].split(")")[0]);
-        let cleanlyExitedContainerCount = 0;
+        const runningMatch = status.match(/running\((\d+)\)/);
+        if (runningMatch) {
+            runningCount = parseInt(runningMatch[1]);
+        }
 
-        let composeStatus = await this.getSingleComposeStatus(composeStack.Name);
+        const exitedMatch = status.match(/exited\((\d+)\)/);
+        if (exitedMatch) {
+            exitedCount = parseInt(exitedMatch[1]);
+        }
 
-        if (composeStatus === null) {
+        if (runningCount > 0 && exitedCount > 0) {
+            return RUNNING_AND_EXITED;
+        } else if (runningCount > 0) {
+            return RUNNING;
+        } else if (exitedCount > 0) {
+            return EXITED;
+        } else if (status.includes("running")) {
+            return RUNNING;
+        } else if (status.includes("exited")) {
             return EXITED;
         }
-        if (!(typeof composeStatus[Symbol.iterator] === "function")) {
-            composeStatus = [ composeStatus ];
-        }
-        for (const containerStatus of composeStatus) {
-            const status = containerStatus.Status.trim();
 
-            if (status.startsWith("exited", 0)) {
-                if (status.startsWith("exited (0)", 0)) {
-                    cleanlyExitedContainerCount++;
-                } else {
-                    return EXITED;
-                }
-            }
-        }
-
-        if (cleanlyExitedContainerCount == expectedContainersExited) {
-            return RUNNING;
-        }
-
-        return EXITED;
-    }
-
-    /**
-     * Convert the status string from `docker compose ls` to the status number
-     * Input Example: "exited(1), running(1)"
-     * @param status
-     */
-    static async statusConvert(composeStack : any[]) : Promise<number> {
-        if (composeStack.Status.startsWith("created")) {
-            return CREATED_STACK;
-        } else if (composeStack.Status.includes("exited")) {
-            return await this.isComposeExitClean(composeStack);
-        } else if (composeStack.Status.startsWith("running")) {
-            // If there is no exited services, there should be only running services
-            return RUNNING;
-        } else {
-            return UNKNOWN;
-        }
+        return UNKNOWN;
     }
 
     static async getStack(server: DockgeServer, stackName: string, skipFSOperations = false) : Promise<Stack> {

@@ -91,7 +91,7 @@
 <script>
 import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
-import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, UNKNOWN } from "../../../common/util-common";
+import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, RUNNING_AND_EXITED, UNHEALTHY, UNKNOWN } from "../../../common/util-common";
 
 export default {
     components: { Confirm, StackListItem },
@@ -161,8 +161,12 @@ export default {
                 if (!m1.isManagedByDockge && m2.isManagedByDockge) return 1;
 
                 if (m1.status !== m2.status) {
+                    if (m2.status === UNHEALTHY) return 1;
+                    if (m1.status === UNHEALTHY) return -1;
                     if (m2.status === RUNNING) return 1;
                     if (m1.status === RUNNING) return -1;
+                    if (m2.status === RUNNING_AND_EXITED) return 1;
+                    if (m1.status === RUNNING_AND_EXITED) return -1;
                     if (m2.status === EXITED) return 1;
                     if (m1.status === EXITED) return -1;
                     if (m2.status === CREATED_STACK) return 1;

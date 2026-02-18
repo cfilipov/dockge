@@ -87,6 +87,8 @@
     "Convert to Compose": "Convert to Compose",
     "Docker Run": "Docker Run",
     "active": "active",
+    "partially": "active\u207b",
+    "unhealthy": "unhealthy",
     "exited": "exited",
     "inactive": "inactive",
     "Appearance": "Appearance",

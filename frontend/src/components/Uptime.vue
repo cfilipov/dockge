@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import { statusColor, statusNameShort } from "../../../common/util-common";
+import { StackStatusInfo } from "../../../common/util-common";
 
 export default {
     props: {
@@ -18,16 +18,20 @@ export default {
     },
 
     computed: {
+        statusInfo() {
+            return StackStatusInfo.get(this.stack?.status);
+        },
+
         uptime() {
             return this.$t("notAvailableShort");
         },
 
         color() {
-            return statusColor(this.stack?.status);
+            return this.statusInfo.badgeColor;
         },
 
         statusName() {
-            return this.$t(statusNameShort(this.stack?.status));
+            return this.$t(this.statusInfo.label);
         },
 
         className() {
