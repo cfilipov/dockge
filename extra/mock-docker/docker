@@ -1,0 +1,549 @@
+#!/usr/bin/env bash
+# Mock Docker CLI for Dockge development testing
+# State is stored in /tmp/mock-docker/state/<stackname>/{status,services.json}
+
+set -euo pipefail
+
+MOCK_DIR="/tmp/mock-docker"
+STATE_DIR="$MOCK_DIR/state"
+STACKS_DIR="${DOCKGE_STACKS_DIR:-/opt/stacks}"
+
+mkdir -p "$STATE_DIR"
+
+# Helpers
+log() { echo "$*" >&2; }
+
+get_stack_name() {
+    # Derive stack name from cwd (last component of path)
+    basename "${PWD:-unknown}"
+}
+
+get_stack_status() {
+    local name="$1"
+    local status_file="$STATE_DIR/$name/status"
+    if [[ -f "$status_file" ]]; then
+        cat "$status_file"
+    else
+        echo "inactive"
+    fi
+}
+
+count_services() {
+    local name="$1"
+    get_services "$name" | wc -l
+}
+
+get_services() {
+    local name="$1"
+    local compose_file="$STACKS_DIR/$name/compose.yaml"
+    if [[ -f "$compose_file" ]]; then
+        # Extract service names: lines exactly 2-space indented under "services:" ending with ":"
+        sed -n '/^services:/,/^[^ ]/{ /^  [a-zA-Z][a-zA-Z0-9_-]*:/{ s/://; s/^ *//; p; } }' "$compose_file"
+    else
+        echo "unknown"
+    fi
+}
+
+# Get the configured image for a service from compose.yaml
+get_compose_image() {
+    local name="$1"
+    local svc="$2"
+    local compose_file="$STACKS_DIR/$name/compose.yaml"
+    if [[ -f "$compose_file" ]]; then
+        # Extract image from the service block
+        sed -n "/^  ${svc}:/,/^  [a-zA-Z]/{ /image:/{ s/.*image: *//; s/ *$//; p; } }" "$compose_file" | head -1
+    fi
+}
+
+# Get the "running" image for a service (may differ from compose.yaml to simulate recreateNecessary)
+get_running_image() {
+    local name="$1"
+    local svc="$2"
+    local compose_image
+    compose_image=$(get_compose_image "$name" "$svc")
+
+    # For the blog stack, simulate running an older version
+    if [[ "$name" == "blog" && "$svc" == "wordpress" ]]; then
+        echo "wordpress:6.3"
+        return
+    fi
+
+    # For web-app, simulate nginx running an older image
+    if [[ "$name" == "web-app" && "$svc" == "nginx" ]]; then
+        echo "nginx:1.24"
+        return
+    fi
+
+    # Default: running image matches compose.yaml
+    echo "${compose_image:-mock-image:latest}"
+}
+
+set_stack_status() {
+    local name="$1"
+    local status="$2"
+    mkdir -p "$STATE_DIR/$name"
+    echo "$status" > "$STATE_DIR/$name/status"
+}
+
+remove_stack_state() {
+    local name="$1"
+    rm -rf "$STATE_DIR/$name"
+}
+
+# Simulate a delay with some terminal output
+fake_delay() {
+    local msg="$1"
+    local delay="${2:-0.3}"
+    echo "$msg"
+    sleep "$delay"
+}
+
+# --- Command handlers ---
+
+get_service_state() {
+    local stack_name="$1"
+    local svc="$2"
+    # web-app redis is hardcoded as exited for testing active⁻
+    if [[ "$stack_name" == "web-app" && "$svc" == "redis" ]]; then
+        echo "exited"
+    else
+        echo "running"
+    fi
+}
+
+cmd_compose_ls() {
+    local result="["
+    local first=true
+
+    # Scan stacks directory for compose files
+    for dir in "$STACKS_DIR"/*/; do
+        [[ -d "$dir" ]] || continue
+        local name
+        name=$(basename "$dir")
+        local compose_file="${dir}compose.yaml"
+        [[ -f "$compose_file" ]] || compose_file="${dir}docker-compose.yaml"
+        [[ -f "$compose_file" ]] || continue
+
+        local status
+        status=$(get_stack_status "$name")
+
+        local status_str
+        if [[ "$status" == "running" ]]; then
+            # Count running vs exited services individually
+            local running_count=0
+            local exited_count=0
+            local services
+            services=$(get_services "$name")
+            for svc in $services; do
+                local svc_state
+                svc_state=$(get_service_state "$name" "$svc")
+                if [[ "$svc_state" == "exited" ]]; then
+                    exited_count=$((exited_count + 1))
+                else
+                    running_count=$((running_count + 1))
+                fi
+            done
+            if [[ $running_count -gt 0 && $exited_count -gt 0 ]]; then
+                status_str="running($running_count), exited($exited_count)"
+            elif [[ $running_count -gt 0 ]]; then
+                status_str="running($running_count)"
+            else
+                status_str="exited($exited_count)"
+            fi
+        elif [[ "$status" == "exited" ]]; then
+            local svc_count
+            svc_count=$(count_services "$name")
+            status_str="exited($svc_count)"
+        else
+            local svc_count
+            svc_count=$(count_services "$name")
+            status_str="exited($svc_count)"
+        fi
+
+        if [[ "$first" == "true" ]]; then
+            first=false
+        else
+            result+=","
+        fi
+        result+="{\"Name\":\"$name\",\"Status\":\"$status_str\",\"ConfigFiles\":\"$compose_file\"}"
+    done
+
+    result+="]"
+    echo "$result"
+}
+
+cmd_compose_ps() {
+    local stack_name
+    stack_name=$(get_stack_name)
+    local status
+    status=$(get_stack_status "$stack_name")
+
+    local services
+    services=$(get_services "$stack_name")
+
+    if [[ "$status" != "running" ]]; then
+        # Return empty - no running containers
+        echo "[]"
+        return 0
+    fi
+
+    local first=true
+    echo "["
+    for svc in $services; do
+        if [[ "$first" == "true" ]]; then
+            first=false
+        else
+            echo ","
+        fi
+
+        local svc_state
+        svc_state=$(get_service_state "$stack_name" "$svc")
+        local svc_status="Up 5 minutes"
+        if [[ "$svc_state" == "exited" ]]; then
+            svc_status="Exited (0) 2 minutes ago"
+        fi
+
+        local svc_image
+        svc_image=$(get_running_image "$stack_name" "$svc")
+
+        cat <<EOJSON
+{"Service":"$svc","Name":"${stack_name}-${svc}-1","State":"$svc_state","Health":"","Status":"$svc_status","Image":"$svc_image"}
+EOJSON
+    done
+    echo "]"
+}
+
+cmd_compose_up() {
+    local stack_name
+    stack_name=$(get_stack_name)
+
+    local services
+    services=$(get_services "$stack_name")
+
+    for svc in $services; do
+        fake_delay " Network ${stack_name}_default  Creating" 0.1
+        fake_delay " Network ${stack_name}_default  Created" 0.1
+        fake_delay " Container ${stack_name}-${svc}-1  Creating" 0.2
+        fake_delay " Container ${stack_name}-${svc}-1  Created" 0.1
+        fake_delay " Container ${stack_name}-${svc}-1  Starting" 0.2
+        fake_delay " Container ${stack_name}-${svc}-1  Started" 0.1
+    done
+
+    set_stack_status "$stack_name" "running"
+    exit 0
+}
+
+cmd_compose_stop() {
+    local stack_name
+    stack_name=$(get_stack_name)
+    local target_service="${1:-}"
+
+    if [[ -n "$target_service" ]]; then
+        fake_delay " Container ${stack_name}-${target_service}-1  Stopping" 0.3
+        fake_delay " Container ${stack_name}-${target_service}-1  Stopped" 0.1
+    else
+        local services
+        services=$(get_services "$stack_name")
+        for svc in $services; do
+            fake_delay " Container ${stack_name}-${svc}-1  Stopping" 0.2
+            fake_delay " Container ${stack_name}-${svc}-1  Stopped" 0.1
+        done
+        set_stack_status "$stack_name" "exited"
+    fi
+    exit 0
+}
+
+cmd_compose_down() {
+    local stack_name
+    stack_name=$(get_stack_name)
+
+    local services
+    services=$(get_services "$stack_name")
+
+    for svc in $services; do
+        fake_delay " Container ${stack_name}-${svc}-1  Stopping" 0.2
+        fake_delay " Container ${stack_name}-${svc}-1  Stopped" 0.1
+        fake_delay " Container ${stack_name}-${svc}-1  Removing" 0.1
+        fake_delay " Container ${stack_name}-${svc}-1  Removed" 0.1
+    done
+    fake_delay " Network ${stack_name}_default  Removing" 0.1
+    fake_delay " Network ${stack_name}_default  Removed" 0.1
+
+    remove_stack_state "$stack_name"
+    exit 0
+}
+
+cmd_compose_restart() {
+    local stack_name
+    stack_name=$(get_stack_name)
+    local target_service="${1:-}"
+
+    if [[ -n "$target_service" ]]; then
+        fake_delay " Container ${stack_name}-${target_service}-1  Restarting" 0.3
+        fake_delay " Container ${stack_name}-${target_service}-1  Started" 0.1
+    else
+        local services
+        services=$(get_services "$stack_name")
+        for svc in $services; do
+            fake_delay " Container ${stack_name}-${svc}-1  Restarting" 0.2
+            fake_delay " Container ${stack_name}-${svc}-1  Started" 0.1
+        done
+    fi
+    set_stack_status "$stack_name" "running"
+    exit 0
+}
+
+cmd_compose_pull() {
+    local stack_name
+    stack_name=$(get_stack_name)
+
+    local services
+    services=$(get_services "$stack_name")
+
+    for svc in $services; do
+        fake_delay " $svc Pulling" 0.2
+        fake_delay " $svc Pulling fs layer" 0.1
+        fake_delay " $svc Downloading [==================================================>] complete" 0.3
+        fake_delay " $svc Pull complete" 0.1
+    done
+    exit 0
+}
+
+cmd_compose_config() {
+    # Dry-run validation — just check the YAML file exists
+    # Look for compose file in current directory
+    local compose_file=""
+    for f in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
+        if [[ -f "$f" ]]; then
+            compose_file="$f"
+            break
+        fi
+    done
+
+    # Also check -f flag
+    local args=("$@")
+    for ((i=0; i<${#args[@]}; i++)); do
+        if [[ "${args[$i]}" == "-f" ]] && [[ $((i+1)) -lt ${#args[@]} ]]; then
+            compose_file="${args[$((i+1))]}"
+            break
+        fi
+    done
+
+    if [[ -z "$compose_file" || ! -f "$compose_file" ]]; then
+        echo "no configuration file provided: not found" >&2
+        exit 1
+    fi
+
+    # Basic YAML check — must contain "services:"
+    if ! grep -q "^services:" "$compose_file" 2>/dev/null; then
+        echo "services must be a mapping" >&2
+        exit 1
+    fi
+
+    exit 0
+}
+
+cmd_compose_logs() {
+    local stack_name
+    stack_name=$(get_stack_name)
+
+    local services
+    services=$(get_services "$stack_name")
+
+    for svc in $services; do
+        echo "${stack_name}-${svc}-1  | [mock] Container is running"
+        echo "${stack_name}-${svc}-1  | [mock] Service started successfully"
+    done
+
+    # Keep alive for -f (follow) mode
+    if [[ " $* " == *" -f "* ]]; then
+        while true; do
+            sleep 5
+            for svc in $services; do
+                echo "${stack_name}-${svc}-1  | [mock] $(date -Iseconds) heartbeat"
+            done
+        done
+    fi
+}
+
+cmd_compose_exec() {
+    # Fake interactive shell
+    echo "OCI runtime exec failed: exec failed: unable to start container process: exec (mock): permission denied"
+    exit 126
+}
+
+cmd_stats() {
+    # Return fake stats for all running containers
+    for dir in "$STATE_DIR"/*/; do
+        [[ -d "$dir" ]] || continue
+        local name
+        name=$(basename "$dir")
+        local status
+        status=$(get_stack_status "$name")
+        [[ "$status" == "running" ]] || continue
+
+        local services
+        services=$(get_services "$name")
+
+        for svc in $services; do
+            cat <<EOJSON
+{"BlockIO":"0B / 0B","CPUPerc":"0.12%","Container":"abc123def456","ID":"abc123def456","MemPerc":"1.25%","MemUsage":"24MiB / 2GiB","Name":"${name}-${svc}-1","NetIO":"1.5kB / 900B","PIDs":"5"}
+EOJSON
+        done
+    done
+}
+
+cmd_network_ls() {
+    echo "bridge"
+    echo "host"
+    echo "none"
+}
+
+cmd_image_prune() {
+    echo "Total reclaimed space: 0B"
+    exit 0
+}
+
+cmd_image_inspect() {
+    local image_ref="${1:-unknown}"
+    # Strip tag to create a stable mock digest
+    local repo="${image_ref%%:*}"
+    # Generate a deterministic mock digest based on the image name
+    local hash
+    hash=$(echo -n "$repo" | md5sum | awk '{print $1}')
+    local mock_digest="sha256:mock${hash}${hash}"
+    cat <<EOJSON
+[{
+    "Id": "sha256:mock-image-id-${repo}",
+    "RepoTags": ["$image_ref"],
+    "RepoDigests": ["${repo}@${mock_digest}"],
+    "Created": "2026-01-01T00:00:00.000000000Z",
+    "Size": 52000000,
+    "Os": "linux",
+    "Architecture": "amd64"
+}]
+EOJSON
+}
+
+cmd_inspect() {
+    local container_name="${1:-unknown}"
+    # Return mock inspect data
+    cat <<EOJSON
+[{
+    "Id": "abc123def456789",
+    "Created": "2026-02-18T00:00:00.000000000Z",
+    "Name": "/$container_name",
+    "State": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 12345,
+        "ExitCode": 0,
+        "StartedAt": "2026-02-18T00:00:00.000000000Z"
+    },
+    "Image": "sha256:mock-image-hash",
+    "Config": {
+        "Hostname": "$container_name",
+        "Image": "mock-image:latest",
+        "Env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"]
+    },
+    "NetworkSettings": {
+        "Networks": {
+            "bridge": {
+                "IPAddress": "172.17.0.2",
+                "Gateway": "172.17.0.1"
+            }
+        }
+    }
+}]
+EOJSON
+}
+
+cmd_version() {
+    cat <<'EOF'
+Client: Docker Engine - Community
+ Version:           29.1.4 (mock)
+ API version:       1.52
+
+Server: Docker Engine - Community
+ Engine:
+  Version:          29.1.4 (mock)
+EOF
+}
+
+cmd_compose_version() {
+    echo "Docker Compose version v5.0.1 (mock)"
+}
+
+# --- Main routing ---
+
+# Parse top-level command
+if [[ "${1:-}" == "compose" ]]; then
+    shift
+    # Skip env-file flags
+    while [[ "${1:-}" == "--env-file" ]]; do
+        shift 2
+    done
+    # Skip -f flags
+    while [[ "${1:-}" == "-f" ]]; do
+        shift 2
+    done
+    subcmd="${1:-help}"
+    shift || true
+
+    case "$subcmd" in
+        ls)       cmd_compose_ls ;;
+        ps)       cmd_compose_ps ;;
+        up)       cmd_compose_up "$@" ;;
+        stop)
+            # Filter out flags, find service name
+            svc=""
+            for arg in "$@"; do
+                [[ "$arg" == -* ]] && continue
+                svc="$arg"
+            done
+            cmd_compose_stop "$svc"
+            ;;
+        down)     cmd_compose_down "$@" ;;
+        restart)
+            svc=""
+            for arg in "$@"; do
+                [[ "$arg" == -* ]] && continue
+                svc="$arg"
+            done
+            cmd_compose_restart "$svc"
+            ;;
+        pull)     cmd_compose_pull "$@" ;;
+        config)   cmd_compose_config "$@" ;;
+        logs)     cmd_compose_logs "$@" ;;
+        exec)     cmd_compose_exec "$@" ;;
+        version)  cmd_compose_version ;;
+        *)        echo "mock-docker: unsupported compose command: $subcmd" >&2; exit 1 ;;
+    esac
+elif [[ "${1:-}" == "inspect" ]]; then
+    shift
+    cmd_inspect "$@"
+elif [[ "${1:-}" == "stats" ]]; then
+    cmd_stats
+elif [[ "${1:-}" == "network" && "${2:-}" == "ls" ]]; then
+    cmd_network_ls
+elif [[ "${1:-}" == "image" && "${2:-}" == "inspect" ]]; then
+    shift 2
+    # Skip --format flag if present
+    while [[ "${1:-}" == "--format" ]]; do
+        shift 2
+    done
+    cmd_image_inspect "$@"
+elif [[ "${1:-}" == "image" && "${2:-}" == "prune" ]]; then
+    cmd_image_prune
+elif [[ "${1:-}" == "version" ]]; then
+    cmd_version
+elif [[ "${1:-}" == "--version" ]]; then
+    echo "Docker version 29.1.4 (mock)"
+else
+    echo "mock-docker: unsupported command: $*" >&2
+    exit 1
+fi

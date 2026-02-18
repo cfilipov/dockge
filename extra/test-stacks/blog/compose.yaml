@@ -1,0 +1,9 @@
+services:
+  wordpress:
+    image: wordpress:6.4
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped

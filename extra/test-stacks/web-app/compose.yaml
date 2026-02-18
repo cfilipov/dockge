@@ -1,0 +1,11 @@
+services:
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    labels:
+      dockge.imageupdates.changelog: "https://github.com/nginx/nginx/releases"
+  redis:
+    image: redis:alpine
+    restart: unless-stopped

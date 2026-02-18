@@ -66,15 +66,81 @@ I personally do not like something that requires so many configurations before y
 ## Install Dependencies for Development
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## Dev Server
 
+The recommended way to develop is with the mock Docker CLI, which simulates Docker without requiring a real daemon. This is especially useful in environments without Docker-in-Docker support.
+
+### Quick Start (with mock Docker)
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Set up test stacks and mock state
+#    (requires /opt/stacks to exist and be writable)
+sudo mkdir -p /opt/stacks && sudo chown $USER /opt/stacks
+./extra/mock-docker/setup-mock-env.sh
+
+# 3. Start the dev server with mock Docker on the PATH
+PATH="$PWD/extra/mock-docker:$PATH" DOCKGE_STACKS_DIR=/opt/stacks pnpm run dev
 ```
-npm run dev:frontend
-npm run dev:backend
+
+This starts:
+- **Vite frontend** on `http://localhost:5000` (hot reload)
+- **Express backend** on `http://localhost:5001` (serves API + Socket.IO)
+
+### Quick Start (with real Docker)
+
+If you have a real Docker daemon available:
+
+```bash
+pnpm install
+pnpm run dev
 ```
+
+### Mock Docker CLI
+
+The mock Docker CLI at `extra/mock-docker/docker` intercepts all `docker` and `docker compose` commands. It simulates container lifecycle by writing state files to `/tmp/mock-docker/state/`.
+
+**Supported commands:**
+- `docker compose ls/ps/up/stop/down/restart/pull/config/logs`
+- `docker inspect`, `docker stats`, `docker network ls`, `docker version`
+- `docker image inspect`, `docker image prune`
+
+**How it works:**
+- Stack state (running/exited) is stored in `/tmp/mock-docker/state/<stackname>/status`
+- Service names are parsed from the actual `compose.yaml` files in the stacks directory
+- `compose up` sets status to `running`, `stop` sets to `exited`, `down` removes state
+- `compose logs -f` outputs mock lines with periodic heartbeats
+- `compose ps --format json` returns mock container JSON for running stacks
+- Some stacks have hardcoded quirks for testing (e.g., `web-app/redis` is always exited to test mixed-status stacks)
+
+**Test stacks** are in `extra/test-stacks/` and get copied to `/opt/stacks/` by the setup script:
+
+| Stack | Services | Default State | Has Update |
+|-------|----------|---------------|------------|
+| `web-app` | nginx, redis | running | Yes (nginx) |
+| `blog` | wordpress, mysql | running | Yes (wordpress) |
+| `test-alpine` | alpine | exited | No |
+| `monitoring` | grafana | exited | No |
+| `database` | postgres | exited | Yes |
+
+**Adding a new test stack:** Create a directory in `extra/test-stacks/<name>/` with a `compose.yaml`, then re-run `setup-mock-env.sh`.
+
+**Adding new mock commands:** Edit `extra/mock-docker/docker`. Add a `cmd_*` function and wire it into the routing case statements at the bottom.
+
+### Build the frontend
+
+After making frontend changes, rebuild the bundle for the backend to serve:
+
+```bash
+pnpm run build:frontend
+```
+
+Port 5000 (Vite HMR) reflects changes immediately. Port 5001 serves the pre-built bundle.
 
 ## Backend Dev Server
 
@@ -89,12 +155,6 @@ It binds to `0.0.0.0:5000` by default. The frontend dev server is used for devel
 For production, it is not used. It will be compiled to `frontend-dist` directory instead.
 
 You can use Vue.js devtools Chrome extension for debugging.
-
-### Build the frontend
-
-```bash
-npm run build
-```
 
 ## Database Migration
 
