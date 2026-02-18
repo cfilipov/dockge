@@ -6,7 +6,7 @@
             <div class="shadow-box mb-3 editor-box">
                 <code-mirror
                     v-model="inspectData"
-                    :extensions="extensionsJSON"
+                    :extensions="extensionsYAML"
                     minimal
                     :wrap="true"
                     :dark="true"
@@ -20,9 +20,10 @@
 
 <script>
 import CodeMirror from "vue-codemirror6";
-import { json } from "@codemirror/lang-json";
+import { yaml as yamlLang } from "@codemirror/lang-yaml";
 import { dracula as editorTheme } from "thememirror";
 import { lineNumbers } from "@codemirror/view";
+import yaml from "yaml";
 
 export default {
     components: {
@@ -45,20 +46,20 @@ export default {
         },
     },
     setup() {
-        const extensionsJSON = [
+        const extensionsYAML = [
             editorTheme,
-            json(),
+            yamlLang(),
             lineNumbers(),
         ];
 
-        return { extensionsJSON };
+        return { extensionsYAML };
     },
     mounted() {
         this.$root.emitAgent(this.endpoint, "containerInspect", this.containerName, (res) => {
             if (res.ok) {
                 const inspectObj = JSON.parse(res.inspectData);
                 if (inspectObj) {
-                    this.inspectData = JSON.stringify(inspectObj, undefined, 2);
+                    this.inspectData = yaml.stringify(inspectObj, { lineWidth: 0 });
                 }
             }
         });
