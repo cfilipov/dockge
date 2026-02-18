@@ -25,13 +25,13 @@
                     <font-awesome-icon icon="arrow-up" />
                 </button>
 
-                <div v-if="!isEditMode" class="btn-group me-2" role="group">
+                <div v-if="!isEditMode" class="btn-group service-actions me-2" role="group">
                     <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceLog')" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
                     <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceInspect')" :to="inspectRouteLink" :disabled="processing"><font-awesome-icon icon="info-circle" /></router-link>
                     <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceTerminal')" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
                 </div>
 
-                <div v-if="!isEditMode" class="btn-group" role="group">
+                <div v-if="!isEditMode" class="btn-group service-actions" role="group">
                     <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart')" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
                     <button v-if="started" type="button" class="btn btn-sm btn-danger me-1" :title="$t('tooltipServiceStop')" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
                     <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart')" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
@@ -497,6 +497,13 @@ export default defineComponent({
     .stats {
         font-size: 0.8rem;
         color: #6c757d;
+    }
+
+    .service-actions .btn {
+        width: 60px;
+        padding-left: 0;
+        padding-right: 0;
+        text-align: center;
     }
 }
 </style>
