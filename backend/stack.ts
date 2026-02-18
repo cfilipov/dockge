@@ -1,5 +1,6 @@
 import { DockgeServer } from "./dockge-server";
 import fs, { promises as fsAsync } from "fs";
+import os from "os";
 import { log } from "./log";
 import yaml from "yaml";
 import { DockgeSocket, fileExists, ValidationError } from "./util-server";
@@ -129,7 +130,7 @@ export class Stack {
         return this._status;
     }
 
-    validate() {
+    async validate() {
         // Check name, allows [a-z][0-9] _ - only
         if (!this.name.match(/^[a-z0-9_-]+$/)) {
             throw new ValidationError("Stack name can only contain [a-z][0-9] _ - only");
@@ -150,6 +151,42 @@ export class Stack {
         // It only happens when there is one line and it doesn't contain "="
         if (lines.length === 1 && !lines[0].includes("=") && lines[0].length > 0) {
             throw new ValidationError("Invalid .env format");
+        }
+
+        // Validate with docker compose dry-run using a temp directory
+        const tempDir = await fsAsync.mkdtemp(path.join(os.tmpdir(), "dockge-validate-"));
+        const tempYamlPath = path.join(tempDir, this._composeFileName);
+        const tempEnvPath = path.join(tempDir, ".env");
+        const hasEnvFile = this.composeENV.trim() !== "";
+
+        try {
+            await fsAsync.writeFile(tempYamlPath, this.composeYAML);
+            if (hasEnvFile) {
+                await fsAsync.writeFile(tempEnvPath, this.composeENV);
+            }
+
+            const args = [ "compose", "-f", this._composeFileName ];
+            if (hasEnvFile) {
+                args.push("--env-file", ".env");
+            }
+            args.push("config", "--dry-run");
+
+            await childProcessAsync.spawn("docker", args, {
+                cwd: tempDir,
+                encoding: "utf-8",
+            });
+        } catch (e) {
+            log.warn("validate", e);
+
+            let valMsg = (e as { stderr: string }).stderr?.trim();
+            if (valMsg) {
+                // Remove the "validating /tmp/..." prefix from the error message
+                valMsg = valMsg.replace(/^validating .*?: /, "");
+            }
+
+            throw new ValidationError(valMsg || "Docker compose validation failed");
+        } finally {
+            await fsAsync.rm(tempDir, { recursive: true, force: true });
         }
     }
 
@@ -215,7 +252,7 @@ export class Stack {
      * @param isAdd
      */
     async save(isAdd : boolean) {
-        this.validate();
+        await this.validate();
 
         let dir = this.path;
 
