@@ -51,7 +51,101 @@ export const CREATED_FILE = 1;
 export const CREATED_STACK = 2;
 export const RUNNING = 3;
 export const EXITED = 4;
+export const RUNNING_AND_EXITED = 5;
+export const UNHEALTHY = 6;
 
+/**
+ * Stack status info registry — maps status IDs to display properties.
+ * Replaces the older statusName/statusNameShort/statusColor functions.
+ */
+export class StackStatusInfo {
+
+    private static INFOS_BY_ID = new Map<number, StackStatusInfo>();
+    private static DEFAULT = new StackStatusInfo("?", [], "secondary", "secondary");
+    static ALL: StackStatusInfo[] = [];
+
+    static {
+        this.addInfo(new StackStatusInfo("unhealthy", [ UNHEALTHY ], "danger", "danger"));
+        this.addInfo(new StackStatusInfo("active", [ RUNNING ], "primary", "primary"));
+        this.addInfo(new StackStatusInfo("partially", [ RUNNING_AND_EXITED ], "info", "info"));
+        this.addInfo(new StackStatusInfo("exited", [ EXITED ], "warning", "warning"));
+        this.addInfo(new StackStatusInfo("inactive", [ CREATED_FILE, CREATED_STACK ], "dark", "secondary"));
+    }
+
+    private static addInfo(info: StackStatusInfo) {
+        for (const id of info.statusIds) {
+            this.INFOS_BY_ID.set(id, info);
+        }
+        this.ALL.push(info);
+    }
+
+    static get(statusId: number) {
+        return this.INFOS_BY_ID.get(statusId) ?? this.DEFAULT;
+    }
+
+    constructor(readonly label: string, readonly statusIds: number[], readonly badgeColor: string, readonly textColor: string) {}
+}
+
+/**
+ * Stack filter state for the dashboard stack list
+ */
+export class StackFilter {
+    agents = new StackFilterCategory<string>("agent");
+    status = new StackFilterCategory<string>("status");
+    attributes = new StackFilterCategory<string>("attribute");
+
+    categories = [ this.agents, this.status, this.attributes ];
+
+    isFilterSelected() {
+        for (const category of this.categories) {
+            if (category.isFilterSelected()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    clear() {
+        for (const category of this.categories) {
+            category.selected.clear();
+        }
+    }
+}
+
+export class StackFilterCategory<T> {
+    options: Record<string, T> = {};
+    selected: Set<T> = new Set();
+
+    constructor(readonly label: string) { }
+
+    hasOptions() {
+        return Object.keys(this.options).length > 0;
+    }
+
+    isFilterSelected() {
+        if (this.selected.size === 0) {
+            return false;
+        }
+
+        for (const ov of Object.values(this.options)) {
+            if (this.selected.has(ov)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    toggleSelected(value: T) {
+        if (this.selected.has(value)) {
+            this.selected.delete(value);
+        } else {
+            this.selected.add(value);
+        }
+    }
+}
+
+/** @deprecated Use StackStatusInfo.get(status).label instead */
 export function statusName(status : number) : string {
     switch (status) {
         case CREATED_FILE:
@@ -60,6 +154,10 @@ export function statusName(status : number) : string {
             return "created_stack";
         case RUNNING:
             return "running";
+        case RUNNING_AND_EXITED:
+            return "partially_running";
+        case UNHEALTHY:
+            return "unhealthy";
         case EXITED:
             return "exited";
         default:
@@ -67,6 +165,7 @@ export function statusName(status : number) : string {
     }
 }
 
+/** @deprecated Use StackStatusInfo.get(status).label instead */
 export function statusNameShort(status : number) : string {
     switch (status) {
         case CREATED_FILE:
@@ -75,6 +174,10 @@ export function statusNameShort(status : number) : string {
             return "inactive";
         case RUNNING:
             return "active";
+        case RUNNING_AND_EXITED:
+            return "partially";
+        case UNHEALTHY:
+            return "unhealthy";
         case EXITED:
             return "exited";
         default:
@@ -82,6 +185,7 @@ export function statusNameShort(status : number) : string {
     }
 }
 
+/** @deprecated Use StackStatusInfo.get(status).badgeColor instead */
 export function statusColor(status : number) : string {
     switch (status) {
         case CREATED_FILE:
@@ -90,8 +194,12 @@ export function statusColor(status : number) : string {
             return "dark";
         case RUNNING:
             return "primary";
-        case EXITED:
+        case RUNNING_AND_EXITED:
+            return "info";
+        case UNHEALTHY:
             return "danger";
+        case EXITED:
+            return "warning";
         default:
             return "secondary";
     }
@@ -142,6 +250,24 @@ export function intHash(str : string, length = 10) : number {
  */
 export function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export function isRecord(obj: unknown): obj is Record<string, unknown> {
+    return typeof obj === "object" && obj !== null;
+}
+
+export function getNested<T>(
+    obj: unknown,
+    keys: string[]
+): T | undefined {
+    let current = obj;
+    for (const key of keys) {
+        if (!isRecord(current) || !(key in current)) {
+            return undefined;
+        }
+        current = current[key];
+    }
+    return current as T;
 }
 
 /**
@@ -212,12 +338,16 @@ export function getCombinedTerminalName(endpoint : string, stack : string) {
     return "combined-" + endpoint + "-" + stack;
 }
 
-export function getContainerTerminalName(endpoint : string, container : string) {
-    return "container-" + endpoint + "-" + container;
+export function getContainerTerminalName(endpoint : string, stackName : string, container : string, shell: string, index : number) {
+    return "container-terminal-" + endpoint + "-" + stackName + "-" + container + "-" + shell + "-" + index;
 }
 
 export function getContainerExecTerminalName(endpoint : string, stackName : string, container : string, index : number) {
     return "container-exec-" + endpoint + "-" + stackName + "-" + container + "-" + index;
+}
+
+export function getContainerLogName(endpoint : string, stackName : string, container : string, index : number) {
+    return "container-log-" + endpoint + "-" + container;
 }
 
 export function copyYAMLComments(doc : Document, src : Document) {
