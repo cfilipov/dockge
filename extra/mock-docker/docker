@@ -127,6 +127,10 @@ cmd_compose_ls() {
         local status
         status=$(get_stack_status "$name")
 
+        # Stacks with no Docker state ("inactive") don't appear in compose ls,
+        # just like real Docker only lists stacks that have been brought up at least once.
+        [[ "$status" == "inactive" ]] && continue
+
         local status_str
         if [[ "$status" == "running" ]]; then
             # Count running vs exited services individually
@@ -151,10 +155,6 @@ cmd_compose_ls() {
                 status_str="exited($exited_count)"
             fi
         elif [[ "$status" == "exited" ]]; then
-            local svc_count
-            svc_count=$(count_services "$name")
-            status_str="exited($svc_count)"
-        else
             local svc_count
             svc_count=$(count_services "$name")
             status_str="exited($svc_count)"

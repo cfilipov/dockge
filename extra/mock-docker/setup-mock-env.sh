@@ -42,7 +42,7 @@ echo
 echo "Seeding mock Docker state..."
 mkdir -p "$STATE_DIR"
 
-# blog and web-app are running; monitoring, test-alpine, database are exited
+# blog and web-app are running; monitoring, test-alpine, database are exited; cache is down (no state)
 for name in blog web-app; do
     mkdir -p "$STATE_DIR/$name"
     echo "running" > "$STATE_DIR/$name/status"
@@ -54,6 +54,10 @@ for name in monitoring test-alpine database; do
     echo "exited" > "$STATE_DIR/$name/status"
     echo "  $name → exited"
 done
+
+# cache has no state file — it appears as "down" (compose.yaml exists but never started)
+rm -rf "$STATE_DIR/cache"
+echo "  cache → down (no state)"
 echo
 
 # --- 3. Seed image update cache in SQLite ---

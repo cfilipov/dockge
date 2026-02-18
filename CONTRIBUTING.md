@@ -127,6 +127,7 @@ The mock Docker CLI at `extra/mock-docker/docker` intercepts all `docker` and `d
 | `test-alpine` | alpine | exited | No |
 | `monitoring` | grafana | exited | No |
 | `database` | postgres | exited | Yes |
+| `cache` | redis | down | No |
 
 **Adding a new test stack:** Create a directory in `extra/test-stacks/<name>/` with a `compose.yaml`, then re-run `setup-mock-env.sh`.
 
