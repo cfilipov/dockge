@@ -91,7 +91,7 @@
     "partially": "active\u207b",
     "unhealthy": "unhealthy",
     "exited": "exited",
-    "inactive": "inactive",
+    "down": "down",
     "clearFilter": "Clear Filter",
     "status": "Status",
     "agent": "Agent",

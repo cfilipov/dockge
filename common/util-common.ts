@@ -69,7 +69,7 @@ export class StackStatusInfo {
         this.addInfo(new StackStatusInfo("active", [ RUNNING ], "primary", "primary"));
         this.addInfo(new StackStatusInfo("partially", [ RUNNING_AND_EXITED ], "info", "info"));
         this.addInfo(new StackStatusInfo("exited", [ EXITED ], "warning", "warning"));
-        this.addInfo(new StackStatusInfo("inactive", [ CREATED_FILE, CREATED_STACK ], "dark", "secondary"));
+        this.addInfo(new StackStatusInfo("down", [ CREATED_FILE, CREATED_STACK ], "dark", "secondary"));
     }
 
     private static addInfo(info: StackStatusInfo) {
@@ -169,9 +169,9 @@ export function statusName(status : number) : string {
 export function statusNameShort(status : number) : string {
     switch (status) {
         case CREATED_FILE:
-            return "inactive";
+            return "down";
         case CREATED_STACK:
-            return "inactive";
+            return "down";
         case RUNNING:
             return "active";
         case RUNNING_AND_EXITED:

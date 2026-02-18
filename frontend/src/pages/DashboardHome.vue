@@ -20,8 +20,8 @@
                                 <span class="num exited">{{ exitedNum }}</span>
                             </div>
                             <div class="col">
-                                <h3>{{ $t("inactive") }}</h3>
-                                <span class="num inactive">{{ inactiveNum }}</span>
+                                <h3>{{ $t("down") }}</h3>
+                                <span class="num inactive">{{ downNum }}</span>
                             </div>
                         </div>
                     </div>
@@ -154,8 +154,8 @@ export default {
         activeNum() {
             return this.getStatusNum("active");
         },
-        inactiveNum() {
-            return this.getStatusNum("inactive");
+        downNum() {
+            return this.getStatusNum("down");
         },
         exitedNum() {
             return this.getStatusNum("exited");
