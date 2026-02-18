@@ -2,9 +2,53 @@
     <img src="./frontend/public/icon.svg" width="128" alt="" />
 </div>
 
-# Dockge
+# Dockge (cfilipov fork)
 
-A fancy, easy-to-use and reactive self-hosted docker compose stack-oriented manager forked from louislam/dockge that has had several Pull Requests merged.
+A fancy, easy-to-use and reactive self-hosted Docker Compose stack manager.
+
+This is a **fork of a fork**: it builds on [cmcooper1980/dockge](https://github.com/cmcooper1980/dockge) (which itself merges dozens of community PRs from the original [louislam/dockge](https://github.com/louislam/dockge)), and selectively ports features from [hamphh/dockge](https://github.com/hamphh/dockge) on top.
+
+## Why this fork?
+
+The **hamphh fork** adds several valuable features — image update tracking, collapsible terminals, YAML validation, per-service controls, compose labels, and more — but ships with significant **performance regressions**:
+
+- **Slow initial load** — the stack list blocks on image update checks against Docker registries before rendering anything
+- **Excessive polling** — frequent frontend polling and synchronous Docker API calls saturate the event loop
+- **No persistent cache** — update check results are stored in memory only, lost on every restart, forcing full re-checks
+
+This fork takes the features from hamphh but **re-architects the performance-critical paths**:
+
+- The stack list loads instantly — it never blocks on registry lookups or Docker API calls
+- Image update checks run on a **background timer** (default: every 6 hours) with results cached in **SQLite**, not in memory
+- Registry checks are parallelized with a concurrency limit and have per-request timeouts
+- The in-memory cache is rebuilt from SQLite on startup — no cold-start penalty
+- The frontend never polls for update status; it reads cached flags pushed by the server
+
+### Visual differences from hamphh
+
+This fork preserves the **cmcooper base UI** rather than adopting hamphh's visual changes:
+
+- **CodeMirror 6** editor (cmcooper) instead of PrismEditor (hamphh)
+- **Rounded buttons and pills** (cmcooper) instead of squared button groups (hamphh)
+- **bootstrap-vue-next ~0.14** (cmcooper) instead of ~0.40 (hamphh)
+- **Compose override file support** (`compose.override.yaml`) is retained (hamphh dropped it)
+
+### Features ported from hamphh
+
+- Image update tracking with registry digest comparison (background checks, SQLite cache)
+- Container recreate detection (running image differs from compose.yaml)
+- Per-service action buttons (start/stop/restart/update individual services)
+- Collapsible terminal panel that auto-collapses after actions
+- Docker compose dry-run validation before saving
+- Stack list filter dropdown (filter by status, agent, update availability)
+- Button tooltips and notification icons in the stack list
+- Dockge-specific compose labels (`dockge.imageupdates.check`, etc.)
+
+---
+
+*The rest of this README is from the upstream [cmcooper1980/dockge](https://github.com/cmcooper1980/dockge) fork.*
+
+---
 
 [![GitHub Repo stars](https://img.shields.io/github/stars/cmcooper1980/dockge?logo=github&style=flat)](https://github.com/cmcooper1980/dockge) [![Docker Pulls](https://img.shields.io/docker/pulls/cmcooper1980/dockge?logo=docker)](https://hub.docker.com/r/cmcooper1980/dockge/tags) [![Docker Image Version (latest semver)](https://img.shields.io/docker/v/cmcooper1980/dockge/latest?label=docker%20image%20ver.)](https://hub.docker.com/r/cmcooper1980/dockge/tags) [![GitHub last commit (branch)](https://img.shields.io/github/last-commit/cmcooper1980/dockge/master?logo=github)](https://github.com/cmcooper1980/dockge/commits/master/)
 

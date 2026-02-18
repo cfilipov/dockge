@@ -123,6 +123,12 @@ export default {
                 if (this.settings.checkUpdate === undefined) {
                     this.settings.checkUpdate = true;
                 }
+                if (this.settings.imageUpdateCheckEnabled === undefined) {
+                    this.settings.imageUpdateCheckEnabled = true;
+                }
+                if (this.settings.imageUpdateCheckInterval === undefined) {
+                    this.settings.imageUpdateCheckInterval = 6;
+                }
                 this.settingsLoaded = true;
             });
         },

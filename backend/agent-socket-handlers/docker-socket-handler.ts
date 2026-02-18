@@ -3,6 +3,8 @@ import { DockgeServer } from "../dockge-server";
 import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
 import { DeleteOptions, Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
+import { Terminal } from "../terminal";
+import { getComposeTerminalName } from "../../common/util-common";
 import childProcessAsync from "promisify-child-process";
 
 export class DockerSocketHandler extends AgentSocketHandler {
@@ -250,11 +252,30 @@ export class DockerSocketHandler extends AgentSocketHandler {
                 }
 
                 const stack = await Stack.getStack(server, stackName, true);
+                const prevRecreate = server.recreateNecessaryCache.get(stackName as string) ?? false;
                 const serviceStatusList = Object.fromEntries(await stack.getServiceStatusList());
+
+                // Build per-service recreateNecessary map from the status entries
+                const serviceRecreateStatus: Record<string, boolean> = {};
+                for (const [svcName, entries] of Object.entries(serviceStatusList)) {
+                    serviceRecreateStatus[svcName] = (entries as Array<Record<string, unknown>>).some(
+                        (e) => e.recreateNecessary === true
+                    );
+                }
+
+                const serviceUpdateStatus = server.imageUpdateChecker?.getServiceUpdateMap(stackName as string) ?? {};
                 callbackResult({
                     ok: true,
                     serviceStatusList,
+                    serviceUpdateStatus,
+                    serviceRecreateStatus,
                 }, callback);
+
+                // If recreateNecessary changed, refresh the stack list for all clients
+                const newRecreate = server.recreateNecessaryCache.get(stackName as string) ?? false;
+                if (prevRecreate !== newRecreate) {
+                    server.sendStackList();
+                }
             } catch (e) {
                 callbackError(e, callback);
             }
@@ -387,6 +408,68 @@ export class DockerSocketHandler extends AgentSocketHandler {
                     ok: true,
                     dockerNetworkList,
                 }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        // Check image updates for a single stack
+        agentSocket.on("checkImageUpdates", async (stackName: unknown, callback) => {
+            try {
+                checkLogin(socket);
+
+                if (typeof stackName !== "string") {
+                    throw new ValidationError("Stack name must be a string");
+                }
+
+                if (!server.imageUpdateChecker) {
+                    throw new Error("Image update checker is not initialized");
+                }
+
+                await server.imageUpdateChecker.checkStack(stackName);
+                callbackResult({
+                    ok: true,
+                    msg: "Image update check complete",
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        // Update (pull + recreate) a single service
+        agentSocket.on("updateService", async (stackName: unknown, serviceName: unknown, callback) => {
+            try {
+                checkLogin(socket);
+
+                if (typeof stackName !== "string" || typeof serviceName !== "string") {
+                    throw new ValidationError("Stack name and service name must be strings");
+                }
+
+                const stack = await Stack.getStack(server, stackName);
+                const terminalName = getComposeTerminalName(socket.endpoint, stackName);
+
+                // Pull the specific service image
+                let exitCode = await Terminal.exec(server, socket, terminalName, "docker", ["compose", "pull", serviceName], stack.path);
+                if (exitCode !== 0) {
+                    throw new Error(`Failed to pull ${serviceName}, please check the terminal output.`);
+                }
+
+                // Recreate just this service
+                exitCode = await Terminal.exec(server, socket, terminalName, "docker", ["compose", "up", "-d", "--no-deps", serviceName], stack.path);
+                if (exitCode !== 0) {
+                    throw new Error(`Failed to recreate ${serviceName}, please check the terminal output.`);
+                }
+
+                // Re-check this stack's images
+                if (server.imageUpdateChecker) {
+                    await server.imageUpdateChecker.checkStack(stackName);
+                }
+
+                callbackResult({
+                    ok: true,
+                    msg: `Updated ${serviceName}`,
+                }, callback);
+                server.sendStackList();
             } catch (e) {
                 callbackError(e, callback);
             }

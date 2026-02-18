@@ -6,7 +6,7 @@
             </div>
             <div class="col-12 col-xxl-5 mb-2 d-flex justify-content-xxl-end align-items-start">
                 <button
-                    v-if="!isEditMode && service.recreateNecessary"
+                    v-if="!isEditMode && serviceRecreateNecessary"
                     class="btn btn-sm btn-info me-2"
                     :title="$t('tooltipServiceRecreate')"
                     :disabled="processing"
@@ -16,10 +16,11 @@
                 </button>
 
                 <button
-                    v-if="!isEditMode && service.imageUpdateAvailable"
+                    v-if="!isEditMode && serviceImageUpdateAvailable"
                     class="btn btn-sm btn-info me-2"
                     :title="$t('tooltipServiceUpdate')"
-                    disabled
+                    :disabled="processing"
+                    @click="updateService"
                 >
                     <font-awesome-icon icon="arrow-up" />
                 </button>
@@ -216,6 +217,14 @@ export default defineComponent({
             type: Object,
             default: null,
         },
+        serviceImageUpdateAvailable: {
+            type: Boolean,
+            default: false,
+        },
+        serviceRecreateNecessary: {
+            type: Boolean,
+            default: false,
+        },
         dockerStats: {
             type: Object,
             default: null,
@@ -232,7 +241,8 @@ export default defineComponent({
     emits: [
         "start-service",
         "stop-service",
-        "restart-service"
+        "restart-service",
+        "update-service"
     ],
     data() {
         return {
@@ -437,6 +447,9 @@ export default defineComponent({
         },
         recreateService() {
             this.$emit("restart-service", this.name);
+        },
+        updateService() {
+            this.$emit("update-service", this.name);
         }
     }
 });

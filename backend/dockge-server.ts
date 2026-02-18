@@ -37,6 +37,7 @@ import { AgentSocketHandler } from "./agent-socket-handler";
 import { AgentSocket } from "../common/agent-socket";
 import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-handler";
 import { Terminal } from "./terminal";
+import { ImageUpdateChecker } from "./image-update-checker";
 
 export class DockgeServer {
     app : Express;
@@ -45,6 +46,10 @@ export class DockgeServer {
     io : socketIO.Server;
     config : Config;
     indexHTML : string = "";
+    imageUpdateChecker? : ImageUpdateChecker;
+
+    /** Cache of stack name → recreateNecessary, populated when viewing stack details */
+    recreateNecessaryCache : Map<string, boolean> = new Map();
 
     /**
      * List of express routers
@@ -404,6 +409,9 @@ export class DockgeServer {
             });
 
             checkVersion.startInterval();
+
+            this.imageUpdateChecker = new ImageUpdateChecker(this);
+            this.imageUpdateChecker.startInterval();
         });
 
         gracefulShutdown(this.httpServer, {
@@ -411,7 +419,10 @@ export class DockgeServer {
             timeout: 30000,                   // timeout: 30 secs
             development: false,               // not in dev mode
             forceExit: true,                  // triggers process.exit() at the end of shutdown process
-            onShutdown: this.shutdownFunction,     // shutdown function (async) - e.g. for cleanup DB, ...
+            onShutdown: async (signal) => {
+                this.imageUpdateChecker?.stop();
+                await this.shutdownFunction(signal);
+            },
             finally: this.finalFunction,            // finally function (sync) - e.g. for logging
         });
 
@@ -684,6 +695,7 @@ export class DockgeServer {
         await Database.close();
         Settings.stopCacheCleaner();
     }
+
 
     /**
      * Final function called before application exits

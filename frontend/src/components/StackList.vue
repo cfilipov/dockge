@@ -135,7 +135,18 @@ export default {
                     agentMatch = this.stackFilter.agents.selected.has(endpoint);
                 }
 
-                return searchTextMatch && statusMatch && agentMatch;
+                // attribute filter
+                let attributeMatch = true;
+                if (this.stackFilter.attributes.isFilterSelected()) {
+                    attributeMatch = false;
+                    for (const attribute of this.stackFilter.attributes.selected) {
+                        if (stack[attribute] === true) {
+                            attributeMatch = true;
+                        }
+                    }
+                }
+
+                return searchTextMatch && statusMatch && agentMatch && attributeMatch;
             });
 
             // sort
@@ -266,6 +277,9 @@ export default {
                 }
                 this.stackFilter.agents.options = agentOptions;
             }
+
+            // Attribute filter options
+            this.stackFilter.attributes.options = { imageUpdatesAvailable: "imageUpdatesAvailable" };
         },
         deselect(id) {
             delete this.selectedStacks[id];
@@ -318,7 +332,7 @@ export default {
     border-radius: 10px 10px 0 0;
     margin: -10px;
     margin-bottom: 10px;
-    padding: 10px;
+    padding: 5px;
 
     .dark & {
         background-color: $dark-header-bg;
@@ -372,8 +386,8 @@ export default {
 }
 
 .filter-icon-active {
-    color: #0dcaf0 !important;
-    border: 1px solid #0dcaf0;
+    color: $info !important;
+    border: 1px solid $info;
     border-radius: 5px;
 }
 
@@ -381,7 +395,6 @@ export default {
     background-color: $dark-bg;
     border-color: $dark-font-color3;
     color: $dark-font-color;
-    z-index: 1050;
 
     .dropdown-header {
         color: $dark-font-color;
@@ -401,21 +414,19 @@ export default {
 
 :deep(.filter-dropdown-clear) {
     color: $dark-font-color;
-    padding-top: 0.25rem;
-    padding-bottom: 0.25rem;
 
     &:disabled {
         color: $dark-font-color3;
     }
 
     &:hover {
-        background-color: $dark-header-bg;
+        background-color: $dark-header-active-bg;
         color: $dark-font-color;
     }
 }
 
 :deep(.filter-dropdown form) {
-    padding: 0.15rem 1rem;
+    padding: 0.15rem 1rem !important;
 }
 
 .stack-item {

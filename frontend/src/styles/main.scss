@@ -275,10 +275,6 @@ optgroup {
     .table,
     .nav-link {
         color: $dark-font-color;
-
-        &.btn-info {
-            color: white;
-        }
     }
 
     .incident a,
@@ -345,8 +341,33 @@ optgroup {
         }
     }
 
+    .bg-info {
+        color: $dark-font-color2;
+        background-color: $info !important;
+    }
+
+    .btn-info {
+        color: $dark-font-color2;
+
+        &:hover {
+            $hover-color: darken($info, 8%);
+            background-color: $hover-color;
+            border-color: $hover-color;
+        }
+
+        &:hover, &:active, &:focus, &.active {
+            color: $dark-font-color2;
+        }
+    }
+
     .btn-warning {
         color: $dark-font-color2;
+
+        &:hover {
+            $hover-color: darken($warning, 8%);
+            background-color: $hover-color;
+            border-color: $hover-color;
+        }
 
         &:hover, &:active, &:focus, &.active {
             color: $dark-font-color2;

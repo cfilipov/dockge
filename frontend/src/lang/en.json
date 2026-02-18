@@ -173,5 +173,12 @@
     "tooltipServiceRecreate": "Container needs recreation",
     "tooltipServiceUpdate": "Image update available",
     "log": "Log",
-    "inspect": "Inspect"
+    "inspect": "Inspect",
+    "imageUpdateChecking": "Image Update Checking",
+    "enableImageUpdateCheck": "Automatically check for container image updates",
+    "imageUpdateCheckIntervalHelp": "How often to check registries for newer images",
+    "hours": "hours",
+    "checkUpdates": "Check Updates",
+    "tooltipCheckUpdates": "Check registries for newer images",
+    "imageUpdatesAvailable": "Update available"
 }

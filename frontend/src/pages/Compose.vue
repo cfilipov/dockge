@@ -46,7 +46,11 @@
                         {{ $t("stopStack") }}
                     </button>
 
-                    <BDropdown right text="" variant="normal">
+                    <BDropdown right text="" variant="normal" menu-class="overflow-dropdown">
+                        <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
+                            <font-awesome-icon icon="search" class="me-1" />
+                            {{ $t("checkUpdates") }}
+                        </BDropdownItem>
                         <BDropdownItem :title="$t('tooltipStackDown')" @click="downStack">
                             <font-awesome-icon icon="stop" class="me-1" />
                             {{ $t("downStack") }}
@@ -129,11 +133,14 @@
                             :is-edit-mode="isEditMode"
                             :first="name === Object.keys(jsonConfig.services)[0]"
                             :serviceStatus="serviceStatusList[name]"
+                            :serviceImageUpdateAvailable="serviceUpdateStatus[name] || false"
+                            :serviceRecreateNecessary="serviceRecreateStatus[name] || false"
                             :dockerStats="dockerStats"
                             :processing="processing"
                             @start-service="startService"
                             @stop-service="stopService"
                             @restart-service="restartService"
+                            @update-service="updateService"
                         />
                     </div>
 
@@ -443,6 +450,8 @@ export default {
                 composeOverrideYAML: "",
             },
             serviceStatusList: {},
+            serviceUpdateStatus: {},
+            serviceRecreateStatus: {},
             dockerStats: {},
             isEditMode: false,
             errorDelete: false,
@@ -658,6 +667,8 @@ export default {
             this.$root.emitAgent(this.endpoint, "serviceStatusList", this.stack.name, (res) => {
                 if (res.ok) {
                     this.serviceStatusList = res.serviceStatusList;
+                    this.serviceUpdateStatus = res.serviceUpdateStatus || {};
+                    this.serviceRecreateStatus = res.serviceRecreateStatus || {};
                 }
                 if (!this.stopServiceStatusTimeout) {
                     this.startServiceStatusTimeout();
@@ -979,6 +990,32 @@ export default {
                 }
             });
         },
+
+        checkImageUpdates() {
+            this.processing = true;
+
+            this.$root.emitAgent(this.endpoint, "checkImageUpdates", this.stack.name, (res) => {
+                this.processing = false;
+                this.$root.toastRes(res);
+
+                if (res.ok) {
+                    this.requestServiceStatus();
+                }
+            });
+        },
+
+        updateService(serviceName) {
+            this.startComposeAction();
+
+            this.$root.emitAgent(this.endpoint, "updateService", this.stack.name, serviceName, (res) => {
+                this.stopComposeAction();
+                this.$root.toastRes(res);
+
+                if (res.ok) {
+                    this.requestServiceStatus();
+                }
+            });
+        },
     }
 };
 </script>
@@ -1019,5 +1056,19 @@ export default {
 .agent-name {
     font-size: 13px;
     color: $dark-font-color3;
+}
+
+:deep(.overflow-dropdown) {
+    background-color: $dark-bg;
+    border-color: $dark-font-color3;
+
+    .dropdown-item {
+        color: $dark-font-color;
+
+        &:hover {
+            background-color: $dark-header-bg;
+            color: $dark-font-color;
+        }
+    }
 }
 </style>

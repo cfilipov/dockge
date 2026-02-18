@@ -96,15 +96,22 @@ export class Stack {
         };
     }
 
+    get isStarted(): boolean {
+        return this._status === RUNNING || this._status === RUNNING_AND_EXITED || this._status === UNHEALTHY;
+    }
+
     toSimpleJSON(endpoint : string) : object {
         return {
             name: this.name,
             status: this._status,
+            started: this.isStarted,
+            recreateNecessary: this.server.recreateNecessaryCache.get(this.name) ?? false,
             tags: [],
             isManagedByDockge: this.isManagedByDockge,
             composeFileName: this._composeFileName,
             composeOverrideFileName: this._composeOverrideFileName,
             endpoint,
+            imageUpdatesAvailable: this.server.imageUpdateChecker?.getStackHasUpdates(this.name) ?? false,
         };
     }
 
@@ -668,13 +675,14 @@ export class Stack {
 
             let lines = res.stdout?.toString().split("\n");
 
-            const addLine = (obj: { Service: string, State: string, Name: string, Health: string }) => {
+            const addLine = (obj: { Service: string, State: string, Name: string, Health: string, Image?: string }) => {
                 if (!statusList.has(obj.Service)) {
                     statusList.set(obj.Service, []);
                 }
                 statusList.get(obj.Service)?.push({
                     status: obj.Health || obj.State,
-                    name: obj.Name
+                    name: obj.Name,
+                    image: obj.Image || "",
                 });
             };
 
@@ -688,6 +696,30 @@ export class Stack {
                     }
                 } catch (e) {
                 }
+            }
+
+            // Compute recreateNecessary by comparing running image vs compose.yaml image
+            try {
+                const composeData = yaml.parse(this.composeYAML);
+                let anyRecreateNeeded = false;
+                if (composeData?.services) {
+                    for (const [svcName, svcEntries] of statusList.entries()) {
+                        const composeSvc = composeData.services[svcName];
+                        if (composeSvc?.image && svcEntries.length > 0) {
+                            const runningImage = (svcEntries[0] as { image?: string }).image || "";
+                            if (runningImage && runningImage !== composeSvc.image) {
+                                anyRecreateNeeded = true;
+                                // Tag each service entry with recreateNecessary
+                                for (const entry of svcEntries) {
+                                    (entry as Record<string, unknown>).recreateNecessary = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                this.server.recreateNecessaryCache.set(this.name, anyRecreateNeeded);
+            } catch (e) {
+                // If YAML parsing fails, just skip recreate check
             }
 
             return statusList;
