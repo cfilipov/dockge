@@ -36,10 +36,27 @@
                         {{ $t("restartStack") }}
                     </button>
 
-                    <button v-if="!isEditMode" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="updateStack">
+                    <button v-if="!isEditMode" class="btn me-1" :class="stack.imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
                         <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
-                        {{ $t("updateStack") }}
+                        <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
                     </button>
+
+                    <BModal v-model="showUpdateDialog" :title="$t('updateStack')" :close-on-esc="true" @show="resetUpdateDialog" @hidden="resetUpdateDialog">
+                        <p class="mb-3" v-html="$t('updateStackMsg')"></p>
+
+                        <BForm>
+                            <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
+                            <div style="margin-left: 2.5rem;">
+                                <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
+                            </div>
+                        </BForm>
+
+                        <template #footer>
+                            <button class="btn btn-primary" @click="updateStack">
+                                <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
+                            </button>
+                        </template>
+                    </BModal>
 
                     <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackStop')" @click="stopStack">
                         <font-awesome-icon icon="stop" class="me-1" />
@@ -459,6 +476,11 @@ export default {
             showDeleteDialog: false,
             deleteStackFiles: false,
             showForceDeleteDialog: false,
+            showUpdateDialog: false,
+            updateDialogData: {
+                pruneAfterUpdate: false,
+                pruneAllAfterUpdate: false,
+            },
             newContainerName: "",
             stopServiceStatusTimeout: false,
             stopDockerStatsTimeout: false,
@@ -831,10 +853,18 @@ export default {
             });
         },
 
+        resetUpdateDialog() {
+            this.updateDialogData = {
+                pruneAfterUpdate: false,
+                pruneAllAfterUpdate: false,
+            };
+        },
+
         updateStack() {
+            this.showUpdateDialog = false;
             this.startComposeAction();
 
-            this.$root.emitAgent(this.endpoint, "updateStack", this.stack.name, (res) => {
+            this.$root.emitAgent(this.endpoint, "updateStack", this.stack.name, this.updateDialogData.pruneAfterUpdate, this.updateDialogData.pruneAllAfterUpdate, (res) => {
                 this.stopComposeAction();
                 this.$root.toastRes(res);
             });

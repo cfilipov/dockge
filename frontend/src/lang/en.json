@@ -19,6 +19,7 @@
     "stopStack": "Stop",
     "restartStack": "Restart",
     "updateStack": "Update",
+    "updateStackMsg": "Pull new images for all services and restart the stack.",
     "startStack": "Start",
     "downStack": "Stop & Inactive",
     "editStack": "Edit",
@@ -171,7 +172,9 @@
     "tooltipServiceLog": "Open service log",
     "tooltipServiceInspect": "Open detailed service information",
     "tooltipServiceRecreate": "Container needs recreation",
-    "tooltipServiceUpdate": "Image update available",
+    "tooltipServiceUpdate": "Open update dialog",
+    "tooltipServiceUpdateIgnore": "Ignore this update",
+    "tooltipDoServiceUpdate": "Pull the new image and update container",
     "log": "Log",
     "inspect": "Inspect",
     "imageUpdateChecking": "Image Update Checking",
@@ -180,5 +183,12 @@
     "hours": "hours",
     "checkUpdates": "Check Updates",
     "tooltipCheckUpdates": "Check registries for newer images",
-    "imageUpdatesAvailable": "Update available"
+    "imageUpdatesAvailable": "Update available",
+    "imageUpdate": "Image Update | Image Updates",
+    "image": "Image | Images",
+    "changelog": "Changelog",
+    "changelogLink": "Link to changelog",
+    "ignoreUpdate": "Skip",
+    "pruneAfterUpdate": "Prune <u>all</u> dangling images after update",
+    "pruneAllAfterUpdate": "Also <u>all</u> unused images"
 }

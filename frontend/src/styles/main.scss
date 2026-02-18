@@ -2,6 +2,12 @@
 @import "bootstrap/scss/bootstrap";
 @import "bootstrap-vue-next/dist/bootstrap-vue-next.css";
 
+html {
+    // Prevent layout shift when Bootstrap modal adds overflow:hidden to body
+    // BVN 0.14 doesn't compensate with padding-right like Bootstrap normally does
+    scrollbar-gutter: stable;
+}
+
 #app {
     font-family: BlinkMacSystemFont, segoe ui, Roboto, helvetica neue, Arial, noto sans, sans-serif, apple color emoji, segoe ui emoji, segoe ui symbol, noto color emoji;
 }

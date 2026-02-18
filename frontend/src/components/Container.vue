@@ -17,23 +17,51 @@
 
                 <button
                     v-if="!isEditMode && serviceImageUpdateAvailable"
+                    v-b-modal="updateModalId"
                     class="btn btn-sm btn-info me-2"
                     :title="$t('tooltipServiceUpdate')"
                     :disabled="processing"
-                    @click="updateService"
                 >
                     <font-awesome-icon icon="arrow-up" />
                 </button>
 
+                <!-- Image update modal -->
+                <BModal :id="updateModalId" :ref="updateModalId" :title="$tc('imageUpdate', 1)">
+                    <div>
+                        <h5>{{ $t("image") }}</h5>
+                        <span>{{ envsubstService.image }}</span>
+                    </div>
+                    <div v-if="changelogLink" class="mt-3">
+                        <h5>{{ $t("changelog") }}</h5>
+                        <a :href="changelogLink" target="_blank">{{ changelogLink }}</a>
+                    </div>
+
+                    <BForm class="mt-3">
+                        <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
+                        <div style="margin-left: 2.5rem;">
+                            <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
+                        </div>
+                    </BForm>
+
+                    <template #footer>
+                        <button class="btn btn-normal" :title="$t('tooltipServiceUpdateIgnore')" @click="skipCurrentUpdate">
+                            <font-awesome-icon icon="ban" class="me-1" />{{ $t("ignoreUpdate") }}
+                        </button>
+                        <button class="btn btn-primary" :title="$t('tooltipDoServiceUpdate')" @click="updateService">
+                            <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
+                        </button>
+                    </template>
+                </BModal>
+
                 <div v-if="!isEditMode" class="btn-group service-actions me-2" role="group">
-                    <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceLog')" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
-                    <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceInspect')" :to="inspectRouteLink" :disabled="processing"><font-awesome-icon icon="info-circle" /></router-link>
-                    <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceTerminal')" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
+                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog')" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
+                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceInspect')" :to="inspectRouteLink" :disabled="processing"><font-awesome-icon icon="info-circle" /></router-link>
+                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal')" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
                 </div>
 
                 <div v-if="!isEditMode" class="btn-group service-actions" role="group">
                     <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart')" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
-                    <button v-if="started" type="button" class="btn btn-sm btn-danger me-1" :title="$t('tooltipServiceStop')" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
+                    <button v-if="started" type="button" class="btn btn-sm btn-danger" :title="$t('tooltipServiceStop')" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
                     <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart')" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
                 </div>
             </div>
@@ -193,12 +221,17 @@
 import { defineComponent } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { parseDockerPort } from "../../../common/util-common";
+import { LABEL_IMAGEUPDATES_CHANGELOG } from "../../../common/compose-labels";
+import { BModal, BForm, BFormCheckbox } from "bootstrap-vue-next";
 import DockerStat from "./DockerStat.vue";
 
 export default defineComponent({
     components: {
         FontAwesomeIcon,
-        DockerStat
+        DockerStat,
+        BModal,
+        BForm,
+        BFormCheckbox,
     },
     props: {
         name: {
@@ -242,12 +275,15 @@ export default defineComponent({
         "start-service",
         "stop-service",
         "restart-service",
-        "update-service"
     ],
     data() {
         return {
             showConfig: false,
             expandedStats: false,
+            updateDialogData: {
+                pruneAfterUpdate: false,
+                pruneAllAfterUpdate: false,
+            },
         };
     },
     computed: {
@@ -258,6 +294,18 @@ export default defineComponent({
                 list.push(networkName);
             }
             return list;
+        },
+
+        updateModalId() {
+            return "image-update-modal-" + this.name;
+        },
+
+        changelogLink() {
+            const labels = this.service?.labels;
+            if (labels && labels[LABEL_IMAGEUPDATES_CHANGELOG]) {
+                return labels[LABEL_IMAGEUPDATES_CHANGELOG];
+            }
+            return "";
         },
 
         bgStyle() {
@@ -448,8 +496,23 @@ export default defineComponent({
         recreateService() {
             this.$emit("restart-service", this.name);
         },
+        resetUpdateDialog() {
+            this.updateDialogData = {
+                pruneAfterUpdate: false,
+                pruneAllAfterUpdate: false,
+            };
+        },
         updateService() {
-            this.$emit("update-service", this.name);
+            this.$refs[this.updateModalId].hide();
+
+            this.$parent.$parent.startComposeAction();
+            this.$root.emitAgent(this.endpoint, "updateService", this.stack.name, this.name, this.updateDialogData.pruneAfterUpdate, this.updateDialogData.pruneAllAfterUpdate, (res) => {
+                this.$parent.$parent.stopComposeAction();
+                this.$root.toastRes(res);
+            });
+        },
+        skipCurrentUpdate() {
+            this.$refs[this.updateModalId].hide();
         }
     }
 });
@@ -500,7 +563,7 @@ export default defineComponent({
     }
 
     .service-actions .btn {
-        width: 60px;
+        width: 45px;
         padding-left: 0;
         padding-right: 0;
         text-align: center;
