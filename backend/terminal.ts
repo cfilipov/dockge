@@ -236,6 +236,14 @@ export class Terminal {
                 terminal.join(socket);
             }
 
+            // Show the command being executed in the terminal
+            const cmdDisplay = Array.isArray(args) ? `${file} ${args.join(" ")}` : `${file} ${args}`;
+            const cmdLine = `\x1b[90m$ ${cmdDisplay}\x1b[0m\r\n`;
+            terminal.buffer.pushItem(cmdLine);
+            if (socket) {
+                socket.emitAgent("terminalWrite", terminalName, cmdLine);
+            }
+
             terminal.onExit((exitCode : number) => {
                 resolve(exitCode);
             });

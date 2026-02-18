@@ -73,17 +73,13 @@
             </div>
 
             <!-- Progress Terminal -->
-            <transition name="slide-fade" appear>
-                <Terminal
-                    v-show="showProgressTerminal"
-                    ref="progressTerminal"
-                    class="mb-3 terminal"
-                    :name="terminalName"
-                    :endpoint="endpoint"
-                    :rows="progressTerminalRows"
-                    @has-data="showProgressTerminal = true; submitted = true;"
-                ></Terminal>
-            </transition>
+            <ProgressTerminal
+                ref="progressTerminal"
+                class="mb-3"
+                :name="terminalName"
+                :endpoint="endpoint"
+                :rows="progressTerminalRows"
+            />
 
             <div v-if="stack.isManagedByDockge" class="row">
                 <div class="col-lg-6">
@@ -372,6 +368,7 @@ import {
 } from "../../../common/util-common";
 import { BModal } from "bootstrap-vue-next";
 import NetworkInput from "../components/NetworkInput.vue";
+import ProgressTerminal from "../components/ProgressTerminal.vue";
 import dotenv from "dotenv";
 import { ref } from "vue";
 
@@ -396,6 +393,7 @@ export default {
         FontAwesomeIcon,
         CodeMirror,
         BModal,
+        ProgressTerminal,
     },
     beforeRouteUpdate(to, from, next) {
         this.exitConfirm(next);
@@ -438,7 +436,6 @@ export default {
             envsubstJSONConfig: {},
             yamlError: "",
             processing: true,
-            showProgressTerminal: false,
             progressTerminalRows: PROGRESS_TERMINAL_ROWS,
             combinedTerminalRows: COMBINED_TERMINAL_ROWS,
             combinedTerminalCols: COMBINED_TERMINAL_COLS,
@@ -706,7 +703,17 @@ export default {
         },
 
         bindTerminal() {
-            this.$refs.progressTerminal?.bind(this.endpoint, this.terminalName);
+            // ProgressTerminal handles binding internally via show()
+        },
+
+        startComposeAction() {
+            this.processing = true;
+            this.$refs.progressTerminal?.show();
+        },
+
+        stopComposeAction() {
+            this.processing = false;
+            this.$refs.progressTerminal?.hideWithTimeout();
         },
 
         loadStack() {
@@ -724,18 +731,14 @@ export default {
         },
 
         deployStack() {
-            this.processing = true;
-
             if (!this.jsonConfig.services) {
                 this.$root.toastError("No services found in compose.yaml");
-                this.processing = false;
                 return;
             }
 
             // Check if services is object
             if (typeof this.jsonConfig.services !== "object") {
                 this.$root.toastError("Services must be an object");
-                this.processing = false;
                 return;
             }
 
@@ -753,10 +756,11 @@ export default {
                 }
             }
 
-            this.bindTerminal();
+            this.startComposeAction();
+            this.submitted = true;
 
             this.$root.emitAgent(this.stack.endpoint, "deployStack", this.stack.name, this.stack.composeYAML, this.stack.composeENV, this.stack.composeOverrideYAML || "", this.isAdd, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
 
                 if (res.ok) {
@@ -781,46 +785,46 @@ export default {
         },
 
         startStack() {
-            this.processing = true;
+            this.startComposeAction();
 
             this.$root.emitAgent(this.endpoint, "startStack", this.stack.name, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
             });
         },
 
         stopStack() {
-            this.processing = true;
+            this.startComposeAction();
 
             this.$root.emitAgent(this.endpoint, "stopStack", this.stack.name, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
             });
         },
 
         downStack() {
-            this.processing = true;
+            this.startComposeAction();
 
             this.$root.emitAgent(this.endpoint, "downStack", this.stack.name, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
             });
         },
 
         restartStack() {
-            this.processing = true;
+            this.startComposeAction();
 
             this.$root.emitAgent(this.endpoint, "restartStack", this.stack.name, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
             });
         },
 
         updateStack() {
-            this.processing = true;
+            this.startComposeAction();
 
             this.$root.emitAgent(this.endpoint, "updateStack", this.stack.name, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
             });
         },
@@ -938,40 +942,40 @@ export default {
         },
 
         startService(serviceName) {
-            this.processing = true;
+            this.startComposeAction();
 
             this.$root.emitAgent(this.endpoint, "startService", this.stack.name, serviceName, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
 
                 if (res.ok) {
-                    this.requestServiceStatus(); // Refresh service status
+                    this.requestServiceStatus();
                 }
             });
         },
 
         stopService(serviceName) {
-            this.processing = true;
+            this.startComposeAction();
 
             this.$root.emitAgent(this.endpoint, "stopService", this.stack.name, serviceName, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
 
                 if (res.ok) {
-                    this.requestServiceStatus(); // Refresh service status
+                    this.requestServiceStatus();
                 }
             });
         },
 
         restartService(serviceName) {
-            this.processing = true;
+            this.startComposeAction();
 
             this.$root.emitAgent(this.endpoint, "restartService", this.stack.name, serviceName, (res) => {
-                this.processing = false;
+                this.stopComposeAction();
                 this.$root.toastRes(res);
 
                 if (res.ok) {
-                    this.requestServiceStatus(); // Refresh service status
+                    this.requestServiceStatus();
                 }
             });
         },
