@@ -1,59 +1,54 @@
 <template>
     <div class="shadow-box big-padding mb-3 container">
         <div class="row">
-            <div class="col-5">
+            <div class="col-12 col-xxl-7">
                 <h4>{{ name }}</h4>
-                <div class="image mb-2">
-                    <span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
-                </div>
-                <div v-if="!isEditMode">
-                    <span class="badge me-1" :class="bgStyle">{{ status }}</span>
+            </div>
+            <div class="col-12 col-xxl-5 mb-2 d-flex justify-content-xxl-end align-items-start">
+                <button
+                    v-if="!isEditMode && service.recreateNecessary"
+                    class="btn btn-sm btn-info me-2"
+                    :title="$t('tooltipServiceRecreate')"
+                    :disabled="processing"
+                    @click="recreateService"
+                >
+                    <font-awesome-icon icon="rocket" />
+                </button>
 
-                    <a v-for="port in envsubstService.ports" :key="port" :href="parsePort(port).url" target="_blank">
-                        <span class="badge me-1 bg-secondary">{{ parsePort(port).display }}</span>
-                    </a>
+                <button
+                    v-if="!isEditMode && service.imageUpdateAvailable"
+                    class="btn btn-sm btn-info me-2"
+                    :title="$t('tooltipServiceUpdate')"
+                    disabled
+                >
+                    <font-awesome-icon icon="arrow-up" />
+                </button>
+
+                <div v-if="!isEditMode" class="btn-group me-2" role="group">
+                    <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceLog')" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
+                    <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceInspect')" :to="inspectRouteLink" :disabled="processing"><font-awesome-icon icon="info-circle" /></router-link>
+                    <router-link v-if="started" class="btn btn-sm btn-normal me-1" :title="$t('tooltipServiceTerminal')" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
+                </div>
+
+                <div v-if="!isEditMode" class="btn-group" role="group">
+                    <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart')" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
+                    <button v-if="started" type="button" class="btn btn-sm btn-danger me-1" :title="$t('tooltipServiceStop')" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
+                    <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart')" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
                 </div>
             </div>
-            <div class="col-7">
-                <div class="function">
-                    <div v-if="!isEditMode" class="btn-group me-2" role="group">
-                        <button v-if="service.recreateNecessary" class="btn btn-sm btn-info"
-                                :title="$t('tooltipServiceRecreate')" disabled>
-                            <font-awesome-icon icon="rocket" />
-                        </button>
-                        <button v-if="service.imageUpdateAvailable" class="btn btn-sm btn-info"
-                                :title="$t('tooltipServiceUpdate')" disabled>
-                            <font-awesome-icon icon="arrow-up" />
-                        </button>
-                    </div>
-                    <div v-if="!isEditMode" class="btn-group me-2" role="group">
-                        <router-link v-if="started" class="btn btn-sm btn-normal"
-                                :to="terminalRouteLink" :title="$t('tooltipServiceTerminal')">
-                            <font-awesome-icon icon="terminal" />
-                        </router-link>
-                        <button v-if="!started"
-                                class="btn btn-sm btn-primary"
-                                :disabled="processing"
-                                :title="$t('tooltipServiceStart')"
-                                @click="startService">
-                            <font-awesome-icon icon="play" />
-                        </button>
-                        <button v-if="started"
-                                class="btn btn-sm btn-normal"
-                                :disabled="processing"
-                                :title="$t('tooltipServiceStop')"
-                                @click="stopService">
-                            <font-awesome-icon icon="stop" />
-                        </button>
-                        <button v-if="started"
-                                class="btn btn-sm btn-normal"
-                                :disabled="processing"
-                                :title="$t('tooltipServiceRestart')"
-                                @click="restartService">
-                            <font-awesome-icon icon="rotate" />
-                        </button>
-                    </div>
+        </div>
+        <div v-if="!isEditMode" class="row">
+            <div class="d-flex flex-wrap justify-content-between gap-3 mb-2">
+                <div class="image">
+                    <span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
                 </div>
+            </div>
+            <div class="col">
+                <span class="badge me-1" :class="bgStyle">{{ status }}</span>
+
+                <a v-for="port in envsubstService.ports" :key="port" :href="parsePort(port).url" target="_blank">
+                    <span class="badge me-1 bg-secondary">{{ parsePort(port).display }}</span>
+                </a>
             </div>
         </div>
 
@@ -265,6 +260,53 @@ export default defineComponent({
             }
         },
 
+        logRouteLink() {
+            if (this.endpoint) {
+                return {
+                    name: "containerLogEndpoint",
+                    params: {
+                        endpoint: this.endpoint,
+                        stackName: this.stackName,
+                        serviceName: this.name,
+                    },
+                };
+            } else {
+                return {
+                    name: "containerLog",
+                    params: {
+                        stackName: this.stackName,
+                        serviceName: this.name,
+                    },
+                };
+            }
+        },
+
+        containerName() {
+            if (this.serviceStatus && this.serviceStatus[0]) {
+                return this.serviceStatus[0].name;
+            }
+            return this.stackName + "-" + this.name + "-1";
+        },
+
+        inspectRouteLink() {
+            if (this.endpoint) {
+                return {
+                    name: "containerInspectEndpoint",
+                    params: {
+                        endpoint: this.endpoint,
+                        containerName: this.containerName,
+                    },
+                };
+            } else {
+                return {
+                    name: "containerInspect",
+                    params: {
+                        containerName: this.containerName,
+                    },
+                };
+            }
+        },
+
         terminalRouteLink() {
             if (this.endpoint) {
                 return {
@@ -392,8 +434,10 @@ export default defineComponent({
         },
         restartService() {
             this.$emit("restart-service", this.name);
+        },
+        recreateService() {
+            this.$emit("restart-service", this.name);
         }
-
     }
 });
 </script>
@@ -412,6 +456,16 @@ export default defineComponent({
         }
     }
 
+    .status {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .notification {
+        font-size: 1rem;
+        color: $danger;
+    }
+
     .function {
         align-content: center;
         display: flex;
@@ -419,6 +473,12 @@ export default defineComponent({
         width: 100%;
         align-items: center;
         justify-content: end;
+    }
+
+    .stats-select {
+        cursor: pointer;
+        font-size: 1rem;
+        color: #6c757d;
     }
 
     .stats {

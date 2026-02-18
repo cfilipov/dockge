@@ -12,23 +12,23 @@
                     <input v-model="searchText" class="form-control search-input" autocomplete="off" />
                 </div>
 
-                <BDropdown variant="link" no-caret toggle-class="filter-icon-container" menu-class="filter-dropdown">
+                <BDropdown variant="link" placement="bottom-end" menu-class="filter-dropdown" toggle-class="filter-icon-container" no-caret>
                     <template #button-content>
                         <font-awesome-icon class="filter-icon" :class="{ 'filter-icon-active': stackFilter.isFilterSelected() }" icon="filter" />
                     </template>
 
-                    <BDropdownItem :disabled="!stackFilter.isFilterSelected()" @click="stackFilter.clear()">
-                        <font-awesome-icon class="me-2" icon="times" />{{ $t("clearFilter") }}
-                    </BDropdownItem>
+                    <BDropdownItemButton :disabled="!stackFilter.isFilterSelected()" button-class="filter-dropdown-clear" @click="stackFilter.clear()">
+                        <font-awesome-icon class="ms-1 me-2" icon="times" />{{ $t("clearFilter") }}
+                    </BDropdownItemButton>
+
+                    <BDropdownDivider></BDropdownDivider>
 
                     <template v-for="category in stackFilter.categories" :key="category.label">
-                        <template v-if="category.hasOptions()">
-                            <div class="dropdown-header small text-muted">{{ $t(category.label) }}</div>
-                            <BDropdownItem v-for="(value, key) in category.options" :key="key" @click.stop="category.toggleSelected(value)">
-                                <input type="checkbox" class="form-check-input me-2" :checked="category.selected.has(value)" @click.stop="category.toggleSelected(value)" />
-                                {{ $t(key) }}
-                            </BDropdownItem>
-                        </template>
+                        <BDropdownGroup v-if="category.hasOptions()" :header="$t(category.label)">
+                            <BDropdownForm v-for="(value, key) in category.options" :key="key" form-class="filter-option" @change="category.toggleSelected(value)" @click.stop>
+                                <BFormCheckbox :checked="category.selected.has(value)">{{ $t(key) }}</BFormCheckbox>
+                            </BDropdownForm>
+                        </BDropdownGroup>
                     </template>
                 </BDropdown>
             </div>
@@ -360,18 +360,62 @@ export default {
 }
 
 :deep(.filter-icon-container) {
-    padding: 4px 8px;
-    color: #c0c0c0;
     text-decoration: none;
+    padding-right: 0px;
 }
 
 .filter-icon {
-    font-size: 14px;
-    transition: color ease-in-out 0.15s;
+    padding: 10px;
+    color: $dark-font-color3 !important;
+    cursor: pointer;
+    border: 1px solid transparent;
 }
 
 .filter-icon-active {
-    color: $primary;
+    color: #0dcaf0 !important;
+    border: 1px solid #0dcaf0;
+    border-radius: 5px;
+}
+
+:deep(.filter-dropdown) {
+    background-color: $dark-bg;
+    border-color: $dark-font-color3;
+    color: $dark-font-color;
+    z-index: 1050;
+
+    .dropdown-header {
+        color: $dark-font-color;
+        font-weight: bolder;
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
+
+    .dropdown-divider {
+        margin: 0.25rem 0;
+    }
+
+    .form-check-input {
+        border-color: $dark-font-color3;
+    }
+}
+
+:deep(.filter-dropdown-clear) {
+    color: $dark-font-color;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+
+    &:disabled {
+        color: $dark-font-color3;
+    }
+
+    &:hover {
+        background-color: $dark-header-bg;
+        color: $dark-font-color;
+    }
+}
+
+:deep(.filter-dropdown form) {
+    padding: 0.15rem 1rem;
 }
 
 .stack-item {

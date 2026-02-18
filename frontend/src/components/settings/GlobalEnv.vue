@@ -8,9 +8,9 @@
                         v-model="settings.globalENV"
                         :extensions="extensionsEnv"
                         minimal
-                        wrap="true"
-                        dark="true"
-                        tab="true"
+                        :wrap="true"
+                        :dark="true"
+                        :tab="true"
                         :hasFocus="editorFocus"
                         @change="onChange"
                     />

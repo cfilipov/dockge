@@ -12,6 +12,12 @@ export default defineConfig({
     server: {
         port: 5000,
         allowedHosts: true,
+        proxy: {
+            "/socket.io/": {
+                target: "http://localhost:5001",
+                ws: true,
+            },
+        },
     },
     define: {
         "FRONTEND_VERSION": JSON.stringify(process.env.npm_package_version),

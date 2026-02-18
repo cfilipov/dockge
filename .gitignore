@@ -10,3 +10,8 @@ tmp
 # Git only
 frontend-dist
 
+# Dev artifacts
+.playwright-mcp
+CLAUDE.md
+PLAN.md
+

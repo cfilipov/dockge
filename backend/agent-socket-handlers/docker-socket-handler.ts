@@ -3,6 +3,7 @@ import { DockgeServer } from "../dockge-server";
 import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
 import { DeleteOptions, Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
+import childProcessAsync from "promisify-child-process";
 
 export class DockerSocketHandler extends AgentSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
@@ -330,6 +331,47 @@ export class DockerSocketHandler extends AgentSocketHandler {
                 callbackResult({
                     ok: true,
                     msg: "Service " + serviceName + " restarted"
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        // Join container log (per-service logs)
+        agentSocket.on("joinContainerLog", async (stackName: unknown, serviceName: unknown, callback) => {
+            try {
+                checkLogin(socket);
+
+                if (typeof stackName !== "string" || typeof serviceName !== "string") {
+                    throw new ValidationError("Stack name and service name must be strings");
+                }
+
+                const stack = await Stack.getStack(server, stackName);
+                await stack.joinContainerLog(socket, serviceName);
+                callbackResult({
+                    ok: true,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        // Inspect container
+        agentSocket.on("containerInspect", async (containerName: unknown, callback) => {
+            try {
+                checkLogin(socket);
+
+                if (typeof containerName !== "string") {
+                    throw new ValidationError("Container name must be a string");
+                }
+
+                const res = await childProcessAsync.spawn("docker", ["inspect", containerName], {
+                    encoding: "utf-8",
+                });
+
+                callbackResult({
+                    ok: true,
+                    inspectData: res.stdout?.toString() || "[]",
                 }, callback);
             } catch (e) {
                 callbackError(e, callback);
