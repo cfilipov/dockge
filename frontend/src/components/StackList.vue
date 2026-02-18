@@ -2,53 +2,35 @@
     <div class="shadow-box mb-3" :style="boxStyle">
         <div class="list-header">
             <div class="header-top">
-                <!-- TODO -->
-                <button v-if="false" class="btn btn-outline-normal ms-2" :class="{ 'active': selectMode }" type="button"
-                    @click="selectMode = !selectMode">
-                    {{ $t("Select") }}
-                </button>
-
-                <div class="placeholder"></div>
-
-                <div class="search-wrapper">
+                <div class="d-flex flex-grow-1 align-items-center">
                     <a v-if="searchText == ''" class="search-icon">
                         <font-awesome-icon icon="search" />
                     </a>
                     <a v-if="searchText != ''" class="search-icon" style="cursor: pointer" @click="clearSearchText">
                         <font-awesome-icon icon="times" />
                     </a>
-                    <form>
-                        <input v-model="searchText" class="form-control search-input" autocomplete="off" />
-                    </form>
+                    <input v-model="searchText" class="form-control search-input" autocomplete="off" />
                 </div>
 
-                <div class="update-all-wrapper">
-                    <button class="btn btn-primary" :disabled="processing || flatStackList.length === 0" @click="updateAll">
-                        <font-awesome-icon icon="fa-cloud-arrow-down me-1" />
-                        {{ $t("updateAll") }}
-                    </button>
-                </div>
-            </div>
+                <BDropdown variant="link" no-caret toggle-class="filter-icon-container" menu-class="filter-dropdown">
+                    <template #button-content>
+                        <font-awesome-icon class="filter-icon" :class="{ 'filter-icon-active': stackFilter.isFilterSelected() }" icon="filter" />
+                    </template>
 
-            <!-- TODO -->
-            <div v-if="false" class="header-filter">
-                <!--<StackListFilter :filterState="filterState" @update-filter="updateFilter" />-->
-            </div>
+                    <BDropdownItem :disabled="!stackFilter.isFilterSelected()" @click="stackFilter.clear()">
+                        <font-awesome-icon class="me-2" icon="times" />{{ $t("clearFilter") }}
+                    </BDropdownItem>
 
-            <!-- TODO: Selection Controls -->
-            <div v-if="selectMode && false" class="selection-controls px-2 pt-2">
-                <input v-model="selectAll" class="form-check-input select-input" type="checkbox" />
-
-                <button class="btn-outline-normal" @click="pauseDialog">
-                    <font-awesome-icon icon="pause" size="sm" /> {{ $t("Pause") }}
-                </button>
-                <button class="btn-outline-normal" @click="resumeSelected">
-                    <font-awesome-icon icon="play" size="sm" /> {{ $t("Resume") }}
-                </button>
-
-                <span v-if="selectedStackCount > 0">
-                    {{ $t("selectedStackCount", [selectedStackCount]) }}
-                </span>
+                    <template v-for="category in stackFilter.categories" :key="category.label">
+                        <template v-if="category.hasOptions()">
+                            <div class="dropdown-header small text-muted">{{ $t(category.label) }}</div>
+                            <BDropdownItem v-for="(value, key) in category.options" :key="key" @click.stop="category.toggleSelected(value)">
+                                <input type="checkbox" class="form-check-input me-2" :checked="category.selected.has(value)" @click.stop="category.toggleSelected(value)" />
+                                {{ $t(key) }}
+                            </BDropdownItem>
+                        </template>
+                    </template>
+                </BDropdown>
             </div>
         </div>
 
@@ -91,7 +73,7 @@
 <script>
 import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
-import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, RUNNING_AND_EXITED, UNHEALTHY, UNKNOWN } from "../../../common/util-common";
+import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, RUNNING_AND_EXITED, UNHEALTHY, UNKNOWN, StackFilter, StackStatusInfo } from "../../../common/util-common";
 
 export default {
     components: { Confirm, StackListItem },
@@ -106,9 +88,8 @@ export default {
             disableSelectAllWatcher: false,
             selectedStacks: {},
             windowTop: 0,
-            filterState: { status: null, active: null, tags: null },
+            stackFilter: new StackFilter(),
             closedAgents: new Map(),
-            processing: false,
         };
     },
     computed: {
@@ -123,6 +104,9 @@ export default {
         agentStackList() {
             let result = Object.values(this.$root.completeStackList);
 
+            // Populate filter options from current data
+            this.updateFilterOptions(result);
+
             // filter
             result = result.filter(stack => {
                 // search text
@@ -131,28 +115,27 @@ export default {
                     const lowered = this.searchText.toLowerCase();
                     searchTextMatch =
                         stack.name.toLowerCase().includes(lowered) ||
-                        stack.tags.find(tag =>
+                        (stack.tags && stack.tags.find(tag =>
                             tag.name.toLowerCase().includes(lowered) ||
                             tag.value?.toLowerCase().includes(lowered)
-                        );
+                        ));
                 }
 
-                // active filter
-                let activeMatch = true;
-                if (this.filterState.active != null && this.filterState.active.length > 0) {
-                    activeMatch = this.filterState.active.includes(stack.active);
+                // status filter
+                let statusMatch = true;
+                if (this.stackFilter.status.isFilterSelected()) {
+                    const statusLabel = StackStatusInfo.get(stack.status).label;
+                    statusMatch = this.stackFilter.status.selected.has(statusLabel);
                 }
 
-                // tags filter
-                let tagsMatch = true;
-                if (this.filterState.tags != null && this.filterState.tags.length > 0) {
-                    tagsMatch = stack.tags
-                        .map(tag => tag.tag_id)
-                        .filter(id => this.filterState.tags.includes(id))
-                        .length > 0;
+                // agent filter
+                let agentMatch = true;
+                if (this.stackFilter.agents.isFilterSelected()) {
+                    const endpoint = stack.endpoint || "current";
+                    agentMatch = this.stackFilter.agents.selected.has(endpoint);
                 }
 
-                return searchTextMatch && activeMatch && tagsMatch;
+                return searchTextMatch && statusMatch && agentMatch;
             });
 
             // sort
@@ -213,10 +196,7 @@ export default {
             return Object.keys(this.selectedStacks).length;
         },
         filtersActive() {
-            return this.filterState.status != null ||
-                   this.filterState.active != null ||
-                   this.filterState.tags != null ||
-                   this.searchText !== "";
+            return this.stackFilter.isFilterSelected() || this.searchText !== "";
         }
     },
     watch: {
@@ -267,8 +247,25 @@ export default {
         clearSearchText() {
             this.searchText = "";
         },
-        updateFilter(newFilter) {
-            this.filterState = newFilter;
+        updateFilterOptions(stacks) {
+            // Build status options from StackStatusInfo
+            const statusOptions = {};
+            for (const info of StackStatusInfo.ALL) {
+                statusOptions[info.label] = info.label;
+            }
+            this.stackFilter.status.options = statusOptions;
+
+            // Build agent options from current stacks
+            if (this.$root.agentCount > 1) {
+                const agentOptions = {};
+                for (const stack of stacks) {
+                    const endpoint = stack.endpoint || "current";
+                    if (!agentOptions[endpoint]) {
+                        agentOptions[endpoint] = endpoint;
+                    }
+                }
+                this.stackFilter.agents.options = agentOptions;
+            }
         },
         deselect(id) {
             delete this.selectedStacks[id];
@@ -297,15 +294,6 @@ export default {
                 .filter(id => !this.$root.stackList[id].active)
                 .forEach(id => this.$root.getSocket().emit("resumeStack", id, () => {}));
             this.cancelSelectMode();
-        },
-        updateAll() {
-            this.processing = true;
-            for (let stack of this.flatStackList) {
-                this.$root.emitAgent(stack.endpoint, "updateStack", stack.name, (res) => {
-                    this.processing = false;
-                    this.$root.toastRes(res);
-                });
-            }
         },
     },
 };
@@ -344,22 +332,12 @@ export default {
     align-items: center;
 }
 
-.header-filter {
-    display: flex;
-    align-items: center;
-}
-
 @media (max-width: 770px) {
     .list-header {
         margin: -20px;
         margin-bottom: 10px;
         padding: 5px;
     }
-}
-
-.search-wrapper {
-    display: flex;
-    align-items: center;
 }
 
 .search-icon {
@@ -378,7 +356,22 @@ export default {
 }
 
 .search-input {
-    max-width: 10em;
+    max-width: 15em;
+}
+
+:deep(.filter-icon-container) {
+    padding: 4px 8px;
+    color: #c0c0c0;
+    text-decoration: none;
+}
+
+.filter-icon {
+    font-size: 14px;
+    transition: color ease-in-out 0.15s;
+}
+
+.filter-icon-active {
+    color: $primary;
 }
 
 .stack-item {
