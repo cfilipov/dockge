@@ -16,31 +16,41 @@
             </div>
             <div class="col-7">
                 <div class="function">
-                    <div class="btn-group me-2" role="group">
-                        <router-link v-if="!isEditMode && (status === 'running' || status === 'healthy')" class="btn btn-normal" :to="terminalRouteLink" disabled="">
+                    <div v-if="!isEditMode" class="btn-group me-2" role="group">
+                        <button v-if="service.recreateNecessary" class="btn btn-sm btn-info"
+                                :title="$t('tooltipServiceRecreate')" disabled>
+                            <font-awesome-icon icon="rocket" />
+                        </button>
+                        <button v-if="service.imageUpdateAvailable" class="btn btn-sm btn-info"
+                                :title="$t('tooltipServiceUpdate')" disabled>
+                            <font-awesome-icon icon="arrow-up" />
+                        </button>
+                    </div>
+                    <div v-if="!isEditMode" class="btn-group me-2" role="group">
+                        <router-link v-if="started" class="btn btn-sm btn-normal"
+                                :to="terminalRouteLink" :title="$t('tooltipServiceTerminal')">
                             <font-awesome-icon icon="terminal" />
-                            Bash
                         </router-link>
-                        <button v-if="this.serviceCount > 1 && !isEditMode && status !== 'running' && status !== 'healthy'"
-                                class="btn btn-primary"
+                        <button v-if="!started"
+                                class="btn btn-sm btn-primary"
                                 :disabled="processing"
+                                :title="$t('tooltipServiceStart')"
                                 @click="startService">
-                            <font-awesome-icon icon="play" class="me-1" />
-                            {{ $t("startStack") }}
+                            <font-awesome-icon icon="play" />
                         </button>
-                        <button v-if="this.serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
-                                class="btn btn-normal"
+                        <button v-if="started"
+                                class="btn btn-sm btn-normal"
                                 :disabled="processing"
+                                :title="$t('tooltipServiceStop')"
                                 @click="stopService">
-                            <font-awesome-icon icon="stop" class="me-1" />
-                            {{ $t("stopStack") }}
+                            <font-awesome-icon icon="stop" />
                         </button>
-                        <button v-if="this.serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
-                                class="btn btn-normal"
+                        <button v-if="started"
+                                class="btn btn-sm btn-normal"
                                 :disabled="processing"
+                                :title="$t('tooltipServiceRestart')"
                                 @click="restartService">
-                            <font-awesome-icon icon="rotate" class="me-1" />
-                            {{ $t("restartStack") }}
+                            <font-awesome-icon icon="rotate" />
                         </button>
                     </div>
                 </div>
@@ -347,6 +357,9 @@ export default defineComponent({
                 .filter(s => !!s)
                 .sort((a, b) => a.Name.localeCompare(b.Name));
         },
+        started() {
+            return this.status === "running" || this.status === "healthy";
+        },
         status() {
             if (!this.serviceStatus) {
                 return "N/A";
@@ -389,6 +402,8 @@ export default defineComponent({
 @import "../styles/vars";
 
 .container {
+    max-width: 100%;
+
     .image {
         font-size: 0.8rem;
         color: #6c757d;
