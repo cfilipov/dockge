@@ -31,7 +31,7 @@ hex = "0.4"
 regex = "1"
 chrono = "0.4"
 portable-pty = "0.8"
-mimalloc = { version = "0.1", default-features = false }
+tikv-jemallocator = "0.6"
 tokio-util = "0.7"
 futures = "0.3"
 
