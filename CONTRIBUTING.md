@@ -143,11 +143,90 @@ pnpm run build:frontend
 
 Port 5000 (Vite HMR) reflects changes immediately. Port 5001 serves the pre-built bundle.
 
-## Backend Dev Server
+## Backend Dev Server (Node.js)
 
 It binds to `0.0.0.0:5001` by default.
 
 It is mainly a socket.io app + express.js.
+
+## Backend Dev Server (Rust) — Experimental
+
+An alternative backend written in Rust is available in `backend-rust/`. It implements the same Socket.IO protocol as the Node.js backend, so the frontend works with either one.
+
+### Prerequisites
+
+- [Rust toolchain](https://rustup.rs/) (stable, 1.75+)
+- No other dependencies — everything is statically linked
+
+### Building
+
+```bash
+# Debug build (fast compile, large binary ~182MB, includes debug symbols)
+cd backend-rust
+cargo build
+
+# Release build (optimized, ~11MB binary)
+cargo build --release
+```
+
+### Running
+
+```bash
+# With the mock Docker CLI:
+PATH="$PWD/extra/mock-docker:$PATH" \
+  ./backend-rust/target/release/dockge-backend \
+  --port 5002 \
+  --stacks-dir /opt/stacks
+
+# With real Docker (just omit the PATH override):
+./backend-rust/target/release/dockge-backend \
+  --port 5002 \
+  --stacks-dir /opt/stacks
+```
+
+The Rust backend uses its own data directory (`backend-rust/data/` by default) with its own SQLite database and JWT secret. This means you'll need to create a new admin account the first time you connect.
+
+### Using with the Vite frontend
+
+To point the Vite dev server at the Rust backend instead of Node.js, change the proxy target in `frontend/vite.config.ts`:
+
+```typescript
+proxy: {
+    "/socket.io/": {
+        target: "http://localhost:5002",  // Rust backend
+        // target: "http://localhost:5001",  // Node.js backend
+        ws: true,
+    },
+},
+```
+
+Then access the frontend at `http://localhost:5000` as usual.
+
+### CLI options
+
+```
+Options:
+  --port <PORT>            Port to listen on [default: 5001]
+  --hostname <HOSTNAME>    Hostname to bind to [default: 0.0.0.0]
+  --data-dir <DATA_DIR>    Data directory [default: ./data/]
+  --stacks-dir <PATH>      Stacks directory [default: /opt/stacks]
+  --enable-console         Enable the web terminal console
+```
+
+### Architecture
+
+The Rust backend uses:
+- **axum** for HTTP/WebSocket serving
+- **socketioxide** for Socket.IO protocol
+- **sqlx** with SQLite for database
+- **portable-pty** for real PTY terminals (compose actions, interactive exec, logs)
+- **tokio** async runtime
+
+### Current limitations
+
+- Agent-to-agent communication is stubbed (local stacks only)
+- No SSL/TLS support (use a reverse proxy)
+- No Docker image management feature
 
 ## Frontend Dev Server
 
