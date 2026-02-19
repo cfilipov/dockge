@@ -228,10 +228,14 @@ async fn handle_login_by_token(state: &Arc<AppState>, socket: &SocketRef, data: 
     }
 
     let jwt_secret = state.jwt_secret.read().await;
+    // Accept tokens with or without exp (Node.js backend doesn't set exp)
+    let mut validation = Validation::default();
+    validation.validate_exp = false;
+    validation.required_spec_claims.clear();
     let token_data = match decode::<user::JwtClaims>(
         token,
         &DecodingKey::from_secret(jwt_secret.as_bytes()),
-        &Validation::default(),
+        &validation,
     ) {
         Ok(data) => data,
         Err(e) => {

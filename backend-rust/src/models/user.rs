@@ -21,7 +21,8 @@ pub struct User {
 pub struct JwtClaims {
     pub username: String,
     pub h: String, // hash of password for invalidation on password change
-    pub exp: usize,
+    #[serde(default)]
+    pub exp: Option<usize>,
 }
 
 impl User {
@@ -93,7 +94,7 @@ impl User {
         let claims = JwtClaims {
             username: self.username.clone(),
             h,
-            exp,
+            exp: Some(exp),
         };
 
         encode(
