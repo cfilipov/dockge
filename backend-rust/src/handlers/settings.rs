@@ -39,14 +39,14 @@ pub fn register(socket: &SocketRef, state: Arc<AppState>) {
     {
         let state = state.clone();
         socket.on("disconnectOtherSocketClients", move |socket: SocketRef| {
-            let _state = state.clone();
+            let state = state.clone();
             tokio::spawn(async move {
-                if check_login(&socket).is_none() {
-                    return;
-                }
-                // Disconnect other sockets for this user
-                // In socketioxide, we'd iterate all sockets and disconnect non-matching ones
-                // This is a simplified stub
+                let user_id = match check_login(&socket) {
+                    Some(id) => id,
+                    None => return,
+                };
+                let socket_id = socket.id.to_string();
+                crate::handlers::auth::disconnect_other_clients(&state, &socket_id, Some(user_id)).await;
             });
         });
     }

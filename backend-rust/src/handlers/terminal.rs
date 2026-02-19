@@ -218,14 +218,15 @@ pub async fn handle_interactive_terminal(state: &Arc<AppState>, socket: &SocketR
         Ok(terminal) => {
             // Subscribe and forward output to socket
             let mut rx = terminal.subscribe();
+            let terminal_for_exit = terminal.clone();
             let socket_clone = socket.clone();
             let term_name = terminal_name.clone();
             tokio::spawn(async move {
                 while let Ok((name, data)) = rx.recv().await {
                     socket_clone.emit("agent", &("terminalWrite", &name, &data)).ok();
                 }
-                // Process exited
-                socket_clone.emit("agent", &("terminalExit", &term_name, 0)).ok();
+                let exit_code = terminal_for_exit.wait_for_exit().await.unwrap_or(0);
+                socket_clone.emit("agent", &("terminalExit", &term_name, exit_code)).ok();
             });
 
             json!({ "ok": true })
@@ -272,13 +273,15 @@ pub async fn handle_join_container_log(state: &Arc<AppState>, socket: &SocketRef
 
             // Subscribe and forward output to socket
             let mut rx = terminal.subscribe();
+            let terminal_for_exit = terminal.clone();
             let socket_clone = socket.clone();
             let term_name = terminal_name.clone();
             tokio::spawn(async move {
                 while let Ok((name, data)) = rx.recv().await {
                     socket_clone.emit("agent", &("terminalWrite", &name, &data)).ok();
                 }
-                socket_clone.emit("agent", &("terminalExit", &term_name, 0)).ok();
+                let exit_code = terminal_for_exit.wait_for_exit().await.unwrap_or(0);
+                socket_clone.emit("agent", &("terminalExit", &term_name, exit_code)).ok();
             });
 
             json!({ "ok": true })
@@ -305,13 +308,15 @@ pub async fn handle_main_terminal(_state: &Arc<AppState>, socket: &SocketRef) ->
             }
 
             let mut rx = terminal.subscribe();
+            let terminal_for_exit = terminal.clone();
             let socket_clone = socket.clone();
             let term_name = terminal_name.clone();
             tokio::spawn(async move {
                 while let Ok((name, data)) = rx.recv().await {
                     socket_clone.emit("agent", &("terminalWrite", &name, &data)).ok();
                 }
-                socket_clone.emit("agent", &("terminalExit", &term_name, 0)).ok();
+                let exit_code = terminal_for_exit.wait_for_exit().await.unwrap_or(0);
+                socket_clone.emit("agent", &("terminalExit", &term_name, exit_code)).ok();
             });
 
             json!({ "ok": true })

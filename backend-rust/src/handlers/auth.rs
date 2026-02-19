@@ -4,6 +4,7 @@ use crate::models::settings;
 use crate::socket_args::SocketArgs;
 use crate::state::AppState;
 use jsonwebtoken::{decode, DecodingKey, Validation};
+use reqwest;
 use serde_json::{json, Value};
 use socketioxide::extract::{Data, SocketRef, AckSender};
 use std::sync::Arc;
@@ -14,6 +15,7 @@ use tracing::{error, info, warn};
 pub struct SocketEndpoint(pub String);
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SocketUsername(pub String);
 
 #[derive(Debug, Clone, Copy)]
@@ -143,8 +145,9 @@ async fn handle_login(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -
         if captcha_token.is_empty() {
             return json!({ "ok": false, "msg": "Invalid CAPTCHA" });
         }
-        // In production, we'd verify the token with Cloudflare
-        // For now, skip in dev mode
+        if !verify_turnstile_token(captcha_token, &secret_key).await {
+            return json!({ "ok": false, "msg": "Invalid CAPTCHA" });
+        }
     }
 
     let user = match User::find_by_username(&state.db, username).await {
@@ -163,13 +166,35 @@ async fn handle_login(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -
 
     // 2FA check
     if user.twofa_status {
-        let token_2fa = login_data.get("token").and_then(|v| v.as_str());
-        if token_2fa.is_none() {
-            return json!({ "tokenRequired": true });
+        let token_2fa = match login_data.get("token").and_then(|v| v.as_str()) {
+            Some(t) if !t.is_empty() => t,
+            _ => {
+                info!("2FA token required for user {}", username);
+                return json!({ "tokenRequired": true });
+            }
+        };
+
+        let twofa_secret = user.twofa_secret.as_deref().unwrap_or("");
+        if twofa_secret.is_empty() {
+            warn!("User {} has 2FA enabled but no secret configured", username);
+            return json!({ "ok": false, "msg": "authInvalidToken", "msgi18n": true });
         }
-        // 2FA token verification would go here
-        // For now, reject as not implemented
-        return json!({ "ok": false, "msg": "authInvalidToken", "msgi18n": true });
+
+        // Prevent token replay
+        if user.twofa_last_token.as_deref() == Some(token_2fa) {
+            warn!("2FA token replay detected for user {}", username);
+            return json!({ "ok": false, "msg": "authInvalidToken", "msgi18n": true });
+        }
+
+        if !user::verify_totp(token_2fa, twofa_secret) {
+            warn!("Invalid 2FA token for user {}", username);
+            return json!({ "ok": false, "msg": "authInvalidToken", "msgi18n": true });
+        }
+
+        // Save last used token to prevent replay
+        if let Err(e) = User::update_twofa_last_token(&state.db, user.id, token_2fa).await {
+            warn!("Failed to update 2FA last token: {}", e);
+        }
     }
 
     let jwt_secret = state.jwt_secret.read().await;
@@ -356,13 +381,73 @@ pub async fn send_stack_list_to_socket(state: &Arc<AppState>, socket: &SocketRef
     }
 }
 
-/// Send the agent list (stub — local only)
-pub async fn send_agent_list(_state: &Arc<AppState>, socket: &SocketRef) {
+/// Send the agent list from the database
+pub async fn send_agent_list(state: &Arc<AppState>, socket: &SocketRef) {
+    use crate::models::agent::Agent;
+
+    let agents = Agent::find_all(&state.db).await.unwrap_or_default();
+    let mut agent_list = serde_json::Map::new();
+    for agent in agents {
+        let endpoint = agent.endpoint();
+        agent_list.insert(endpoint, json!({
+            "url": agent.url,
+            "username": agent.username,
+            "endpoint": agent.endpoint(),
+            "name": agent.name,
+        }));
+    }
+
     let data = json!({
         "ok": true,
-        "agentList": {},
+        "agentList": agent_list,
     });
     socket.emit("agent", &("agentList", data)).ok();
+}
+
+/// Verify a Cloudflare Turnstile CAPTCHA token
+async fn verify_turnstile_token(token: &str, secret_key: &str) -> bool {
+    let client = reqwest::Client::new();
+    let result = client
+        .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
+        .json(&json!({
+            "secret": secret_key,
+            "response": token,
+        }))
+        .send()
+        .await;
+
+    match result {
+        Ok(resp) => {
+            if let Ok(body) = resp.json::<Value>().await {
+                body.get("success").and_then(|v| v.as_bool()).unwrap_or(false)
+            } else {
+                warn!("Failed to parse Turnstile response");
+                false
+            }
+        }
+        Err(e) => {
+            warn!("Turnstile verification request failed: {}", e);
+            false
+        }
+    }
+}
+
+/// Disconnect all socket clients for a user (or all users if user_id is None),
+/// except the specified socket.
+pub async fn disconnect_other_clients(state: &Arc<AppState>, current_socket_id: &str, user_id: Option<i64>) {
+    if let Some(ops) = state.io.of("/") {
+        let sockets = ops.sockets().unwrap_or_default();
+        for other in sockets {
+            if other.id.as_str() == current_socket_id {
+                continue;
+            }
+            let other_user = other.extensions.get::<SocketUserId>().map(|u| u.0);
+            if user_id.is_none() || other_user == user_id {
+                other.emit("refresh", &()).ok();
+                other.disconnect().ok();
+            }
+        }
+    }
 }
 
 /// Check if a socket is logged in

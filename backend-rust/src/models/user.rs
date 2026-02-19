@@ -1,6 +1,5 @@
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 
 use crate::error::{AppError, AppResult};
@@ -124,14 +123,80 @@ pub fn verify_password_hash(password: &str, hash: &str) -> bool {
     bcrypt::verify(password, hash).unwrap_or(false)
 }
 
-/// SHAKE256-like hash using SHA256 truncated (simplified)
-/// The Node.js backend uses shake256 from crypto, we approximate with SHA256
+/// SHAKE256 hash matching Node.js crypto.createHash("shake256", { outputLength: len })
 pub fn shake256_hex(input: &str, length: usize) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    let result = hasher.finalize();
-    let hex_str = hex::encode(result);
-    hex_str[..std::cmp::min(length * 2, hex_str.len())].to_string()
+    if input.is_empty() {
+        return String::new();
+    }
+    use sha3::Shake256;
+    use sha3::digest::{Update, ExtendableOutput, XofReader};
+    let mut hasher = Shake256::default();
+    Update::update(&mut hasher, input.as_bytes());
+    let mut reader = hasher.finalize_xof();
+    let mut buf = vec![0u8; length];
+    reader.read(&mut buf);
+    hex::encode(buf)
+}
+
+/// Verify a TOTP token against a secret (RFC 6238)
+/// Secret is expected as base32-encoded string (standard for authenticator apps).
+/// Returns true if the token matches within ±1 time step.
+pub fn verify_totp(token: &str, secret_b32: &str) -> bool {
+    use data_encoding::BASE32_NOPAD;
+
+    // Decode base32 secret (try with and without padding)
+    let secret = BASE32_NOPAD
+        .decode(secret_b32.trim().to_uppercase().as_bytes())
+        .or_else(|_| data_encoding::BASE32.decode(secret_b32.trim().to_uppercase().as_bytes()))
+        .unwrap_or_else(|_| secret_b32.as_bytes().to_vec()); // fallback: raw bytes
+
+    let time_step = 30u64;
+    let digits = 6u32;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let counter = now / time_step;
+
+    // Check ±1 time step window
+    for offset in -1i64..=1 {
+        let check_counter = (counter as i64 + offset) as u64;
+        let code = generate_hotp(&secret, check_counter, digits);
+        if code == token {
+            return true;
+        }
+    }
+    false
+}
+
+/// Generate an HOTP code (RFC 4226)
+fn generate_hotp(secret: &[u8], counter: u64, digits: u32) -> String {
+    use hmac::{Hmac, Mac};
+    use sha1::Sha1;
+
+    let mut mac = <Hmac<Sha1>>::new_from_slice(secret).expect("HMAC accepts any key length");
+    mac.update(&counter.to_be_bytes());
+    let result = mac.finalize().into_bytes();
+
+    let offset = (result[19] & 0x0f) as usize;
+    let code = ((result[offset] as u32 & 0x7f) << 24)
+        | ((result[offset + 1] as u32) << 16)
+        | ((result[offset + 2] as u32) << 8)
+        | (result[offset + 3] as u32);
+
+    let code = code % 10u32.pow(digits);
+    format!("{:0>width$}", code, width = digits as usize)
+}
+
+impl User {
+    pub async fn update_twofa_last_token(pool: &SqlitePool, user_id: i64, token: &str) -> AppResult<()> {
+        sqlx::query("UPDATE user SET twofa_last_token = ? WHERE id = ?")
+            .bind(token)
+            .bind(user_id)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
 }
 
 /// Check if a password is strong enough

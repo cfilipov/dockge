@@ -1,35 +1,160 @@
 use crate::docker;
 use crate::error::error_response;
-use crate::handlers::auth::check_login;
+use crate::handlers::auth::{check_login, disconnect_other_clients, send_agent_list};
+use crate::models::agent::Agent;
 use crate::socket_args::SocketArgs;
 use crate::state::AppState;
 use crate::terminal::{get_combined_terminal_name, TERMINAL_MANAGER, TERMINAL_ROWS, TERMINAL_COLS};
 use serde_json::{json, Value};
 use socketioxide::extract::{Data, SocketRef, AckSender};
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, info};
 
 /// Register agent management socket event handlers
-pub fn register(socket: &SocketRef, _state: Arc<AppState>) {
-    // addAgent (stub)
+pub fn register(socket: &SocketRef, state: Arc<AppState>) {
+    // addAgent
     {
-        socket.on("addAgent", move |_socket: SocketRef, ack: AckSender| {
-            ack.send(&json!({ "ok": false, "msg": "Agent management is not yet supported in the Rust backend" })).ok();
+        let state = state.clone();
+        socket.on("addAgent", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
+            let state = state.clone();
+            tokio::spawn(async move {
+                let data = Value::Array(args.0);
+                let result = handle_add_agent(&state, &socket, &data).await;
+                ack.send(&result).ok();
+            });
         });
     }
 
-    // removeAgent (stub)
+    // removeAgent
     {
-        socket.on("removeAgent", move |_socket: SocketRef, ack: AckSender| {
-            ack.send(&json!({ "ok": false, "msg": "Agent management is not yet supported in the Rust backend" })).ok();
+        let state = state.clone();
+        socket.on("removeAgent", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
+            let state = state.clone();
+            tokio::spawn(async move {
+                let data = Value::Array(args.0);
+                let result = handle_remove_agent(&state, &socket, &data).await;
+                ack.send(&result).ok();
+            });
         });
     }
 
-    // updateAgent (stub)
+    // updateAgent
     {
-        socket.on("updateAgent", move |_socket: SocketRef, ack: AckSender| {
-            ack.send(&json!({ "ok": false, "msg": "Agent management is not yet supported in the Rust backend" })).ok();
+        let state = state.clone();
+        socket.on("updateAgent", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
+            let state = state.clone();
+            tokio::spawn(async move {
+                let data = Value::Array(args.0);
+                let result = handle_update_agent(&state, &socket, &data).await;
+                ack.send(&result).ok();
+            });
         });
+    }
+}
+
+async fn handle_add_agent(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+    if check_login(socket).is_none() {
+        return error_response("Not logged in");
+    }
+
+    let agent_data = if data.is_array() {
+        data.get(0).unwrap_or(data)
+    } else {
+        data
+    };
+
+    let url = agent_data.get("url").and_then(|v| v.as_str()).unwrap_or("");
+    let username = agent_data.get("username").and_then(|v| v.as_str()).unwrap_or("");
+    let password = agent_data.get("password").and_then(|v| v.as_str()).unwrap_or("");
+    let name = agent_data.get("name").and_then(|v| v.as_str()).unwrap_or("");
+
+    if url.is_empty() || username.is_empty() || password.is_empty() {
+        return error_response("URL, username, and password are required");
+    }
+
+    // Check if agent already exists
+    match Agent::find_by_url(&state.db, url).await {
+        Ok(Some(_)) => return error_response("Agent with this URL already exists"),
+        Err(e) => return error_response(&format!("Database error: {}", e)),
+        _ => {}
+    }
+
+    match Agent::create(&state.db, url, username, password, name).await {
+        Ok(_) => {
+            info!("Added agent: {} ({})", name, url);
+
+            // Refresh other clients so they see the updated agent list
+            let socket_id = socket.id.to_string();
+            disconnect_other_clients(state, &socket_id, None).await;
+            send_agent_list(state, socket).await;
+
+            json!({ "ok": true, "msg": "agentAddedSuccessfully", "msgi18n": true })
+        }
+        Err(e) => error_response(&format!("Failed to add agent: {}", e)),
+    }
+}
+
+async fn handle_remove_agent(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+    if check_login(socket).is_none() {
+        return error_response("Not logged in");
+    }
+
+    let url = if data.is_array() {
+        data.get(0).and_then(|v| v.as_str()).unwrap_or("")
+    } else {
+        data.as_str().unwrap_or("")
+    };
+
+    if url.is_empty() {
+        return error_response("URL is required");
+    }
+
+    match Agent::delete(&state.db, url).await {
+        Ok(true) => {
+            info!("Removed agent: {}", url);
+
+            let socket_id = socket.id.to_string();
+            disconnect_other_clients(state, &socket_id, None).await;
+            send_agent_list(state, socket).await;
+
+            json!({ "ok": true, "msg": "agentRemovedSuccessfully", "msgi18n": true })
+        }
+        Ok(false) => error_response("Agent not found"),
+        Err(e) => error_response(&format!("Failed to remove agent: {}", e)),
+    }
+}
+
+async fn handle_update_agent(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+    if check_login(socket).is_none() {
+        return error_response("Not logged in");
+    }
+
+    // data is [url, updatedName]
+    let (url, updated_name) = if data.is_array() {
+        let arr = data.as_array().unwrap();
+        let url = arr.first().and_then(|v| v.as_str()).unwrap_or("");
+        let name = arr.get(1).and_then(|v| v.as_str()).unwrap_or("");
+        (url, name)
+    } else {
+        return error_response("Invalid data format");
+    };
+
+    if url.is_empty() {
+        return error_response("URL is required");
+    }
+
+    match Agent::update_name(&state.db, url, updated_name).await {
+        Ok(true) => {
+            info!("Updated agent name: {} -> {}", url, updated_name);
+
+            let socket_id = socket.id.to_string();
+            disconnect_other_clients(state, &socket_id, None).await;
+            send_agent_list(state, socket).await;
+
+            json!({ "ok": true, "msg": "agentUpdatedSuccessfully", "msgi18n": true })
+        }
+        Ok(false) => error_response("Agent not found"),
+        Err(e) => error_response(&format!("Failed to update agent: {}", e)),
     }
 }
 
