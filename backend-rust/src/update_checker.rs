@@ -10,7 +10,6 @@ use tracing::{debug, error, info};
 
 const DEFAULT_CHECK_INTERVAL_HOURS: u64 = 6;
 const INITIAL_DELAY_SECS: u64 = 5 * 60; // 5 minutes
-const REGISTRY_TIMEOUT_SECS: u64 = 15;
 const CONCURRENCY_LIMIT: usize = 3;
 
 #[derive(Debug, Clone)]
@@ -63,7 +62,7 @@ pub fn parse_image_reference(image_ref: &str) -> ParsedImageRef {
 }
 
 /// Fetch the remote digest for an image from a container registry
-async fn fetch_remote_digest(parsed: &ParsedImageRef) -> Option<String> {
+async fn fetch_remote_digest(client: &reqwest::Client, parsed: &ParsedImageRef) -> Option<String> {
     let registry_url = if parsed.registry == "registry-1.docker.io" {
         "https://registry-1.docker.io".to_string()
     } else {
@@ -75,11 +74,6 @@ async fn fetch_remote_digest(parsed: &ParsedImageRef) -> Option<String> {
                    application/vnd.docker.distribution.manifest.list.v2+json, \
                    application/vnd.oci.image.manifest.v1+json, \
                    application/vnd.oci.image.index.v1+json";
-
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(REGISTRY_TIMEOUT_SECS))
-        .build()
-        .ok()?;
 
     // First attempt
     let res = client
@@ -98,7 +92,7 @@ async fn fetch_remote_digest(parsed: &ParsedImageRef) -> Option<String> {
             .unwrap_or("")
             .to_string();
 
-        let token = fetch_bearer_token(&www_auth, &parsed.repository).await?;
+        let token = fetch_bearer_token(client, &www_auth, &parsed.repository).await?;
 
         let res = client
             .head(&manifest_url)
@@ -130,7 +124,7 @@ async fn fetch_remote_digest(parsed: &ParsedImageRef) -> Option<String> {
 }
 
 /// Parse a Www-Authenticate header and fetch a bearer token
-async fn fetch_bearer_token(www_auth: &str, repository: &str) -> Option<String> {
+async fn fetch_bearer_token(client: &reqwest::Client, www_auth: &str, repository: &str) -> Option<String> {
     let realm = regex::Regex::new(r#"realm="([^"]+)""#)
         .ok()?
         .captures(www_auth)?
@@ -151,11 +145,6 @@ async fn fetch_bearer_token(www_auth: &str, repository: &str) -> Option<String> 
         urlencoding::encode(service),
         urlencoding::encode(&scope)
     );
-
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(REGISTRY_TIMEOUT_SECS))
-        .build()
-        .ok()?;
 
     let res = client.get(&token_url).send().await.ok()?;
     if !res.status().is_success() {
@@ -234,6 +223,7 @@ pub async fn load_cache_from_db(pool: &SqlitePool) -> HashMap<String, StackUpdat
 
 /// Check a single image: fetch remote + local digests, compare, write to DB
 async fn check_single_image(
+    client: &reqwest::Client,
     pool: &SqlitePool,
     stack_name: &str,
     service_name: &str,
@@ -242,7 +232,7 @@ async fn check_single_image(
 ) {
     let parsed = parse_image_reference(image_ref);
     let (remote_digest, local_digest) = tokio::join!(
-        fetch_remote_digest(&parsed),
+        fetch_remote_digest(client, &parsed),
         fetch_local_digest(image_ref),
     );
 
@@ -360,6 +350,7 @@ pub async fn check_all(state: &Arc<AppState>) {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
 
+            let client = state.http_client.clone();
             let pool = state.db.clone();
             let stack_name = stack_name.clone();
             let service_name = service_name.clone();
@@ -368,6 +359,7 @@ pub async fn check_all(state: &Arc<AppState>) {
             handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.unwrap();
                 check_single_image(
+                    &client,
                     &pool,
                     &stack_name,
                     &service_name,
@@ -439,6 +431,7 @@ pub async fn check_stack(state: &Arc<AppState>, stack_name: &str) {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
+        let client = state.http_client.clone();
         let pool = state.db.clone();
         let stack_name = stack_name.to_string();
         let service_name = service_name.clone();
@@ -447,6 +440,7 @@ pub async fn check_stack(state: &Arc<AppState>, stack_name: &str) {
         handles.push(tokio::spawn(async move {
             let _permit = sem.acquire().await.unwrap();
             check_single_image(
+                &client,
                 &pool,
                 &stack_name,
                 &service_name,

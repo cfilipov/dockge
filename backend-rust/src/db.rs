@@ -13,12 +13,12 @@ pub async fn init_pool(db_path: &Path) -> Result<SqlitePool, sqlx::Error> {
         .create_if_missing(true)
         .journal_mode(SqliteJournalMode::Wal)
         .synchronous(SqliteSynchronous::Normal)
-        .pragma("cache_size", "-12000")
+        .pragma("cache_size", "-256")
         .pragma("auto_vacuum", "INCREMENTAL")
         .pragma("foreign_keys", "ON");
 
     let pool = SqlitePoolOptions::new()
-        .max_connections(5)
+        .max_connections(2)
         .connect_with(options)
         .await?;
 

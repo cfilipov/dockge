@@ -4,7 +4,6 @@ use crate::models::settings;
 use crate::socket_args::SocketArgs;
 use crate::state::AppState;
 use jsonwebtoken::{decode, DecodingKey, Validation};
-use reqwest;
 use serde_json::{json, Value};
 use socketioxide::extract::{Data, SocketRef, AckSender};
 use std::sync::Arc;
@@ -145,7 +144,7 @@ async fn handle_login(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -
         if captcha_token.is_empty() {
             return json!({ "ok": false, "msg": "Invalid CAPTCHA" });
         }
-        if !verify_turnstile_token(captcha_token, &secret_key).await {
+        if !verify_turnstile_token(&state.http_client, captcha_token, &secret_key).await {
             return json!({ "ok": false, "msg": "Invalid CAPTCHA" });
         }
     }
@@ -409,8 +408,7 @@ pub async fn send_agent_list(state: &Arc<AppState>, socket: &SocketRef) {
 }
 
 /// Verify a Cloudflare Turnstile CAPTCHA token
-async fn verify_turnstile_token(token: &str, secret_key: &str) -> bool {
-    let client = reqwest::Client::new();
+async fn verify_turnstile_token(client: &reqwest::Client, token: &str, secret_key: &str) -> bool {
     let result = client
         .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
         .json(&json!({

@@ -418,7 +418,7 @@ pub async fn handle_deploy_stack(state: &Arc<AppState>, socket: &SocketRef, data
     // Run docker compose up -d
     let terminal_name = get_compose_terminal_name("", name);
     let args = stack_obj.get_compose_options("up", &["-d", "--remove-orphans"]);
-    let (tx, _) = broadcast::channel(256);
+    let (tx, _) = broadcast::channel(32);
     let socket_clone = socket.clone();
     let _terminal_name_clone = terminal_name.clone();
     let mut rx = tx.subscribe();
@@ -508,7 +508,7 @@ pub async fn handle_compose_action(
 
     let terminal_name = get_compose_terminal_name("", stack_name);
     let args = stack_obj.get_compose_options(command, extra_args);
-    let (tx, _) = broadcast::channel(256);
+    let (tx, _) = broadcast::channel(32);
     let socket_clone = socket.clone();
     let mut rx = tx.subscribe();
 
@@ -560,7 +560,7 @@ pub async fn handle_update_stack(state: &Arc<AppState>, socket: &SocketRef, data
     };
 
     let terminal_name = get_compose_terminal_name("", stack_name);
-    let (tx, _) = broadcast::channel(256);
+    let (tx, _) = broadcast::channel(32);
     let socket_clone = socket.clone();
     let mut rx = tx.subscribe();
 
@@ -645,7 +645,7 @@ pub async fn handle_delete_stack(state: &Arc<AppState>, socket: &SocketRef, data
     let terminal_name = get_compose_terminal_name("", stack_name);
     let down_extra = if force { vec!["-v", "--remove-orphans"] } else { vec!["--remove-orphans"] };
     let args = stack_obj.get_compose_options("down", &down_extra);
-    let (tx, _) = broadcast::channel(256);
+    let (tx, _) = broadcast::channel(32);
     let socket_clone = socket.clone();
     let mut rx = tx.subscribe();
 
@@ -777,7 +777,7 @@ pub async fn handle_service_action(
         vec!["compose".to_string(), action.to_string(), service_name.to_string()]
     };
 
-    let (tx, _) = broadcast::channel(256);
+    let (tx, _) = broadcast::channel(32);
     let socket_clone = socket.clone();
     let mut rx = tx.subscribe();
 
@@ -822,7 +822,7 @@ pub async fn handle_update_service(state: &Arc<AppState>, socket: &SocketRef, da
     };
 
     let terminal_name = get_compose_terminal_name("", stack_name);
-    let (tx, _) = broadcast::channel(256);
+    let (tx, _) = broadcast::channel(32);
     let socket_clone = socket.clone();
     let mut rx = tx.subscribe();
 

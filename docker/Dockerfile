@@ -6,7 +6,8 @@ FROM cmcooper1980/dockge:build-healthcheck AS build_healthcheck
 ############################################
 # Build Rust backend
 ############################################
-FROM rust:1-bookworm AS build_backend
+FROM rust:1-alpine AS build_backend
+RUN apk add --no-cache musl-dev build-base
 WORKDIR /app
 
 # Copy manifests first for dependency caching
@@ -42,26 +43,13 @@ RUN npm run build:frontend
 ############################################
 # ⭐ Main Image
 ############################################
-FROM debian:bookworm-slim AS release
+FROM alpine:3.21 AS release
 
-# Install Docker CLI, compose plugin, and dumb-init
-RUN apt-get update && apt-get install --yes --no-install-recommends \
-    curl \
-    ca-certificates \
-    gnupg \
+RUN apk add --no-cache \
+    docker-cli \
+    docker-cli-compose \
     dumb-init \
-    && install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
-    && chmod a+r /etc/apt/keyrings/docker.gpg \
-    && echo \
-         "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-         "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-         tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update \
-    && apt-get --yes --no-install-recommends install \
-         docker-ce-cli \
-         docker-compose-plugin \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates
 
 WORKDIR /app
 COPY --from=build_healthcheck /app/extra/healthcheck /app/extra/healthcheck

@@ -151,10 +151,10 @@ impl TerminalManager {
             .map_err(|e| format!("Failed to clone PTY reader: {}", e))?;
 
         // Channels
-        let (output_async_tx, mut output_async_rx) = mpsc::channel::<Vec<u8>>(256);
+        let (output_async_tx, mut output_async_rx) = mpsc::channel::<Vec<u8>>(32);
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel::<PtyCommand>();
         let (exit_tx, exit_rx) = watch::channel::<Option<i32>>(None);
-        let (broadcast_tx, _) = broadcast::channel::<(String, String)>(256);
+        let (broadcast_tx, _) = broadcast::channel::<(String, String)>(32);
 
         let terminal = Arc::new(PtyTerminal {
             name: name.clone(),

@@ -5,6 +5,7 @@ use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
 
 /// Per-stack simple info for the stack list (hot path)
@@ -43,6 +44,7 @@ pub struct AppState {
     pub jwt_secret: RwLock<String>,
     pub need_setup: RwLock<bool>,
     pub io: SocketIo,
+    pub http_client: reqwest::Client,
     pub version: String,
     pub latest_version: RwLock<Option<String>>,
 }
@@ -56,6 +58,12 @@ impl AppState {
         let stacks_dir = config.stacks_dir.clone();
         let data_dir = config.data_dir.clone();
 
+        let http_client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(15))
+            .pool_max_idle_per_host(2)
+            .build()
+            .expect("Failed to build HTTP client");
+
         Arc::new(Self {
             db,
             config,
@@ -67,6 +75,7 @@ impl AppState {
             jwt_secret: RwLock::new(String::new()),
             need_setup: RwLock::new(false),
             io,
+            http_client,
             version: "1.5.0".to_string(),
             latest_version: RwLock::new(None),
         })
