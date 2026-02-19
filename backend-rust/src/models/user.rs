@@ -6,6 +6,7 @@ use sqlx::SqlitePool;
 use crate::error::{AppError, AppResult};
 
 #[derive(Debug, Clone, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct User {
     pub id: i64,
     pub username: String,

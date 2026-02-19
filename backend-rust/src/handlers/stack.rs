@@ -334,7 +334,7 @@ pub async fn broadcast_stack_list(state: &Arc<AppState>) {
     state.io.emit("agent", &("stackList", &data)).ok();
 }
 
-async fn handle_get_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_get_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -377,7 +377,7 @@ async fn handle_get_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Valu
     }
 }
 
-async fn handle_deploy_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_deploy_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -435,7 +435,7 @@ async fn handle_deploy_stack(state: &Arc<AppState>, socket: &SocketRef, data: &V
     }
 }
 
-async fn handle_save_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_save_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -467,7 +467,7 @@ async fn handle_save_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Val
 }
 
 /// Handle generic compose actions (start, stop, restart, down)
-async fn handle_compose_action(
+pub async fn handle_compose_action(
     state: &Arc<AppState>,
     socket: &SocketRef,
     data: &Value,
@@ -530,7 +530,7 @@ async fn handle_compose_action(
     }
 }
 
-async fn handle_update_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_update_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -602,7 +602,7 @@ async fn handle_update_stack(state: &Arc<AppState>, socket: &SocketRef, data: &V
     json!({ "ok": true, "msg": format!("Updated {}", stack_name), "msgi18n": true })
 }
 
-async fn handle_delete_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value, force: bool) -> Value {
+pub async fn handle_delete_stack(state: &Arc<AppState>, socket: &SocketRef, data: &Value, force: bool) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -661,7 +661,7 @@ async fn handle_delete_stack(state: &Arc<AppState>, socket: &SocketRef, data: &V
     ok_response_i18n("Deleted")
 }
 
-async fn handle_service_status_list(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_service_status_list(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -730,7 +730,7 @@ async fn handle_service_status_list(state: &Arc<AppState>, socket: &SocketRef, d
     }
 }
 
-async fn handle_service_action(
+pub async fn handle_service_action(
     state: &Arc<AppState>,
     socket: &SocketRef,
     data: &Value,
@@ -790,7 +790,7 @@ async fn handle_service_action(
     }
 }
 
-async fn handle_update_service(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_update_service(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -845,7 +845,7 @@ async fn handle_update_service(state: &Arc<AppState>, socket: &SocketRef, data: 
     json!({ "ok": true, "msg": format!("Updated {}", service_name) })
 }
 
-async fn handle_check_image_updates(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_check_image_updates(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }

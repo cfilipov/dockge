@@ -31,6 +31,7 @@ pub struct StackUpdateInfo {
 }
 
 /// Terminal handle for tracking active terminals
+#[allow(dead_code)]
 pub struct TerminalHandle {
     pub name: String,
     pub child: Option<tokio::process::Child>,
@@ -40,6 +41,7 @@ pub struct TerminalHandle {
 }
 
 /// Shared application state
+#[allow(dead_code)]
 pub struct AppState {
     pub db: SqlitePool,
     pub config: Config,

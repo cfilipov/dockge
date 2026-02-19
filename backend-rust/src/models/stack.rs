@@ -91,6 +91,7 @@ impl Stack {
         self.stacks_dir.join(&self.name)
     }
 
+    #[allow(dead_code)]
     pub fn full_path(&self) -> PathBuf {
         let p = self.path();
         if p.is_absolute() {
@@ -440,6 +441,7 @@ pub fn status_convert(status: &str) -> i32 {
 }
 
 /// Validate using docker compose config --dry-run
+#[allow(dead_code)]
 pub async fn validate_with_docker(
     compose_yaml: &str,
     compose_env: &str,

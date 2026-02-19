@@ -1,3 +1,5 @@
+use crate::docker;
+use crate::error::error_response;
 use crate::handlers::auth::check_login;
 use crate::state::AppState;
 use serde_json::{json, Value};
@@ -34,7 +36,6 @@ pub fn register(socket: &SocketRef, _state: Arc<AppState>) {
 /// We need to route this to the correct handler.
 pub fn register_agent_proxy(socket: &SocketRef, state: Arc<AppState>) {
     let state = state.clone();
-    let _socket_clone = socket.clone();
 
     socket.on("agent", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
         let state = state.clone();
@@ -50,21 +51,12 @@ pub fn register_agent_proxy(socket: &SocketRef, state: Arc<AppState>) {
                 }
             };
 
-            let endpoint = arr[0].as_str().unwrap_or("");
+            let _endpoint = arr[0].as_str().unwrap_or("");
             let event_name = arr[1].as_str().unwrap_or("");
             let remaining_args: Value = Value::Array(arr[2..].to_vec());
 
-            debug!("Agent proxy: endpoint={}, event={}", endpoint, event_name);
+            debug!("Agent proxy: event={}, args_count={}", event_name, arr.len() - 2);
 
-            // For now, only handle local (empty endpoint)
-            // Re-emit the event directly on this socket so our handlers catch it
-            // This is the simplest approach — the handlers are already registered
-            // on the socket directly.
-            //
-            // However, socketioxide doesn't let us re-emit to trigger handlers,
-            // so we need to route manually here.
-
-            // Route to the appropriate handler
             route_agent_event(&state, &socket, event_name, &remaining_args, ack).await;
         });
     });
@@ -78,49 +70,186 @@ async fn route_agent_event(
     args: &Value,
     ack: AckSender,
 ) {
+    use crate::handlers::{stack, terminal};
+
     match event {
-        // Stack operations
+        // --- Stack list ---
         "requestStackList" => {
             if check_login(socket).is_none() {
-                ack.send(&json!({ "ok": false, "msg": "Not logged in" })).ok();
+                ack.send(&error_response("Not logged in")).ok();
                 return;
             }
-            crate::handlers::stack::refresh_stack_cache(state).await;
-            crate::handlers::stack::broadcast_stack_list(state).await;
+            stack::refresh_stack_cache(state).await;
+            stack::broadcast_stack_list(state).await;
             ack.send(&json!({ "ok": true, "msg": "Updated", "msgi18n": true })).ok();
         }
 
+        // --- Stack CRUD ---
         "getStack" => {
-            let result = route_with_data(state, socket, args, |s, sk, d| {
-                Box::pin(async move { handle_get_stack_routed(&s, &sk, &d).await })
-            }).await;
+            let result = stack::handle_get_stack(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+        "deployStack" => {
+            let result = stack::handle_deploy_stack(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+        "saveStack" => {
+            let result = stack::handle_save_stack(state, socket, args).await;
             ack.send(&result).ok();
         }
 
-        "deployStack" | "saveStack" | "startStack" | "stopStack" | "restartStack"
-        | "downStack" | "updateStack" | "deleteStack" | "forceDeleteStack"
-        | "serviceStatusList" | "startService" | "stopService" | "restartService"
-        | "updateService" | "checkImageUpdates" | "getDockerNetworkList"
-        | "dockerStats" | "containerInspect"
-        | "terminalJoin" | "terminalInput" | "terminalResize"
-        | "leaveCombinedTerminal" | "interactiveTerminal" | "joinContainerLog"
-        | "mainTerminal" | "checkMainTerminal" => {
-            // These events are directly registered on the socket,
-            // but since we're routing through the agent proxy,
-            // we need to emit them back.
-            // The simplest approach is to have all handlers accept
-            // both direct and routed calls.
-            //
-            // For now, emit the event back on the socket itself
-            // to trigger the registered handler.
-            socket.emit(event, args).ok();
-            // Note: this won't trigger on() handlers on the same socket
-            // in socketioxide. We need a different approach.
-            //
-            // The actual solution is to NOT register handlers directly
-            // on the socket, and instead only route through the agent proxy.
-            // This is what we'll do — see the main.rs on_connect handler.
-            ack.send(&json!({ "ok": false, "msg": "Event routing not yet implemented for this event" })).ok();
+        // --- Compose lifecycle ---
+        "startStack" => {
+            let result = stack::handle_compose_action(state, socket, args, "up", &["-d", "--remove-orphans"]).await;
+            ack.send(&result).ok();
+        }
+        "stopStack" => {
+            let result = stack::handle_compose_action(state, socket, args, "stop", &[]).await;
+            ack.send(&result).ok();
+        }
+        "restartStack" => {
+            let result = stack::handle_compose_action(state, socket, args, "restart", &[]).await;
+            ack.send(&result).ok();
+        }
+        "downStack" => {
+            let result = stack::handle_compose_action(state, socket, args, "down", &[]).await;
+            ack.send(&result).ok();
+        }
+        "updateStack" => {
+            let result = stack::handle_update_stack(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+
+        // --- Stack deletion ---
+        "deleteStack" => {
+            let result = stack::handle_delete_stack(state, socket, args, false).await;
+            ack.send(&result).ok();
+        }
+        "forceDeleteStack" => {
+            let result = stack::handle_delete_stack(state, socket, args, true).await;
+            ack.send(&result).ok();
+        }
+
+        // --- Service operations ---
+        "serviceStatusList" => {
+            let result = stack::handle_service_status_list(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+        "startService" => {
+            let result = stack::handle_service_action(state, socket, args, "up").await;
+            ack.send(&result).ok();
+        }
+        "stopService" => {
+            let result = stack::handle_service_action(state, socket, args, "stop").await;
+            ack.send(&result).ok();
+        }
+        "restartService" => {
+            let result = stack::handle_service_action(state, socket, args, "restart").await;
+            ack.send(&result).ok();
+        }
+        "updateService" => {
+            let result = stack::handle_update_service(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+
+        // --- Image updates ---
+        "checkImageUpdates" => {
+            let result = stack::handle_check_image_updates(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+
+        // --- Docker queries ---
+        "getDockerNetworkList" => {
+            if check_login(socket).is_none() {
+                ack.send(&error_response("Not logged in")).ok();
+                return;
+            }
+            match docker::get_network_list().await {
+                Ok(list) => { ack.send(&json!({ "ok": true, "dockerNetworkList": list })).ok(); }
+                Err(e) => { ack.send(&error_response(&format!("{}", e))).ok(); }
+            }
+        }
+        "dockerStats" => {
+            if check_login(socket).is_none() {
+                ack.send(&error_response("Not logged in")).ok();
+                return;
+            }
+            match docker::get_docker_stats().await {
+                Ok(stats) => { ack.send(&json!({ "ok": true, "dockerStats": stats })).ok(); }
+                Err(e) => { ack.send(&error_response(&format!("{}", e))).ok(); }
+            }
+        }
+        "containerInspect" => {
+            if check_login(socket).is_none() {
+                ack.send(&error_response("Not logged in")).ok();
+                return;
+            }
+            let container_name = if args.is_array() {
+                args.get(0).and_then(|v| v.as_str()).unwrap_or("")
+            } else {
+                args.as_str().unwrap_or("")
+            };
+            match docker::container_inspect(container_name).await {
+                Ok(inspect_data) => {
+                    ack.send(&json!({ "ok": true, "inspectData": inspect_data })).ok();
+                }
+                Err(e) => { ack.send(&error_response(&format!("{}", e))).ok(); }
+            }
+        }
+
+        // --- Terminal operations ---
+        "terminalJoin" => {
+            let result = terminal::handle_terminal_join(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+        "terminalInput" => {
+            let result = terminal::handle_terminal_input(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+        "terminalResize" => {
+            // Fire-and-forget, no meaningful response needed
+            let terminal_name = if args.is_array() {
+                args.get(0).and_then(|v| v.as_str()).unwrap_or("").to_string()
+            } else {
+                String::new()
+            };
+            debug!("Terminal resize requested: {}", terminal_name);
+            ack.send(&json!({ "ok": true })).ok();
+        }
+        "leaveCombinedTerminal" => {
+            if check_login(socket).is_none() {
+                ack.send(&error_response("Not logged in")).ok();
+                return;
+            }
+            let stack_name = if args.is_array() {
+                args.get(0).and_then(|v| v.as_str()).unwrap_or("")
+            } else {
+                args.as_str().unwrap_or("")
+            };
+            debug!("Left combined terminal for stack: {}", stack_name);
+            ack.send(&json!({ "ok": true })).ok();
+        }
+        "interactiveTerminal" => {
+            let result = terminal::handle_interactive_terminal(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+        "joinContainerLog" => {
+            let result = terminal::handle_join_container_log(state, socket, args).await;
+            ack.send(&result).ok();
+        }
+        "mainTerminal" => {
+            if !state.config.enable_console {
+                ack.send(&error_response("Console is not enabled")).ok();
+                return;
+            }
+            if check_login(socket).is_none() {
+                ack.send(&error_response("Not logged in")).ok();
+                return;
+            }
+            ack.send(&json!({ "ok": true })).ok();
+        }
+        "checkMainTerminal" => {
+            ack.send(&json!({ "ok": state.config.enable_console })).ok();
         }
 
         _ => {
@@ -128,45 +257,4 @@ async fn route_agent_event(
             ack.send(&json!({ "ok": false, "msg": format!("Unknown event: {}", event) })).ok();
         }
     }
-}
-
-async fn handle_get_stack_routed(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
-    if check_login(socket).is_none() {
-        return json!({ "ok": false, "msg": "Not logged in" });
-    }
-
-    let stack_name = if data.is_array() {
-        data.get(0).and_then(|v| v.as_str()).unwrap_or("")
-    } else {
-        data.as_str().unwrap_or("")
-    };
-
-    match crate::models::stack::Stack::get_stack(&state.stacks_dir, stack_name).await {
-        Ok(s) => {
-            let recreate = state.recreate_cache.read().await.get(stack_name).copied().unwrap_or(false);
-            let has_updates = state.update_cache.read().await
-                .get(stack_name).map(|u| u.has_updates).unwrap_or(false);
-            let primary_hostname = crate::models::settings::get(&state.db, "primaryHostname")
-                .await.ok().flatten()
-                .and_then(|v| v.as_str().map(|s| s.to_string()))
-                .unwrap_or_else(|| "localhost".to_string());
-            let stack_json = s.to_json("", recreate, has_updates, &primary_hostname).await;
-            json!({ "ok": true, "stack": stack_json })
-        }
-        Err(e) => json!({ "ok": false, "msg": format!("{}", e) }),
-    }
-}
-
-/// Helper to route with data extraction
-async fn route_with_data<F, Fut>(
-    state: &Arc<AppState>,
-    socket: &SocketRef,
-    data: &Value,
-    handler: F,
-) -> Value
-where
-    F: FnOnce(Arc<AppState>, SocketRef, Value) -> Fut,
-    Fut: std::future::Future<Output = Value>,
-{
-    handler(state.clone(), socket.clone(), data.clone()).await
 }

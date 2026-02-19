@@ -6,6 +6,7 @@ use crate::error::{AppError, AppResult};
 
 /// Run a docker compose command and return the exit code.
 /// Output is streamed to the provided callback.
+#[allow(dead_code)]
 pub async fn compose_exec(
     stack_dir: &Path,
     args: &[String],
@@ -55,6 +56,7 @@ pub async fn compose_exec(
 }
 
 /// Run a docker compose command and capture all output (no streaming)
+#[allow(dead_code)]
 pub async fn compose_exec_capture(
     stack_dir: &Path,
     args: &[String],

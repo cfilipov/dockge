@@ -1,6 +1,7 @@
 use std::fmt;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum AppError {
     Validation(String),
     Auth(String),
@@ -58,6 +59,7 @@ pub fn error_response(msg: &str) -> serde_json::Value {
 }
 
 /// Build an i18n error callback response
+#[allow(dead_code)]
 pub fn error_response_i18n(msg: &str) -> serde_json::Value {
     serde_json::json!({
         "ok": false,
@@ -67,6 +69,7 @@ pub fn error_response_i18n(msg: &str) -> serde_json::Value {
 }
 
 /// Build a standard Socket.IO success callback response
+#[allow(dead_code)]
 pub fn ok_response() -> serde_json::Value {
     serde_json::json!({ "ok": true })
 }

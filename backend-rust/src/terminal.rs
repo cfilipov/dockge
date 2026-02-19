@@ -7,10 +7,15 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 
 const BUFFER_LIMIT: usize = 100;
 
+#[allow(dead_code)]
 pub const TERMINAL_COLS: u16 = 105;
+#[allow(dead_code)]
 pub const TERMINAL_ROWS: u16 = 10;
+#[allow(dead_code)]
 pub const PROGRESS_TERMINAL_ROWS: u16 = 8;
+#[allow(dead_code)]
 pub const COMBINED_TERMINAL_COLS: u16 = 58;
+#[allow(dead_code)]
 pub const COMBINED_TERMINAL_ROWS: u16 = 20;
 
 /// Naming helpers matching the Node.js common/util-common.ts
@@ -42,11 +47,13 @@ impl TerminalManager {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn get(&self, name: &str) -> Option<Arc<TerminalInstance>> {
         let terminals = self.terminals.read().await;
         terminals.get(name).cloned()
     }
 
+    #[allow(dead_code)]
     pub async fn get_or_create(
         &self,
         name: &str,
@@ -85,6 +92,7 @@ impl TerminalManager {
         terminals.contains_key(name)
     }
 
+    #[allow(dead_code)]
     pub async fn count(&self) -> usize {
         let terminals = self.terminals.read().await;
         terminals.len()
@@ -133,6 +141,7 @@ impl TerminalManager {
 }
 
 /// A single terminal instance
+#[allow(dead_code)]
 pub struct TerminalInstance {
     pub name: String,
     pub file: String,
@@ -172,11 +181,13 @@ impl TerminalInstance {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn get_buffer(&self) -> String {
         let buffer = self.buffer.read().await;
         buffer.iter().cloned().collect()
     }
 
+    #[allow(dead_code)]
     pub async fn write_input(&self, data: &str) {
         let tx = self.input_tx.read().await;
         if let Some(ref tx) = *tx {

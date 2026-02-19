@@ -127,7 +127,7 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     }
 }
 
-async fn handle_terminal_join(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_terminal_join(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -148,7 +148,7 @@ async fn handle_terminal_join(state: &Arc<AppState>, socket: &SocketRef, data: &
     }
 }
 
-async fn handle_terminal_input(_state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_terminal_input(_state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -171,7 +171,7 @@ async fn handle_terminal_input(_state: &Arc<AppState>, socket: &SocketRef, data:
     json!({ "ok": true })
 }
 
-async fn handle_interactive_terminal(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_interactive_terminal(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -246,7 +246,7 @@ async fn handle_interactive_terminal(state: &Arc<AppState>, socket: &SocketRef, 
     json!({ "ok": true })
 }
 
-async fn handle_join_container_log(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_join_container_log(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }

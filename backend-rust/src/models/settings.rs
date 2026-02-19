@@ -53,6 +53,7 @@ pub async fn get(pool: &SqlitePool, key: &str) -> AppResult<Option<Value>> {
 }
 
 /// Set a single setting value
+#[allow(dead_code)]
 pub async fn set(pool: &SqlitePool, key: &str, value: &Value, setting_type: Option<&str>) -> AppResult<()> {
     let value_str = serde_json::to_string(value)?;
     let type_str = setting_type.unwrap_or("");
@@ -151,6 +152,7 @@ pub async fn set_settings(pool: &SqlitePool, setting_type: &str, data: &serde_js
 }
 
 /// Clear all cached settings
+#[allow(dead_code)]
 pub async fn clear_cache() {
     let mut cache = SETTINGS_CACHE.write().await;
     cache.clear();
