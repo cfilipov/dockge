@@ -18,6 +18,7 @@ declare module 'vue' {
     BDropdownGroup: typeof import('bootstrap-vue-next')['BDropdownGroup']
     BDropdownItem: typeof import('bootstrap-vue-next')['BDropdownItem']
     BDropdownItemButton: typeof import('bootstrap-vue-next')['BDropdownItemButton']
+    BForm: typeof import('bootstrap-vue-next')['BForm']
     BFormCheckbox: typeof import('bootstrap-vue-next')['BFormCheckbox']
     BModal: typeof import('bootstrap-vue-next')['BModal']
     Confirm: typeof import('./src/components/Confirm.vue')['default']

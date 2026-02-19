@@ -39,4 +39,12 @@ export default {
 .container-fluid {
     width: 98%;
 }
+
+// The sidebar column must sit above the content column so that
+// dropdowns (e.g. the filter menu) can overlay the content area.
+// Without this, the later-in-DOM content column paints on top.
+.col-12.col-md-4 {
+    position: relative;
+    z-index: 1;
+}
 </style>
