@@ -1,6 +1,7 @@
 use crate::handlers::auth::check_login;
 use crate::error::error_response;
 use crate::models::stack::Stack;
+use crate::socket_args::SocketArgs;
 use crate::state::AppState;
 use crate::terminal::*;
 use serde_json::{json, Value};
@@ -13,9 +14,10 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // terminalJoin
     {
         let state = state.clone();
-        socket.on("terminalJoin", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("terminalJoin", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_terminal_join(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -25,9 +27,10 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // terminalInput
     {
         let state = state.clone();
-        socket.on("terminalInput", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("terminalInput", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_terminal_input(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -36,25 +39,36 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
 
     // terminalResize
     {
-        let _state = state.clone();
-        socket.on("terminalResize", move |_socket: SocketRef, Data(data): Data<Value>| {
-            // No callback, fire and forget
+        socket.on("terminalResize", move |_socket: SocketRef, Data(args): Data<SocketArgs>| {
+            let data = Value::Array(args.0);
             let terminal_name = if data.is_array() {
                 data.get(0).and_then(|v| v.as_str()).unwrap_or("").to_string()
             } else {
                 String::new()
             };
-            debug!("Terminal resize requested: {}", terminal_name);
-            // In a full PTY implementation, we'd resize the PTY here
+            let rows = if data.is_array() {
+                data.get(1).and_then(|v| v.as_u64()).unwrap_or(TERMINAL_ROWS as u64) as u16
+            } else {
+                TERMINAL_ROWS
+            };
+            let cols = if data.is_array() {
+                data.get(2).and_then(|v| v.as_u64()).unwrap_or(TERMINAL_COLS as u64) as u16
+            } else {
+                TERMINAL_COLS
+            };
+            tokio::spawn(async move {
+                TERMINAL_MANAGER.resize(&terminal_name, rows, cols).await;
+            });
         });
     }
 
     // leaveCombinedTerminal
     {
         let state = state.clone();
-        socket.on("leaveCombinedTerminal", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("leaveCombinedTerminal", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let _state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 if check_login(&socket).is_none() {
                     ack.send(&error_response("Not logged in")).ok();
                     return;
@@ -64,6 +78,8 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
                 } else {
                     data.as_str().unwrap_or("")
                 };
+                let terminal_name = get_combined_terminal_name("", stack_name);
+                TERMINAL_MANAGER.remove(&terminal_name).await;
                 debug!("Left combined terminal for stack: {}", stack_name);
                 ack.send(&json!({ "ok": true })).ok();
             });
@@ -73,10 +89,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // interactiveTerminal
     {
         let state = state.clone();
-        socket.on("interactiveTerminal", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("interactiveTerminal", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_interactive_terminal(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -86,10 +103,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // joinContainerLog
     {
         let state = state.clone();
-        socket.on("joinContainerLog", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("joinContainerLog", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_join_container_log(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -99,8 +117,9 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // mainTerminal
     {
         let state = state.clone();
-        socket.on("mainTerminal", move |socket: SocketRef, Data(_data): Data<Value>, ack: AckSender| {
+        socket.on("mainTerminal", move |socket: SocketRef, Data(_args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
+            let socket = socket.clone();
             tokio::spawn(async move {
                 if !state.config.enable_console {
                     ack.send(&error_response("Console is not enabled")).ok();
@@ -110,7 +129,8 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
                     ack.send(&error_response("Not logged in")).ok();
                     return;
                 }
-                ack.send(&json!({ "ok": true })).ok();
+                let result = handle_main_terminal(&state, &socket).await;
+                ack.send(&result).ok();
             });
         });
     }
@@ -127,7 +147,7 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     }
 }
 
-pub async fn handle_terminal_join(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
+pub async fn handle_terminal_join(_state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
     if check_login(socket).is_none() {
         return error_response("Not logged in");
     }
@@ -138,14 +158,8 @@ pub async fn handle_terminal_join(state: &Arc<AppState>, socket: &SocketRef, dat
         data.as_str().unwrap_or("")
     };
 
-    // Return the buffer contents
-    let terminals = state.terminals.read().await;
-    if let Some(handle) = terminals.get(terminal_name) {
-        let buffer = handle.buffer.join("");
-        json!({ "ok": true, "buffer": buffer })
-    } else {
-        json!({ "ok": true, "buffer": "" })
-    }
+    let buffer = TERMINAL_MANAGER.get_buffer(terminal_name).await;
+    json!({ "ok": true, "buffer": buffer })
 }
 
 pub async fn handle_terminal_input(_state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
@@ -165,8 +179,7 @@ pub async fn handle_terminal_input(_state: &Arc<AppState>, socket: &SocketRef, d
         return error_response("Terminal name required");
     }
 
-    // In a full implementation, we'd write to the terminal's stdin
-    debug!("Terminal input: {} -> {}", terminal_name, cmd);
+    TERMINAL_MANAGER.write_input(terminal_name, cmd.as_bytes()).await;
 
     json!({ "ok": true })
 }
@@ -196,54 +209,32 @@ pub async fn handle_interactive_terminal(state: &Arc<AppState>, socket: &SocketR
 
     let terminal_name = get_container_exec_terminal_name("", stack_name, service_name, 0);
     let args = stack_obj.get_compose_options("exec", &[service_name, shell]);
-
-    // Spawn the interactive terminal in background
-    let socket_clone = socket.clone();
-    let terminal_name_clone = terminal_name.clone();
     let path = stack_obj.path();
 
-    tokio::spawn(async move {
-        let (tx, _) = tokio::sync::broadcast::channel(256);
-        let mut rx = tx.subscribe();
-
-        let output_task = tokio::spawn(async move {
-            while let Ok((term_name, data)) = rx.recv().await {
-                socket_clone.emit("agent", &("terminalWrite", &term_name, &data)).ok();
-            }
-        });
-
-        let mut cmd = tokio::process::Command::new("docker");
-        cmd.args(&args)
-            .current_dir(&path)
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped());
-
-        match cmd.spawn() {
-            Ok(mut child) => {
-                // Stream output
-                if let Some(stdout) = child.stdout.take() {
-                    let term_name = terminal_name_clone.clone();
-                    tokio::spawn(async move {
-                        use tokio::io::{AsyncBufReadExt, BufReader};
-                        let reader = BufReader::new(stdout);
-                        let mut lines = reader.lines();
-                        while let Ok(Some(line)) = lines.next_line().await {
-                            let _ = tx.send((term_name.clone(), format!("{}\r\n", line)));
-                        }
-                    });
+    match TERMINAL_MANAGER
+        .spawn_persistent(&terminal_name, "docker", &args, &path, TERMINAL_ROWS, TERMINAL_COLS)
+        .await
+    {
+        Ok(terminal) => {
+            // Subscribe and forward output to socket
+            let mut rx = terminal.subscribe();
+            let socket_clone = socket.clone();
+            let term_name = terminal_name.clone();
+            tokio::spawn(async move {
+                while let Ok((name, data)) = rx.recv().await {
+                    socket_clone.emit("agent", &("terminalWrite", &name, &data)).ok();
                 }
-                let _ = child.wait().await;
-            }
-            Err(e) => {
-                warn!("Failed to spawn interactive terminal: {}", e);
-            }
+                // Process exited
+                socket_clone.emit("agent", &("terminalExit", &term_name, 0)).ok();
+            });
+
+            json!({ "ok": true })
         }
-
-        drop(output_task);
-    });
-
-    json!({ "ok": true })
+        Err(e) => {
+            warn!("Failed to spawn interactive terminal: {}", e);
+            error_response(&format!("Failed to spawn terminal: {}", e))
+        }
+    }
 }
 
 pub async fn handle_join_container_log(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
@@ -266,52 +257,68 @@ pub async fn handle_join_container_log(state: &Arc<AppState>, socket: &SocketRef
 
     let terminal_name = get_container_log_name("", stack_name, service_name);
     let args = stack_obj.get_compose_options("logs", &["-f", "--tail", "100", service_name]);
-
-    // Spawn log streaming in background
-    let socket_clone = socket.clone();
     let path = stack_obj.path();
 
-    tokio::spawn(async move {
-        let (tx, _) = tokio::sync::broadcast::channel(256);
-        let mut rx = tx.subscribe();
+    match TERMINAL_MANAGER
+        .spawn_persistent(&terminal_name, "docker", &args, &path, TERMINAL_ROWS, TERMINAL_COLS)
+        .await
+    {
+        Ok(terminal) => {
+            // Send existing buffer first
+            let buffer = terminal.get_buffer().await;
+            if !buffer.is_empty() {
+                socket.emit("agent", &("terminalWrite", &terminal_name, &buffer)).ok();
+            }
 
-        let output_task = tokio::spawn({
-            let socket = socket_clone.clone();
-            async move {
-                while let Ok((term_name, data)) = rx.recv().await {
-                    socket.emit("agent", &("terminalWrite", &term_name, &data)).ok();
+            // Subscribe and forward output to socket
+            let mut rx = terminal.subscribe();
+            let socket_clone = socket.clone();
+            let term_name = terminal_name.clone();
+            tokio::spawn(async move {
+                while let Ok((name, data)) = rx.recv().await {
+                    socket_clone.emit("agent", &("terminalWrite", &name, &data)).ok();
                 }
-            }
-        });
+                socket_clone.emit("agent", &("terminalExit", &term_name, 0)).ok();
+            });
 
-        let mut cmd = tokio::process::Command::new("docker");
-        cmd.args(&args)
-            .current_dir(&path)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped());
-
-        match cmd.spawn() {
-            Ok(mut child) => {
-                if let Some(stdout) = child.stdout.take() {
-                    let term_name = terminal_name.clone();
-                    tokio::spawn(async move {
-                        use tokio::io::{AsyncBufReadExt, BufReader};
-                        let reader = BufReader::new(stdout);
-                        let mut lines = reader.lines();
-                        while let Ok(Some(line)) = lines.next_line().await {
-                            let _ = tx.send((term_name.clone(), format!("{}\r\n", line)));
-                        }
-                    });
-                }
-                let _ = child.wait().await;
-            }
-            Err(e) => {
-                warn!("Failed to spawn container log: {}", e);
-            }
+            json!({ "ok": true })
         }
+        Err(e) => {
+            warn!("Failed to spawn container log: {}", e);
+            error_response(&format!("Failed to spawn log terminal: {}", e))
+        }
+    }
+}
 
-        drop(output_task);
-    });
+pub async fn handle_main_terminal(_state: &Arc<AppState>, socket: &SocketRef) -> Value {
+    let terminal_name = "main-terminal".to_string();
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
 
-    json!({ "ok": true })
+    match TERMINAL_MANAGER
+        .spawn_persistent(&terminal_name, "bash", &[], &cwd, TERMINAL_ROWS, TERMINAL_COLS)
+        .await
+    {
+        Ok(terminal) => {
+            let buffer = terminal.get_buffer().await;
+            if !buffer.is_empty() {
+                socket.emit("agent", &("terminalWrite", &terminal_name, &buffer)).ok();
+            }
+
+            let mut rx = terminal.subscribe();
+            let socket_clone = socket.clone();
+            let term_name = terminal_name.clone();
+            tokio::spawn(async move {
+                while let Ok((name, data)) = rx.recv().await {
+                    socket_clone.emit("agent", &("terminalWrite", &name, &data)).ok();
+                }
+                socket_clone.emit("agent", &("terminalExit", &term_name, 0)).ok();
+            });
+
+            json!({ "ok": true })
+        }
+        Err(e) => {
+            warn!("Failed to spawn main terminal: {}", e);
+            error_response(&format!("Failed to spawn terminal: {}", e))
+        }
+    }
 }

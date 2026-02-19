@@ -1,6 +1,7 @@
 use crate::error::error_response;
 use crate::models::user::{self, User, check_password_strength, generate_password_hash};
 use crate::models::settings;
+use crate::socket_args::SocketArgs;
 use crate::state::AppState;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde_json::{json, Value};
@@ -13,9 +14,10 @@ pub fn register(socket: &SocketRef, state: Arc<AppState>) {
     // setup
     {
         let state = state.clone();
-        socket.on("setup", move |_socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("setup", move |_socket: SocketRef, Data(data): Data<(Value, Value)>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(vec![data.0, data.1]);
                 let result = handle_setup(&state, &data).await;
                 ack.send(&result).ok();
             });
@@ -25,10 +27,11 @@ pub fn register(socket: &SocketRef, state: Arc<AppState>) {
     // login
     {
         let state = state.clone();
-        socket.on("login", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("login", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_login(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -38,10 +41,11 @@ pub fn register(socket: &SocketRef, state: Arc<AppState>) {
     // loginByToken
     {
         let state = state.clone();
-        socket.on("loginByToken", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("loginByToken", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_login_by_token(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -51,10 +55,11 @@ pub fn register(socket: &SocketRef, state: Arc<AppState>) {
     // changePassword
     {
         let state = state.clone();
-        socket.on("changePassword", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("changePassword", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_change_password(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -78,6 +83,7 @@ pub fn register(socket: &SocketRef, state: Arc<AppState>) {
 async fn handle_setup(state: &Arc<AppState>, data: &Value) -> Value {
     let username = data.get(0).and_then(|v| v.as_str()).unwrap_or("");
     let password = data.get(1).and_then(|v| v.as_str()).unwrap_or("");
+    info!("Setup: username={}, password_len={}", username, password.len());
 
     if !check_password_strength(password) {
         return error_response(

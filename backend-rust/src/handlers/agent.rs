@@ -1,7 +1,9 @@
 use crate::docker;
 use crate::error::error_response;
 use crate::handlers::auth::check_login;
+use crate::socket_args::SocketArgs;
 use crate::state::AppState;
+use crate::terminal::{get_combined_terminal_name, TERMINAL_MANAGER, TERMINAL_ROWS, TERMINAL_COLS};
 use serde_json::{json, Value};
 use socketioxide::extract::{Data, SocketRef, AckSender};
 use std::sync::Arc;
@@ -37,19 +39,17 @@ pub fn register(socket: &SocketRef, _state: Arc<AppState>) {
 pub fn register_agent_proxy(socket: &SocketRef, state: Arc<AppState>) {
     let state = state.clone();
 
-    socket.on("agent", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+    socket.on("agent", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
         let state = state.clone();
         let socket = socket.clone();
 
         tokio::spawn(async move {
-            // data is [endpoint, eventName, ...args]
-            let arr = match data.as_array() {
-                Some(a) if a.len() >= 2 => a,
-                _ => {
-                    ack.send(&json!({ "ok": false, "msg": "Invalid agent call" })).ok();
-                    return;
-                }
-            };
+            // args.0 is [endpoint, eventName, ...rest]
+            let arr = &args.0;
+            if arr.len() < 2 {
+                ack.send(&json!({ "ok": false, "msg": "Invalid agent call" })).ok();
+                return;
+            }
 
             let _endpoint = arr[0].as_str().unwrap_or("");
             let event_name = arr[1].as_str().unwrap_or("");
@@ -207,13 +207,23 @@ async fn route_agent_event(
             ack.send(&result).ok();
         }
         "terminalResize" => {
-            // Fire-and-forget, no meaningful response needed
             let terminal_name = if args.is_array() {
                 args.get(0).and_then(|v| v.as_str()).unwrap_or("").to_string()
             } else {
                 String::new()
             };
-            debug!("Terminal resize requested: {}", terminal_name);
+            let rows = if args.is_array() {
+                args.get(1).and_then(|v| v.as_u64()).unwrap_or(TERMINAL_ROWS as u64) as u16
+            } else {
+                TERMINAL_ROWS
+            };
+            let cols = if args.is_array() {
+                args.get(2).and_then(|v| v.as_u64()).unwrap_or(TERMINAL_COLS as u64) as u16
+            } else {
+                TERMINAL_COLS
+            };
+            TERMINAL_MANAGER.resize(&terminal_name, rows, cols).await;
+            debug!("Terminal resize: {} {}x{}", terminal_name, cols, rows);
             ack.send(&json!({ "ok": true })).ok();
         }
         "leaveCombinedTerminal" => {
@@ -226,6 +236,8 @@ async fn route_agent_event(
             } else {
                 args.as_str().unwrap_or("")
             };
+            let terminal_name = get_combined_terminal_name("", stack_name);
+            TERMINAL_MANAGER.remove(&terminal_name).await;
             debug!("Left combined terminal for stack: {}", stack_name);
             ack.send(&json!({ "ok": true })).ok();
         }
@@ -246,7 +258,8 @@ async fn route_agent_event(
                 ack.send(&error_response("Not logged in")).ok();
                 return;
             }
-            ack.send(&json!({ "ok": true })).ok();
+            let result = terminal::handle_main_terminal(state, socket).await;
+            ack.send(&result).ok();
         }
         "checkMainTerminal" => {
             ack.send(&json!({ "ok": state.config.enable_console })).ok();

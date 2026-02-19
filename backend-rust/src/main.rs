@@ -4,6 +4,7 @@ mod docker;
 mod error;
 mod handlers;
 mod models;
+pub mod socket_args;
 mod state;
 mod terminal;
 mod update_checker;

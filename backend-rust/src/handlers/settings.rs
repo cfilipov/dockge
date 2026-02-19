@@ -1,6 +1,7 @@
 use crate::handlers::auth::{check_login, send_info};
 use crate::models::settings as settings_model;
 use crate::models::user::User;
+use crate::socket_args::SocketArgs;
 use crate::state::AppState;
 use serde_json::{json, Value};
 use socketioxide::extract::{Data, SocketRef, AckSender};
@@ -24,9 +25,10 @@ pub fn register(socket: &SocketRef, state: Arc<AppState>) {
     // setSettings
     {
         let state = state.clone();
-        socket.on("setSettings", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("setSettings", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_set_settings(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -52,9 +54,10 @@ pub fn register(socket: &SocketRef, state: Arc<AppState>) {
     // composerize
     {
         let state = state.clone();
-        socket.on("composerize", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("composerize", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_composerize(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });

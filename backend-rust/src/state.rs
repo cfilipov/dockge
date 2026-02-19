@@ -30,16 +30,6 @@ pub struct StackUpdateInfo {
     pub services: HashMap<String, bool>,
 }
 
-/// Terminal handle for tracking active terminals
-#[allow(dead_code)]
-pub struct TerminalHandle {
-    pub name: String,
-    pub child: Option<tokio::process::Child>,
-    pub kill_tx: Option<tokio::sync::oneshot::Sender<()>>,
-    pub buffer: Vec<String>,
-    pub subscribers: Vec<String>, // socket IDs
-}
-
 /// Shared application state
 #[allow(dead_code)]
 pub struct AppState {
@@ -50,7 +40,6 @@ pub struct AppState {
     pub stack_cache: RwLock<HashMap<String, SimpleStackInfo>>,
     pub update_cache: RwLock<HashMap<String, StackUpdateInfo>>,
     pub recreate_cache: RwLock<HashMap<String, bool>>,
-    pub terminals: RwLock<HashMap<String, TerminalHandle>>,
     pub jwt_secret: RwLock<String>,
     pub need_setup: RwLock<bool>,
     pub io: SocketIo,
@@ -75,7 +64,6 @@ impl AppState {
             stack_cache: RwLock::new(HashMap::new()),
             update_cache: RwLock::new(HashMap::new()),
             recreate_cache: RwLock::new(HashMap::new()),
-            terminals: RwLock::new(HashMap::new()),
             jwt_secret: RwLock::new(String::new()),
             need_setup: RwLock::new(false),
             io,

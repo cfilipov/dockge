@@ -3,9 +3,10 @@ use crate::error::{error_response, ok_response_i18n};
 use crate::handlers::auth::check_login;
 use crate::models::settings as settings_model;
 use crate::models::stack::Stack;
+use crate::socket_args::SocketArgs;
 use crate::state::AppState;
 use crate::terminal::{
-    get_combined_terminal_name, get_compose_terminal_name, TerminalManager,
+    get_combined_terminal_name, get_compose_terminal_name, TERMINAL_MANAGER,
 };
 use crate::update_checker;
 use serde_json::{json, Value};
@@ -14,10 +15,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::{debug, warn};
-
-/// Global terminal manager
-static TERMINAL_MANAGER: std::sync::LazyLock<TerminalManager> =
-    std::sync::LazyLock::new(TerminalManager::new);
 
 /// Register stack-related socket event handlers via the agent proxy
 pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
@@ -41,9 +38,10 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // getStack
     {
         let state = state.clone();
-        socket.on("getStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("getStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_get_stack(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -53,10 +51,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // deployStack
     {
         let state = state.clone();
-        socket.on("deployStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("deployStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_deploy_stack(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -66,9 +65,10 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // saveStack
     {
         let state = state.clone();
-        socket.on("saveStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("saveStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_save_stack(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -78,10 +78,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // startStack
     {
         let state = state.clone();
-        socket.on("startStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("startStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_compose_action(&state, &socket, &data, "up", &["-d", "--remove-orphans"]).await;
                 ack.send(&result).ok();
             });
@@ -91,10 +92,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // stopStack
     {
         let state = state.clone();
-        socket.on("stopStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("stopStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_compose_action(&state, &socket, &data, "stop", &[]).await;
                 ack.send(&result).ok();
             });
@@ -104,10 +106,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // restartStack
     {
         let state = state.clone();
-        socket.on("restartStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("restartStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_compose_action(&state, &socket, &data, "restart", &[]).await;
                 ack.send(&result).ok();
             });
@@ -117,10 +120,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // downStack
     {
         let state = state.clone();
-        socket.on("downStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("downStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_compose_action(&state, &socket, &data, "down", &[]).await;
                 ack.send(&result).ok();
             });
@@ -130,10 +134,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // updateStack
     {
         let state = state.clone();
-        socket.on("updateStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("updateStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_update_stack(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -143,10 +148,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // deleteStack
     {
         let state = state.clone();
-        socket.on("deleteStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("deleteStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_delete_stack(&state, &socket, &data, false).await;
                 ack.send(&result).ok();
             });
@@ -156,10 +162,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // forceDeleteStack
     {
         let state = state.clone();
-        socket.on("forceDeleteStack", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("forceDeleteStack", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_delete_stack(&state, &socket, &data, true).await;
                 ack.send(&result).ok();
             });
@@ -169,9 +176,10 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // serviceStatusList
     {
         let state = state.clone();
-        socket.on("serviceStatusList", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("serviceStatusList", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_service_status_list(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -186,11 +194,12 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     ] {
         let state = state.clone();
         let action = action.to_string();
-        socket.on(event, move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on(event, move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             let action = action.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_service_action(&state, &socket, &data, &action).await;
                 ack.send(&result).ok();
             });
@@ -200,10 +209,11 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // updateService
     {
         let state = state.clone();
-        socket.on("updateService", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("updateService", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             let socket = socket.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_update_service(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -213,9 +223,10 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // checkImageUpdates
     {
         let state = state.clone();
-        socket.on("checkImageUpdates", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("checkImageUpdates", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 let result = handle_check_image_updates(&state, &socket, &data).await;
                 ack.send(&result).ok();
             });
@@ -261,9 +272,10 @@ pub fn register_agent_handlers(socket: &SocketRef, state: Arc<AppState>) {
     // containerInspect
     {
         let state = state.clone();
-        socket.on("containerInspect", move |socket: SocketRef, Data(data): Data<Value>, ack: AckSender| {
+        socket.on("containerInspect", move |socket: SocketRef, Data(args): Data<SocketArgs>, ack: AckSender| {
             let _state = state.clone();
             tokio::spawn(async move {
+                let data = Value::Array(args.0);
                 if check_login(&socket).is_none() {
                     ack.send(&error_response("Not logged in")).ok();
                     return;
