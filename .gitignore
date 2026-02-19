@@ -15,3 +15,6 @@ frontend-dist
 CLAUDE.md
 PLAN.md
 
+# Rust backend build artifacts
+backend-rust/target
+
