@@ -66,7 +66,7 @@ async fn async_main() {
 
     // Initialize Socket.IO
     let (sio_layer, io) = SocketIo::builder()
-        .max_buffer_size(128 * 1024) // 128KB
+        .max_buffer_size(1024 * 1024) // 1MB
         .build_layer();
 
     // Create app state
