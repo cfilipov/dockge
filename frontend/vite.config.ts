@@ -14,7 +14,7 @@ export default defineConfig({
         allowedHosts: true,
         proxy: {
             "/socket.io/": {
-                target: "http://localhost:5001",
+                target: "http://localhost:5002",
                 ws: true,
             },
         },

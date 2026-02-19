@@ -112,7 +112,7 @@ async fn main() {
                 .unwrap_or("")
                 .to_string();
 
-            socket.extensions.insert(endpoint.clone());
+            socket.extensions.insert(handlers::auth::SocketEndpoint(endpoint.clone()));
 
             if endpoint.is_empty() {
                 info!("Socket connected (direct): {}", socket.id);
@@ -143,8 +143,8 @@ async fn main() {
             if disable_auth {
                 info!("Disabled Auth: auto login to first user");
                 if let Ok(Some(user)) = User::find_first(&state.db).await {
-                    socket.extensions.insert(user.id);
-                    socket.extensions.insert(user.username.clone());
+                    socket.extensions.insert(handlers::auth::SocketUserId(user.id));
+                    socket.extensions.insert(handlers::auth::SocketUsername(user.username.clone()));
                     handlers::auth::after_login(&state, &socket).await;
                     socket.emit("autoLogin", &()).ok();
                 }

@@ -350,9 +350,22 @@ cmd_compose_logs() {
     local services
     services=$(get_services "$stack_name")
 
+    # ANSI colors matching real docker compose logs (cycles through 6 colors)
+    local -a colors=("\033[36m" "\033[33m" "\033[32m" "\033[35m" "\033[34m" "\033[31m")
+    local reset="\033[0m"
+    local i=0
+
+    # Build color map for services
+    declare -A svc_color
     for svc in $services; do
-        echo "${stack_name}-${svc}-1  | [mock] Container is running"
-        echo "${stack_name}-${svc}-1  | [mock] Service started successfully"
+        svc_color[$svc]="${colors[$((i % ${#colors[@]}))]}"
+        i=$((i + 1))
+    done
+
+    for svc in $services; do
+        local c="${svc_color[$svc]}"
+        echo -e "${c}${stack_name}-${svc}-1  |${reset} [mock] Container is running"
+        echo -e "${c}${stack_name}-${svc}-1  |${reset} [mock] Service started successfully"
     done
 
     # Keep alive for -f (follow) mode
@@ -360,7 +373,8 @@ cmd_compose_logs() {
         while true; do
             sleep 5
             for svc in $services; do
-                echo "${stack_name}-${svc}-1  | [mock] $(date -Iseconds) heartbeat"
+                local c="${svc_color[$svc]}"
+                echo -e "${c}${stack_name}-${svc}-1  |${reset} [mock] $(date -Iseconds) heartbeat"
             done
         done
     fi

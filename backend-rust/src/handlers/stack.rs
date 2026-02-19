@@ -6,7 +6,8 @@ use crate::models::stack::Stack;
 use crate::socket_args::SocketArgs;
 use crate::state::AppState;
 use crate::terminal::{
-    get_combined_terminal_name, get_compose_terminal_name, TERMINAL_MANAGER,
+    get_combined_terminal_name, get_compose_terminal_name,
+    COMBINED_TERMINAL_COLS, COMBINED_TERMINAL_ROWS, TERMINAL_MANAGER,
 };
 use crate::update_checker;
 use serde_json::{json, Value};
@@ -726,7 +727,7 @@ pub async fn handle_service_status_list(state: &Arc<AppState>, socket: &SocketRe
             let service_update_status = update_cache.get(stack_name).map(|entry| {
                 let mut map = serde_json::Map::new();
                 for (svc, has_update) in &entry.services {
-                    map.insert(svc.clone(), json!({ "hasUpdate": has_update }));
+                    map.insert(svc.clone(), json!(has_update));
                 }
                 map
             }).unwrap_or_default();
@@ -879,10 +880,66 @@ pub async fn handle_check_image_updates(state: &Arc<AppState>, socket: &SocketRe
 }
 
 /// Join the combined terminal for a stack
-async fn join_combined_terminal(_state: &Arc<AppState>, _socket: &SocketRef, endpoint: &str, stack_name: &str) {
-    // This is a simplified version — in the full implementation,
-    // we'd create a persistent terminal running `docker compose logs -f`
-    // and relay output to the socket.
+async fn join_combined_terminal(state: &Arc<AppState>, socket: &SocketRef, endpoint: &str, stack_name: &str) {
     let terminal_name = get_combined_terminal_name(endpoint, stack_name);
-    debug!("Socket joined combined terminal: {}", terminal_name);
+    debug!("Socket joining combined terminal: {}", terminal_name);
+
+    // Send any existing buffer first
+    let buffer = TERMINAL_MANAGER.get_buffer(&terminal_name).await;
+    if !buffer.is_empty() {
+        socket.emit("agent", &("terminalWrite", &terminal_name, &buffer)).ok();
+    }
+
+    // If terminal already exists, just subscribe this socket to it
+    if TERMINAL_MANAGER.has(&terminal_name).await {
+        let terminal = TERMINAL_MANAGER.get(&terminal_name).await;
+        if let Some(terminal) = terminal {
+            let mut rx = terminal.subscribe();
+            let socket_clone = socket.clone();
+            tokio::spawn(async move {
+                while let Ok((name, data)) = rx.recv().await {
+                    if socket_clone.emit("agent", &("terminalWrite", &name, &data)).is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+        return;
+    }
+
+    // Spawn `docker compose logs -f --tail 100` as a persistent terminal
+    let stack_obj = match Stack::get_stack(&state.stacks_dir, stack_name).await {
+        Ok(s) => s,
+        Err(e) => {
+            warn!("Failed to get stack for combined terminal: {}", e);
+            return;
+        }
+    };
+
+    let args = stack_obj.get_compose_options("logs", &["-f", "--tail", "100"]);
+    let cwd = stack_obj.path();
+
+    match TERMINAL_MANAGER.spawn_persistent(
+        &terminal_name,
+        "docker",
+        &args,
+        &cwd,
+        COMBINED_TERMINAL_ROWS,
+        COMBINED_TERMINAL_COLS,
+    ).await {
+        Ok(terminal) => {
+            let mut rx = terminal.subscribe();
+            let socket_clone = socket.clone();
+            tokio::spawn(async move {
+                while let Ok((name, data)) = rx.recv().await {
+                    if socket_clone.emit("agent", &("terminalWrite", &name, &data)).is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+        Err(e) => {
+            warn!("Failed to spawn combined terminal for {}: {}", stack_name, e);
+        }
+    }
 }

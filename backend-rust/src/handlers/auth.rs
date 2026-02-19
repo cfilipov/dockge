@@ -9,6 +9,16 @@ use socketioxide::extract::{Data, SocketRef, AckSender};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
+/// Newtype wrappers for socket extensions (avoids type-map collisions)
+#[derive(Debug, Clone)]
+pub struct SocketEndpoint(pub String);
+
+#[derive(Debug, Clone)]
+pub struct SocketUsername(pub String);
+
+#[derive(Debug, Clone, Copy)]
+pub struct SocketUserId(pub i64);
+
 /// Register auth-related socket event handlers
 pub fn register(socket: &SocketRef, state: Arc<AppState>) {
     // setup
@@ -166,8 +176,8 @@ async fn handle_login(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -
     match user.create_jwt(&jwt_secret) {
         Ok(token) => {
             // Store user ID in socket extensions
-            socket.extensions.insert(user.id);
-            socket.extensions.insert(user.username.clone());
+            socket.extensions.insert(SocketUserId(user.id));
+            socket.extensions.insert(SocketUsername(user.username.clone()));
 
             info!("Successfully logged in user {}", username);
 
@@ -222,8 +232,8 @@ async fn handle_login_by_token(state: &Arc<AppState>, socket: &SocketRef, data: 
     }
 
     // Store user ID in socket extensions
-    socket.extensions.insert(user.id);
-    socket.extensions.insert(user.username.clone());
+    socket.extensions.insert(SocketUserId(user.id));
+    socket.extensions.insert(SocketUsername(user.username.clone()));
 
     info!("Successfully logged in user {} via token", claims.username);
 
@@ -233,7 +243,7 @@ async fn handle_login_by_token(state: &Arc<AppState>, socket: &SocketRef, data: 
 }
 
 async fn handle_change_password(state: &Arc<AppState>, socket: &SocketRef, data: &Value) -> Value {
-    let user_id: Option<i64> = socket.extensions.get::<i64>();
+    let user_id = socket.extensions.get::<SocketUserId>().map(|u| u.0);
     let user_id = match user_id {
         Some(id) => id,
         None => return error_response("Not logged in"),
@@ -312,8 +322,8 @@ pub async fn send_info(state: &Arc<AppState>, socket: &SocketRef, hide_version: 
 
 /// Send the stack list to a single socket
 pub async fn send_stack_list_to_socket(state: &Arc<AppState>, socket: &SocketRef) {
-    let endpoint = socket.extensions.get::<String>()
-        .map(|s| s.clone())
+    let endpoint = socket.extensions.get::<SocketEndpoint>()
+        .map(|e| e.0.clone())
         .unwrap_or_default();
 
     let stack_cache = state.stack_cache.read().await;
@@ -357,5 +367,5 @@ pub async fn send_agent_list(_state: &Arc<AppState>, socket: &SocketRef) {
 
 /// Check if a socket is logged in
 pub fn check_login(socket: &SocketRef) -> Option<i64> {
-    socket.extensions.get::<i64>()
+    socket.extensions.get::<SocketUserId>().map(|u| u.0)
 }
