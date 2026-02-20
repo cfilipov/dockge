@@ -45,6 +45,16 @@ func (e *Exec) Down(ctx context.Context, stackName string, w io.Writer) error {
     return e.run(ctx, stackName, w, "down")
 }
 
+// DownRemoveOrphans runs `docker compose down --remove-orphans`.
+func (e *Exec) DownRemoveOrphans(ctx context.Context, stackName string, w io.Writer) error {
+    return e.run(ctx, stackName, w, "down", "--remove-orphans")
+}
+
+// DownVolumes runs `docker compose down -v --remove-orphans` (removes volumes too).
+func (e *Exec) DownVolumes(ctx context.Context, stackName string, w io.Writer) error {
+    return e.run(ctx, stackName, w, "down", "-v", "--remove-orphans")
+}
+
 // Restart runs `docker compose restart` for the given stack.
 func (e *Exec) Restart(ctx context.Context, stackName string, w io.Writer) error {
     return e.run(ctx, stackName, w, "restart")

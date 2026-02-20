@@ -312,7 +312,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     // Spawn compose up in background, stream output to terminal
-    go app.runComposeAction(stackName, "up", "up", "-d")
+    go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
 }
 
 func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -332,7 +332,7 @@ func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(stackName, "up", "up", "-d")
+    go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
 }
 
 func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -412,7 +412,11 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeActions(stackName, "update", [][]string{{"pull"}, {"up", "-d"}})
+    go app.runDockerCommands(stackName, "update", [][]string{
+        {"compose", "pull"},
+        {"compose", "up", "-d", "--remove-orphans"},
+        {"image", "prune", "--all", "--force"},
+    })
 }
 
 func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -442,8 +446,8 @@ func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
         ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
         defer cancel()
 
-        // Down first
-        app.Compose.Down(ctx, stackName, &discardWriter{})
+        // Down first (with --remove-orphans, matching Node.js)
+        app.Compose.DownRemoveOrphans(ctx, stackName, &discardWriter{})
 
         // Delete files if requested
         if opts.DeleteStackFiles {
@@ -479,7 +483,7 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
         ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
         defer cancel()
 
-        app.Compose.Down(ctx, stackName, &discardWriter{})
+        app.Compose.DownVolumes(ctx, stackName, &discardWriter{})
 
         dir := filepath.Join(app.StacksDir, stackName)
         if err := os.RemoveAll(dir); err != nil {
@@ -571,9 +575,10 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
     app.TriggerStackListRefresh()
 }
 
-// runComposeActions runs multiple compose commands sequentially on the same PTY
-// terminal. Used for multi-step operations like "update" (pull + up).
-func (app *App) runComposeActions(stackName, action string, argSets [][]string) {
+// runDockerCommands runs multiple docker commands sequentially on the same PTY
+// terminal. Each argSet is passed directly to `docker` (e.g., {"compose", "pull"}
+// or {"image", "prune", "--all", "--force"}).
+func (app *App) runDockerCommands(stackName, action string, argSets [][]string) {
     termName := "compose--" + stackName
     term := app.Terms.Recreate(termName, terminal.TypePTY)
 
@@ -582,12 +587,11 @@ func (app *App) runComposeActions(stackName, action string, argSets [][]string) 
 
     dir := filepath.Join(app.StacksDir, stackName)
 
-    for _, composeArgs := range argSets {
-        cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(composeArgs, " "))
+    for _, dockerArgs := range argSets {
+        cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(dockerArgs, " "))
         term.Write([]byte(cmdDisplay))
 
-        args := append([]string{"compose"}, composeArgs...)
-        cmd := exec.CommandContext(ctx, "docker", args...)
+        cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
         cmd.Dir = dir
 
         if err := term.RunPTY(cmd); err != nil {
