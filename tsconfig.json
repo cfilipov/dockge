@@ -7,7 +7,7 @@
         "skipLibCheck": true
     },
     "include": [
-        "backend/**/*",
-        "common/**/*"
+        "common/**/*",
+        "frontend/**/*"
     ]
 }
