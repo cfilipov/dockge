@@ -44,22 +44,16 @@ This fork preserves the **cmcooper base UI** rather than adopting hamphh's visua
 - Button tooltips and notification icons in the stack list
 - Dockge-specific compose labels (`dockge.imageupdates.check`, etc.)
 
-### Experimental Rust backend
+### Go backend
 
-This fork includes an **optional Rust backend** that can replace the Node.js backend entirely. It implements the same Socket.IO protocol so the Vue.js frontend works unchanged with either backend.
+This fork has rewritten the Node.js backend entirely with a Go implementation. 
 
-**Why Rust?**
+**Why Go?**
 
-| | Node.js backend | Rust backend |
+| | Node.js backend | Go backend |
 |---|---|---|
-| Binary / install size | ~250MB (`node_modules`) | **11MB** (single static binary) |
-| Memory at idle | ~80–120MB RSS | **~5MB** RSS |
-| Runtime dependencies | Node.js 22+, pnpm, native modules | **None** (statically linked) |
-| Startup time | ~1.5s | **~50ms** |
-
-The Rust backend is a drop-in replacement: same SQLite database, same `/opt/stacks` directory, same Socket.IO events. It uses real PTY terminals (via `portable-pty`) for all compose actions, interactive exec, and log streaming — matching the Node.js backend's `node-pty` behavior.
-
-> **Status:** Experimental. The Rust backend covers all core functionality (auth, stack CRUD, compose lifecycle, terminals, image update tracking) but agent-to-agent communication is stubbed. See [CONTRIBUTING.md](CONTRIBUTING.md) for development instructions.
+| Docker image size | ~500MB | **16.5MB** |
+| Memory (docker container) | ~135MB-250MB | ~25MB-40MB |
 
 ---
 
