@@ -609,6 +609,12 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
         } else {
             slog.Debug("image prune after update", "stack", stackName, "result", msg)
         }
+        // Clear stale "update available" cache and re-check with new images
+        if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
+            slog.Warn("clear image update cache", "stack", stackName, "err", err)
+        }
+        app.checkImageUpdatesForStack(stackName)
+        app.broadcastStackList()
     }()
 }
 

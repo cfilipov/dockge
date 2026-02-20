@@ -131,6 +131,11 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
         if err := app.Compose.ServicePullAndUp(ctx, stackName, serviceName, &discardWriter{}); err != nil {
             slog.Error("update service", "err", err, "stack", stackName, "service", serviceName)
         }
+        // Clear stale "update available" cache and re-check with new images
+        if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
+            slog.Warn("clear image update cache", "stack", stackName, "err", err)
+        }
+        app.checkImageUpdatesForStack(stackName)
         app.TriggerStackListRefresh(stackName)
     }()
 }
