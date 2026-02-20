@@ -47,22 +47,22 @@
                         <button class="btn btn-normal" :title="$t('tooltipServiceUpdateIgnore')" @click="skipCurrentUpdate">
                             <font-awesome-icon icon="ban" class="me-1" />{{ $t("ignoreUpdate") }}
                         </button>
-                        <button class="btn btn-primary" :title="$t('tooltipDoServiceUpdate')" @click="updateService">
+                        <button class="btn btn-primary" :title="$t('tooltipDoServiceUpdate', [name])" @click="updateService">
                             <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
                         </button>
                     </template>
                 </BModal>
 
                 <div v-if="!isEditMode" class="btn-group service-actions me-2" role="group">
-                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog')" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
+                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
                     <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceInspect')" :to="inspectRouteLink" :disabled="processing"><font-awesome-icon icon="info-circle" /></router-link>
-                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal')" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
+                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
                 </div>
 
                 <div v-if="!isEditMode" class="btn-group service-actions" role="group">
-                    <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart')" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
-                    <button v-if="started" type="button" class="btn btn-sm btn-danger" :title="$t('tooltipServiceStop')" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
-                    <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart')" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
+                    <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
+                    <button v-if="started" type="button" class="btn btn-sm btn-danger" :title="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
+                    <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
                 </div>
             </div>
         </div>
