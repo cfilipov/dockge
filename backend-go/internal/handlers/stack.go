@@ -74,6 +74,35 @@ func (app *App) refreshStackCache() {
     stackCacheMu.Lock()
     stackCache = stacks
     stackCacheMu.Unlock()
+
+    // Compute recreateNecessary for all running stacks so the rocket icon
+    // appears immediately in the stack list (not only after viewing each stack).
+    app.refreshRecreateCache(ctx, stacks)
+}
+
+// refreshRecreateCache runs `docker compose ps` for each running stack, compares
+// running images with compose.yaml images, and populates the recreate cache.
+func (app *App) refreshRecreateCache(ctx context.Context, stacks map[string]*stack.Stack) {
+    for name, s := range stacks {
+        if !s.IsStarted() {
+            continue
+        }
+        psJSON, err := app.Compose.Ps(ctx, name)
+        if err != nil {
+            continue
+        }
+        _, runningImages := parseComposePsWithImages(psJSON)
+        composeImages := parseComposeImages(app.StacksDir, name)
+        anyRecreate := false
+        for svc, runningImage := range runningImages {
+            composeImage, ok := composeImages[svc]
+            if ok && runningImage != "" && composeImage != "" && runningImage != composeImage {
+                anyRecreate = true
+                break
+            }
+        }
+        app.SetRecreateNecessary(name, anyRecreate)
+    }
 }
 
 func (app *App) broadcastStackList() {
@@ -515,7 +544,7 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
 // terminal's fan-out mechanism (registered through terminalJoin).
 func (app *App) runComposeAction(stackName, action string, fn func(ctx context.Context, w io.Writer) error) {
     termName := "compose--" + stackName
-    term := app.Terms.Create(termName, 0) // TypePipe
+    term := app.Terms.Recreate(termName, 0) // Fresh buffer, keep existing writers
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()

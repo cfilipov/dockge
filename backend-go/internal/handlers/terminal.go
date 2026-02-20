@@ -45,14 +45,23 @@ func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    term := app.Terms.Get(termName)
+    var term *terminal.Terminal
 
     // Lazy-start combined log terminals
-    if term == nil && strings.HasPrefix(termName, "combined-") {
-        stackName := extractCombinedStackName(termName)
-        if stackName != "" {
-            term = app.startCombinedLogs(termName, stackName)
+    if strings.HasPrefix(termName, "combined-") {
+        term = app.Terms.Get(termName)
+        if term == nil {
+            stackName := extractCombinedStackName(termName)
+            if stackName != "" {
+                term = app.startCombinedLogs(termName, stackName)
+            }
         }
+    } else {
+        // For compose action terminals (compose--*) and others, create the
+        // terminal on join if it doesn't exist yet. This ensures the writer
+        // is registered before the compose action's Recreate() call, which
+        // will carry over the writer to the fresh terminal.
+        term = app.Terms.GetOrCreate(termName)
     }
 
     buf := ""

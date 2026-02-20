@@ -34,7 +34,7 @@ COPY backend-go/ ./backend-go/
 RUN VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"\([0-9][^"]*\)".*/\1/') && \
     cd backend-go && CGO_ENABLED=0 go build \
     -ldflags="-s -w -X main.version=${VERSION}" \
-    -o /dockge-backend .
+    -o /dockge .
 
 ############################################
 # Final image
@@ -47,10 +47,10 @@ RUN apk add --no-cache \
     ca-certificates
 
 WORKDIR /app
-COPY --from=build_backend /dockge-backend /app/dockge-backend
+COPY --from=build_backend /dockge /app/dockge
 RUN mkdir ./data
 
 VOLUME /app/data
 EXPOSE 5001
 HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 CMD wget -qO /dev/null http://127.0.0.1:5001/ || exit 1
-CMD ["/app/dockge-backend"]
+CMD ["/app/dockge"]

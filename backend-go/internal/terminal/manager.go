@@ -85,6 +85,31 @@ func (m *Manager) Create(name string, typ TerminalType) *Terminal {
     return t
 }
 
+// Recreate creates a fresh terminal with a clean buffer, but carries over any
+// registered writers from a previous terminal with the same name. This is used
+// for compose action terminals where the frontend joins the terminal BEFORE the
+// action creates it — without this, the new terminal would have zero subscribers.
+func (m *Manager) Recreate(name string, typ TerminalType) *Terminal {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    var writers map[string]WriteFunc
+    if old, ok := m.terminals[name]; ok {
+        old.mu.Lock()
+        writers = old.writers
+        old.writers = make(map[string]WriteFunc) // detach from old terminal
+        old.closed = true
+        old.mu.Unlock()
+    }
+
+    t := newTerminal(name, typ)
+    if writers != nil {
+        t.writers = writers
+    }
+    m.terminals[name] = t
+    return t
+}
+
 // Remove removes and closes a terminal.
 func (m *Manager) Remove(name string) {
     m.mu.Lock()
