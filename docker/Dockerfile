@@ -28,9 +28,13 @@ RUN cd backend-go && go mod download
 # Copy frontend build output for embedding
 COPY --from=build_frontend /app/frontend-dist ./backend-go/frontend-dist/
 
-# Copy Go source
+# Copy package.json for version extraction, then Go source
+COPY package.json ./
 COPY backend-go/ ./backend-go/
-RUN cd backend-go && CGO_ENABLED=0 go build -ldflags="-s -w" -o /dockge-backend .
+RUN VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"\([0-9][^"]*\)".*/\1/') && \
+    cd backend-go && CGO_ENABLED=0 go build \
+    -ldflags="-s -w -X main.version=${VERSION}" \
+    -o /dockge-backend .
 
 ############################################
 # Final image

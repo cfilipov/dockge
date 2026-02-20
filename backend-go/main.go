@@ -24,6 +24,9 @@ import (
     "github.com/cfilipov/dockge/backend-go/internal/ws"
 )
 
+// version is set at build time via -ldflags="-X main.version=..."
+var version = "1.5.0"
+
 func main() {
     slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
         Level: slog.LevelDebug,
@@ -106,7 +109,7 @@ func main() {
         Terms:     terms,
         JWTSecret: jwtSecret,
         NeedSetup: userCount == 0,
-        Version:   "1.0.0",
+        Version:   version,
         StacksDir: cfg.StacksDir,
     }
     handlers.RegisterAuthHandlers(app)
