@@ -13,8 +13,8 @@ export default defineConfig({
         port: 5000,
         allowedHosts: true,
         proxy: {
-            "/socket.io/": {
-                target: "http://localhost:5002",
+            "/ws": {
+                target: "http://localhost:5001",
                 ws: true,
             },
         },
@@ -25,6 +25,7 @@ export default defineConfig({
     root: "./frontend",
     build: {
         outDir: "../frontend-dist",
+        emptyOutDir: true,
     },
     plugins: [
         vue(),

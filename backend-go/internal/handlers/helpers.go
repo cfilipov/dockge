@@ -1,0 +1,81 @@
+package handlers
+
+import (
+    "encoding/json"
+    "log/slog"
+
+    "github.com/cfilipov/dockge/backend-go/internal/compose"
+    "github.com/cfilipov/dockge/backend-go/internal/models"
+    "github.com/cfilipov/dockge/backend-go/internal/terminal"
+    "github.com/cfilipov/dockge/backend-go/internal/ws"
+)
+
+// App holds shared dependencies for all handlers.
+type App struct {
+    Users    *models.UserStore
+    Settings *models.SettingStore
+    Agents   *models.AgentStore
+    WS       *ws.Server
+    Compose  *compose.Exec
+    Terms    *terminal.Manager
+
+    JWTSecret string
+    NeedSetup bool
+    Version   string
+    StacksDir string
+}
+
+// checkLogin verifies that the connection is authenticated.
+// Returns the user ID or sends an error ack and returns 0.
+func checkLogin(c *ws.Conn, msg *ws.ClientMessage) int {
+    uid := c.UserID()
+    if uid == 0 && msg.ID != nil {
+        c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Not logged in"})
+    }
+    return uid
+}
+
+// parseArgs unmarshals the Args JSON array into a slice of json.RawMessage.
+func parseArgs(msg *ws.ClientMessage) []json.RawMessage {
+    if msg == nil || len(msg.Args) == 0 {
+        return nil
+    }
+    var args []json.RawMessage
+    if err := json.Unmarshal(msg.Args, &args); err != nil {
+        slog.Warn("parse args", "err", err)
+        return nil
+    }
+    return args
+}
+
+// argString extracts a string from args at the given index.
+func argString(args []json.RawMessage, index int) string {
+    if index >= len(args) {
+        return ""
+    }
+    var s string
+    if err := json.Unmarshal(args[index], &s); err != nil {
+        return ""
+    }
+    return s
+}
+
+// argObject extracts a JSON object from args at the given index into dst.
+func argObject(args []json.RawMessage, index int, dst interface{}) bool {
+    if index >= len(args) {
+        return false
+    }
+    return json.Unmarshal(args[index], dst) == nil
+}
+
+// argBool extracts a bool from args at the given index.
+func argBool(args []json.RawMessage, index int) bool {
+    if index >= len(args) {
+        return false
+    }
+    var b bool
+    if err := json.Unmarshal(args[index], &b); err != nil {
+        return false
+    }
+    return b
+}

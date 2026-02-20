@@ -1,13 +1,145 @@
-import { io } from "socket.io-client";
-import { Socket } from "socket.io-client";
 import { defineComponent } from "vue";
 import jwtDecode from "jwt-decode";
 import { Terminal } from "@xterm/xterm";
 import { AgentSocket } from "../../../common/agent-socket";
 
-let socket : Socket;
+// --- Plain WebSocket wrapper (replaces socket.io-client) ---
 
-let terminalMap : Map<string, Terminal> = new Map();
+class DockgeWebSocket {
+    private ws: WebSocket | null = null;
+    private nextId = 1;
+    private callbacks = new Map<number, Function>();
+    private listeners = new Map<string, Function[]>();
+    private url = "";
+    private reconnectDelay = 1000;
+    private maxReconnectDelay = 30000;
+    private shouldReconnect = true;
+
+    connect(url: string) {
+        this.url = url;
+        this.shouldReconnect = true;
+        this.doConnect();
+    }
+
+    private doConnect() {
+        try {
+            this.ws = new WebSocket(this.url);
+        } catch {
+            this.scheduleReconnect();
+            return;
+        }
+
+        this.ws.onopen = () => {
+            this.reconnectDelay = 1000;
+            this.fire("connect");
+        };
+
+        this.ws.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                this.handleMessage(msg);
+            } catch (err) {
+                console.error("WS message parse error:", err);
+            }
+        };
+
+        this.ws.onclose = () => {
+            this.fire("disconnect");
+            this.scheduleReconnect();
+        };
+
+        this.ws.onerror = () => {
+            this.fire("connect_error", new Error("WebSocket error"));
+        };
+    }
+
+    emit(event: string, ...args: unknown[]) {
+        // Last arg may be a callback (ack pattern)
+        const last = args[args.length - 1];
+        const hasCallback = typeof last === "function";
+        const callback = hasCallback ? (args.pop() as Function) : null;
+
+        const msg: Record<string, unknown> = {
+            event,
+            args,
+        };
+
+        if (callback) {
+            const id = this.nextId++;
+            msg.id = id;
+            this.callbacks.set(id, callback);
+        }
+
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(msg));
+        }
+    }
+
+    on(event: string, handler: Function) {
+        const list = this.listeners.get(event) || [];
+        list.push(handler);
+        this.listeners.set(event, list);
+    }
+
+    get connected(): boolean {
+        return this.ws?.readyState === WebSocket.OPEN;
+    }
+
+    disconnect() {
+        this.shouldReconnect = false;
+        this.ws?.close();
+    }
+
+    private handleMessage(msg: Record<string, unknown>) {
+        // Ack response: has "id" + "data"
+        if ("id" in msg && this.callbacks.has(msg.id as number)) {
+            const cb = this.callbacks.get(msg.id as number)!;
+            this.callbacks.delete(msg.id as number);
+            cb(msg.data);
+            return;
+        }
+
+        // Server push: has "event" + optional "args"
+        if ("event" in msg) {
+            const event = msg.event as string;
+            const args = (msg.args as unknown[]) || [];
+            // Unwrap single-element arrays for consistency with Socket.IO behavior
+            if (Array.isArray(args)) {
+                this.fire(event, ...args);
+            } else {
+                this.fire(event, args);
+            }
+        }
+    }
+
+    private fire(event: string, ...args: unknown[]) {
+        const handlers = this.listeners.get(event);
+        if (handlers) {
+            for (const handler of handlers) {
+                try {
+                    handler(...args);
+                } catch (err) {
+                    console.error(`WS event handler error (${event}):`, err);
+                }
+            }
+        }
+    }
+
+    private scheduleReconnect() {
+        if (!this.shouldReconnect) {
+            return;
+        }
+        setTimeout(() => {
+            this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+            this.doConnect();
+        }, this.reconnectDelay);
+    }
+}
+
+// --- Module-level state ---
+
+let socket: DockgeWebSocket;
+let terminalMap: Map<string, Terminal> = new Map();
 
 export default defineComponent({
     data() {
@@ -155,13 +287,16 @@ export default defineComponent({
             }
 
             this.socketIO.initedSocketIO = true;
-            const url = location.protocol + "//" + location.host;
+
+            // Build WebSocket URL
+            const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = wsProtocol + "//" + location.host + "/ws";
 
             let connectingMsgTimeout = setTimeout(() => {
                 this.socketIO.connecting = true;
             }, 1500);
 
-            socket = io(url);
+            socket = new DockgeWebSocket();
 
             // Handling events from agents
             let agentSocket = new AgentSocket();
@@ -207,7 +342,7 @@ export default defineComponent({
             });
 
             socket.on("connect_error", (err) => {
-                console.error(`Failed to connect to the backend. Socket.io connect_error: ${err.message}`);
+                console.error(`Failed to connect to the backend. WebSocket connect_error: ${err.message}`);
                 this.socketIO.connectionErrorMsg = `${this.$t("Cannot connect to the socket server.")} [${err}] ${this.$t("reconnecting...")}`;
                 this.socketIO.showReverseProxyGuide = true;
                 this.socketIO.connected = false;
@@ -280,12 +415,17 @@ export default defineComponent({
             socket.on("agentList", (res) => {
                 if (res.ok) {
                     this.agentList = res.agentList;
+                } else if (res) {
+                    // Go backend sends agentList directly (not wrapped in {ok, agentList})
+                    this.agentList = res;
                 }
             });
 
             socket.on("refresh", () => {
                 location.reload();
             });
+
+            socket.connect(wsUrl);
         },
 
         /**
@@ -296,7 +436,7 @@ export default defineComponent({
             return (this.remember) ? localStorage : sessionStorage;
         },
 
-        getSocket() : Socket {
+        getSocket() : DockgeWebSocket {
             return socket;
         },
 
@@ -322,9 +462,7 @@ export default defineComponent({
          * @param {loginCB} callback Callback to call with result
          */
         getTurnstileSiteKey(callback) {
-            this.getSocket().emit("getTurnstileSiteKey", (res) => {
-                callback(res);
-            });
+            this.getSocket().emit("getTurnstileSiteKey", callback);
         },
 
         /**
