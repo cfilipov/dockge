@@ -5,6 +5,7 @@ import (
     "log/slog"
     "time"
 
+    "github.com/cfilipov/dockge/backend-go/internal/docker"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
 )
 
@@ -132,11 +133,55 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
     if checkLogin(c, msg) == 0 {
         return
     }
-    // TODO: Phase 5 — check image updates via registry
+
+    args := parseArgs(msg)
+    stackName := argString(args, 0)
+    if stackName == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+        }
+        return
+    }
+
+    // Run the check in the background so we don't block the socket
+    go func() {
+        ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+        defer cancel()
+
+        // Get service→image from compose.yaml
+        images := parseComposeImages(app.StacksDir, stackName)
+        if len(images) == 0 {
+            slog.Warn("checkImageUpdates: no images found", "stack", stackName)
+            return
+        }
+
+        anyUpdate := false
+        for svc, imageRef := range images {
+            localDigest := docker.ImageDigest(ctx, imageRef)
+            remoteDigest := docker.ManifestDigest(ctx, imageRef)
+
+            hasUpdate := false
+            if localDigest != "" && remoteDigest != "" && localDigest != remoteDigest {
+                hasUpdate = true
+                anyUpdate = true
+            }
+
+            if err := app.ImageUpdates.Upsert(stackName, svc, imageRef, localDigest, remoteDigest, hasUpdate); err != nil {
+                slog.Error("checkImageUpdates upsert", "err", err, "stack", stackName, "svc", svc)
+            }
+        }
+
+        slog.Info("image update check complete", "stack", stackName, "anyUpdate", anyUpdate)
+
+        // Refresh the stack list so update icons appear/disappear
+        app.TriggerStackListRefresh()
+    }()
+
+    // Ack immediately — the check runs asynchronously
     if msg.ID != nil {
         c.SendAck(*msg.ID, map[string]interface{}{
             "ok":      true,
-            "updated": false,
+            "updated": true,
         })
     }
 }

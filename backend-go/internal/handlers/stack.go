@@ -293,6 +293,17 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
+    // Validate compose.yaml before deploying
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    if _, err := app.Compose.Config(ctx, stackName); err != nil {
+        slog.Warn("deploy validation failed", "stack", stackName, "err", err)
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+        }
+        return
+    }
+
     // Return immediately — non-blocking
     if msg.ID != nil {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})

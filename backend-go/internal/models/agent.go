@@ -50,7 +50,10 @@ func (s *AgentStore) Add(url, username, password, name string) (*Agent, error) {
     if err != nil {
         return nil, fmt.Errorf("add agent: %w", err)
     }
-    id, _ := res.LastInsertId()
+    id, err := res.LastInsertId()
+    if err != nil {
+        return nil, fmt.Errorf("get agent id: %w", err)
+    }
     return &Agent{
         ID:       int(id),
         URL:      url,

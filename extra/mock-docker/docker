@@ -422,10 +422,12 @@ cmd_image_inspect() {
     local image_ref="${1:-unknown}"
     # Strip tag to create a stable mock digest
     local repo="${image_ref%%:*}"
-    # Generate a deterministic mock digest based on the image name
+    local tag="${image_ref#*:}"
+    [[ "$tag" == "$image_ref" ]] && tag="latest"
+    # Generate a deterministic mock digest based on repo+tag (local digest)
     local hash
-    hash=$(echo -n "$repo" | md5sum | awk '{print $1}')
-    local mock_digest="sha256:mock${hash}${hash}"
+    hash=$(echo -n "${repo}:${tag}" | md5sum | awk '{print $1}')
+    local mock_digest="sha256:${hash}${hash}"
     cat <<EOJSON
 [{
     "Id": "sha256:mock-image-id-${repo}",
@@ -436,6 +438,35 @@ cmd_image_inspect() {
     "Os": "linux",
     "Architecture": "amd64"
 }]
+EOJSON
+}
+
+cmd_manifest_inspect() {
+    local image_ref="${1:-unknown}"
+    local repo="${image_ref%%:*}"
+    local tag="${image_ref#*:}"
+    [[ "$tag" == "$image_ref" ]] && tag="latest"
+    # Remote digest: for images with "updates", return a DIFFERENT digest than local.
+    # Images that have updates: nginx, wordpress, postgres (matching seeded test data).
+    local hash
+    if [[ "$repo" == "nginx" || "$repo" == "wordpress" || "$repo" == "postgres" ]]; then
+        # Remote is "newer" — use repo+tag+"remote" to get a different hash
+        hash=$(echo -n "${repo}:${tag}:remote-newer" | md5sum | awk '{print $1}')
+    else
+        # No update — same hash formula as local
+        hash=$(echo -n "${repo}:${tag}" | md5sum | awk '{print $1}')
+    fi
+    local mock_digest="sha256:${hash}${hash}"
+    cat <<EOJSON
+{
+    "schemaVersion": 2,
+    "config": {
+        "mediaType": "application/vnd.docker.container.image.v1+json",
+        "digest": "$mock_digest",
+        "size": 7023
+    },
+    "layers": []
+}
 EOJSON
 }
 
@@ -551,6 +582,9 @@ elif [[ "${1:-}" == "image" && "${2:-}" == "inspect" ]]; then
         shift 2
     done
     cmd_image_inspect "$@"
+elif [[ "${1:-}" == "manifest" && "${2:-}" == "inspect" ]]; then
+    shift 2
+    cmd_manifest_inspect "$@"
 elif [[ "${1:-}" == "image" && "${2:-}" == "prune" ]]; then
     cmd_image_prune
 elif [[ "${1:-}" == "version" ]]; then

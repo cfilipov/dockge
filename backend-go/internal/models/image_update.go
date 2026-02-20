@@ -52,6 +52,28 @@ func (s *ImageUpdateStore) StackHasUpdates() (map[string]bool, error) {
     return result, nil
 }
 
+// Upsert inserts or updates a single cache entry.
+func (s *ImageUpdateStore) Upsert(stackName, serviceName, imageRef, localDigest, remoteDigest string, hasUpdate bool) error {
+    _, err := s.db.Exec(`
+        INSERT INTO image_update_cache
+            (stack_name, service_name, image_reference, local_digest, remote_digest, has_update, last_checked)
+        VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'))
+        ON CONFLICT(stack_name, service_name) DO UPDATE SET
+            image_reference = excluded.image_reference,
+            local_digest    = excluded.local_digest,
+            remote_digest   = excluded.remote_digest,
+            has_update      = excluded.has_update,
+            last_checked    = excluded.last_checked
+    `, stackName, serviceName, imageRef, localDigest, remoteDigest, hasUpdate)
+    return err
+}
+
+// DeleteForStack removes all cache entries for a stack.
+func (s *ImageUpdateStore) DeleteForStack(stackName string) error {
+    _, err := s.db.Exec("DELETE FROM image_update_cache WHERE stack_name = ?", stackName)
+    return err
+}
+
 // ServiceUpdatesForStack returns a map of service name → has_update for a given stack.
 func (s *ImageUpdateStore) ServiceUpdatesForStack(stackName string) (map[string]bool, error) {
     rows, err := s.db.Query(

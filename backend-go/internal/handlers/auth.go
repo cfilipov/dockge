@@ -236,8 +236,22 @@ func (app *App) handleChangePassword(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    // TODO: verify current password, then change
-    // For now, just change it
+    // Verify current password
+    user, err := app.Users.FindByID(uid)
+    if err != nil || user == nil {
+        slog.Error("change password lookup", "err", err, "uid", uid)
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
+        }
+        return
+    }
+    if !models.VerifyPassword(data.CurrentPassword, user.Password) {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "authIncorrectCreds", MsgI18n: true})
+        }
+        return
+    }
+
     if len(data.NewPassword) < 6 {
         if msg.ID != nil {
             c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Password too weak"})

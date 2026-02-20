@@ -58,6 +58,21 @@ func (s *UserStore) FindByUsername(username string) (*User, error) {
     return u, nil
 }
 
+// FindByID returns the user or nil if not found.
+func (s *UserStore) FindByID(id int) (*User, error) {
+    u := &User{}
+    err := s.db.QueryRow(
+        "SELECT id, username, password, active FROM user WHERE id = ?", id,
+    ).Scan(&u.ID, &u.Username, &u.Password, &u.Active)
+    if err == sql.ErrNoRows {
+        return nil, nil
+    }
+    if err != nil {
+        return nil, fmt.Errorf("find user by id: %w", err)
+    }
+    return u, nil
+}
+
 // Count returns the number of users in the database.
 func (s *UserStore) Count() (int, error) {
     var count int
@@ -80,7 +95,10 @@ func (s *UserStore) Create(username, password string) (*User, error) {
         return nil, fmt.Errorf("insert user: %w", err)
     }
 
-    id, _ := res.LastInsertId()
+    id, err := res.LastInsertId()
+    if err != nil {
+        return nil, fmt.Errorf("get user id: %w", err)
+    }
     return &User{
         ID:       int(id),
         Username: username,
