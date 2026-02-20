@@ -99,7 +99,13 @@ func (m *Manager) Recreate(name string, typ TerminalType) *Terminal {
         writers = old.writers
         old.writers = make(map[string]WriteFunc) // detach from old terminal
         old.closed = true
+        cancelFn := old.cancel
+        old.cancel = nil
         old.mu.Unlock()
+        // Cancel any running stream (e.g., log tail) on the old terminal
+        if cancelFn != nil {
+            cancelFn()
+        }
     }
 
     t := newTerminal(name, typ)

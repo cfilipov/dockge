@@ -313,43 +313,44 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
     // (matches frontend getContainerLogName convention)
     termName := "container-log--" + serviceName
 
-    term := app.Terms.Get(termName)
-    if term == nil {
-        term = app.Terms.Create(termName, terminal.TypePipe)
+    // Always recreate: the frontend's Terminal component mounts before the
+    // parent ContainerLog.vue, so terminalJoin has already created an empty
+    // terminal. Recreate carries over the registered writer while starting a
+    // fresh log stream.
+    term := app.Terms.Recreate(termName, terminal.TypePipe)
 
-        ctx, cancel := context.WithCancel(context.Background())
-        term.SetCancel(cancel)
+    ctx, cancel := context.WithCancel(context.Background())
+    term.SetCancel(cancel)
 
-        // Find the container ID for this service in this stack
-        go func() {
-            containerID, err := app.findContainerID(ctx, stackName, serviceName)
-            if err != nil {
-                slog.Warn("joinContainerLog: find container", "err", err, "stack", stackName, "service", serviceName)
-                term.Write([]byte("[Error] Could not find container for " + serviceName + "\r\n"))
-                return
+    // Find the container ID for this service in this stack
+    go func() {
+        containerID, err := app.findContainerID(ctx, stackName, serviceName)
+        if err != nil {
+            slog.Warn("joinContainerLog: find container", "err", err, "stack", stackName, "service", serviceName)
+            term.Write([]byte("[Error] Could not find container for " + serviceName + "\r\n"))
+            return
+        }
+
+        stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
+        if err != nil {
+            if ctx.Err() == nil {
+                slog.Warn("container log stream", "err", err, "stack", stackName, "service", serviceName)
+                term.Write([]byte("[Error] " + err.Error() + "\r\n"))
             }
+            return
+        }
+        defer stream.Close()
 
-            stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
-            if err != nil {
-                if ctx.Err() == nil {
-                    slog.Warn("container log stream", "err", err, "stack", stackName, "service", serviceName)
-                    term.Write([]byte("[Error] " + err.Error() + "\r\n"))
-                }
-                return
-            }
-            defer stream.Close()
+        // Pipe log stream into the terminal
+        scanner := bufio.NewScanner(stream)
+        scanner.Buffer(make([]byte, 64*1024), 64*1024)
+        for scanner.Scan() {
+            line := scanner.Text() + "\n"
+            term.Write([]byte(line))
+        }
+    }()
 
-            // Pipe log stream into the terminal
-            scanner := bufio.NewScanner(stream)
-            scanner.Buffer(make([]byte, 64*1024), 64*1024)
-            for scanner.Scan() {
-                line := scanner.Text() + "\n"
-                term.Write([]byte(line))
-            }
-        }()
-    }
-
-    // Register client for live updates
+    // Register client for live updates (may already be carried over from Recreate)
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
     if msg.ID != nil {
