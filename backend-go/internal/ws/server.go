@@ -19,7 +19,8 @@ type Server struct {
     mu    sync.RWMutex
     conns map[*Conn]struct{}
 
-    handlers map[string]HandlerFunc
+    handlers     map[string]HandlerFunc
+    disconnectFn func(c *Conn) // called when a connection is removed
 }
 
 func NewServer() *Server {
@@ -115,7 +116,17 @@ func (s *Server) remove(c *Conn) {
     s.mu.Lock()
     delete(s.conns, c)
     s.mu.Unlock()
+
+    if s.disconnectFn != nil {
+        s.disconnectFn(c)
+    }
+
     slog.Debug("ws disconnected", "remaining", s.ConnectionCount())
+}
+
+// OnDisconnect registers a callback that fires when a connection is removed.
+func (s *Server) OnDisconnect(fn func(c *Conn)) {
+    s.disconnectFn = fn
 }
 
 func (s *Server) dispatch(c *Conn, msg *ClientMessage) {

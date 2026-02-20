@@ -117,6 +117,11 @@ func main() {
     handlers.RegisterDockerHandlers(app)
     handlers.RegisterServiceHandlers(app)
 
+    // Clean up terminal writers when a connection disconnects
+    wss.OnDisconnect(func(c *ws.Conn) {
+        terms.RemoveWriterFromAll(c.ID())
+    })
+
     // Start background tasks
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()

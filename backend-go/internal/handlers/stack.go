@@ -3,6 +3,7 @@ package handlers
 import (
     "context"
     "fmt"
+    "io"
     "log/slog"
     "os"
     "path/filepath"
@@ -249,7 +250,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     // Spawn compose up in background, stream output to terminal
-    go app.runComposeAction(c, stackName, "up", func(ctx context.Context, w *termWriter) error {
+    go app.runComposeAction(stackName, "up", func(ctx context.Context, w io.Writer) error {
         return app.Compose.Up(ctx, stackName, w)
     })
 }
@@ -271,7 +272,7 @@ func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(c, stackName, "up", func(ctx context.Context, w *termWriter) error {
+    go app.runComposeAction(stackName, "up", func(ctx context.Context, w io.Writer) error {
         return app.Compose.Up(ctx, stackName, w)
     })
 }
@@ -293,7 +294,7 @@ func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(c, stackName, "stop", func(ctx context.Context, w *termWriter) error {
+    go app.runComposeAction(stackName, "stop", func(ctx context.Context, w io.Writer) error {
         return app.Compose.Stop(ctx, stackName, w)
     })
 }
@@ -315,7 +316,7 @@ func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(c, stackName, "restart", func(ctx context.Context, w *termWriter) error {
+    go app.runComposeAction(stackName, "restart", func(ctx context.Context, w io.Writer) error {
         return app.Compose.Restart(ctx, stackName, w)
     })
 }
@@ -337,7 +338,7 @@ func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(c, stackName, "down", func(ctx context.Context, w *termWriter) error {
+    go app.runComposeAction(stackName, "down", func(ctx context.Context, w io.Writer) error {
         return app.Compose.Down(ctx, stackName, w)
     })
 }
@@ -359,7 +360,7 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(c, stackName, "update", func(ctx context.Context, w *termWriter) error {
+    go app.runComposeAction(stackName, "update", func(ctx context.Context, w io.Writer) error {
         return app.Compose.PullAndUp(ctx, stackName, w)
     })
 }
@@ -442,51 +443,33 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 
 // runComposeAction runs a compose command in the background, streaming output
 // to a terminal that fans out to WebSocket clients.
-func (app *App) runComposeAction(c *ws.Conn, stackName, action string, fn func(ctx context.Context, w *termWriter) error) {
-    termName := stackName + "-" + action
-    term := app.Terms.GetOrCreate(termName)
-
-    // Create a writer that writes to both the terminal buffer and pushes to the client
-    w := &termWriter{
-        conn:     c,
-        termName: termName,
-        term:     term,
-    }
+//
+// Terminal naming follows the frontend convention:
+//   compose-{endpoint}-{stackName} → for local endpoint: compose--{stackName}
+//
+// Output goes to the terminal buffer; connected clients receive it via the
+// terminal's fan-out mechanism (registered through terminalJoin).
+func (app *App) runComposeAction(stackName, action string, fn func(ctx context.Context, w io.Writer) error) {
+    termName := "compose--" + stackName
+    term := app.Terms.Create(termName, 0) // TypePipe
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()
 
     // Write command display
     cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", action)
-    w.Write([]byte(cmdDisplay))
+    term.Write([]byte(cmdDisplay))
 
-    if err := fn(ctx, w); err != nil {
+    if err := fn(ctx, term); err != nil {
         errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-        w.Write([]byte(errMsg))
+        term.Write([]byte(errMsg))
         slog.Error("compose action", "action", action, "stack", stackName, "err", err)
     } else {
-        w.Write([]byte("\r\n[Done]\r\n"))
+        term.Write([]byte("\r\n[Done]\r\n"))
     }
 
     // Refresh stack list after mutation
     app.TriggerStackListRefresh()
-}
-
-// termWriter writes to a terminal buffer and sends output to a WebSocket connection.
-type termWriter struct {
-    conn     *ws.Conn
-    termName string
-    term     interface{ Write([]byte) (int, error) }
-}
-
-func (w *termWriter) Write(p []byte) (int, error) {
-    // Write to terminal buffer
-    w.term.Write(p)
-
-    // Push to the client via "agent" > "terminalWrite" event
-    w.conn.SendEvent("agent", "terminalWrite", w.termName, string(p))
-
-    return len(p), nil
 }
 
 // discardWriter silently discards all output.

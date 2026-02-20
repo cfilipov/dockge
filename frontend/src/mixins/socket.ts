@@ -95,7 +95,11 @@ class DockgeWebSocket {
         if ("id" in msg && this.callbacks.has(msg.id as number)) {
             const cb = this.callbacks.get(msg.id as number)!;
             this.callbacks.delete(msg.id as number);
-            cb(msg.data);
+            try {
+                cb(msg.data);
+            } catch (err) {
+                console.error("WS ack callback error:", err);
+            }
             return;
         }
 

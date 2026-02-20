@@ -19,10 +19,11 @@ type App struct {
     Compose  *compose.Exec
     Terms    *terminal.Manager
 
-    JWTSecret string
-    NeedSetup bool
-    Version   string
-    StacksDir string
+    JWTSecret        string
+    NeedSetup        bool
+    Version          string
+    StacksDir        string
+    MainTerminalName string // tracked for checkMainTerminal
 }
 
 // checkLogin verifies that the connection is authenticated.
@@ -78,4 +79,16 @@ func argBool(args []json.RawMessage, index int) bool {
         return false
     }
     return b
+}
+
+// argInt extracts an integer from args at the given index.
+func argInt(args []json.RawMessage, index int) int {
+    if index >= len(args) {
+        return 0
+    }
+    var n float64 // JSON numbers decode as float64
+    if err := json.Unmarshal(args[index], &n); err != nil {
+        return 0
+    }
+    return int(n)
 }

@@ -3,20 +3,25 @@ package ws
 import (
     "context"
     "encoding/json"
+    "fmt"
     "log/slog"
     "sync"
+    "sync/atomic"
     "time"
 
     "nhooyr.io/websocket"
 )
 
 const (
-    writeTimeout = 10 * time.Second
+    writeTimeout   = 10 * time.Second
     maxMessageSize = 1 << 20 // 1 MB
 )
 
+var connIDCounter uint64
+
 // Conn wraps a single WebSocket connection.
 type Conn struct {
+    id     string
     ws     *websocket.Conn
     server *Server
     userID int // 0 = unauthenticated
@@ -27,11 +32,18 @@ type Conn struct {
 }
 
 func newConn(ws *websocket.Conn, server *Server) *Conn {
+    id := atomic.AddUint64(&connIDCounter, 1)
     return &Conn{
+        id:      fmt.Sprintf("c%d", id),
         ws:      ws,
         server:  server,
         closeCh: make(chan struct{}),
     }
+}
+
+// ID returns a unique identifier for this connection.
+func (c *Conn) ID() string {
+    return c.id
 }
 
 // SetUser marks this connection as authenticated.

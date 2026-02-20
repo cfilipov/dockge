@@ -2,8 +2,41 @@ package terminal
 
 import (
     "bytes"
+    "os"
+    "os/exec"
     "sync"
+
+    "github.com/creack/pty"
 )
+
+// TerminalType distinguishes the underlying I/O mechanism.
+type TerminalType int
+
+const (
+    TypePipe TerminalType = iota // stdout/stderr pipe (compose commands, logs)
+    TypePTY                      // pseudo-terminal (interactive shells)
+)
+
+// WriteFunc is a callback for streaming terminal output to a WebSocket client.
+type WriteFunc func(data string)
+
+// Terminal represents a streaming I/O channel backed by either a pipe or a PTY.
+type Terminal struct {
+    Name string
+    Type TerminalType
+
+    mu      sync.Mutex
+    buffer  *bytes.Buffer
+    writers map[string]WriteFunc // connID → writer
+    closed  bool
+
+    // Process tracking
+    cmd    *exec.Cmd
+    cancel func() // context cancel or custom cleanup
+
+    // PTY master fd (nil for pipe-based terminals)
+    ptyFile *os.File
+}
 
 // Manager tracks all active terminals.
 type Manager struct {
@@ -24,7 +57,7 @@ func (m *Manager) Get(name string) *Terminal {
     return m.terminals[name]
 }
 
-// GetOrCreate returns an existing terminal or creates a new one.
+// GetOrCreate returns an existing terminal or creates a new pipe-based one.
 func (m *Manager) GetOrCreate(name string) *Terminal {
     m.mu.Lock()
     defer m.mu.Unlock()
@@ -32,11 +65,22 @@ func (m *Manager) GetOrCreate(name string) *Terminal {
     if t, ok := m.terminals[name]; ok {
         return t
     }
-    t := &Terminal{
-        Name:    name,
-        buffer:  &bytes.Buffer{},
-        writers: make(map[string]WriteFunc),
+    t := newTerminal(name, TypePipe)
+    m.terminals[name] = t
+    return t
+}
+
+// Create creates a new terminal, replacing any existing one with the same name.
+// The old terminal is closed asynchronously.
+func (m *Manager) Create(name string, typ TerminalType) *Terminal {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    if old, ok := m.terminals[name]; ok {
+        go old.Close()
     }
+
+    t := newTerminal(name, typ)
     m.terminals[name] = t
     return t
 }
@@ -55,19 +99,27 @@ func (m *Manager) Remove(name string) {
     }
 }
 
-// WriteFunc is a callback for streaming terminal output to a WebSocket client.
-type WriteFunc func(data string)
+// RemoveWriterFromAll removes a writer (by connID) from every terminal.
+// Called when a WebSocket connection disconnects.
+func (m *Manager) RemoveWriterFromAll(id string) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+    for _, t := range m.terminals {
+        t.RemoveWriter(id)
+    }
+}
 
-// Terminal represents a streaming output buffer for a docker compose command.
-type Terminal struct {
-    Name    string
-    buffer  *bytes.Buffer
-    mu      sync.RWMutex
-    writers map[string]WriteFunc // connID -> writer
-    closed  bool
+func newTerminal(name string, typ TerminalType) *Terminal {
+    return &Terminal{
+        Name:    name,
+        Type:    typ,
+        buffer:  &bytes.Buffer{},
+        writers: make(map[string]WriteFunc),
+    }
 }
 
 // Write appends data to the buffer and fans out to all connected writers.
+// Implements io.Writer.
 func (t *Terminal) Write(p []byte) (int, error) {
     t.mu.Lock()
     defer t.mu.Unlock()
@@ -76,10 +128,9 @@ func (t *Terminal) Write(p []byte) (int, error) {
         return 0, nil
     }
 
-    // Buffer last output (cap at 64KB)
+    // Buffer output (cap at 64KB, keep last 32KB on overflow)
     t.buffer.Write(p)
     if t.buffer.Len() > 65536 {
-        // Keep last 32KB
         data := t.buffer.Bytes()
         t.buffer.Reset()
         t.buffer.Write(data[len(data)-32768:])
@@ -96,8 +147,8 @@ func (t *Terminal) Write(p []byte) (int, error) {
 
 // Buffer returns the current terminal buffer content.
 func (t *Terminal) Buffer() string {
-    t.mu.RLock()
-    defer t.mu.RUnlock()
+    t.mu.Lock()
+    defer t.mu.Unlock()
     return t.buffer.String()
 }
 
@@ -105,7 +156,9 @@ func (t *Terminal) Buffer() string {
 func (t *Terminal) AddWriter(id string, fn WriteFunc) {
     t.mu.Lock()
     defer t.mu.Unlock()
-    t.writers[id] = fn
+    if !t.closed {
+        t.writers[id] = fn
+    }
 }
 
 // RemoveWriter unregisters a client.
@@ -115,10 +168,106 @@ func (t *Terminal) RemoveWriter(id string) {
     delete(t.writers, id)
 }
 
-// Close marks the terminal as closed.
+// WriterCount returns the number of registered writers.
+func (t *Terminal) WriterCount() int {
+    t.mu.Lock()
+    defer t.mu.Unlock()
+    return len(t.writers)
+}
+
+// Input writes data to the terminal's stdin (PTY master fd).
+// For pipe-based terminals this is a no-op.
+func (t *Terminal) Input(data string) error {
+    t.mu.Lock()
+    f := t.ptyFile
+    t.mu.Unlock()
+
+    if f != nil {
+        _, err := f.WriteString(data)
+        return err
+    }
+    return nil
+}
+
+// Resize changes the PTY window size.
+// For pipe-based terminals this is a no-op.
+func (t *Terminal) Resize(rows, cols uint16) error {
+    t.mu.Lock()
+    f := t.ptyFile
+    t.mu.Unlock()
+
+    if f != nil {
+        return pty.Setsize(f, &pty.Winsize{Rows: rows, Cols: cols})
+    }
+    return nil
+}
+
+// IsRunning returns true if the terminal has a running process.
+func (t *Terminal) IsRunning() bool {
+    t.mu.Lock()
+    defer t.mu.Unlock()
+    return t.cmd != nil && !t.closed
+}
+
+// StartPTY starts a command with a pseudo-terminal. The PTY output is
+// continuously read and written to the terminal buffer/fan-out.
+func (t *Terminal) StartPTY(cmd *exec.Cmd) error {
+    ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 24, Cols: 80})
+    if err != nil {
+        return err
+    }
+
+    t.mu.Lock()
+    t.cmd = cmd
+    t.ptyFile = ptmx
+    t.mu.Unlock()
+
+    // Reader goroutine: PTY output → terminal buffer/fan-out
+    go func() {
+        buf := make([]byte, 4096)
+        for {
+            n, err := ptmx.Read(buf)
+            if n > 0 {
+                t.Write(buf[:n])
+            }
+            if err != nil {
+                break
+            }
+        }
+        cmd.Wait()
+
+        t.mu.Lock()
+        t.ptyFile = nil
+        t.mu.Unlock()
+    }()
+
+    return nil
+}
+
+// SetCancel stores a cancel function called on Close.
+// Used for pipe-based terminals with long-running processes (e.g., log streaming).
+func (t *Terminal) SetCancel(fn func()) {
+    t.mu.Lock()
+    defer t.mu.Unlock()
+    t.cancel = fn
+}
+
+// Close terminates the terminal process and cleans up.
 func (t *Terminal) Close() {
     t.mu.Lock()
     defer t.mu.Unlock()
+
+    if t.closed {
+        return
+    }
     t.closed = true
+
+    if t.cancel != nil {
+        t.cancel()
+    }
+    if t.ptyFile != nil {
+        t.ptyFile.Close()
+        t.ptyFile = nil
+    }
     t.writers = nil
 }
