@@ -2,11 +2,14 @@ package handlers
 
 import (
     "context"
+    "fmt"
+    "io"
     "log/slog"
     "strings"
     "sync"
     "time"
 
+    "github.com/cfilipov/dockge/backend-go/internal/terminal"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
 )
 
@@ -41,14 +44,7 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
     }
 
-    go func() {
-        ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-        defer cancel()
-        if err := app.Compose.ServiceUp(ctx, stackName, serviceName, &discardWriter{}); err != nil {
-            slog.Error("start service", "err", err, "stack", stackName, "service", serviceName)
-        }
-        app.TriggerStackListRefresh(stackName)
-    }()
+    go app.runServiceAction(stackName, serviceName, "up", app.Compose.ServiceUp)
 }
 
 func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
@@ -69,14 +65,7 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
     }
 
-    go func() {
-        ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-        defer cancel()
-        if err := app.Compose.ServiceStop(ctx, stackName, serviceName, &discardWriter{}); err != nil {
-            slog.Error("stop service", "err", err, "stack", stackName, "service", serviceName)
-        }
-        app.TriggerStackListRefresh(stackName)
-    }()
+    go app.runServiceAction(stackName, serviceName, "stop", app.Compose.ServiceStop)
 }
 
 func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
@@ -97,14 +86,7 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
     }
 
-    go func() {
-        ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-        defer cancel()
-        if err := app.Compose.ServiceRestart(ctx, stackName, serviceName, &discardWriter{}); err != nil {
-            slog.Error("restart service", "err", err, "stack", stackName, "service", serviceName)
-        }
-        app.TriggerStackListRefresh(stackName)
-    }()
+    go app.runServiceAction(stackName, serviceName, "restart", app.Compose.ServiceRestart)
 }
 
 func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
@@ -126,18 +108,41 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     go func() {
-        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-        defer cancel()
-        if err := app.Compose.ServicePullAndUp(ctx, stackName, serviceName, &discardWriter{}); err != nil {
-            slog.Error("update service", "err", err, "stack", stackName, "service", serviceName)
-        }
+        app.runServiceAction(stackName, serviceName, "pull and up", app.Compose.ServicePullAndUp)
         // Clear stale "update available" cache and re-check with new images
         if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
             slog.Warn("clear image update cache", "stack", stackName, "err", err)
         }
         app.checkImageUpdatesForStack(stackName)
-        app.TriggerStackListRefresh(stackName)
     }()
+}
+
+// serviceActionFunc is the signature for per-service compose operations.
+type serviceActionFunc func(ctx context.Context, stackName, serviceName string, w io.Writer) error
+
+// runServiceAction runs a per-service compose command, streaming output to the
+// stack's compose terminal (same terminal used by stack-level actions).
+func (app *App) runServiceAction(stackName, serviceName, action string, fn serviceActionFunc) {
+    termName := "compose--" + stackName
+    cmdDisplay := fmt.Sprintf("$ docker compose %s %s\r\n", action, serviceName)
+
+    ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+    defer cancel()
+
+    term := app.Terms.Recreate(termName, terminal.TypePipe)
+    term.Write([]byte(cmdDisplay))
+
+    if err := fn(ctx, stackName, serviceName, term); err != nil {
+        if ctx.Err() == nil {
+            errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+            term.Write([]byte(errMsg))
+            slog.Error("service action", "action", action, "stack", stackName, "service", serviceName, "err", err)
+        }
+    } else {
+        term.Write([]byte("\r\n[Done]\r\n"))
+    }
+
+    app.TriggerStackListRefresh(stackName)
 }
 
 func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {

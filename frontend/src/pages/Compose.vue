@@ -44,6 +44,14 @@
                     <BModal v-model="showUpdateDialog" :title="$t('updateStack')" :close-on-esc="true" @show="resetUpdateDialog" @hidden="resetUpdateDialog">
                         <p class="mb-3" v-html="$t('updateStackMsg')"></p>
 
+                        <div v-if="changelogLinks.length > 0" class="mb-3">
+                            <h5>{{ $t("changelog") }}</h5>
+                            <div v-for="link in changelogLinks" :key="link.service">
+                                <strong>{{ link.service }}:</strong>{{ " " }}
+                                <a :href="link.url" target="_blank">{{ link.url }}</a>
+                            </div>
+                        </div>
+
                         <BForm>
                             <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
                             <div style="margin-left: 2.5rem;">
@@ -391,6 +399,7 @@ import {
     RUNNING
 } from "../../../common/util-common";
 import { BModal } from "bootstrap-vue-next";
+import { LABEL_IMAGEUPDATES_CHANGELOG } from "../../../common/compose-labels";
 import NetworkInput from "../components/NetworkInput.vue";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import dotenv from "dotenv";
@@ -516,6 +525,21 @@ export default {
                 });
             }
             return urls;
+        },
+
+        changelogLinks() {
+            const links = [];
+            const services = this.envsubstJSONConfig?.services;
+            if (!services) {
+                return links;
+            }
+            for (const [name, svc] of Object.entries(services)) {
+                const url = svc?.labels?.[LABEL_IMAGEUPDATES_CHANGELOG];
+                if (url) {
+                    links.push({ service: name, url });
+                }
+            }
+            return links;
         },
 
         isAdd() {

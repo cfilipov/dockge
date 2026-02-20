@@ -301,7 +301,7 @@ export default defineComponent({
         },
 
         changelogLink() {
-            const labels = this.service?.labels;
+            const labels = this.envsubstService?.labels;
             if (labels && labels[LABEL_IMAGEUPDATES_CHANGELOG]) {
                 return labels[LABEL_IMAGEUPDATES_CHANGELOG];
             }
