@@ -184,6 +184,7 @@
     "checkUpdates": "Check Updates",
     "tooltipCheckUpdates": "Check registries for newer images",
     "imageUpdatesAvailable": "Update available",
+    "updates": "updates",
     "imageUpdate": "Image Update | Image Updates",
     "image": "Image | Images",
     "changelog": "Changelog",

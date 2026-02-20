@@ -16,12 +16,24 @@
                                 <span class="num active">{{ activeNum }}</span>
                             </div>
                             <div class="col">
+                                <h3>{{ $t("partially") }}</h3>
+                                <span class="num partially">{{ partiallyNum }}</span>
+                            </div>
+                            <div class="col">
+                                <h3>{{ $t("unhealthy") }}</h3>
+                                <span class="num unhealthy">{{ unhealthyNum }}</span>
+                            </div>
+                            <div class="col">
                                 <h3>{{ $t("exited") }}</h3>
                                 <span class="num exited">{{ exitedNum }}</span>
                             </div>
                             <div class="col">
                                 <h3>{{ $t("down") }}</h3>
                                 <span class="num inactive">{{ downNum }}</span>
+                            </div>
+                            <div class="col">
+                                <h3>{{ $t("updates") }}</h3>
+                                <span class="num update-available">{{ updateAvailableNum }}</span>
                             </div>
                         </div>
                     </div>
@@ -154,11 +166,27 @@ export default {
         activeNum() {
             return this.getStatusNum("active");
         },
+        partiallyNum() {
+            return this.getStatusNum("partially");
+        },
+        unhealthyNum() {
+            return this.getStatusNum("unhealthy");
+        },
         downNum() {
             return this.getStatusNum("down");
         },
         exitedNum() {
             return this.getStatusNum("exited");
+        },
+        updateAvailableNum() {
+            let num = 0;
+            for (let stackName in this.$root.completeStackList) {
+                const stack = this.$root.completeStackList[stackName];
+                if (stack.imageUpdatesAvailable) {
+                    num += 1;
+                }
+            }
+            return num;
         },
     },
 
@@ -336,8 +364,20 @@ export default {
         color: $primary;
     }
 
-    &.exited {
+    &.partially {
+        color: $info;
+    }
+
+    &.unhealthy {
         color: $danger;
+    }
+
+    &.exited {
+        color: $warning;
+    }
+
+    &.update-available {
+        color: $info;
     }
 }
 
