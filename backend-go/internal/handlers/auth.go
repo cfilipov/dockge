@@ -10,10 +10,18 @@ import (
 func RegisterAuthHandlers(app *App) {
     app.WS.Handle("login", app.handleLogin)
     app.WS.Handle("loginByToken", app.handleLoginByToken)
+    app.WS.Handle("logout", app.handleLogout)
     app.WS.Handle("setup", app.handleSetup)
     app.WS.Handle("changePassword", app.handleChangePassword)
     app.WS.Handle("getTurnstileSiteKey", app.handleGetTurnstileSiteKey)
     app.WS.Handle("needSetup", app.handleNeedSetup)
+
+    // 2FA stubs — not implemented yet
+    app.WS.Handle("prepare2FA", app.handleStub2FA)
+    app.WS.Handle("save2FA", app.handleStub2FA)
+    app.WS.Handle("disable2FA", app.handleStub2FA)
+    app.WS.Handle("verifyToken", app.handleStub2FA)
+    app.WS.Handle("twoFAStatus", app.handleTwoFAStatus)
 
     app.WS.HandleConnect(func(c *ws.Conn) {
         // Send server info on every new connection
@@ -265,6 +273,30 @@ func (app *App) handleNeedSetup(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, map[string]interface{}{
             "ok":        true,
             "needSetup": app.NeedSetup,
+        })
+    }
+}
+
+func (app *App) handleLogout(c *ws.Conn, msg *ws.ClientMessage) {
+    c.SetUser(0)
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+    }
+}
+
+// handleStub2FA returns a "not supported" error for 2FA operations.
+func (app *App) handleStub2FA(c *ws.Conn, msg *ws.ClientMessage) {
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "2FA is not yet supported"})
+    }
+}
+
+// handleTwoFAStatus returns that 2FA is not enabled.
+func (app *App) handleTwoFAStatus(c *ws.Conn, msg *ws.ClientMessage) {
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, map[string]interface{}{
+            "ok":     true,
+            "status": false,
         })
     }
 }

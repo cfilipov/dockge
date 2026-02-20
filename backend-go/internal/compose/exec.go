@@ -50,6 +50,16 @@ func (e *Exec) Restart(ctx context.Context, stackName string, w io.Writer) error
     return e.run(ctx, stackName, w, "restart")
 }
 
+// Pause runs `docker compose pause` for the given stack.
+func (e *Exec) Pause(ctx context.Context, stackName string, w io.Writer) error {
+    return e.run(ctx, stackName, w, "pause")
+}
+
+// Unpause runs `docker compose unpause` for the given stack.
+func (e *Exec) Unpause(ctx context.Context, stackName string, w io.Writer) error {
+    return e.run(ctx, stackName, w, "unpause")
+}
+
 // Pull runs `docker compose pull` for the given stack.
 func (e *Exec) Pull(ctx context.Context, stackName string, w io.Writer) error {
     return e.run(ctx, stackName, w, "pull")

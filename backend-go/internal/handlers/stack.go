@@ -32,6 +32,8 @@ func RegisterStackHandlers(app *App) {
     app.WS.Handle("updateStack", app.handleUpdateStack)
     app.WS.Handle("deleteStack", app.handleDeleteStack)
     app.WS.Handle("forceDeleteStack", app.handleForceDeleteStack)
+    app.WS.Handle("pauseStack", app.handlePauseStack)
+    app.WS.Handle("resumeStack", app.handleResumeStack)
 }
 
 // StartStackListBroadcaster starts a background goroutine that refreshes the stack list
@@ -439,6 +441,50 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
         app.TriggerStackListRefresh()
         slog.Info("stack force deleted", "stack", stackName)
     }()
+}
+
+func (app *App) handlePauseStack(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+    args := parseArgs(msg)
+    stackName := argString(args, 0)
+    if stackName == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+        }
+        return
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+    }
+
+    go app.runComposeAction(stackName, "pause", func(ctx context.Context, w io.Writer) error {
+        return app.Compose.Pause(ctx, stackName, w)
+    })
+}
+
+func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+    args := parseArgs(msg)
+    stackName := argString(args, 0)
+    if stackName == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+        }
+        return
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+    }
+
+    go app.runComposeAction(stackName, "unpause", func(ctx context.Context, w io.Writer) error {
+        return app.Compose.Unpause(ctx, stackName, w)
+    })
 }
 
 // runComposeAction runs a compose command in the background, streaming output
