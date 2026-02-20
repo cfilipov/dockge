@@ -120,6 +120,10 @@ func newTerminal(name string, typ TerminalType) *Terminal {
 
 // Write appends data to the buffer and fans out to all connected writers.
 // Implements io.Writer.
+//
+// For pipe-based terminals, bare \n is normalized to \r\n so that xterm
+// renders each line starting at column 0. PTY terminals don't need this
+// because the kernel's terminal discipline already handles it.
 func (t *Terminal) Write(p []byte) (int, error) {
     t.mu.Lock()
     defer t.mu.Unlock()
@@ -128,21 +132,43 @@ func (t *Terminal) Write(p []byte) (int, error) {
         return 0, nil
     }
 
+    data := p
+    if t.Type == TypePipe {
+        data = normalizeLF(p)
+    }
+
     // Buffer output (cap at 64KB, keep last 32KB on overflow)
-    t.buffer.Write(p)
+    t.buffer.Write(data)
     if t.buffer.Len() > 65536 {
-        data := t.buffer.Bytes()
+        b := t.buffer.Bytes()
         t.buffer.Reset()
-        t.buffer.Write(data[len(data)-32768:])
+        t.buffer.Write(b[len(b)-32768:])
     }
 
     // Fan out to all connected writers
-    s := string(p)
+    s := string(data)
     for _, w := range t.writers {
         w(s)
     }
 
     return len(p), nil
+}
+
+// normalizeLF replaces bare \n (not preceded by \r) with \r\n.
+func normalizeLF(p []byte) []byte {
+    // Fast path: if no \n at all, return as-is
+    if !bytes.Contains(p, []byte{'\n'}) {
+        return p
+    }
+    var buf bytes.Buffer
+    buf.Grow(len(p) + 32)
+    for i := 0; i < len(p); i++ {
+        if p[i] == '\n' && (i == 0 || p[i-1] != '\r') {
+            buf.WriteByte('\r')
+        }
+        buf.WriteByte(p[i])
+    }
+    return buf.Bytes()
 }
 
 // Buffer returns the current terminal buffer content.

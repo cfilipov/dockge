@@ -3,6 +3,7 @@ package handlers
 import (
     "encoding/json"
     "log/slog"
+    "sync"
 
     "github.com/cfilipov/dockge/backend-go/internal/compose"
     "github.com/cfilipov/dockge/backend-go/internal/models"
@@ -12,18 +13,24 @@ import (
 
 // App holds shared dependencies for all handlers.
 type App struct {
-    Users    *models.UserStore
-    Settings *models.SettingStore
-    Agents   *models.AgentStore
-    WS       *ws.Server
-    Compose  *compose.Exec
-    Terms    *terminal.Manager
+    Users        *models.UserStore
+    Settings     *models.SettingStore
+    Agents       *models.AgentStore
+    ImageUpdates *models.ImageUpdateStore
+    WS           *ws.Server
+    Compose      *compose.Exec
+    Terms        *terminal.Manager
 
     JWTSecret        string
     NeedSetup        bool
     Version          string
     StacksDir        string
     MainTerminalName string // tracked for checkMainTerminal
+
+    // recreateCache: stack name → true if any service needs recreation
+    // (running image differs from compose.yaml image). Populated by serviceStatusList.
+    recreateMu    sync.RWMutex
+    RecreateCache map[string]bool
 }
 
 // checkLogin verifies that the connection is authenticated.
@@ -79,6 +86,40 @@ func argBool(args []json.RawMessage, index int) bool {
         return false
     }
     return b
+}
+
+// GetRecreateCache returns a snapshot of the recreate necessary cache.
+func (app *App) GetRecreateCache() map[string]bool {
+    app.recreateMu.RLock()
+    defer app.recreateMu.RUnlock()
+    if app.RecreateCache == nil {
+        return map[string]bool{}
+    }
+    cp := make(map[string]bool, len(app.RecreateCache))
+    for k, v := range app.RecreateCache {
+        cp[k] = v
+    }
+    return cp
+}
+
+// SetRecreateNecessary updates the recreate flag for a stack.
+func (app *App) SetRecreateNecessary(stackName string, needed bool) {
+    app.recreateMu.Lock()
+    defer app.recreateMu.Unlock()
+    if app.RecreateCache == nil {
+        app.RecreateCache = make(map[string]bool)
+    }
+    app.RecreateCache[stackName] = needed
+}
+
+// GetImageUpdateMap returns stack name → true for stacks with available updates.
+func (app *App) GetImageUpdateMap() map[string]bool {
+    m, err := app.ImageUpdates.StackHasUpdates()
+    if err != nil {
+        slog.Warn("image update map", "err", err)
+        return map[string]bool{}
+    }
+    return m
 }
 
 // argInt extracts an integer from args at the given index.

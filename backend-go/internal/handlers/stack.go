@@ -85,7 +85,9 @@ func (app *App) broadcastStackList() {
         return
     }
 
-    listJSON := stack.BuildStackListJSON(stacks, "")
+    updateMap := app.GetImageUpdateMap()
+    recreateMap := app.GetRecreateCache()
+    listJSON := stack.BuildStackListJSON(stacks, "", updateMap, recreateMap)
     app.WS.BroadcastAuthenticated("agent", "stackList", map[string]interface{}{
         "ok":        true,
         "stackList": listJSON,
@@ -107,21 +109,34 @@ func (app *App) handleRequestStackList(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    // Read from cache — never block on docker
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+    }
+
+    // If cache is empty, refresh synchronously so the first load is instant
+    stackCacheMu.RLock()
+    empty := stackCache == nil || len(stackCache) == 0
+    stackCacheMu.RUnlock()
+    if empty {
+        app.refreshStackCache()
+    }
+
+    app.sendStackListTo(c)
+}
+
+// sendStackListTo sends the cached stack list to a single connection.
+func (app *App) sendStackListTo(c *ws.Conn) {
     stackCacheMu.RLock()
     stacks := stackCache
     stackCacheMu.RUnlock()
 
     listJSON := map[string]interface{}{}
     if stacks != nil {
-        listJSON = stack.BuildStackListJSON(stacks, "")
+        updateMap := app.GetImageUpdateMap()
+        recreateMap := app.GetRecreateCache()
+        listJSON = stack.BuildStackListJSON(stacks, "", updateMap, recreateMap)
     }
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
-    }
-
-    // Also push via event (the frontend expects this)
     c.SendEvent("agent", "stackList", map[string]interface{}{
         "ok":        true,
         "stackList": listJSON,
@@ -163,10 +178,13 @@ func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
         hostname = h
     }
 
+    updateMap := app.GetImageUpdateMap()
+    recreateMap := app.GetRecreateCache()
+
     if msg.ID != nil {
         c.SendAck(*msg.ID, map[string]interface{}{
             "ok":    true,
-            "stack": s.ToJSON("", hostname),
+            "stack": s.ToJSON("", hostname, updateMap[stackName], recreateMap[stackName]),
         })
     }
 }

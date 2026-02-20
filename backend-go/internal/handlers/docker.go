@@ -1,9 +1,12 @@
 package handlers
 
 import (
+    "bufio"
     "context"
     "encoding/json"
     "log/slog"
+    "os"
+    "path/filepath"
     "strings"
     "time"
 
@@ -19,7 +22,7 @@ func RegisterDockerHandlers(app *App) {
 }
 
 // handleServiceStatusList runs `docker compose ps --format json` for a stack
-// and returns per-service status entries.
+// and returns per-service status entries plus update/recreate indicators.
 func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
     if checkLogin(c, msg) == 0 {
         return
@@ -51,29 +54,49 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    serviceStatusList := parseComposePs(psJSON)
+    serviceStatusList, runningImages := parseComposePsWithImages(psJSON)
+
+    // Compare running images vs compose.yaml to compute recreateNecessary per service
+    composeImages := parseComposeImages(app.StacksDir, stackName)
+    serviceRecreateStatus := make(map[string]interface{})
+    anyRecreate := false
+    for svc, runningImage := range runningImages {
+        composeImage, ok := composeImages[svc]
+        if ok && runningImage != "" && composeImage != "" && runningImage != composeImage {
+            serviceRecreateStatus[svc] = true
+            anyRecreate = true
+        } else {
+            serviceRecreateStatus[svc] = false
+        }
+    }
+    app.SetRecreateNecessary(stackName, anyRecreate)
+
+    // Per-service image update status from SQLite cache
+    serviceUpdateStatus := make(map[string]interface{})
+    if svcUpdates, err := app.ImageUpdates.ServiceUpdatesForStack(stackName); err == nil {
+        for svc, hasUpdate := range svcUpdates {
+            serviceUpdateStatus[svc] = hasUpdate
+        }
+    }
 
     if msg.ID != nil {
         c.SendAck(*msg.ID, map[string]interface{}{
             "ok":                    true,
             "serviceStatusList":     serviceStatusList,
-            "serviceUpdateStatus":   map[string]interface{}{},
-            "serviceRecreateStatus": map[string]interface{}{},
+            "serviceUpdateStatus":   serviceUpdateStatus,
+            "serviceRecreateStatus": serviceRecreateStatus,
         })
     }
 }
 
-// parseComposePs parses the JSON output of `docker compose ps --format json`
-// into a map of service name → array of status entries.
-//
-// The output format can be either:
-// - A JSON array: [{...}, {...}]
-// - One JSON object per line (NDJSON): {...}\n{...}
-func parseComposePs(data []byte) map[string]interface{} {
+// parseComposePsWithImages parses `docker compose ps --format json` output.
+// Returns the serviceStatusList map and a map of service name → running image.
+func parseComposePsWithImages(data []byte) (map[string]interface{}, map[string]string) {
     result := make(map[string]interface{})
+    runningImages := make(map[string]string)
     trimmed := strings.TrimSpace(string(data))
     if trimmed == "" || trimmed == "[]" {
-        return result
+        return result, runningImages
     }
 
     var containers []map[string]interface{}
@@ -94,19 +117,16 @@ func parseComposePs(data []byte) map[string]interface{} {
     }
 
     for _, c := range containers {
-        // Extract service name from the container name or Service field
         serviceName := ""
         if svc, ok := c["Service"].(string); ok {
             serviceName = svc
         } else if name, ok := c["Name"].(string); ok {
-            // Parse service name from container name: stackname-service-N
             serviceName = extractServiceName(name)
         }
         if serviceName == "" {
             continue
         }
 
-        // Determine status from Health or State
         status := "unknown"
         if health, ok := c["Health"].(string); ok && health != "" {
             status = strings.ToLower(health)
@@ -114,13 +134,15 @@ func parseComposePs(data []byte) map[string]interface{} {
             status = strings.ToLower(state)
         }
 
+        image, _ := c["Image"].(string)
+        runningImages[serviceName] = image
+
         entry := map[string]interface{}{
             "status": status,
             "name":   c["Name"],
-            "image":  c["Image"],
+            "image":  image,
         }
 
-        // Append to service's entry list
         if existing, ok := result[serviceName]; ok {
             result[serviceName] = append(existing.([]interface{}), entry)
         } else {
@@ -128,6 +150,55 @@ func parseComposePs(data []byte) map[string]interface{} {
         }
     }
 
+    return result, runningImages
+}
+
+// parseComposeImages reads the compose.yaml for a stack and extracts service→image mappings.
+// Uses simple line parsing (no full YAML library needed).
+func parseComposeImages(stacksDir, stackName string) map[string]string {
+    result := make(map[string]string)
+    composeFile := filepath.Join(stacksDir, stackName, "compose.yaml")
+    f, err := os.Open(composeFile)
+    if err != nil {
+        return result
+    }
+    defer f.Close()
+
+    scanner := bufio.NewScanner(f)
+    inServices := false
+    currentService := ""
+    for scanner.Scan() {
+        line := scanner.Text()
+        trimmed := strings.TrimRight(line, " \t")
+
+        // Detect "services:" top-level key
+        if trimmed == "services:" {
+            inServices = true
+            continue
+        }
+        if !inServices {
+            continue
+        }
+        // Exit services block on next top-level key
+        if len(trimmed) > 0 && trimmed[0] != ' ' && trimmed[0] != '#' {
+            break
+        }
+        // Service name: exactly 2-space indent, ends with ":"
+        if len(line) > 2 && line[0] == ' ' && line[1] == ' ' && line[2] != ' ' && strings.HasSuffix(trimmed, ":") {
+            currentService = strings.TrimSpace(strings.TrimSuffix(trimmed, ":"))
+            continue
+        }
+        // Image field: 4+ space indent
+        if currentService != "" && strings.Contains(line, "image:") {
+            parts := strings.SplitN(line, "image:", 2)
+            if len(parts) == 2 {
+                img := strings.TrimSpace(parts[1])
+                if img != "" {
+                    result[currentService] = img
+                }
+            }
+        }
+    }
     return result
 }
 

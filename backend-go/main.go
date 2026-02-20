@@ -99,18 +99,22 @@ func main() {
     // Terminal manager
     terms := terminal.NewManager()
 
+    // Image update cache
+    imageUpdates := models.NewImageUpdateStore(database)
+
     // Wire up handlers
     app := &handlers.App{
-        Users:     users,
-        Settings:  settings,
-        Agents:    agents,
-        WS:        wss,
-        Compose:   composeExec,
-        Terms:     terms,
-        JWTSecret: jwtSecret,
-        NeedSetup: userCount == 0,
-        Version:   version,
-        StacksDir: cfg.StacksDir,
+        Users:        users,
+        Settings:     settings,
+        Agents:       agents,
+        ImageUpdates: imageUpdates,
+        WS:           wss,
+        Compose:      composeExec,
+        Terms:        terms,
+        JWTSecret:    jwtSecret,
+        NeedSetup:    userCount == 0,
+        Version:      version,
+        StacksDir:    cfg.StacksDir,
     }
     handlers.RegisterAuthHandlers(app)
     handlers.RegisterSettingsHandlers(app)

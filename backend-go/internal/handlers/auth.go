@@ -310,8 +310,10 @@ func (app *App) afterLogin(c *ws.Conn) {
         "isContainer":   true,
     })
 
-    // Send auto-login confirmation
-    c.SendEvent("autoLogin")
+    // NOTE: Do NOT send "autoLogin" here. That event is only for when auth is
+    // disabled (every connection is auto-authenticated). Sending it after a real
+    // login causes the frontend to overwrite the JWT token with "autoLogin",
+    // breaking token-based re-auth on subsequent page loads.
 
     // Send agent list
     agents, err := app.Agents.GetAll()
@@ -329,5 +331,6 @@ func (app *App) afterLogin(c *ws.Conn) {
     }
     c.SendEvent("agentList", agentMap)
 
-    // Stack list will be sent by the background broadcaster (Phase 3)
+    // Send cached stack list immediately so the UI populates instantly
+    app.sendStackListTo(c)
 }

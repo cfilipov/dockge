@@ -53,24 +53,26 @@ func (s *Stack) IsStarted() bool {
 }
 
 // ToSimpleJSON returns the stack data for the stack list broadcast.
-func (s *Stack) ToSimpleJSON(endpoint string) map[string]interface{} {
+// stackUpdates indicates whether this stack has image updates available.
+// stackRecreate indicates whether this stack has containers needing recreation.
+func (s *Stack) ToSimpleJSON(endpoint string, hasUpdates, recreateNecessary bool) map[string]interface{} {
     return map[string]interface{}{
         "name":                    s.Name,
         "status":                  s.Status,
         "started":                 s.IsStarted(),
-        "recreateNecessary":       false,
+        "recreateNecessary":       recreateNecessary,
         "tags":                    []string{},
         "isManagedByDockge":       s.IsManagedByDockge,
         "composeFileName":         s.ComposeFileName,
         "composeOverrideFileName": s.ComposeOverrideFileName,
         "endpoint":                endpoint,
-        "imageUpdatesAvailable":   false,
+        "imageUpdatesAvailable":   hasUpdates,
     }
 }
 
 // ToJSON returns full stack data including YAML content (for getStack).
-func (s *Stack) ToJSON(endpoint, primaryHostname string) map[string]interface{} {
-    obj := s.ToSimpleJSON(endpoint)
+func (s *Stack) ToJSON(endpoint, primaryHostname string, hasUpdates, recreateNecessary bool) map[string]interface{} {
+    obj := s.ToSimpleJSON(endpoint, hasUpdates, recreateNecessary)
     obj["composeYAML"] = s.ComposeYAML
     obj["composeENV"] = s.ComposeENV
     obj["composeOverrideYAML"] = s.ComposeOverrideYAML
