@@ -47,7 +47,7 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
         if err := app.Compose.ServiceUp(ctx, stackName, serviceName, &discardWriter{}); err != nil {
             slog.Error("start service", "err", err, "stack", stackName, "service", serviceName)
         }
-        app.TriggerStackListRefresh()
+        app.TriggerStackListRefresh(stackName)
     }()
 }
 
@@ -75,7 +75,7 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
         if err := app.Compose.ServiceStop(ctx, stackName, serviceName, &discardWriter{}); err != nil {
             slog.Error("stop service", "err", err, "stack", stackName, "service", serviceName)
         }
-        app.TriggerStackListRefresh()
+        app.TriggerStackListRefresh(stackName)
     }()
 }
 
@@ -103,7 +103,7 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
         if err := app.Compose.ServiceRestart(ctx, stackName, serviceName, &discardWriter{}); err != nil {
             slog.Error("restart service", "err", err, "stack", stackName, "service", serviceName)
         }
-        app.TriggerStackListRefresh()
+        app.TriggerStackListRefresh(stackName)
     }()
 }
 
@@ -131,7 +131,7 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
         if err := app.Compose.ServicePullAndUp(ctx, stackName, serviceName, &discardWriter{}); err != nil {
             slog.Error("update service", "err", err, "stack", stackName, "service", serviceName)
         }
-        app.TriggerStackListRefresh()
+        app.TriggerStackListRefresh(stackName)
     }()
 }
 
@@ -151,7 +151,7 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
 
     go func() {
         app.checkImageUpdatesForStack(stackName)
-        app.TriggerStackListRefresh()
+        app.TriggerStackListRefresh(stackName)
     }()
 
     // Ack immediately — the check runs asynchronously
@@ -231,7 +231,7 @@ func (app *App) StartImageUpdateChecker(ctx context.Context) {
         }
 
         app.checkAllImageUpdates()
-        app.TriggerStackListRefresh()
+        app.broadcastStackList()
 
         ticker := time.NewTicker(imageUpdateInterval)
         defer ticker.Stop()
@@ -242,7 +242,7 @@ func (app *App) StartImageUpdateChecker(ctx context.Context) {
                 return
             case <-ticker.C:
                 app.checkAllImageUpdates()
-                app.TriggerStackListRefresh()
+                app.broadcastStackList()
             }
         }
     }()

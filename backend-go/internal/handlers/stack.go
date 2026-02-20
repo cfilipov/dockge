@@ -59,17 +59,30 @@ func (app *App) StartStackWatcher(ctx context.Context) {
         ticker := time.NewTicker(60 * time.Second)
         defer ticker.Stop()
 
-        // Debounce: batch events that arrive within 500ms into a single refresh
+        // Debounce: batch events that arrive within 500ms into a single refresh.
+        // Collects affected project names so only those stacks are re-queried.
         var debounceTimer *time.Timer
         var debounceMu sync.Mutex
-        triggerDebounced := func() {
+        pendingProjects := make(map[string]struct{})
+
+        triggerDebounced := func(project string) {
             debounceMu.Lock()
             defer debounceMu.Unlock()
+            if project != "" {
+                pendingProjects[project] = struct{}{}
+            }
             if debounceTimer != nil {
                 debounceTimer.Stop()
             }
             debounceTimer = time.AfterFunc(500*time.Millisecond, func() {
-                app.refreshStackCache()
+                debounceMu.Lock()
+                projects := pendingProjects
+                pendingProjects = make(map[string]struct{})
+                debounceMu.Unlock()
+
+                for p := range projects {
+                    app.refreshStackProject(p)
+                }
                 app.broadcastStackList()
             })
         }
@@ -92,7 +105,7 @@ func (app *App) StartStackWatcher(ctx context.Context) {
                     return
                 }
                 slog.Debug("docker event", "action", evt.Action, "project", evt.Project, "service", evt.Service)
-                triggerDebounced()
+                triggerDebounced(evt.Project)
 
             case err, ok := <-errCh:
                 if !ok {
@@ -127,8 +140,104 @@ func (app *App) runPollingFallback(ctx context.Context) {
     }
 }
 
+// refreshStackProject refreshes container state for a single compose project.
+// This is much cheaper than a full refreshStackCache since it only queries
+// containers belonging to one project.
+func (app *App) refreshStackProject(project string) {
+    if project == "" || project == "dockge" {
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    containers, err := app.Docker.ContainerList(ctx, true, project)
+    if err != nil {
+        slog.Warn("refresh stack project", "err", err, "project", project)
+        return
+    }
+
+    // Derive status from container states
+    var running, exited, created, paused int
+    for _, c := range containers {
+        switch strings.ToLower(c.State) {
+        case "running":
+            running++
+        case "exited", "dead":
+            exited++
+        case "created":
+            created++
+        case "paused":
+            paused++
+        }
+    }
+
+    stackCacheMu.Lock()
+    if stackCache == nil {
+        stackCache = make(map[string]*stack.Stack)
+    }
+    s, exists := stackCache[project]
+    if !exists {
+        // Check if it's a managed stack (has compose file on disk)
+        if stack.ComposeFileExists(app.StacksDir, project) {
+            s = &stack.Stack{
+                Name:              project,
+                Status:            stack.CREATED_FILE,
+                IsManagedByDockge: true,
+            }
+        } else if len(containers) > 0 {
+            // External stack
+            s = &stack.Stack{
+                Name:              project,
+                IsManagedByDockge: false,
+            }
+        } else {
+            stackCacheMu.Unlock()
+            return
+        }
+        stackCache[project] = s
+    }
+
+    // Update status
+    if running > 0 && exited > 0 {
+        s.Status = stack.RUNNING_AND_EXITED
+    } else if running > 0 {
+        s.Status = stack.RUNNING
+    } else if exited > 0 {
+        s.Status = stack.EXITED
+    } else if created > 0 {
+        s.Status = stack.CREATED_STACK
+    } else if paused > 0 {
+        s.Status = stack.RUNNING
+    } else if s.IsManagedByDockge {
+        s.Status = stack.CREATED_FILE
+    }
+    stackCacheMu.Unlock()
+
+    // Recompute recreateNecessary for this project
+    if running > 0 {
+        runningImages := make(map[string]string)
+        for _, c := range containers {
+            if c.Service != "" {
+                runningImages[c.Service] = c.Image
+            }
+        }
+        composeImages := parseComposeImages(app.StacksDir, project)
+        anyRecreate := false
+        for svc, runImg := range runningImages {
+            compImg, ok := composeImages[svc]
+            if ok && runImg != "" && compImg != "" && runImg != compImg {
+                anyRecreate = true
+                break
+            }
+        }
+        app.SetRecreateNecessary(project, anyRecreate)
+    }
+}
+
 // refreshStackCache queries the Docker client for all compose containers,
 // groups them by project, and merges with the filesystem scan.
+// Used for initial startup and the 60s fallback — NOT for event-driven updates.
 func (app *App) refreshStackCache() {
     ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
     defer cancel()
@@ -209,11 +318,16 @@ func (app *App) broadcastStackList() {
 }
 
 // TriggerStackListRefresh refreshes the cache and broadcasts immediately (after a mutation).
-func (app *App) TriggerStackListRefresh() {
+// If stackName is non-empty, only that stack is re-queried (much cheaper).
+func (app *App) TriggerStackListRefresh(stackName ...string) {
     go func() {
         // Small delay to let docker compose state settle
         time.Sleep(500 * time.Millisecond)
-        app.refreshStackCache()
+        if len(stackName) > 0 && stackName[0] != "" {
+            app.refreshStackProject(stackName[0])
+        } else {
+            app.refreshStackCache()
+        }
         app.broadcastStackList()
     }()
 }
@@ -337,7 +451,7 @@ func (app *App) handleSaveStack(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    app.TriggerStackListRefresh()
+    app.TriggerStackListRefresh(stackName)
 
     if msg.ID != nil {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Saved"})
@@ -536,7 +650,7 @@ func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
             }
         }
 
-        app.TriggerStackListRefresh()
+        app.TriggerStackListRefresh(stackName)
         slog.Info("stack deleted", "stack", stackName)
     }()
 }
@@ -569,7 +683,7 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
             slog.Error("force delete stack", "err", err, "stack", stackName)
         }
 
-        app.TriggerStackListRefresh()
+        app.TriggerStackListRefresh(stackName)
         slog.Info("stack force deleted", "stack", stackName)
     }()
 }
@@ -658,7 +772,7 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
         }
     }
 
-    app.TriggerStackListRefresh()
+    app.TriggerStackListRefresh(stackName)
 }
 
 // runDeployWithValidation validates the compose file via `docker compose config`
@@ -726,7 +840,7 @@ func (app *App) runDeployWithValidation(stackName string) {
         }
     }
 
-    app.TriggerStackListRefresh()
+    app.TriggerStackListRefresh(stackName)
 }
 
 // runDockerCommands runs multiple docker commands sequentially on the same terminal.
@@ -756,7 +870,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
                     term.Write([]byte(errMsg))
                     slog.Error("compose action", "action", action, "stack", stackName, "err", err)
                 }
-                app.TriggerStackListRefresh()
+                app.TriggerStackListRefresh(stackName)
                 return
             }
         }
@@ -780,7 +894,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
                     term.Write([]byte(errMsg))
                     slog.Error("compose action", "action", action, "stack", stackName, "err", err)
                 }
-                app.TriggerStackListRefresh()
+                app.TriggerStackListRefresh(stackName)
                 return
             }
         }
@@ -788,7 +902,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
         term.Write([]byte("\r\n[Done]\r\n"))
     }
 
-    app.TriggerStackListRefresh()
+    app.TriggerStackListRefresh(stackName)
 }
 
 // discardWriter silently discards all output.
