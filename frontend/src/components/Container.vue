@@ -228,6 +228,27 @@
                         <button class="btn btn-normal btn-sm mt-3" @click="addUrl">{{ $t("addListItem", [$t('url')]) }}</button>
                     </div>
                 </div>
+
+                <!-- Updates -->
+                <div class="mb-4">
+                    <label class="form-label">
+                        {{ $t("updatesHeading") }}
+                    </label>
+                    <div class="mb-3">
+                        <BFormCheckbox v-model="statusIgnore" switch>
+                            {{ $t("ignoreStatus") }}
+                        </BFormCheckbox>
+                    </div>
+                    <div class="mb-3">
+                        <BFormCheckbox v-model="imageUpdatesCheck" switch>
+                            {{ $t("checkForImageUpdates") }}
+                        </BFormCheckbox>
+                    </div>
+                    <div>
+                        <input v-model="changelogUrl" type="text" class="form-control" placeholder="https://" />
+                        <div class="form-text">{{ $t("changelogLink") }}</div>
+                    </div>
+                </div>
             </div>
         </transition>
     </div>
@@ -237,7 +258,7 @@
 import { defineComponent } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { parseDockerPort } from "../../../common/util-common";
-import { LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../../../common/compose-labels";
+import { LABEL_STATUS_IGNORE, LABEL_IMAGEUPDATES_CHECK, LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../../../common/compose-labels";
 import { BModal, BForm, BFormCheckbox } from "bootstrap-vue-next";
 import DockerStat from "./DockerStat.vue";
 
@@ -336,6 +357,48 @@ export default defineComponent({
                 }
             }
             return entries;
+        },
+
+        statusIgnore: {
+            get() {
+                return this.service?.labels?.[LABEL_STATUS_IGNORE] === "true";
+            },
+            set(val) {
+                this.ensureLabels();
+                if (val) {
+                    this.service.labels[LABEL_STATUS_IGNORE] = "true";
+                } else {
+                    delete this.service.labels[LABEL_STATUS_IGNORE];
+                }
+            },
+        },
+
+        imageUpdatesCheck: {
+            get() {
+                return this.service?.labels?.[LABEL_IMAGEUPDATES_CHECK] !== "false";
+            },
+            set(val) {
+                this.ensureLabels();
+                if (val) {
+                    delete this.service.labels[LABEL_IMAGEUPDATES_CHECK];
+                } else {
+                    this.service.labels[LABEL_IMAGEUPDATES_CHECK] = "false";
+                }
+            },
+        },
+
+        changelogUrl: {
+            get() {
+                return this.service?.labels?.[LABEL_IMAGEUPDATES_CHANGELOG] || "";
+            },
+            set(val) {
+                this.ensureLabels();
+                if (val) {
+                    this.service.labels[LABEL_IMAGEUPDATES_CHANGELOG] = val;
+                } else {
+                    delete this.service.labels[LABEL_IMAGEUPDATES_CHANGELOG];
+                }
+            },
         },
 
         bgStyle() {
@@ -544,10 +607,13 @@ export default defineComponent({
         skipCurrentUpdate() {
             this.$refs[this.updateModalId].hide();
         },
-        addUrl() {
+        ensureLabels() {
             if (!this.service.labels) {
                 this.service.labels = {};
             }
+        },
+        addUrl() {
+            this.ensureLabels();
             let i = 0;
             let key;
             do {

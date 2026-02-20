@@ -191,6 +191,9 @@
     "image": "Image | Images",
     "changelog": "Changelog",
     "changelogLink": "Link to changelog",
+    "updatesHeading": "Updates",
+    "ignoreStatus": "Ignore status",
+    "checkForImageUpdates": "Check for image updates",
     "ignoreUpdate": "Skip",
     "pruneAfterUpdate": "Prune <u>all</u> dangling images after update",
     "pruneAllAfterUpdate": "Also <u>all</u> unused images"
