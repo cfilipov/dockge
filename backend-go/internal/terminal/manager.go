@@ -295,6 +295,42 @@ func (t *Terminal) StartPTY(cmd *exec.Cmd) error {
     return nil
 }
 
+// RunPTY starts a command with a pseudo-terminal and blocks until the command
+// exits. Output is streamed to the terminal buffer/fan-out in real time.
+// Unlike StartPTY, this is synchronous — use it for compose actions where you
+// need to know when the command finishes.
+func (t *Terminal) RunPTY(cmd *exec.Cmd) error {
+    ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 24, Cols: 80})
+    if err != nil {
+        return err
+    }
+
+    t.mu.Lock()
+    t.cmd = cmd
+    t.ptyFile = ptmx
+    t.mu.Unlock()
+
+    // Read PTY output until EOF
+    buf := make([]byte, 4096)
+    for {
+        n, readErr := ptmx.Read(buf)
+        if n > 0 {
+            t.Write(buf[:n])
+        }
+        if readErr != nil {
+            break
+        }
+    }
+
+    waitErr := cmd.Wait()
+
+    t.mu.Lock()
+    t.ptyFile = nil
+    t.mu.Unlock()
+
+    return waitErr
+}
+
 // SetCancel stores a cancel function called on Close.
 // Used for pipe-based terminals with long-running processes (e.g., log streaming).
 func (t *Terminal) SetCancel(fn func()) {

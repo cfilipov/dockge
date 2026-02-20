@@ -3,14 +3,16 @@ package handlers
 import (
     "context"
     "fmt"
-    "io"
     "log/slog"
     "os"
+    "os/exec"
     "path/filepath"
+    "strings"
     "sync"
     "time"
 
     "github.com/cfilipov/dockge/backend-go/internal/stack"
+    "github.com/cfilipov/dockge/backend-go/internal/terminal"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
 )
 
@@ -310,9 +312,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     // Spawn compose up in background, stream output to terminal
-    go app.runComposeAction(stackName, "up", func(ctx context.Context, w io.Writer) error {
-        return app.Compose.Up(ctx, stackName, w)
-    })
+    go app.runComposeAction(stackName, "up", "up", "-d")
 }
 
 func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -332,9 +332,7 @@ func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(stackName, "up", func(ctx context.Context, w io.Writer) error {
-        return app.Compose.Up(ctx, stackName, w)
-    })
+    go app.runComposeAction(stackName, "up", "up", "-d")
 }
 
 func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -354,9 +352,7 @@ func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(stackName, "stop", func(ctx context.Context, w io.Writer) error {
-        return app.Compose.Stop(ctx, stackName, w)
-    })
+    go app.runComposeAction(stackName, "stop", "stop")
 }
 
 func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -376,9 +372,7 @@ func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(stackName, "restart", func(ctx context.Context, w io.Writer) error {
-        return app.Compose.Restart(ctx, stackName, w)
-    })
+    go app.runComposeAction(stackName, "restart", "restart")
 }
 
 func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -398,9 +392,7 @@ func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(stackName, "down", func(ctx context.Context, w io.Writer) error {
-        return app.Compose.Down(ctx, stackName, w)
-    })
+    go app.runComposeAction(stackName, "down", "down")
 }
 
 func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -420,9 +412,7 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(stackName, "update", func(ctx context.Context, w io.Writer) error {
-        return app.Compose.PullAndUp(ctx, stackName, w)
-    })
+    go app.runComposeActions(stackName, "update", [][]string{{"pull"}, {"up", "-d"}})
 }
 
 func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -518,9 +508,7 @@ func (app *App) handlePauseStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(stackName, "pause", func(ctx context.Context, w io.Writer) error {
-        return app.Compose.Pause(ctx, stackName, w)
-    })
+    go app.runComposeAction(stackName, "pause", "pause")
 }
 
 func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -540,39 +528,80 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runComposeAction(stackName, "unpause", func(ctx context.Context, w io.Writer) error {
-        return app.Compose.Unpause(ctx, stackName, w)
-    })
+    go app.runComposeAction(stackName, "unpause", "unpause")
 }
 
 // runComposeAction runs a compose command in the background, streaming output
 // to a terminal that fans out to WebSocket clients.
 //
 // Terminal naming follows the frontend convention:
-//   compose-{endpoint}-{stackName} → for local endpoint: compose--{stackName}
 //
-// Output goes to the terminal buffer; connected clients receive it via the
-// terminal's fan-out mechanism (registered through terminalJoin).
-func (app *App) runComposeAction(stackName, action string, fn func(ctx context.Context, w io.Writer) error) {
+//	compose-{endpoint}-{stackName} → for local endpoint: compose--{stackName}
+//
+// The command runs through a PTY so that docker compose outputs colored,
+// animated progress (it detects the TTY and enables rich output).
+func (app *App) runComposeAction(stackName, action string, composeArgs ...string) {
     termName := "compose--" + stackName
-    term := app.Terms.Recreate(termName, 0) // Fresh buffer, keep existing writers
+    term := app.Terms.Recreate(termName, terminal.TypePTY)
+
+    // Write command display
+    cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(composeArgs, " "))
+    term.Write([]byte(cmdDisplay))
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()
 
-    // Write command display
-    cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", action)
-    term.Write([]byte(cmdDisplay))
+    dir := filepath.Join(app.StacksDir, stackName)
+    args := append([]string{"compose"}, composeArgs...)
+    cmd := exec.CommandContext(ctx, "docker", args...)
+    cmd.Dir = dir
 
-    if err := fn(ctx, term); err != nil {
-        errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-        term.Write([]byte(errMsg))
-        slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+    if err := term.RunPTY(cmd); err != nil {
+        // Only log if the context wasn't cancelled (user-initiated cancel is normal)
+        if ctx.Err() == nil {
+            errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+            term.Write([]byte(errMsg))
+            slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+        }
     } else {
         term.Write([]byte("\r\n[Done]\r\n"))
     }
 
     // Refresh stack list after mutation
+    app.TriggerStackListRefresh()
+}
+
+// runComposeActions runs multiple compose commands sequentially on the same PTY
+// terminal. Used for multi-step operations like "update" (pull + up).
+func (app *App) runComposeActions(stackName, action string, argSets [][]string) {
+    termName := "compose--" + stackName
+    term := app.Terms.Recreate(termName, terminal.TypePTY)
+
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+    defer cancel()
+
+    dir := filepath.Join(app.StacksDir, stackName)
+
+    for _, composeArgs := range argSets {
+        cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(composeArgs, " "))
+        term.Write([]byte(cmdDisplay))
+
+        args := append([]string{"compose"}, composeArgs...)
+        cmd := exec.CommandContext(ctx, "docker", args...)
+        cmd.Dir = dir
+
+        if err := term.RunPTY(cmd); err != nil {
+            if ctx.Err() == nil {
+                errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+                term.Write([]byte(errMsg))
+                slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+            }
+            app.TriggerStackListRefresh()
+            return
+        }
+    }
+
+    term.Write([]byte("\r\n[Done]\r\n"))
     app.TriggerStackListRefresh()
 }
 
