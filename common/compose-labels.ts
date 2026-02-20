@@ -13,3 +13,7 @@ export const LABEL_IMAGEUPDATES_IGNORE = "dockge.imageupdates.ignore";
 
 // Link to the changelog of a service. It's displayed in the update dialog.
 export const LABEL_IMAGEUPDATES_CHANGELOG = "dockge.imageupdates.changelog";
+
+// Prefix for URL labels. Format: dockge.urls.<name> = "<url>"
+// Multiple URLs can be added per service with different <name> suffixes.
+export const LABEL_URLS_PREFIX = "dockge.urls.";

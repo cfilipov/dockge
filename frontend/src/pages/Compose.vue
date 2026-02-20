@@ -171,20 +171,6 @@
 
                     <button v-if="false && isEditMode && jsonConfig.services && Object.keys(jsonConfig.services).length > 0" class="btn btn-normal mb-3" @click="addContainer">{{ $t("addContainer") }}</button>
 
-                    <!-- General -->
-                    <div v-if="isEditMode">
-                        <h4 class="mb-3">{{ $t("extra") }}</h4>
-                        <div class="shadow-box big-padding mb-3">
-                            <!-- URLs -->
-                            <div class="mb-4">
-                                <label class="form-label">
-                                    {{ $tc("url", 2) }}
-                                </label>
-                                <ArrayInput name="urls" :display-name="$t('url')" placeholder="https://" object-type="x-dockge" />
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Combined Terminal Output -->
                     <div v-show="!isEditMode">
                         <h4 class="mb-3">{{ $t("terminal") }}</h4>
@@ -399,7 +385,7 @@ import {
     RUNNING
 } from "../../../common/util-common";
 import { BModal } from "bootstrap-vue-next";
-import { LABEL_IMAGEUPDATES_CHANGELOG } from "../../../common/compose-labels";
+import { LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../../../common/compose-labels";
 import NetworkInput from "../components/NetworkInput.vue";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import dotenv from "dotenv";
@@ -501,28 +487,32 @@ export default {
         },
 
         urls() {
-            if (!this.envsubstJSONConfig["x-dockge"] || !this.envsubstJSONConfig["x-dockge"].urls || !Array.isArray(this.envsubstJSONConfig["x-dockge"].urls)) {
-                return [];
+            const urls = [];
+            const services = this.envsubstJSONConfig?.services;
+            if (!services) {
+                return urls;
             }
-
-            let urls = [];
-            for (const url of this.envsubstJSONConfig["x-dockge"].urls) {
-                let display;
-                try {
-                    let obj = new URL(url);
-                    let pathname = obj.pathname;
-                    if (pathname === "/") {
-                        pathname = "";
-                    }
-                    display = obj.host + pathname + obj.search;
-                } catch (e) {
-                    display = url;
+            for (const svc of Object.values(services)) {
+                const labels = svc?.labels;
+                if (!labels) {
+                    continue;
                 }
-
-                urls.push({
-                    display,
-                    url,
-                });
+                for (const [key, value] of Object.entries(labels)) {
+                    if (key.startsWith(LABEL_URLS_PREFIX) && value) {
+                        let display;
+                        try {
+                            let obj = new URL(value);
+                            let pathname = obj.pathname;
+                            if (pathname === "/") {
+                                pathname = "";
+                            }
+                            display = obj.host + pathname + obj.search;
+                        } catch (e) {
+                            display = value;
+                        }
+                        urls.push({ display, url: value });
+                    }
+                }
             }
             return urls;
         },

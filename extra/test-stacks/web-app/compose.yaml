@@ -6,6 +6,7 @@ services:
       - "8080:80"
     labels:
       dockge.imageupdates.changelog: "https://github.com/nginx/nginx/releases"
+      dockge.urls.web: "http://localhost:8080"
   redis:
     image: redis:alpine
     restart: unless-stopped

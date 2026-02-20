@@ -212,6 +212,20 @@
                     </label>
                     <ArrayInput name="depends_on" :display-name="$t('dependsOn')" :placeholder="$t(`containerName`)" />
                 </div>
+
+                <!-- URLs -->
+                <div class="mb-4">
+                    <label class="form-label">
+                        {{ $tc("url", 2) }}
+                    </label>
+                    <ul v-if="urlList.length > 0" class="list-group url-list">
+                        <li v-for="entry in urlList" :key="entry.key" class="list-group-item">
+                            <input :value="entry.url" type="text" class="no-bg domain-input" placeholder="https://" @input="updateUrl(entry.key, $event.target.value)" />
+                            <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" @click="removeUrl(entry.key)" />
+                        </li>
+                    </ul>
+                    <button class="btn btn-normal btn-sm mt-3" @click="addUrl">{{ $t("addListItem", [$t('url')]) }}</button>
+                </div>
             </div>
         </transition>
     </div>
@@ -221,7 +235,7 @@
 import { defineComponent } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { parseDockerPort } from "../../../common/util-common";
-import { LABEL_IMAGEUPDATES_CHANGELOG } from "../../../common/compose-labels";
+import { LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../../../common/compose-labels";
 import { BModal, BForm, BFormCheckbox } from "bootstrap-vue-next";
 import DockerStat from "./DockerStat.vue";
 
@@ -306,6 +320,20 @@ export default defineComponent({
                 return labels[LABEL_IMAGEUPDATES_CHANGELOG];
             }
             return "";
+        },
+
+        urlList() {
+            const labels = this.service?.labels;
+            if (!labels || typeof labels !== "object" || Array.isArray(labels)) {
+                return [];
+            }
+            const entries = [];
+            for (const [key, value] of Object.entries(labels)) {
+                if (key.startsWith(LABEL_URLS_PREFIX)) {
+                    entries.push({ key, url: value || "" });
+                }
+            }
+            return entries;
         },
 
         bgStyle() {
@@ -513,7 +541,25 @@ export default defineComponent({
         },
         skipCurrentUpdate() {
             this.$refs[this.updateModalId].hide();
-        }
+        },
+        addUrl() {
+            if (!this.service.labels) {
+                this.service.labels = {};
+            }
+            let i = 0;
+            let key;
+            do {
+                key = LABEL_URLS_PREFIX + i;
+                i++;
+            } while (this.service.labels[key] !== undefined);
+            this.service.labels[key] = "";
+        },
+        removeUrl(key) {
+            delete this.service.labels[key];
+        },
+        updateUrl(key, value) {
+            this.service.labels[key] = value;
+        },
     }
 });
 </script>
@@ -567,6 +613,28 @@ export default defineComponent({
         padding-left: 0;
         padding-right: 0;
         text-align: center;
+    }
+
+    .url-list {
+        background-color: $dark-bg2;
+
+        li {
+            display: flex;
+            align-items: center;
+            padding: 10px 0 10px 10px;
+
+            .domain-input {
+                flex-grow: 1;
+                background-color: $dark-bg2;
+                border: none;
+                color: $dark-font-color;
+                outline: none;
+
+                &::placeholder {
+                    color: #1d2634;
+                }
+            }
+        }
     }
 }
 </style>
