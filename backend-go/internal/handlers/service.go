@@ -5,6 +5,7 @@ import (
     "fmt"
     "io"
     "log/slog"
+    "strconv"
     "strings"
     "sync"
     "time"
@@ -14,8 +15,8 @@ import (
 )
 
 const (
-    imageUpdateInterval = 6 * time.Hour
-    imageCheckConcurrency = 3
+    defaultImageUpdateInterval = 6 * time.Hour
+    imageCheckConcurrency      = 3
 )
 
 func RegisterServiceHandlers(app *App) {
@@ -228,9 +229,34 @@ func manifestDigest(ctx context.Context, app *App, imageRef string) string {
     return digest
 }
 
+// getImageUpdateInterval reads the check interval from settings (in hours).
+// Falls back to defaultImageUpdateInterval if not set or invalid.
+func (app *App) getImageUpdateInterval() time.Duration {
+    val, err := app.Settings.Get("imageUpdateCheckInterval")
+    if err != nil || val == "" {
+        return defaultImageUpdateInterval
+    }
+    hours, err := strconv.ParseFloat(val, 64)
+    if err != nil || hours <= 0 {
+        return defaultImageUpdateInterval
+    }
+    return time.Duration(hours * float64(time.Hour))
+}
+
+// isImageUpdateCheckEnabled reads the enabled flag from settings.
+// Defaults to true if not set.
+func (app *App) isImageUpdateCheckEnabled() bool {
+    val, err := app.Settings.Get("imageUpdateCheckEnabled")
+    if err != nil || val == "" {
+        return true // enabled by default
+    }
+    return val != "0" && val != "false"
+}
+
 // StartImageUpdateChecker starts a background goroutine that periodically checks
-// all stacks for image updates. Runs once on startup (after a short delay) and
-// then every 6 hours. Checks are parallelized with a concurrency limit of 3.
+// all stacks for image updates. Respects the imageUpdateCheckEnabled and
+// imageUpdateCheckInterval settings, re-reading them on each tick so changes
+// take effect without a restart.
 func (app *App) StartImageUpdateChecker(ctx context.Context) {
     go func() {
         // Short delay on startup so the stack list loads first
@@ -240,19 +266,21 @@ func (app *App) StartImageUpdateChecker(ctx context.Context) {
         case <-time.After(30 * time.Second):
         }
 
-        app.checkAllImageUpdates()
-        app.broadcastStackList()
-
-        ticker := time.NewTicker(imageUpdateInterval)
-        defer ticker.Stop()
+        if app.isImageUpdateCheckEnabled() {
+            app.checkAllImageUpdates()
+            app.broadcastStackList()
+        }
 
         for {
+            interval := app.getImageUpdateInterval()
             select {
             case <-ctx.Done():
                 return
-            case <-ticker.C:
-                app.checkAllImageUpdates()
-                app.broadcastStackList()
+            case <-time.After(interval):
+                if app.isImageUpdateCheckEnabled() {
+                    app.checkAllImageUpdates()
+                    app.broadcastStackList()
+                }
             }
         }
     }()
