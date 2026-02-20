@@ -14,10 +14,15 @@ import (
 // allowing the same data to flow through.
 type ContainerInfo = docker.Container
 
+// IgnoreMap maps stackName → serviceName → true for services that should be
+// excluded from status calculation (dockge.status.ignore=true).
+type IgnoreMap map[string]map[string]bool
+
 // GetStackListFromContainers scans the stacks directory and merges with container
 // data from the Docker client. Containers are grouped by their compose project
-// label to derive stack status.
-func GetStackListFromContainers(stacksDir string, containers []ContainerInfo) map[string]*Stack {
+// label to derive stack status. Services in ignoreServices are excluded from
+// status counting.
+func GetStackListFromContainers(stacksDir string, containers []ContainerInfo, ignoreServices ...IgnoreMap) map[string]*Stack {
     stacks := make(map[string]*Stack)
 
     // 1. Scan stacks directory for managed stacks
@@ -69,6 +74,12 @@ func GetStackListFromContainers(stacksDir string, containers []ContainerInfo) ma
         return stacks
     }
 
+    // Build the ignore lookup (optional parameter)
+    var ignore IgnoreMap
+    if len(ignoreServices) > 0 && ignoreServices[0] != nil {
+        ignore = ignoreServices[0]
+    }
+
     // Group by compose project label
     type projectState struct {
         running int
@@ -83,6 +94,18 @@ func GetStackListFromContainers(stacksDir string, containers []ContainerInfo) ma
         if project == "" {
             continue
         }
+
+        // Skip status-ignored services
+        if ignore != nil {
+            svc := c.Service
+            if svc == "" {
+                svc = extractServiceFromName(c.Name)
+            }
+            if ignore[project] != nil && ignore[project][svc] {
+                continue
+            }
+        }
+
         ps, ok := projects[project]
         if !ok {
             ps = &projectState{}
@@ -129,6 +152,17 @@ func GetStackListFromContainers(stacksDir string, containers []ContainerInfo) ma
     }
 
     return stacks
+}
+
+// extractServiceFromName extracts the service name from a Docker Compose container name.
+// Format: stackname-servicename-N (e.g., "web-app-nginx-1" -> "nginx").
+// Best-effort heuristic; the Service field on ContainerInfo is preferred.
+func extractServiceFromName(containerName string) string {
+    parts := strings.Split(containerName, "-")
+    if len(parts) < 3 {
+        return containerName
+    }
+    return parts[len(parts)-2]
 }
 
 // GetStackList scans the stacks directory and merges with `docker compose ls` status.

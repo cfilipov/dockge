@@ -21,6 +21,7 @@ type App struct {
     WS           *ws.Server
     Docker       docker.Client
     Compose      compose.Composer
+    ComposeCache *compose.ComposeCache
     Terms        *terminal.Manager
     Mock         bool
 

@@ -1,11 +1,8 @@
 package handlers
 
 import (
-    "bufio"
     "context"
     "log/slog"
-    "os"
-    "path/filepath"
     "strings"
     "time"
 
@@ -58,7 +55,7 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
     serviceStatusList, runningImages := containersToServiceStatus(containers)
 
     // Compare running images vs compose.yaml to compute recreateNecessary per service
-    composeImages := parseComposeImages(app.StacksDir, stackName)
+    composeImages := app.ComposeCache.GetImages(stackName)
     serviceRecreateStatus := make(map[string]interface{})
     anyRecreate := false
     for svc, runningImage := range runningImages {
@@ -129,55 +126,6 @@ func containersToServiceStatus(containers []docker.Container) (map[string]interf
     }
 
     return result, runningImages
-}
-
-// parseComposeImages reads the compose.yaml for a stack and extracts service->image mappings.
-// Uses simple line parsing (no full YAML library needed).
-func parseComposeImages(stacksDir, stackName string) map[string]string {
-    result := make(map[string]string)
-    composeFile := filepath.Join(stacksDir, stackName, "compose.yaml")
-    f, err := os.Open(composeFile)
-    if err != nil {
-        return result
-    }
-    defer f.Close()
-
-    scanner := bufio.NewScanner(f)
-    inServices := false
-    currentService := ""
-    for scanner.Scan() {
-        line := scanner.Text()
-        trimmed := strings.TrimRight(line, " \t")
-
-        // Detect "services:" top-level key
-        if trimmed == "services:" {
-            inServices = true
-            continue
-        }
-        if !inServices {
-            continue
-        }
-        // Exit services block on next top-level key
-        if len(trimmed) > 0 && trimmed[0] != ' ' && trimmed[0] != '#' {
-            break
-        }
-        // Service name: exactly 2-space indent, ends with ":"
-        if len(line) > 2 && line[0] == ' ' && line[1] == ' ' && line[2] != ' ' && strings.HasSuffix(trimmed, ":") {
-            currentService = strings.TrimSpace(strings.TrimSuffix(trimmed, ":"))
-            continue
-        }
-        // Image field: 4+ space indent
-        if currentService != "" && strings.Contains(line, "image:") {
-            parts := strings.SplitN(line, "image:", 2)
-            if len(parts) == 2 {
-                img := strings.TrimSpace(parts[1])
-                if img != "" {
-                    result[currentService] = img
-                }
-            }
-        }
-    }
-    return result
 }
 
 // extractServiceName extracts the service name from a Docker Compose container name.

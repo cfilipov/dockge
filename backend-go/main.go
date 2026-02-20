@@ -146,6 +146,10 @@ func main() {
     // Image update cache
     imageUpdates := models.NewImageUpdateStore(database)
 
+    // Compose file cache — parse once, update via fsnotify
+    composeCache := compose.NewComposeCache()
+    composeCache.PopulateFromDisk(cfg.StacksDir)
+
     // Wire up handlers
     app := &handlers.App{
         Users:        users,
@@ -155,6 +159,7 @@ func main() {
         WS:           wss,
         Docker:       dockerClient,
         Compose:      composeExec,
+        ComposeCache: composeCache,
         Terms:        terms,
         JWTSecret:    jwtSecret,
         NeedSetup:    userCount == 0,
@@ -178,6 +183,14 @@ func main() {
     // Start background tasks
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
+
+    // Start compose file watcher (fsnotify) — keeps ComposeCache up to date
+    if err := compose.StartWatcher(ctx, cfg.StacksDir, composeCache, func(stackName string) {
+        app.TriggerStackListRefresh(stackName)
+    }); err != nil {
+        slog.Warn("compose file watcher failed to start, cache will be static", "err", err)
+    }
+
     app.StartStackWatcher(ctx)
     app.StartImageUpdateChecker(ctx)
 

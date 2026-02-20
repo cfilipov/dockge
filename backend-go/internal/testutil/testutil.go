@@ -88,6 +88,10 @@ func Setup(t testing.TB) *TestEnv {
     // Terminal manager
     terms := terminal.NewManager()
 
+    // Compose cache
+    composeCache := compose.NewComposeCache()
+    composeCache.PopulateFromDisk(stacksDir)
+
     // WebSocket server
     wss := ws.NewServer()
 
@@ -100,6 +104,7 @@ func Setup(t testing.TB) *TestEnv {
         WS:           wss,
         Docker:       dockerClient,
         Compose:      composeExec,
+        ComposeCache: composeCache,
         Terms:        terms,
         JWTSecret:    jwtSecret,
         NeedSetup:    userCount == 0,

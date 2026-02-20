@@ -157,9 +157,13 @@ func (app *App) refreshStackProject(project string) {
         return
     }
 
-    // Derive status from container states
+    // Derive status from container states (skip status-ignored services)
     var running, exited, created, paused int
     for _, c := range containers {
+        svc := c.Service
+        if app.ComposeCache.IsStatusIgnored(project, svc) {
+            continue
+        }
         switch strings.ToLower(c.State) {
         case "running":
             running++
@@ -222,7 +226,7 @@ func (app *App) refreshStackProject(project string) {
                 runningImages[c.Service] = c.Image
             }
         }
-        composeImages := parseComposeImages(app.StacksDir, project)
+        composeImages := app.ComposeCache.GetImages(project)
         anyRecreate := false
         for svc, runImg := range runningImages {
             compImg, ok := composeImages[svc]
@@ -248,7 +252,7 @@ func (app *App) refreshStackCache() {
         slog.Warn("refresh stack cache: container list", "err", err)
     }
 
-    stacks := stack.GetStackListFromContainers(app.StacksDir, containers)
+    stacks := stack.GetStackListFromContainers(app.StacksDir, containers, app.buildIgnoreMap())
 
     stackCacheMu.Lock()
     stackCache = stacks
@@ -286,7 +290,7 @@ func (app *App) refreshRecreateCache(stacks map[string]*stack.Stack, containers 
             }
         }
 
-        composeImages := parseComposeImages(app.StacksDir, name)
+        composeImages := app.ComposeCache.GetImages(name)
         anyRecreate := false
         for svc, runningImage := range runningImages {
             composeImage, ok := composeImages[svc]
@@ -451,6 +455,9 @@ func (app *App) handleSaveStack(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
+    // Eagerly update compose cache (don't wait for fsnotify)
+    app.updateComposeCacheFromYAML(stackName, composeYAML)
+
     app.TriggerStackListRefresh(stackName)
 
     if msg.ID != nil {
@@ -491,6 +498,9 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
         }
         return
     }
+
+    // Eagerly update compose cache (don't wait for fsnotify)
+    app.updateComposeCacheFromYAML(stackName, composeYAML)
 
     // Return immediately — validation and deploy run in background
     if msg.ID != nil {
@@ -909,6 +919,54 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
     }
 
     app.TriggerStackListRefresh(stackName)
+}
+
+// updateComposeCacheFromYAML eagerly parses the YAML string and updates the
+// compose cache. Handles imageupdates.check label transitions:
+//   - check disabled → clear stale BBolt entry
+//   - check re-enabled → trigger async image update check
+func (app *App) updateComposeCacheFromYAML(stackName, composeYAML string) {
+    newServices := compose.ParseYAML(composeYAML)
+    oldServices := app.ComposeCache.GetServiceData(stackName)
+    app.ComposeCache.Update(stackName, newServices)
+
+    // Handle imageupdates.check transitions
+    anyReEnabled := false
+    for svc, newData := range newServices {
+        if !newData.ImageUpdatesCheck {
+            // Check disabled → clear stale BBolt entry
+            if err := app.ImageUpdates.DeleteService(stackName, svc); err != nil {
+                slog.Warn("clear disabled service update", "err", err, "stack", stackName, "svc", svc)
+            }
+        } else if oldSvc, existed := oldServices[svc]; existed && !oldSvc.ImageUpdatesCheck {
+            // Check re-enabled → trigger async check
+            anyReEnabled = true
+        }
+    }
+    if anyReEnabled {
+        go func() {
+            app.checkImageUpdatesForStack(stackName)
+            app.broadcastStackList()
+        }()
+    }
+}
+
+// buildIgnoreMap creates a stack.IgnoreMap from the ComposeCache for services
+// that have dockge.status.ignore=true.
+func (app *App) buildIgnoreMap() stack.IgnoreMap {
+    allData := app.ComposeCache.GetAll()
+    ignore := make(stack.IgnoreMap, len(allData))
+    for stackName, services := range allData {
+        for svcName, svc := range services {
+            if svc.StatusIgnore {
+                if ignore[stackName] == nil {
+                    ignore[stackName] = make(map[string]bool)
+                }
+                ignore[stackName][svcName] = true
+            }
+        }
+    }
+    return ignore
 }
 
 // discardWriter silently discards all output.

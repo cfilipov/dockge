@@ -119,6 +119,13 @@ func (s *ImageUpdateStore) DeleteForStack(stackName string) error {
     })
 }
 
+// DeleteService removes a single service's cache entry.
+func (s *ImageUpdateStore) DeleteService(stackName, serviceName string) error {
+    return s.db.Update(func(tx *bolt.Tx) error {
+        return tx.Bucket(db.BucketImageUpdates).Delete(compoundKey(stackName, serviceName))
+    })
+}
+
 // ServiceUpdatesForStack returns a map of service name → has_update for a given stack.
 func (s *ImageUpdateStore) ServiceUpdatesForStack(stackName string) (map[string]bool, error) {
     prefix := stackPrefix(stackName)

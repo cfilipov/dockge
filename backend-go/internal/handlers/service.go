@@ -175,18 +175,33 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
 }
 
 // checkImageUpdatesForStack checks all services in a single stack for image updates.
-// Safe to call from any goroutine.
+// Respects dockge.imageupdates.check labels — services with check=false are skipped
+// and any stale BBolt entries are removed. Safe to call from any goroutine.
 func (app *App) checkImageUpdatesForStack(stackName string) {
     ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
     defer cancel()
 
-    images := parseComposeImages(app.StacksDir, stackName)
-    if len(images) == 0 {
+    serviceData := app.ComposeCache.GetServiceData(stackName)
+    if len(serviceData) == 0 {
         return
     }
 
     anyUpdate := false
-    for svc, imageRef := range images {
+    for svc, sd := range serviceData {
+        if sd.Image == "" {
+            continue
+        }
+
+        // Skip services with image update checking disabled
+        if !sd.ImageUpdatesCheck {
+            // Clear any stale BBolt entry
+            if err := app.ImageUpdates.DeleteService(stackName, svc); err != nil {
+                slog.Warn("delete disabled service update entry", "err", err, "stack", stackName, "svc", svc)
+            }
+            continue
+        }
+
+        imageRef := sd.Image
         localDigest := imageDigest(ctx, app, imageRef)
         remoteDigest := manifestDigest(ctx, app, imageRef)
 
