@@ -136,7 +136,7 @@ func (e *Exec) ServicePullAndUp(ctx context.Context, stackName, serviceName stri
 // The command runs until the context is cancelled.
 func (e *Exec) Logs(ctx context.Context, stackName string, w io.Writer) error {
     dir := filepath.Join(e.StacksDir, stackName)
-    cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f")
+    cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f", "--tail", "100")
     cmd.Dir = dir
     cmd.Stdout = w
     cmd.Stderr = w
@@ -150,7 +150,7 @@ func (e *Exec) Logs(ctx context.Context, stackName string, w io.Writer) error {
 // ServiceLogs streams logs for a single service.
 func (e *Exec) ServiceLogs(ctx context.Context, stackName, serviceName string, w io.Writer) error {
     dir := filepath.Join(e.StacksDir, stackName)
-    cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f", serviceName)
+    cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f", "--tail", "100", serviceName)
     cmd.Dir = dir
     cmd.Stdout = w
     cmd.Stderr = w
