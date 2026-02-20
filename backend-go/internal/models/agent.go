@@ -1,8 +1,12 @@
 package models
 
 import (
-    "database/sql"
+    "encoding/json"
     "fmt"
+
+    bolt "go.etcd.io/bbolt"
+
+    "github.com/cfilipov/dockge/backend-go/internal/db"
 )
 
 type Agent struct {
@@ -15,63 +19,90 @@ type Agent struct {
 }
 
 type AgentStore struct {
-    db *sql.DB
+    db *bolt.DB
 }
 
-func NewAgentStore(db *sql.DB) *AgentStore {
-    return &AgentStore{db: db}
+func NewAgentStore(database *bolt.DB) *AgentStore {
+    return &AgentStore{db: database}
 }
 
 // GetAll returns all agents.
 func (s *AgentStore) GetAll() ([]Agent, error) {
-    rows, err := s.db.Query("SELECT id, url, username, password, name, active FROM agent")
+    var agents []Agent
+    err := s.db.View(func(tx *bolt.Tx) error {
+        return tx.Bucket(db.BucketAgents).ForEach(func(k, v []byte) error {
+            var a Agent
+            if err := json.Unmarshal(v, &a); err != nil {
+                return fmt.Errorf("unmarshal agent %q: %w", string(k), err)
+            }
+            agents = append(agents, a)
+            return nil
+        })
+    })
     if err != nil {
         return nil, fmt.Errorf("get agents: %w", err)
     }
-    defer rows.Close()
-
-    var agents []Agent
-    for rows.Next() {
-        var a Agent
-        if err := rows.Scan(&a.ID, &a.URL, &a.Username, &a.Password, &a.Name, &a.Active); err != nil {
-            return nil, err
-        }
-        agents = append(agents, a)
-    }
-    return agents, rows.Err()
+    return agents, nil
 }
 
 // Add inserts a new agent.
 func (s *AgentStore) Add(url, username, password, name string) (*Agent, error) {
-    res, err := s.db.Exec(
-        "INSERT INTO agent (url, username, password, name, active) VALUES (?, ?, ?, ?, 1)",
-        url, username, password, name,
-    )
-    if err != nil {
-        return nil, fmt.Errorf("add agent: %w", err)
-    }
-    id, err := res.LastInsertId()
-    if err != nil {
-        return nil, fmt.Errorf("get agent id: %w", err)
-    }
-    return &Agent{
-        ID:       int(id),
+    a := &Agent{
         URL:      url,
         Username: username,
         Password: password,
         Name:     name,
         Active:   true,
-    }, nil
+    }
+
+    err := s.db.Update(func(tx *bolt.Tx) error {
+        bucket := tx.Bucket(db.BucketAgents)
+        // Use bucket sequence for auto-increment ID
+        seq, err := bucket.NextSequence()
+        if err != nil {
+            return fmt.Errorf("next sequence: %w", err)
+        }
+        a.ID = int(seq)
+
+        data, err := json.Marshal(a)
+        if err != nil {
+            return fmt.Errorf("marshal agent: %w", err)
+        }
+        return bucket.Put([]byte(url), data)
+    })
+    if err != nil {
+        return nil, fmt.Errorf("add agent: %w", err)
+    }
+    return a, nil
 }
 
 // Remove deletes an agent by URL.
 func (s *AgentStore) Remove(url string) error {
-    _, err := s.db.Exec("DELETE FROM agent WHERE url = ?", url)
-    return err
+    return s.db.Update(func(tx *bolt.Tx) error {
+        return tx.Bucket(db.BucketAgents).Delete([]byte(url))
+    })
 }
 
 // UpdateName changes an agent's display name.
 func (s *AgentStore) UpdateName(url, name string) error {
-    _, err := s.db.Exec("UPDATE agent SET name = ? WHERE url = ?", name, url)
-    return err
+    return s.db.Update(func(tx *bolt.Tx) error {
+        bucket := tx.Bucket(db.BucketAgents)
+        v := bucket.Get([]byte(url))
+        if v == nil {
+            return fmt.Errorf("agent %q not found", url)
+        }
+
+        var a Agent
+        if err := json.Unmarshal(v, &a); err != nil {
+            return fmt.Errorf("unmarshal agent: %w", err)
+        }
+
+        a.Name = name
+
+        data, err := json.Marshal(&a)
+        if err != nil {
+            return fmt.Errorf("marshal agent: %w", err)
+        }
+        return bucket.Put([]byte(url), data)
+    })
 }

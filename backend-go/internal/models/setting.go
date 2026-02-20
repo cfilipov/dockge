@@ -1,19 +1,21 @@
 package models
 
 import (
-    "database/sql"
     "fmt"
     "log/slog"
     "sync"
     "time"
 
+    bolt "go.etcd.io/bbolt"
     "golang.org/x/crypto/bcrypt"
+
+    "github.com/cfilipov/dockge/backend-go/internal/db"
 )
 
 const settingCacheTTL = 60 * time.Second
 
 type SettingStore struct {
-    db    *sql.DB
+    db    *bolt.DB
     mu    sync.RWMutex
     cache map[string]settingEntry
 }
@@ -23,9 +25,9 @@ type settingEntry struct {
     expires time.Time
 }
 
-func NewSettingStore(db *sql.DB) *SettingStore {
+func NewSettingStore(database *bolt.DB) *SettingStore {
     return &SettingStore{
-        db:    db,
+        db:    database,
         cache: make(map[string]settingEntry),
     }
 }
@@ -41,18 +43,17 @@ func (s *SettingStore) Get(key string) (string, error) {
     s.mu.RUnlock()
 
     // Read from DB
-    var value sql.NullString
-    err := s.db.QueryRow("SELECT value FROM setting WHERE key = ?", key).Scan(&value)
-    if err == sql.ErrNoRows {
-        return "", nil
-    }
+    var val string
+    err := s.db.View(func(tx *bolt.Tx) error {
+        b := tx.Bucket(db.BucketSettings)
+        v := b.Get([]byte(key))
+        if v != nil {
+            val = string(v)
+        }
+        return nil
+    })
     if err != nil {
         return "", fmt.Errorf("get setting %q: %w", key, err)
-    }
-
-    val := ""
-    if value.Valid {
-        val = value.String
     }
 
     // Update cache
@@ -65,10 +66,9 @@ func (s *SettingStore) Get(key string) (string, error) {
 
 // Set stores a setting value (upsert).
 func (s *SettingStore) Set(key, value string) error {
-    _, err := s.db.Exec(`
-        INSERT INTO setting (key, value) VALUES (?, ?)
-        ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `, key, value)
+    err := s.db.Update(func(tx *bolt.Tx) error {
+        return tx.Bucket(db.BucketSettings).Put([]byte(key), []byte(value))
+    })
     if err != nil {
         return fmt.Errorf("set setting %q: %w", key, err)
     }
@@ -83,24 +83,17 @@ func (s *SettingStore) Set(key, value string) error {
 
 // GetAll returns all settings as a map.
 func (s *SettingStore) GetAll() (map[string]string, error) {
-    rows, err := s.db.Query("SELECT key, value FROM setting")
+    result := make(map[string]string)
+    err := s.db.View(func(tx *bolt.Tx) error {
+        return tx.Bucket(db.BucketSettings).ForEach(func(k, v []byte) error {
+            result[string(k)] = string(v)
+            return nil
+        })
+    })
     if err != nil {
         return nil, fmt.Errorf("get all settings: %w", err)
     }
-    defer rows.Close()
-
-    result := make(map[string]string)
-    for rows.Next() {
-        var key string
-        var value sql.NullString
-        if err := rows.Scan(&key, &value); err != nil {
-            return nil, err
-        }
-        if value.Valid {
-            result[key] = value.String
-        }
-    }
-    return result, rows.Err()
+    return result, nil
 }
 
 // InvalidateCache clears the settings cache.
