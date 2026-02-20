@@ -1,4 +1,4 @@
-name: Node.js CI - Dockge
+name: CI - Dockge
 
 on:
   push:
@@ -11,11 +11,11 @@ on:
       - '*.md'
 
 jobs:
-  ci:
+  node-ci:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, ARM, ARM64]
-        node: [22] # Can be changed
+        node: [22]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Code
@@ -40,5 +40,22 @@ jobs:
 
       - name: Build
         run: npm run build:frontend
-      # more things can be add later like tests etc..
+
+  go-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Test
+        run: go test -race -cover ./...
+
+      - name: Benchmarks
+        run: go test -bench=. -benchmem -run='^$' .
 

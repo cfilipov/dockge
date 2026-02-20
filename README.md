@@ -10,18 +10,20 @@ This is a **fork of a fork**: it builds on [cmcooper1980/dockge](https://github.
 
 ## Why this fork?
 
-The **hamphh fork** adds several valuable features — image update tracking, collapsible terminals, YAML validation, per-service controls, compose labels, and more — but ships with significant **performance regressions**:
+The **hamphh fork** adds several valuable features like image update tracking, collapsible terminals, YAML validation, per-service controls, and compose labels but ships with significant **performance regressions**:
 
 - **Slow initial load** — the stack list blocks on image update checks against Docker registries before rendering anything
-- **Excessive polling** — frequent frontend polling and synchronous Docker API calls saturate the event loop
+- **Excessive polling** — frequent frontend polling and synchronous Docker API calls
 - **No persistent cache** — update check results are stored in memory only, lost on every restart, forcing full re-checks
 
-This fork takes the features from hamphh but **re-architects the performance-critical paths**:
+I've used nearly every docker management service there is, and I found myself always coming back to Dockge despite being unmaintained because of the performance, nothing came close to how speedy it it. The main goal of this fork is to maintain that level of responsiveness.
+
+This fork takes the features from hamphh but re-implements them to address the aforementioned issues.
 
 - The stack list loads instantly — it never blocks on registry lookups or Docker API calls
-- Image update checks run on a **background timer** (default: every 6 hours) with results cached in **SQLite**, not in memory
+- Image update checks run on a **background timer** (default: every 6 hours) with results cached in **BoldDB**, not in memory
 - Registry checks are parallelized with a concurrency limit and have per-request timeouts
-- The in-memory cache is rebuilt from SQLite on startup — no cold-start penalty
+- The in-memory cache is rebuilt from BoldDB on startup — no cold-start penalty
 - The frontend never polls for update status; it reads cached flags pushed by the server
 
 ### Visual differences from hamphh
@@ -43,6 +45,14 @@ This fork preserves the **cmcooper base UI** rather than adopting hamphh's visua
 - Stack list filter dropdown (filter by status, agent, update availability)
 - Button tooltips and notification icons in the stack list
 - Dockge-specific compose labels (`dockge.imageupdates.check`, etc.)
+
+### New features
+
+- Rewrite of back end to Go (see "Go backend" section below for details)
+- Migrated from SQlite to BoldDB (simpler, lighter memory footprint in Go)
+- Added a bunch of unit tests, integration and performance tests
+- Tooltips for docker compose action buttons now show you which command will get executed
+- A lot of care was taken to keep memory usage, binary size and latency as low as possible
 
 ### Go backend
 
