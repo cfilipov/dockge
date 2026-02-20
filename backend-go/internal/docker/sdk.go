@@ -5,13 +5,9 @@ import (
     "encoding/json"
     "fmt"
     "io"
-    "net"
-    "net/http"
-    "os"
     "runtime/debug"
     "strings"
     "sync"
-    "time"
 
     "github.com/docker/docker/api/types/container"
     "github.com/docker/docker/api/types/events"
@@ -28,32 +24,8 @@ type SDKClient struct {
 
 // NewSDKClient creates an SDKClient that connects to the Docker daemon
 // via the default socket (DOCKER_HOST or /var/run/docker.sock).
-// The HTTP transport is tuned for low memory: small idle connection pool
-// and short idle timeout so connections are released quickly.
 func NewSDKClient() (*SDKClient, error) {
-    // Determine socket path from DOCKER_HOST env, defaulting to the standard path.
-    sockPath := "/var/run/docker.sock"
-    if host, ok := os.LookupEnv("DOCKER_HOST"); ok && strings.HasPrefix(host, "unix://") {
-        sockPath = strings.TrimPrefix(host, "unix://")
-    }
-
-    transport := &http.Transport{
-        DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-            return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "unix", sockPath)
-        },
-        MaxIdleConns:        5,
-        MaxIdleConnsPerHost: 3,
-        IdleConnTimeout:     15 * time.Second,
-        DisableKeepAlives:   false,
-    }
-
-    httpClient := &http.Client{Transport: transport}
-
-    cli, err := client.NewClientWithOpts(
-        client.FromEnv,
-        client.WithAPIVersionNegotiation(),
-        client.WithHTTPClient(httpClient),
-    )
+    cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
     if err != nil {
         return nil, fmt.Errorf("docker sdk: %w", err)
     }
@@ -126,19 +98,16 @@ func (s *SDKClient) ContainerStats(ctx context.Context) (map[string]ContainerSta
         return nil, fmt.Errorf("container list for stats: %w", err)
     }
 
-    // Fetch stats with bounded concurrency. Each Docker stats call blocks
-    // ~1-2s waiting for a CPU delta sample. We limit to 3 concurrent to
-    // keep memory usage low (each goroutine holds an HTTP connection +
-    // JSON decode buffer + StatsResponse struct).
-    const maxConcurrent = 3
-
+    // Fetch stats for all containers in parallel. Each Docker stats call
+    // blocks ~1-2s waiting for a CPU delta sample, so serial fetching for
+    // N containers takes N*1.5s. Parallel brings it down to ~1.5s total.
+    // FreeOSMemory() at the end reclaims the brief memory spike.
     type statResult struct {
         name string
         stat ContainerStat
     }
 
     ch := make(chan statResult, len(containers))
-    sem := make(chan struct{}, maxConcurrent)
     var wg sync.WaitGroup
 
     for _, c := range containers {
@@ -146,8 +115,6 @@ func (s *SDKClient) ContainerStats(ctx context.Context) (map[string]ContainerSta
         wg.Add(1)
         go func() {
             defer wg.Done()
-            sem <- struct{}{}        // acquire
-            defer func() { <-sem }() // release
 
             name := ""
             if len(c.Names) > 0 {
