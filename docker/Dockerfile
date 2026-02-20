@@ -17,7 +17,7 @@ RUN pnpm run build:frontend
 ############################################
 # Build Go backend (embeds frontend)
 ############################################
-FROM golang:1.24-alpine AS build_backend
+FROM golang:1.25-alpine AS build_backend
 RUN apk add --no-cache git
 WORKDIR /app
 
