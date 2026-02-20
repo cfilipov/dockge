@@ -224,7 +224,9 @@
                             <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" @click="removeUrl(entry.key)" />
                         </li>
                     </ul>
-                    <button class="btn btn-normal btn-sm mt-3" @click="addUrl">{{ $t("addListItem", [$t('url')]) }}</button>
+                    <div>
+                        <button class="btn btn-normal btn-sm mt-3" @click="addUrl">{{ $t("addListItem", [$t('url')]) }}</button>
+                    </div>
                 </div>
             </div>
         </transition>
