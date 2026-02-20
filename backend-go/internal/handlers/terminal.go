@@ -289,15 +289,19 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
 
     term := app.Terms.Get(termName)
     if term == nil {
-        term = app.Terms.GetOrCreate(termName)
-        // Start log streaming in background
+        term = app.Terms.Create(termName, terminal.TypePTY)
+
+        // Start log streaming via PTY in background
+        dir := filepath.Join(app.StacksDir, stackName)
         ctx, cancel := context.WithCancel(context.Background())
+        cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f", "--tail", "100", serviceName)
+        cmd.Dir = dir
         term.SetCancel(cancel)
 
         go func() {
-            if err := app.Compose.ServiceLogs(ctx, stackName, serviceName, term); err != nil {
+            if err := term.StartPTY(cmd); err != nil {
                 if ctx.Err() == nil {
-                    slog.Warn("container log stream ended", "err", err, "stack", stackName, "service", serviceName)
+                    slog.Warn("container log stream failed to start", "err", err, "stack", stackName, "service", serviceName)
                 }
             }
         }()
@@ -343,15 +347,18 @@ func (app *App) handleLeaveCombinedTerminal(c *ws.Conn, msg *ws.ClientMessage) {
 
 // startCombinedLogs creates a combined log terminal for a stack and starts streaming.
 func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal {
-    term := app.Terms.GetOrCreate(termName)
+    term := app.Terms.Create(termName, terminal.TypePTY)
 
+    dir := filepath.Join(app.StacksDir, stackName)
     ctx, cancel := context.WithCancel(context.Background())
+    cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f", "--tail", "100")
+    cmd.Dir = dir
     term.SetCancel(cancel)
 
     go func() {
-        if err := app.Compose.Logs(ctx, stackName, term); err != nil {
+        if err := term.StartPTY(cmd); err != nil {
             if ctx.Err() == nil {
-                slog.Warn("combined log stream ended", "err", err, "stack", stackName)
+                slog.Warn("combined log stream failed to start", "err", err, "stack", stackName)
             }
         }
     }()

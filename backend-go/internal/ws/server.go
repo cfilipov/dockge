@@ -130,7 +130,9 @@ func (s *Server) OnDisconnect(fn func(c *Conn)) {
 }
 
 func (s *Server) dispatch(c *Conn, msg *ClientMessage) {
-    s.Dispatch(c, msg)
+    // Run each handler in its own goroutine so slow handlers (docker compose ps,
+    // docker stats) don't block the read pump and delay other messages.
+    go s.Dispatch(c, msg)
 }
 
 // Dispatch looks up and invokes the handler for the given message event.
