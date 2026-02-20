@@ -114,6 +114,16 @@ func main() {
         os.Exit(1)
     }
 
+    // Dev mode: auto-seed admin user when mock is enabled and DB is empty
+    if cfg.Dev && cfg.Mock && userCount == 0 {
+        if _, err := users.Create("admin", "testpass123"); err != nil {
+            slog.Error("dev seed", "err", err)
+        } else {
+            slog.Info("dev mode: seeded admin user")
+            userCount = 1
+        }
+    }
+
     // Docker client (SDK or mock)
     dockerClient, err := docker.NewClient(cfg.Mock, cfg.StacksDir)
     if err != nil {

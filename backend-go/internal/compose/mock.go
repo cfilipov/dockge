@@ -21,7 +21,11 @@ type MockCompose struct {
 
 // NewMockCompose creates a new mock compose executor.
 func NewMockCompose(stacksDir string) *MockCompose {
-    stateDir := "/tmp/mock-docker/state"
+    return NewMockComposeWithStateDir(stacksDir, "/tmp/mock-docker/state")
+}
+
+// NewMockComposeWithStateDir creates a mock compose executor with a custom state directory.
+func NewMockComposeWithStateDir(stacksDir, stateDir string) *MockCompose {
     os.MkdirAll(stateDir, 0755)
     return &MockCompose{
         StacksDir: stacksDir,

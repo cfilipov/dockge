@@ -25,7 +25,12 @@ type MockClient struct {
 
 // NewMockClient returns a new in-memory MockClient.
 func NewMockClient(stacksDir string) *MockClient {
-    stateDir := "/tmp/mock-docker/state"
+    return NewMockClientWithStateDir(stacksDir, "/tmp/mock-docker/state")
+}
+
+// NewMockClientWithStateDir returns a MockClient using a custom state directory.
+// This is useful for test isolation — each test can use a unique temp directory.
+func NewMockClientWithStateDir(stacksDir, stateDir string) *MockClient {
     os.MkdirAll(stateDir, 0755)
     return &MockClient{
         stacksDir: stacksDir,

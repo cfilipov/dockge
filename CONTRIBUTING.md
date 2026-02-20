@@ -228,6 +228,82 @@ The Rust backend uses:
 - No SSL/TLS support (use a reverse proxy)
 - No Docker image management feature
 
+## Backend Dev Server (Go) — Experimental
+
+An alternative backend written in Go is available in `backend-go/`. It implements the same WebSocket protocol as the Node.js backend, so the frontend works with either one.
+
+### Prerequisites
+
+- [Go](https://go.dev/dl/) 1.25+
+
+### Building
+
+```bash
+cd backend-go
+go build -o dockge-backend .
+```
+
+### Running
+
+```bash
+# With mock Docker (no real Docker daemon needed):
+./dockge-backend --dev --mock --port 5002 --stacks-dir /opt/stacks
+
+# With real Docker:
+./dockge-backend --port 5002 --stacks-dir /opt/stacks
+```
+
+When `--dev --mock` are both set and the database is empty, an admin user (`admin`/`testpass123`) is created automatically.
+
+### Running Tests
+
+Tests use an in-process HTTP server with real WebSocket connections and mock Docker — no Docker daemon or external services needed.
+
+```bash
+cd backend-go
+
+# Quick correctness tests (skips binary size and memory budget checks):
+go test -short -v ./...
+
+# Full test suite including binary size and memory budget:
+go test -v -count=1 ./...
+
+# Run benchmarks only (for regression tracking):
+go test -bench=. -benchmem -count=5 -run='^$' .
+
+# Compare benchmarks against committed baseline:
+# (requires golang.org/x/perf/cmd/benchstat)
+go test -bench=. -benchmem -count=5 -run='^$' . 2>/dev/null \
+  | grep -E "(^goos:|^goarch:|^pkg:|^cpu:|ns/op)" > bench-new.txt
+benchstat testdata/benchmarks/baseline.txt bench-new.txt
+
+# Update baseline after intentional changes:
+cp bench-new.txt testdata/benchmarks/baseline.txt
+```
+
+**Test categories:**
+
+| Test | What it checks |
+|------|---------------|
+| `TestNeedSetup` | Fresh DB returns needSetup=true |
+| `TestSetupAndLogin` | Create user, then login succeeds |
+| `TestLoginBadPassword` | Wrong password returns ok=false |
+| `TestRequestStackList` | Returns stack list without error |
+| `TestGetStack` | Returns YAML content from disk |
+| `TestSaveStack` | Saves YAML, verifies file on disk |
+| `TestDockerStats` | Returns stats for a running stack |
+| `TestServiceStatusList` | Returns container statuses |
+| `TestGetDockerNetworkList` | Returns network names |
+| `TestUnauthenticatedAccess` | Protected endpoints reject unauthenticated requests |
+| `TestBinarySize` | Production binary stays under 20 MB |
+| `TestMemoryBudget` | Heap stays under 50 MB after a workload |
+
+**Benchmarks:** `BenchmarkLogin`, `BenchmarkRequestStackList`, `BenchmarkGetStack`, `BenchmarkServiceStatusList`, `BenchmarkDockerStats`
+
+### Adding Test Stacks
+
+Place a `compose.yaml` in `backend-go/testdata/stacks/<name>/`. Tests automatically copy these into isolated temp directories.
+
 ## Frontend Dev Server
 
 It binds to `0.0.0.0:5000` by default. The frontend dev server is used for development only.

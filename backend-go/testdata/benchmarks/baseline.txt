@@ -1,0 +1,29 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cfilipov/dockge/backend-go
+cpu: AMD EPYC 7C13 64-Core Processor
+BenchmarkLogin-128                 	      15	  73346696 ns/op	  103569 B/op	     815 allocs/op
+BenchmarkLogin-128 	16	  75526293 ns/op	   97624 B/op	     787 allocs/op
+BenchmarkLogin-128 	13	  77143734 ns/op	  102992 B/op	     786 allocs/op
+BenchmarkLogin-128 	14	  76244530 ns/op	  101405 B/op	     788 allocs/op
+BenchmarkLogin-128 	13	  77876873 ns/op	  104130 B/op	     791 allocs/op
+BenchmarkRequestStackList-128      	   10000	    117122 ns/op	   12453 B/op	     192 allocs/op
+BenchmarkRequestStackList-128 	10000	    105578 ns/op	   12432 B/op	     192 allocs/op
+BenchmarkRequestStackList-128 	10000	    140430 ns/op	   12412 B/op	     192 allocs/op
+BenchmarkRequestStackList-128 	10000	    130569 ns/op	   12404 B/op	     192 allocs/op
+BenchmarkRequestStackList-128 	10000	    123216 ns/op	   12403 B/op	     192 allocs/op
+BenchmarkGetStack-128              	    6841	    302122 ns/op	   14118 B/op	     221 allocs/op
+BenchmarkGetStack-128 	7669	    287753 ns/op	   14115 B/op	     221 allocs/op
+BenchmarkGetStack-128 	6517	    257299 ns/op	   14123 B/op	     221 allocs/op
+BenchmarkGetStack-128 	4749	    284202 ns/op	   14118 B/op	     221 allocs/op
+BenchmarkGetStack-128 	7626	    289582 ns/op	   14111 B/op	     221 allocs/op
+BenchmarkServiceStatusList-128     	    2805	    525186 ns/op	   34850 B/op	     297 allocs/op
+BenchmarkServiceStatusList-128 	3762	    540936 ns/op	   34793 B/op	     297 allocs/op
+BenchmarkServiceStatusList-128 	3434	    357984 ns/op	   34957 B/op	     297 allocs/op
+BenchmarkServiceStatusList-128 	3781	    491245 ns/op	   34891 B/op	     297 allocs/op
+BenchmarkServiceStatusList-128 	2566	    539809 ns/op	   34880 B/op	     297 allocs/op
+BenchmarkDockerStats-128           	    5074	    352986 ns/op	   18481 B/op	     218 allocs/op
+BenchmarkDockerStats-128 	4844	    252164 ns/op	   18481 B/op	     218 allocs/op
+BenchmarkDockerStats-128 	5833	    288478 ns/op	   18460 B/op	     218 allocs/op
+BenchmarkDockerStats-128 	5704	    234121 ns/op	   18482 B/op	     218 allocs/op
+BenchmarkDockerStats-128 	5845	    240251 ns/op	   18502 B/op	     218 allocs/op
