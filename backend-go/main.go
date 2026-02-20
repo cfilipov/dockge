@@ -133,7 +133,6 @@ func main() {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
     app.StartStackListBroadcaster(ctx)
-    wss.Run(ctx)
 
     // Start HTTP server
     addr := fmt.Sprintf(":%d", cfg.Port)

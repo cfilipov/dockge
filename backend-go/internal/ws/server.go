@@ -1,12 +1,11 @@
 package ws
 
 import (
-    "context"
     "log/slog"
     "net/http"
     "sync"
 
-    "nhooyr.io/websocket"
+    "github.com/coder/websocket"
 )
 
 // HandlerFunc processes a client message. It receives the connection and the
@@ -172,8 +171,3 @@ func (s *Server) HandleConnect(fn func(c *Conn)) {
     }
 }
 
-// Run starts the server's background tasks. Call with a cancellable context.
-func (s *Server) Run(_ context.Context) {
-    // Placeholder for background tasks (stack list refresh, etc.)
-    // Will be populated in later phases.
-}
