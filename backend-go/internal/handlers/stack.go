@@ -494,7 +494,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
 
     // Return immediately — validation and deploy run in background
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deployed"})
     }
 
     // Validate then deploy in background; errors stream to the terminal
@@ -515,7 +515,7 @@ func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
     }
 
     go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
@@ -535,7 +535,7 @@ func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
     }
 
     go app.runComposeAction(stackName, "stop", "stop")
@@ -555,7 +555,7 @@ func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
     }
 
     go app.runComposeAction(stackName, "restart", "restart")
@@ -575,7 +575,7 @@ func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
     }
 
     go app.runComposeAction(stackName, "down", "down")
@@ -595,7 +595,7 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
     }
 
     go func() {
@@ -638,7 +638,7 @@ func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
     }
 
     go func() {
@@ -675,7 +675,7 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
     }
 
     go func() {
@@ -708,7 +708,7 @@ func (app *App) handlePauseStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
     }
 
     go app.runComposeAction(stackName, "pause", "pause")
@@ -728,7 +728,7 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
     }
 
     go app.runComposeAction(stackName, "unpause", "unpause")

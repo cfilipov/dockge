@@ -38,7 +38,7 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
     }
 
     go func() {
@@ -66,7 +66,7 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
     }
 
     go func() {
@@ -94,7 +94,7 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
     }
 
     go func() {
@@ -122,7 +122,7 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
     }
 
     go func() {
