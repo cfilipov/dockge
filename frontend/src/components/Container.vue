@@ -8,7 +8,7 @@
                 <button
                     v-if="!isEditMode && serviceRecreateNecessary"
                     class="btn btn-sm btn-info me-2"
-                    :title="$t('tooltipServiceRecreate')"
+                    :title="$t('tooltipServiceRecreate', [name])"
                     :disabled="processing"
                     @click="recreateService"
                 >
@@ -19,7 +19,7 @@
                     v-if="!isEditMode && serviceImageUpdateAvailable"
                     v-b-modal="updateModalId"
                     class="btn btn-sm btn-info me-2"
-                    :title="$t('tooltipServiceUpdate')"
+                    :title="$t('tooltipServiceUpdate', [name])"
                     :disabled="processing"
                 >
                     <font-awesome-icon icon="arrow-up" />

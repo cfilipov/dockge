@@ -3,8 +3,8 @@
         <Uptime :stack="stack" :fixed-width="true" class="me-2" />
         <div class="title">
             <span class="me-2">{{ stackName }}</span>
-            <font-awesome-icon v-if="stack.started && stack.recreateNecessary" icon="rocket" class="notification-icon me-2" :title="$t('tooltipServiceRecreate')" />
-            <font-awesome-icon v-if="stack.imageUpdatesAvailable" icon="arrow-up" class="notification-icon me-2" :title="$t('tooltipServiceUpdate')" />
+            <font-awesome-icon v-if="stack.started && stack.recreateNecessary" icon="rocket" class="notification-icon me-2" :title="$t('tooltipIconRecreate')" />
+            <font-awesome-icon v-if="stack.imageUpdatesAvailable" icon="arrow-up" class="notification-icon me-2" :title="$t('tooltipIconUpdate')" />
             <div v-if="$root.agentCount > 1" class="endpoint">{{ endpointDisplay }}</div>
         </div>
     </router-link>
