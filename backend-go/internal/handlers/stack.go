@@ -295,24 +295,13 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    // Validate compose.yaml before deploying
-    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer cancel()
-    if _, err := app.Compose.Config(ctx, stackName); err != nil {
-        slog.Warn("deploy validation failed", "stack", stackName, "err", err)
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
-        }
-        return
-    }
-
-    // Return immediately — non-blocking
+    // Return immediately — validation and deploy run in background
     if msg.ID != nil {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    // Spawn compose up in background, stream output to terminal
-    go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
+    // Validate then deploy in background; errors stream to the terminal
+    go app.runDeployWithValidation(stackName)
 }
 
 func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -572,6 +561,48 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
     }
 
     // Refresh stack list after mutation
+    app.TriggerStackListRefresh()
+}
+
+// runDeployWithValidation validates the compose file via `docker compose config`
+// and then runs `docker compose up -d --remove-orphans`. Both steps stream output
+// to the terminal so the user sees any validation errors inline.
+func (app *App) runDeployWithValidation(stackName string) {
+    termName := "compose--" + stackName
+    term := app.Terms.Recreate(termName, terminal.TypePTY)
+
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+    defer cancel()
+
+    dir := filepath.Join(app.StacksDir, stackName)
+
+    // Step 1: Validate
+    term.Write([]byte("$ docker compose config --dry-run\r\n"))
+    validateCmd := exec.CommandContext(ctx, "docker", "compose", "config", "--dry-run")
+    validateCmd.Dir = dir
+    if err := term.RunPTY(validateCmd); err != nil {
+        if ctx.Err() == nil {
+            errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
+            term.Write([]byte(errMsg))
+            slog.Warn("deploy validation failed", "stack", stackName, "err", err)
+        }
+        return
+    }
+
+    // Step 2: Deploy
+    term.Write([]byte("$ docker compose up -d --remove-orphans\r\n"))
+    upCmd := exec.CommandContext(ctx, "docker", "compose", "up", "-d", "--remove-orphans")
+    upCmd.Dir = dir
+    if err := term.RunPTY(upCmd); err != nil {
+        if ctx.Err() == nil {
+            errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+            term.Write([]byte(errMsg))
+            slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
+        }
+    } else {
+        term.Write([]byte("\r\n[Done]\r\n"))
+    }
+
     app.TriggerStackListRefresh()
 }
 
