@@ -699,7 +699,7 @@ export default {
         },
 
         requestDockerStats() {
-            this.$root.emitAgent(this.endpoint, "dockerStats", (res) => {
+            this.$root.emitAgent(this.endpoint, "dockerStats", this.stack.name, (res) => {
                 if (res.ok) {
                     this.dockerStats = res.dockerStats;
                 }

@@ -122,7 +122,7 @@ func (m *MockClient) ContainerInspect(_ context.Context, id string) (string, err
 }]`, id, cleanID, cleanID), nil
 }
 
-func (m *MockClient) ContainerStats(_ context.Context) (map[string]ContainerStat, error) {
+func (m *MockClient) ContainerStats(_ context.Context, projectFilter string) (map[string]ContainerStat, error) {
     entries, err := os.ReadDir(m.stacksDir)
     if err != nil {
         return nil, err
@@ -134,6 +134,9 @@ func (m *MockClient) ContainerStats(_ context.Context) (map[string]ContainerStat
             continue
         }
         stackName := entry.Name()
+        if projectFilter != "" && stackName != projectFilter {
+            continue
+        }
         status := m.getStackStatus(stackName)
         if status != "running" {
             continue

@@ -193,15 +193,19 @@ func extractServiceName(containerName string) string {
 }
 
 // handleDockerStats returns resource usage stats via the Docker client.
+// Args: [stackName] — if provided, only fetches stats for that stack's containers.
 func (app *App) handleDockerStats(c *ws.Conn, msg *ws.ClientMessage) {
     if checkLogin(c, msg) == 0 {
         return
     }
 
+    args := parseArgs(msg)
+    stackName := argString(args, 0)
+
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
 
-    stats, err := app.Docker.ContainerStats(ctx)
+    stats, err := app.Docker.ContainerStats(ctx, stackName)
     if err != nil {
         slog.Warn("dockerStats", "err", err)
         stats = map[string]docker.ContainerStat{}

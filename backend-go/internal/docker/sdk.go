@@ -91,9 +91,15 @@ func (s *SDKClient) ContainerInspect(ctx context.Context, id string) (string, er
     return string(data), nil
 }
 
-func (s *SDKClient) ContainerStats(ctx context.Context) (map[string]ContainerStat, error) {
-    // List running containers first
-    containers, err := s.cli.ContainerList(ctx, container.ListOptions{})
+func (s *SDKClient) ContainerStats(ctx context.Context, projectFilter string) (map[string]ContainerStat, error) {
+    // List running containers, optionally filtered by compose project
+    opts := container.ListOptions{}
+    if projectFilter != "" {
+        opts.Filters = filters.NewArgs(
+            filters.Arg("label", "com.docker.compose.project="+projectFilter),
+        )
+    }
+    containers, err := s.cli.ContainerList(ctx, opts)
     if err != nil {
         return nil, fmt.Errorf("container list for stats: %w", err)
     }

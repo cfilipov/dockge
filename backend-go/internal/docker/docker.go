@@ -17,8 +17,9 @@ type Client interface {
     // ContainerInspect returns the raw JSON inspect output for a container.
     ContainerInspect(ctx context.Context, id string) (string, error)
 
-    // ContainerStats returns resource usage stats for all running containers.
-    ContainerStats(ctx context.Context) (map[string]ContainerStat, error)
+    // ContainerStats returns resource usage stats for running containers.
+    // If projectFilter is non-empty, only returns stats for that compose project.
+    ContainerStats(ctx context.Context, projectFilter string) (map[string]ContainerStat, error)
 
     // ContainerLogs opens a log stream for a container.
     // Returns the stream, whether the container uses a TTY, and any error.
