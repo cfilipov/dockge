@@ -205,6 +205,10 @@ func (m *MockClient) DistributionInspect(_ context.Context, imageRef string) (st
     return fmt.Sprintf("sha256:%s%s", hash, hash), nil
 }
 
+func (m *MockClient) ImagePrune(_ context.Context, all bool) (string, error) {
+    return "Total reclaimed space: 0B", nil
+}
+
 func (m *MockClient) NetworkList(_ context.Context) ([]string, error) {
     return []string{"bridge", "host", "none"}, nil
 }

@@ -29,6 +29,21 @@ import (
 var version = "1.5.0"
 
 func main() {
+    // Quick healthcheck mode — used by Docker HEALTHCHECK from scratch image.
+    // Avoids needing wget/curl in the container. The binary starts in ~10ms,
+    // hits /healthz, and exits immediately — no server initialization.
+    if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+        port := "5001"
+        if v := os.Getenv("DOCKGE_PORT"); v != "" {
+            port = v
+        }
+        resp, err := http.Get("http://127.0.0.1:" + port + "/healthz")
+        if err != nil || resp.StatusCode != 200 {
+            os.Exit(1)
+        }
+        os.Exit(0)
+    }
+
     slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
         Level: slog.LevelDebug,
     })))
@@ -57,6 +72,10 @@ func main() {
     // HTTP mux
     mux := http.NewServeMux()
     mux.Handle("/ws", wss.UpgradeHandler())
+    mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+        w.WriteHeader(http.StatusOK)
+        w.Write([]byte("ok"))
+    })
 
     // Frontend SPA handler
     var frontendFS fs.FS

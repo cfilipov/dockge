@@ -11,6 +11,7 @@ import (
     "sync"
     "time"
 
+    "github.com/cfilipov/dockge/backend-go/internal/compose"
     "github.com/cfilipov/dockge/backend-go/internal/docker"
     "github.com/cfilipov/dockge/backend-go/internal/stack"
     "github.com/cfilipov/dockge/backend-go/internal/terminal"
@@ -483,11 +484,18 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
     }
 
-    go app.runDockerCommands(stackName, "update", [][]string{
-        {"compose", "pull"},
-        {"compose", "up", "-d", "--remove-orphans"},
-        {"image", "prune", "--all", "--force"},
-    })
+    go func() {
+        app.runDockerCommands(stackName, "update", [][]string{
+            {"compose", "pull"},
+            {"compose", "up", "-d", "--remove-orphans"},
+        })
+        // Prune dangling images via SDK (no docker CLI needed)
+        if msg, err := app.Docker.ImagePrune(context.Background(), true); err != nil {
+            slog.Warn("image prune after update", "stack", stackName, "err", err)
+        } else {
+            slog.Debug("image prune after update", "stack", stackName, "result", msg)
+        }
+    }()
 }
 
 func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -636,8 +644,7 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
         term.Write([]byte(cmdDisplay))
 
         dir := filepath.Join(app.StacksDir, stackName)
-        args := append([]string{"compose"}, composeArgs...)
-        cmd := exec.CommandContext(ctx, "docker", args...)
+        cmd := exec.CommandContext(ctx, "docker-compose", composeArgs...)
         cmd.Dir = dir
 
         if err := term.RunPTY(cmd); err != nil {
@@ -693,7 +700,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 
         // Step 1: Validate
         term.Write([]byte("$ docker compose config --dry-run\r\n"))
-        validateCmd := exec.CommandContext(ctx, "docker", "compose", "config", "--dry-run")
+        validateCmd := exec.CommandContext(ctx, "docker-compose", "config", "--dry-run")
         validateCmd.Dir = dir
         if err := term.RunPTY(validateCmd); err != nil {
             if ctx.Err() == nil {
@@ -706,7 +713,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 
         // Step 2: Deploy
         term.Write([]byte("$ docker compose up -d --remove-orphans\r\n"))
-        upCmd := exec.CommandContext(ctx, "docker", "compose", "up", "-d", "--remove-orphans")
+        upCmd := exec.CommandContext(ctx, "docker-compose", "up", "-d", "--remove-orphans")
         upCmd.Dir = dir
         if err := term.RunPTY(upCmd); err != nil {
             if ctx.Err() == nil {
@@ -763,7 +770,8 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
             cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(dockerArgs, " "))
             term.Write([]byte(cmdDisplay))
 
-            cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
+            bin, cmdArgs := compose.DockerCommand(dockerArgs)
+            cmd := exec.CommandContext(ctx, bin, cmdArgs...)
             cmd.Dir = dir
 
             if err := term.RunPTY(cmd); err != nil {

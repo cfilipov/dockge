@@ -220,6 +220,18 @@ func (s *SDKClient) DistributionInspect(ctx context.Context, imageRef string) (s
     return string(resp.Descriptor.Digest), nil
 }
 
+func (s *SDKClient) ImagePrune(ctx context.Context, all bool) (string, error) {
+    pruneFilters := filters.NewArgs()
+    if !all {
+        pruneFilters.Add("dangling", "true")
+    }
+    report, err := s.cli.ImagesPrune(ctx, pruneFilters)
+    if err != nil {
+        return "", fmt.Errorf("image prune: %w", err)
+    }
+    return fmt.Sprintf("Total reclaimed space: %s", formatBytes(report.SpaceReclaimed)), nil
+}
+
 func (s *SDKClient) NetworkList(ctx context.Context) ([]string, error) {
     networks, err := s.cli.NetworkList(ctx, network.ListOptions{})
     if err != nil {

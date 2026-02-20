@@ -25,22 +25,25 @@ func (e *Exec) RunCompose(ctx context.Context, stackName string, w io.Writer, ar
 
 func (e *Exec) RunDocker(ctx context.Context, stackName string, w io.Writer, args ...string) error {
     dir := filepath.Join(e.StacksDir, stackName)
-    cmd := exec.CommandContext(ctx, "docker", args...)
+    // Route compose subcommands to docker-compose standalone binary,
+    // which eliminates the need for the full docker CLI in the container.
+    bin, cmdArgs := DockerCommand(args)
+    cmd := exec.CommandContext(ctx, bin, cmdArgs...)
     cmd.Dir = dir
     cmd.Stdout = w
     cmd.Stderr = w
 
-    slog.Debug("docker exec", "stack", stackName, "args", args)
+    slog.Debug("docker exec", "stack", stackName, "bin", bin, "args", cmdArgs)
 
     if err := cmd.Run(); err != nil {
-        return fmt.Errorf("docker %s: %w", strings.Join(args, " "), err)
+        return fmt.Errorf("%s %s: %w", bin, strings.Join(cmdArgs, " "), err)
     }
     return nil
 }
 
 func (e *Exec) Config(ctx context.Context, stackName string, w io.Writer) error {
     dir := filepath.Join(e.StacksDir, stackName)
-    cmd := exec.CommandContext(ctx, "docker", "compose", "config", "--dry-run")
+    cmd := exec.CommandContext(ctx, "docker-compose", "config", "--dry-run")
     cmd.Dir = dir
     var stderr bytes.Buffer
     cmd.Stdout = w
@@ -74,7 +77,7 @@ func (e *Exec) ServiceRestart(ctx context.Context, stackName, serviceName string
 
 func (e *Exec) ServicePullAndUp(ctx context.Context, stackName, serviceName string, w io.Writer) error {
     dir := filepath.Join(e.StacksDir, stackName)
-    pullCmd := exec.CommandContext(ctx, "docker", "compose", "pull", serviceName)
+    pullCmd := exec.CommandContext(ctx, "docker-compose", "pull", serviceName)
     pullCmd.Dir = dir
     pullCmd.Stdout = w
     pullCmd.Stderr = w
@@ -84,11 +87,10 @@ func (e *Exec) ServicePullAndUp(ctx context.Context, stackName, serviceName stri
     return e.ServiceUp(ctx, stackName, serviceName, w)
 }
 
-// run executes a docker compose command with output streaming.
+// run executes a docker-compose command with output streaming.
 func (e *Exec) run(ctx context.Context, stackName string, w io.Writer, composeArgs ...string) error {
     dir := filepath.Join(e.StacksDir, stackName)
-    args := append([]string{"compose"}, composeArgs...)
-    cmd := exec.CommandContext(ctx, "docker", args...)
+    cmd := exec.CommandContext(ctx, "docker-compose", composeArgs...)
     cmd.Dir = dir
     cmd.Stdout = w
     cmd.Stderr = w
@@ -96,7 +98,17 @@ func (e *Exec) run(ctx context.Context, stackName string, w io.Writer, composeAr
     slog.Debug("compose exec", "stack", stackName, "args", composeArgs)
 
     if err := cmd.Run(); err != nil {
-        return fmt.Errorf("docker compose %s: %w", strings.Join(composeArgs, " "), err)
+        return fmt.Errorf("docker-compose %s: %w", strings.Join(composeArgs, " "), err)
     }
     return nil
+}
+
+// DockerCommand routes "docker compose ..." to the docker-compose standalone
+// binary. Other docker subcommands (e.g. "docker image prune") are passed
+// through to the docker CLI.
+func DockerCommand(args []string) (string, []string) {
+    if len(args) > 0 && args[0] == "compose" {
+        return "docker-compose", args[1:]
+    }
+    return "docker", args
 }

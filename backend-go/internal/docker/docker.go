@@ -36,6 +36,9 @@ type Client interface {
     // NetworkList returns the names of all Docker networks.
     NetworkList(ctx context.Context) ([]string, error)
 
+    // ImagePrune removes unused images. Returns human-readable reclaimed space string.
+    ImagePrune(ctx context.Context, all bool) (string, error)
+
     // Events returns a channel of container lifecycle events and an error channel.
     // The channels are closed when the context is cancelled.
     Events(ctx context.Context) (<-chan ContainerEvent, <-chan error)
