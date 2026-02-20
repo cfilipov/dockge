@@ -691,6 +691,8 @@ export default {
                     this.serviceStatusList = res.serviceStatusList;
                     this.serviceUpdateStatus = res.serviceUpdateStatus || {};
                     this.serviceRecreateStatus = res.serviceRecreateStatus || {};
+                    // Keep top-level update button in sync with per-service data
+                    this.stack.imageUpdatesAvailable = Object.values(this.serviceUpdateStatus).some(v => v === true);
                 }
                 if (!this.stopServiceStatusTimeout) {
                     this.startServiceStatusTimeout();
