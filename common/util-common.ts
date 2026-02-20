@@ -441,7 +441,19 @@ function copyYAMLCommentsItems(items: any, srcItems: any) {
  * @param input
  * @param hostname
  */
-export function parseDockerPort(input : string, hostname : string) {
+export function parseDockerPort(input : string | number | Record<string, unknown>, hostname : string) {
+    // Long-syntax port object: { target, published, protocol, host_ip }
+    if (typeof input === "object" && input !== null) {
+        const obj = input as Record<string, unknown>;
+        const published = obj.published ?? obj.target;
+        const target = obj.target ?? published;
+        const proto = obj.protocol ? `/${obj.protocol}` : "";
+        const hostIp = obj.host_ip ? `${obj.host_ip}:` : "";
+        input = `${hostIp}${published}:${target}${proto}`;
+    } else if (typeof input === "number") {
+        input = String(input);
+    }
+
     let port;
     let display;
 
