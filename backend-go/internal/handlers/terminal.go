@@ -3,6 +3,7 @@ package handlers
 import (
     "bufio"
     "context"
+    "fmt"
     "log/slog"
     "os"
     "os/exec"
@@ -13,6 +14,29 @@ import (
     "github.com/cfilipov/dockge/backend-go/internal/terminal"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
 )
+
+// ANSI color codes matching docker compose's service name palette.
+var composeColors = []string{
+    "\033[36m", // cyan
+    "\033[33m", // yellow
+    "\033[32m", // green
+    "\033[35m", // magenta
+    "\033[34m", // blue
+    "\033[96m", // bright cyan
+    "\033[93m", // bright yellow
+    "\033[92m", // bright green
+    "\033[95m", // bright magenta
+    "\033[94m", // bright blue
+}
+
+const ansiReset = "\033[0m"
+
+// coloredPrefix returns "serviceName | " with ANSI color, padded to align pipes.
+func coloredPrefix(svcName string, colorIdx int, maxLen int) string {
+    color := composeColors[colorIdx%len(composeColors)]
+    padded := fmt.Sprintf("%-*s", maxLen, svcName)
+    return color + padded + " | " + ansiReset
+}
 
 // mainTerminalMu guards mainTerminalName.
 var mainTerminalMu sync.Mutex
@@ -385,11 +409,19 @@ func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal
             return
         }
 
+        // Compute max service name length for aligned pipe prefixes
+        maxLen := 0
+        for _, c := range containers {
+            if len(c.Service) > maxLen {
+                maxLen = len(c.Service)
+            }
+        }
+
         // Open a log stream for each container and merge into the terminal
         var wg sync.WaitGroup
-        for _, c := range containers {
+        for i, c := range containers {
             wg.Add(1)
-            go func(containerID, svcName string) {
+            go func(containerID, svcName string, colorIdx int) {
                 defer wg.Done()
 
                 stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
@@ -401,14 +433,14 @@ func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal
                 }
                 defer stream.Close()
 
-                prefix := svcName + " | "
+                prefix := coloredPrefix(svcName, colorIdx, maxLen)
                 scanner := bufio.NewScanner(stream)
                 scanner.Buffer(make([]byte, 64*1024), 64*1024)
                 for scanner.Scan() {
                     line := prefix + scanner.Text() + "\n"
                     term.Write([]byte(line))
                 }
-            }(c.ID, c.Service)
+            }(c.ID, c.Service, i)
         }
         wg.Wait()
     }()

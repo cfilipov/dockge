@@ -96,67 +96,91 @@ func (s *SDKClient) ContainerStats(ctx context.Context) (map[string]ContainerSta
         return nil, fmt.Errorf("container list for stats: %w", err)
     }
 
-    result := make(map[string]ContainerStat, len(containers))
+    // Fetch stats for all containers in parallel. Each Docker stats call
+    // blocks ~1-2s waiting for a CPU delta sample, so serial fetching for
+    // N containers takes N*1.5s. Parallel brings it down to ~1.5s total.
+    type statResult struct {
+        name string
+        stat ContainerStat
+    }
+
+    ch := make(chan statResult, len(containers))
     for _, c := range containers {
-        name := ""
-        if len(c.Names) > 0 {
-            name = strings.TrimPrefix(c.Names[0], "/")
-        }
-
-        statsResp, err := s.cli.ContainerStats(ctx, c.ID, false)
-        if err != nil {
-            continue
-        }
-
-        var stats container.StatsResponse
-        if err := json.NewDecoder(statsResp.Body).Decode(&stats); err != nil {
-            statsResp.Body.Close()
-            continue
-        }
-        statsResp.Body.Close()
-
-        // Calculate CPU percentage
-        cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage)
-        systemDelta := float64(stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage)
-        cpuPerc := 0.0
-        if systemDelta > 0 && cpuDelta > 0 {
-            cpuPerc = (cpuDelta / systemDelta) * float64(stats.CPUStats.OnlineCPUs) * 100.0
-        }
-
-        // Memory usage
-        memUsage := stats.MemoryStats.Usage - stats.MemoryStats.Stats["cache"]
-        memLimit := stats.MemoryStats.Limit
-        memPerc := 0.0
-        if memLimit > 0 {
-            memPerc = float64(memUsage) / float64(memLimit) * 100.0
-        }
-
-        // Network I/O
-        var netRx, netTx uint64
-        for _, v := range stats.Networks {
-            netRx += v.RxBytes
-            netTx += v.TxBytes
-        }
-
-        // Block I/O
-        var blkRead, blkWrite uint64
-        for _, bio := range stats.BlkioStats.IoServiceBytesRecursive {
-            switch bio.Op {
-            case "read", "Read":
-                blkRead += bio.Value
-            case "write", "Write":
-                blkWrite += bio.Value
+        c := c // capture loop variable
+        go func() {
+            name := ""
+            if len(c.Names) > 0 {
+                name = strings.TrimPrefix(c.Names[0], "/")
             }
-        }
 
-        result[name] = ContainerStat{
-            Name:     name,
-            CPUPerc:  fmt.Sprintf("%.2f%%", cpuPerc),
-            MemPerc:  fmt.Sprintf("%.2f%%", memPerc),
-            MemUsage: fmt.Sprintf("%s / %s", formatBytes(memUsage), formatBytes(memLimit)),
-            NetIO:    fmt.Sprintf("%s / %s", formatBytes(netRx), formatBytes(netTx)),
-            BlockIO:  fmt.Sprintf("%s / %s", formatBytes(blkRead), formatBytes(blkWrite)),
-            PIDs:     fmt.Sprintf("%d", stats.PidsStats.Current),
+            statsResp, err := s.cli.ContainerStats(ctx, c.ID, false)
+            if err != nil {
+                ch <- statResult{} // empty, will be skipped
+                return
+            }
+
+            var stats container.StatsResponse
+            if err := json.NewDecoder(statsResp.Body).Decode(&stats); err != nil {
+                statsResp.Body.Close()
+                ch <- statResult{}
+                return
+            }
+            statsResp.Body.Close()
+
+            // Calculate CPU percentage
+            cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage)
+            systemDelta := float64(stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage)
+            cpuPerc := 0.0
+            if systemDelta > 0 && cpuDelta > 0 {
+                cpuPerc = (cpuDelta / systemDelta) * float64(stats.CPUStats.OnlineCPUs) * 100.0
+            }
+
+            // Memory usage
+            memUsage := stats.MemoryStats.Usage - stats.MemoryStats.Stats["cache"]
+            memLimit := stats.MemoryStats.Limit
+            memPerc := 0.0
+            if memLimit > 0 {
+                memPerc = float64(memUsage) / float64(memLimit) * 100.0
+            }
+
+            // Network I/O
+            var netRx, netTx uint64
+            for _, v := range stats.Networks {
+                netRx += v.RxBytes
+                netTx += v.TxBytes
+            }
+
+            // Block I/O
+            var blkRead, blkWrite uint64
+            for _, bio := range stats.BlkioStats.IoServiceBytesRecursive {
+                switch bio.Op {
+                case "read", "Read":
+                    blkRead += bio.Value
+                case "write", "Write":
+                    blkWrite += bio.Value
+                }
+            }
+
+            ch <- statResult{
+                name: name,
+                stat: ContainerStat{
+                    Name:     name,
+                    CPUPerc:  fmt.Sprintf("%.2f%%", cpuPerc),
+                    MemPerc:  fmt.Sprintf("%.2f%%", memPerc),
+                    MemUsage: fmt.Sprintf("%s / %s", formatBytes(memUsage), formatBytes(memLimit)),
+                    NetIO:    fmt.Sprintf("%s / %s", formatBytes(netRx), formatBytes(netTx)),
+                    BlockIO:  fmt.Sprintf("%s / %s", formatBytes(blkRead), formatBytes(blkWrite)),
+                    PIDs:     fmt.Sprintf("%d", stats.PidsStats.Current),
+                },
+            }
+        }()
+    }
+
+    result := make(map[string]ContainerStat, len(containers))
+    for range containers {
+        r := <-ch
+        if r.name != "" {
+            result[r.name] = r.stat
         }
     }
     return result, nil
