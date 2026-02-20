@@ -3,10 +3,16 @@ package handlers
 import (
     "context"
     "log/slog"
+    "strings"
+    "sync"
     "time"
 
-    "github.com/cfilipov/dockge/backend-go/internal/docker"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
+)
+
+const (
+    imageUpdateInterval = 6 * time.Hour
+    imageCheckConcurrency = 3
 )
 
 func RegisterServiceHandlers(app *App) {
@@ -143,37 +149,8 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    // Run the check in the background so we don't block the socket
     go func() {
-        ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-        defer cancel()
-
-        // Get service→image from compose.yaml
-        images := parseComposeImages(app.StacksDir, stackName)
-        if len(images) == 0 {
-            slog.Warn("checkImageUpdates: no images found", "stack", stackName)
-            return
-        }
-
-        anyUpdate := false
-        for svc, imageRef := range images {
-            localDigest := docker.ImageDigest(ctx, imageRef)
-            remoteDigest := docker.ManifestDigest(ctx, imageRef)
-
-            hasUpdate := false
-            if localDigest != "" && remoteDigest != "" && localDigest != remoteDigest {
-                hasUpdate = true
-                anyUpdate = true
-            }
-
-            if err := app.ImageUpdates.Upsert(stackName, svc, imageRef, localDigest, remoteDigest, hasUpdate); err != nil {
-                slog.Error("checkImageUpdates upsert", "err", err, "stack", stackName, "svc", svc)
-            }
-        }
-
-        slog.Info("image update check complete", "stack", stackName, "anyUpdate", anyUpdate)
-
-        // Refresh the stack list so update icons appear/disappear
+        app.checkImageUpdatesForStack(stackName)
         app.TriggerStackListRefresh()
     }()
 
@@ -184,4 +161,119 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
             "updated": true,
         })
     }
+}
+
+// checkImageUpdatesForStack checks all services in a single stack for image updates.
+// Safe to call from any goroutine.
+func (app *App) checkImageUpdatesForStack(stackName string) {
+    ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+    defer cancel()
+
+    images := parseComposeImages(app.StacksDir, stackName)
+    if len(images) == 0 {
+        return
+    }
+
+    anyUpdate := false
+    for svc, imageRef := range images {
+        localDigest := imageDigest(ctx, app, imageRef)
+        remoteDigest := manifestDigest(ctx, app, imageRef)
+
+        slog.Debug("image digest comparison", "svc", svc, "image", imageRef, "local", localDigest, "remote", remoteDigest)
+
+        hasUpdate := localDigest != "" && remoteDigest != "" && localDigest != remoteDigest
+        if hasUpdate {
+            anyUpdate = true
+        }
+
+        if err := app.ImageUpdates.Upsert(stackName, svc, imageRef, localDigest, remoteDigest, hasUpdate); err != nil {
+            slog.Error("checkImageUpdates upsert", "err", err, "stack", stackName, "svc", svc)
+        }
+    }
+
+    slog.Info("image update check complete", "stack", stackName, "anyUpdate", anyUpdate)
+}
+
+// imageDigest returns the local digest for an image using the Docker client.
+func imageDigest(ctx context.Context, app *App, imageRef string) string {
+    digests, err := app.Docker.ImageInspect(ctx, imageRef)
+    if err != nil || len(digests) == 0 {
+        return ""
+    }
+    // RepoDigests are in the form "repo@sha256:abc..."
+    for _, d := range digests {
+        if idx := strings.Index(d, "@"); idx >= 0 {
+            return d[idx+1:]
+        }
+    }
+    return digests[0]
+}
+
+// manifestDigest returns the remote (registry) digest for an image using the Docker client.
+func manifestDigest(ctx context.Context, app *App, imageRef string) string {
+    digest, err := app.Docker.DistributionInspect(ctx, imageRef)
+    if err != nil {
+        return ""
+    }
+    return digest
+}
+
+// StartImageUpdateChecker starts a background goroutine that periodically checks
+// all stacks for image updates. Runs once on startup (after a short delay) and
+// then every 6 hours. Checks are parallelized with a concurrency limit of 3.
+func (app *App) StartImageUpdateChecker(ctx context.Context) {
+    go func() {
+        // Short delay on startup so the stack list loads first
+        select {
+        case <-ctx.Done():
+            return
+        case <-time.After(30 * time.Second):
+        }
+
+        app.checkAllImageUpdates()
+        app.TriggerStackListRefresh()
+
+        ticker := time.NewTicker(imageUpdateInterval)
+        defer ticker.Stop()
+
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            case <-ticker.C:
+                app.checkAllImageUpdates()
+                app.TriggerStackListRefresh()
+            }
+        }
+    }()
+}
+
+// checkAllImageUpdates iterates all stacks and checks each for image updates,
+// with a concurrency limit to avoid saturating the Docker daemon / network.
+func (app *App) checkAllImageUpdates() {
+    stackCacheMu.RLock()
+    stacks := stackCache
+    stackCacheMu.RUnlock()
+
+    if len(stacks) == 0 {
+        return
+    }
+
+    slog.Info("background image update check starting", "stacks", len(stacks))
+
+    sem := make(chan struct{}, imageCheckConcurrency)
+    var wg sync.WaitGroup
+
+    for name := range stacks {
+        wg.Add(1)
+        sem <- struct{}{}
+        go func(stackName string) {
+            defer wg.Done()
+            defer func() { <-sem }()
+            app.checkImageUpdatesForStack(stackName)
+        }(name)
+    }
+
+    wg.Wait()
+    slog.Info("background image update check complete")
 }

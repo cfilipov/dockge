@@ -419,7 +419,8 @@ cmd_image_prune() {
 }
 
 cmd_image_inspect() {
-    local image_ref="${1:-unknown}"
+    local format_arg="${1:-}"
+    local image_ref="${2:-unknown}"
     # Strip tag to create a stable mock digest
     local repo="${image_ref%%:*}"
     local tag="${image_ref#*:}"
@@ -428,6 +429,13 @@ cmd_image_inspect() {
     local hash
     hash=$(echo -n "${repo}:${tag}" | md5sum | awk '{print $1}')
     local mock_digest="sha256:${hash}${hash}"
+
+    # If --format requests just RepoDigests, return only that
+    if [[ "$format_arg" == *"RepoDigests"* ]]; then
+        echo "[\"${repo}@${mock_digest}\"]"
+        return
+    fi
+
     cat <<EOJSON
 [{
     "Id": "sha256:mock-image-id-${repo}",
@@ -468,6 +476,105 @@ cmd_manifest_inspect() {
     "layers": []
 }
 EOJSON
+}
+
+cmd_ps() {
+    # docker ps --format '{{json .}}' [--no-trunc] [-a]
+    # Returns one JSON object per line for each container
+    local show_all=false
+    local filter_label=""
+
+    # Parse args
+    for arg in "$@"; do
+        case "$arg" in
+            -a) show_all=true ;;
+            --filter=label=com.docker.compose.project=*)
+                filter_label="${arg#*=com.docker.compose.project=}" ;;
+        esac
+    done
+    # Also check --filter separately
+    local prev=""
+    for arg in "$@"; do
+        if [[ "$prev" == "--filter" ]] && [[ "$arg" == label=com.docker.compose.project=* ]]; then
+            filter_label="${arg#label=com.docker.compose.project=}"
+        fi
+        prev="$arg"
+    done
+
+    for dir in "$STACKS_DIR"/*/; do
+        [[ -d "$dir" ]] || continue
+        local name
+        name=$(basename "$dir")
+        local compose_file="${dir}compose.yaml"
+        [[ -f "$compose_file" ]] || compose_file="${dir}docker-compose.yaml"
+        [[ -f "$compose_file" ]] || continue
+
+        # Apply project filter
+        if [[ -n "$filter_label" && "$name" != "$filter_label" ]]; then
+            continue
+        fi
+
+        local status
+        status=$(get_stack_status "$name")
+
+        # Skip inactive stacks unless -a is given
+        if [[ "$status" == "inactive" ]]; then
+            continue
+        fi
+
+        local services
+        services=$(get_services "$name")
+
+        for svc in $services; do
+            local svc_state
+            if [[ "$status" == "running" ]]; then
+                svc_state=$(get_service_state "$name" "$svc")
+            else
+                svc_state="exited"
+            fi
+
+            # Skip stopped containers unless -a
+            if [[ "$show_all" == "false" && "$svc_state" != "running" ]]; then
+                continue
+            fi
+
+            local svc_image
+            svc_image=$(get_running_image "$name" "$svc")
+
+            local container_name="${name}-${svc}-1"
+            local labels="com.docker.compose.project=${name},com.docker.compose.service=${svc}"
+
+            cat <<EOJSON
+{"ID":"mock-${container_name}","Names":"${container_name}","Image":"${svc_image}","State":"${svc_state}","Status":"Up 5 minutes","Labels":"${labels}"}
+EOJSON
+        done
+    done
+}
+
+cmd_logs() {
+    # docker logs [--tail N] [-f] <containerID>
+    local container_id=""
+    local tail=""
+    local follow=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --tail) tail="$2"; shift 2 ;;
+            -f) follow=true; shift ;;
+            *) container_id="$1"; shift ;;
+        esac
+    done
+
+    # Extract service name from container ID (mock-stackname-svc-1 or stackname-svc-1)
+    local clean_id="${container_id#mock-}"
+    echo "[mock] Log output for container $clean_id"
+    echo "[mock] Container started successfully"
+
+    if [[ "$follow" == "true" ]]; then
+        while true; do
+            sleep 5
+            echo "[mock] $(date -Iseconds) heartbeat for $clean_id"
+        done
+    fi
 }
 
 cmd_inspect() {
@@ -568,6 +675,12 @@ if [[ "${1:-}" == "compose" ]]; then
         version)  cmd_compose_version ;;
         *)        echo "mock-docker: unsupported compose command: $subcmd" >&2; exit 1 ;;
     esac
+elif [[ "${1:-}" == "ps" ]]; then
+    shift
+    cmd_ps "$@"
+elif [[ "${1:-}" == "logs" ]]; then
+    shift
+    cmd_logs "$@"
 elif [[ "${1:-}" == "inspect" ]]; then
     shift
     cmd_inspect "$@"
@@ -577,11 +690,16 @@ elif [[ "${1:-}" == "network" && "${2:-}" == "ls" ]]; then
     cmd_network_ls
 elif [[ "${1:-}" == "image" && "${2:-}" == "inspect" ]]; then
     shift 2
-    # Skip --format flag if present
-    while [[ "${1:-}" == "--format" ]]; do
-        shift 2
+    format_arg=""
+    remaining=()
+    # Parse args: extract --format and collect the rest
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --format) format_arg="$2"; shift 2 ;;
+            *) remaining+=("$1"); shift ;;
+        esac
     done
-    cmd_image_inspect "$@"
+    cmd_image_inspect "$format_arg" "${remaining[@]}"
 elif [[ "${1:-}" == "manifest" && "${2:-}" == "inspect" ]]; then
     shift 2
     cmd_manifest_inspect "$@"

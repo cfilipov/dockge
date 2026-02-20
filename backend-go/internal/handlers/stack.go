@@ -11,6 +11,7 @@ import (
     "sync"
     "time"
 
+    "github.com/cfilipov/dockge/backend-go/internal/docker"
     "github.com/cfilipov/dockge/backend-go/internal/stack"
     "github.com/cfilipov/dockge/backend-go/internal/terminal"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
@@ -38,21 +39,69 @@ func RegisterStackHandlers(app *App) {
     app.WS.Handle("resumeStack", app.handleResumeStack)
 }
 
-// StartStackListBroadcaster starts a background goroutine that refreshes the stack list
-// every 10 seconds and broadcasts it to all authenticated clients.
-func (app *App) StartStackListBroadcaster(ctx context.Context) {
-    // Initial refresh
+// StartStackWatcher starts a background goroutine that:
+// 1. Does an initial full container list to populate the cache
+// 2. Subscribes to Docker Events to react to container lifecycle changes
+// 3. Keeps a slow fallback ticker (60s) as a safety net
+//
+// This replaces the old StartStackListBroadcaster which polled every 10s.
+func (app *App) StartStackWatcher(ctx context.Context) {
+    // Initial full refresh
     app.refreshStackCache()
     app.broadcastStackList()
 
+    // Subscribe to Docker events
+    eventCh, errCh := app.Docker.Events(ctx)
+
     go func() {
-        ticker := time.NewTicker(10 * time.Second)
+        // Fallback ticker — full refresh every 60s as safety net
+        ticker := time.NewTicker(60 * time.Second)
         defer ticker.Stop()
+
+        // Debounce: batch events that arrive within 500ms into a single refresh
+        var debounceTimer *time.Timer
+        var debounceMu sync.Mutex
+        triggerDebounced := func() {
+            debounceMu.Lock()
+            defer debounceMu.Unlock()
+            if debounceTimer != nil {
+                debounceTimer.Stop()
+            }
+            debounceTimer = time.AfterFunc(500*time.Millisecond, func() {
+                app.refreshStackCache()
+                app.broadcastStackList()
+            })
+        }
 
         for {
             select {
             case <-ctx.Done():
+                debounceMu.Lock()
+                if debounceTimer != nil {
+                    debounceTimer.Stop()
+                }
+                debounceMu.Unlock()
                 return
+
+            case evt, ok := <-eventCh:
+                if !ok {
+                    // Event channel closed — fall back to polling only
+                    slog.Warn("docker events channel closed, falling back to polling")
+                    app.runPollingFallback(ctx)
+                    return
+                }
+                slog.Debug("docker event", "action", evt.Action, "project", evt.Project, "service", evt.Service)
+                triggerDebounced()
+
+            case err, ok := <-errCh:
+                if !ok {
+                    continue
+                }
+                slog.Warn("docker events error", "err", err)
+                // Reconnect: fall back to polling
+                app.runPollingFallback(ctx)
+                return
+
             case <-ticker.C:
                 app.refreshStackCache()
                 app.broadcastStackList()
@@ -61,39 +110,72 @@ func (app *App) StartStackListBroadcaster(ctx context.Context) {
     }()
 }
 
+// runPollingFallback runs a simple 60s polling loop when events are unavailable.
+func (app *App) runPollingFallback(ctx context.Context) {
+    ticker := time.NewTicker(60 * time.Second)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case <-ticker.C:
+            app.refreshStackCache()
+            app.broadcastStackList()
+        }
+    }
+}
+
+// refreshStackCache queries the Docker client for all compose containers,
+// groups them by project, and merges with the filesystem scan.
 func (app *App) refreshStackCache() {
-    ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+    ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
     defer cancel()
 
-    composeLs, err := app.Compose.Ls(ctx)
+    // Get all containers with compose labels
+    containers, err := app.Docker.ContainerList(ctx, true, "")
     if err != nil {
-        slog.Warn("refresh stack cache: compose ls", "err", err)
-        composeLs = nil
+        slog.Warn("refresh stack cache: container list", "err", err)
     }
 
-    stacks := stack.GetStackList(app.StacksDir, composeLs)
+    stacks := stack.GetStackListFromContainers(app.StacksDir, containers)
 
     stackCacheMu.Lock()
     stackCache = stacks
     stackCacheMu.Unlock()
 
-    // Compute recreateNecessary for all running stacks so the rocket icon
-    // appears immediately in the stack list (not only after viewing each stack).
-    app.refreshRecreateCache(ctx, stacks)
+    // Compute recreateNecessary for all running stacks
+    app.refreshRecreateCache(stacks, containers)
 }
 
-// refreshRecreateCache runs `docker compose ps` for each running stack, compares
-// running images with compose.yaml images, and populates the recreate cache.
-func (app *App) refreshRecreateCache(ctx context.Context, stacks map[string]*stack.Stack) {
+// refreshRecreateCache compares running images with compose.yaml images and
+// populates the recreate cache. Uses the already-fetched container list.
+func (app *App) refreshRecreateCache(stacks map[string]*stack.Stack, containers []docker.Container) {
+    // Group containers by project
+    byProject := make(map[string][]docker.Container)
+    for _, c := range containers {
+        if c.Project != "" {
+            byProject[c.Project] = append(byProject[c.Project], c)
+        }
+    }
+
     for name, s := range stacks {
         if !s.IsStarted() {
             continue
         }
-        psJSON, err := app.Compose.Ps(ctx, name)
-        if err != nil {
+        projectContainers := byProject[name]
+        if len(projectContainers) == 0 {
             continue
         }
-        _, runningImages := parseComposePsWithImages(psJSON)
+
+        // Build running images map
+        runningImages := make(map[string]string)
+        for _, c := range projectContainers {
+            if c.Service != "" {
+                runningImages[c.Service] = c.Image
+            }
+        }
+
         composeImages := parseComposeImages(app.StacksDir, name)
         anyRecreate := false
         for svc, runningImage := range runningImages {
@@ -527,102 +609,35 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
 // runComposeAction runs a compose command in the background, streaming output
 // to a terminal that fans out to WebSocket clients.
 //
-// Terminal naming follows the frontend convention:
-//
-//	compose-{endpoint}-{stackName} → for local endpoint: compose--{stackName}
-//
-// The command runs through a PTY so that docker compose outputs colored,
-// animated progress (it detects the TTY and enables rich output).
+// In mock mode: uses pipe terminal + Composer interface (no real docker CLI).
+// In real mode: uses PTY terminal + exec.Command (for rich terminal output).
 func (app *App) runComposeAction(stackName, action string, composeArgs ...string) {
     termName := "compose--" + stackName
-    term := app.Terms.Recreate(termName, terminal.TypePTY)
-
-    // Write command display
     cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(composeArgs, " "))
-    term.Write([]byte(cmdDisplay))
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()
 
-    dir := filepath.Join(app.StacksDir, stackName)
-    args := append([]string{"compose"}, composeArgs...)
-    cmd := exec.CommandContext(ctx, "docker", args...)
-    cmd.Dir = dir
-
-    if err := term.RunPTY(cmd); err != nil {
-        // Only log if the context wasn't cancelled (user-initiated cancel is normal)
-        if ctx.Err() == nil {
-            errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-            term.Write([]byte(errMsg))
-            slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-        }
-    } else {
-        term.Write([]byte("\r\n[Done]\r\n"))
-    }
-
-    // Refresh stack list after mutation
-    app.TriggerStackListRefresh()
-}
-
-// runDeployWithValidation validates the compose file via `docker compose config`
-// and then runs `docker compose up -d --remove-orphans`. Both steps stream output
-// to the terminal so the user sees any validation errors inline.
-func (app *App) runDeployWithValidation(stackName string) {
-    termName := "compose--" + stackName
-    term := app.Terms.Recreate(termName, terminal.TypePTY)
-
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-    defer cancel()
-
-    dir := filepath.Join(app.StacksDir, stackName)
-
-    // Step 1: Validate
-    term.Write([]byte("$ docker compose config --dry-run\r\n"))
-    validateCmd := exec.CommandContext(ctx, "docker", "compose", "config", "--dry-run")
-    validateCmd.Dir = dir
-    if err := term.RunPTY(validateCmd); err != nil {
-        if ctx.Err() == nil {
-            errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
-            term.Write([]byte(errMsg))
-            slog.Warn("deploy validation failed", "stack", stackName, "err", err)
-        }
-        return
-    }
-
-    // Step 2: Deploy
-    term.Write([]byte("$ docker compose up -d --remove-orphans\r\n"))
-    upCmd := exec.CommandContext(ctx, "docker", "compose", "up", "-d", "--remove-orphans")
-    upCmd.Dir = dir
-    if err := term.RunPTY(upCmd); err != nil {
-        if ctx.Err() == nil {
-            errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-            term.Write([]byte(errMsg))
-            slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
-        }
-    } else {
-        term.Write([]byte("\r\n[Done]\r\n"))
-    }
-
-    app.TriggerStackListRefresh()
-}
-
-// runDockerCommands runs multiple docker commands sequentially on the same PTY
-// terminal. Each argSet is passed directly to `docker` (e.g., {"compose", "pull"}
-// or {"image", "prune", "--all", "--force"}).
-func (app *App) runDockerCommands(stackName, action string, argSets [][]string) {
-    termName := "compose--" + stackName
-    term := app.Terms.Recreate(termName, terminal.TypePTY)
-
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-    defer cancel()
-
-    dir := filepath.Join(app.StacksDir, stackName)
-
-    for _, dockerArgs := range argSets {
-        cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(dockerArgs, " "))
+    if app.Mock {
+        term := app.Terms.Recreate(termName, terminal.TypePipe)
         term.Write([]byte(cmdDisplay))
 
-        cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
+        if err := app.Compose.RunCompose(ctx, stackName, term, composeArgs...); err != nil {
+            if ctx.Err() == nil {
+                errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+                term.Write([]byte(errMsg))
+                slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+            }
+        } else {
+            term.Write([]byte("\r\n[Done]\r\n"))
+        }
+    } else {
+        term := app.Terms.Recreate(termName, terminal.TypePTY)
+        term.Write([]byte(cmdDisplay))
+
+        dir := filepath.Join(app.StacksDir, stackName)
+        args := append([]string{"compose"}, composeArgs...)
+        cmd := exec.CommandContext(ctx, "docker", args...)
         cmd.Dir = dir
 
         if err := term.RunPTY(cmd); err != nil {
@@ -631,12 +646,140 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
                 term.Write([]byte(errMsg))
                 slog.Error("compose action", "action", action, "stack", stackName, "err", err)
             }
-            app.TriggerStackListRefresh()
-            return
+        } else {
+            term.Write([]byte("\r\n[Done]\r\n"))
         }
     }
 
-    term.Write([]byte("\r\n[Done]\r\n"))
+    app.TriggerStackListRefresh()
+}
+
+// runDeployWithValidation validates the compose file via `docker compose config`
+// and then runs `docker compose up -d --remove-orphans`.
+func (app *App) runDeployWithValidation(stackName string) {
+    termName := "compose--" + stackName
+
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+    defer cancel()
+
+    if app.Mock {
+        term := app.Terms.Recreate(termName, terminal.TypePipe)
+
+        // Step 1: Validate
+        term.Write([]byte("$ docker compose config --dry-run\r\n"))
+        if err := app.Compose.Config(ctx, stackName, term); err != nil {
+            if ctx.Err() == nil {
+                errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
+                term.Write([]byte(errMsg))
+                slog.Warn("deploy validation failed", "stack", stackName, "err", err)
+            }
+            return
+        }
+
+        // Step 2: Deploy
+        term.Write([]byte("$ docker compose up -d --remove-orphans\r\n"))
+        if err := app.Compose.RunCompose(ctx, stackName, term, "up", "-d", "--remove-orphans"); err != nil {
+            if ctx.Err() == nil {
+                errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+                term.Write([]byte(errMsg))
+                slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
+            }
+        } else {
+            term.Write([]byte("\r\n[Done]\r\n"))
+        }
+    } else {
+        term := app.Terms.Recreate(termName, terminal.TypePTY)
+        dir := filepath.Join(app.StacksDir, stackName)
+
+        // Step 1: Validate
+        term.Write([]byte("$ docker compose config --dry-run\r\n"))
+        validateCmd := exec.CommandContext(ctx, "docker", "compose", "config", "--dry-run")
+        validateCmd.Dir = dir
+        if err := term.RunPTY(validateCmd); err != nil {
+            if ctx.Err() == nil {
+                errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
+                term.Write([]byte(errMsg))
+                slog.Warn("deploy validation failed", "stack", stackName, "err", err)
+            }
+            return
+        }
+
+        // Step 2: Deploy
+        term.Write([]byte("$ docker compose up -d --remove-orphans\r\n"))
+        upCmd := exec.CommandContext(ctx, "docker", "compose", "up", "-d", "--remove-orphans")
+        upCmd.Dir = dir
+        if err := term.RunPTY(upCmd); err != nil {
+            if ctx.Err() == nil {
+                errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+                term.Write([]byte(errMsg))
+                slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
+            }
+        } else {
+            term.Write([]byte("\r\n[Done]\r\n"))
+        }
+    }
+
+    app.TriggerStackListRefresh()
+}
+
+// runDockerCommands runs multiple docker commands sequentially on the same terminal.
+func (app *App) runDockerCommands(stackName, action string, argSets [][]string) {
+    termName := "compose--" + stackName
+
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+    defer cancel()
+
+    if app.Mock {
+        term := app.Terms.Recreate(termName, terminal.TypePipe)
+
+        for _, dockerArgs := range argSets {
+            cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(dockerArgs, " "))
+            term.Write([]byte(cmdDisplay))
+
+            var err error
+            if len(dockerArgs) > 0 && dockerArgs[0] == "compose" {
+                err = app.Compose.RunCompose(ctx, stackName, term, dockerArgs[1:]...)
+            } else {
+                err = app.Compose.RunDocker(ctx, stackName, term, dockerArgs...)
+            }
+
+            if err != nil {
+                if ctx.Err() == nil {
+                    errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+                    term.Write([]byte(errMsg))
+                    slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+                }
+                app.TriggerStackListRefresh()
+                return
+            }
+        }
+
+        term.Write([]byte("\r\n[Done]\r\n"))
+    } else {
+        term := app.Terms.Recreate(termName, terminal.TypePTY)
+        dir := filepath.Join(app.StacksDir, stackName)
+
+        for _, dockerArgs := range argSets {
+            cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(dockerArgs, " "))
+            term.Write([]byte(cmdDisplay))
+
+            cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
+            cmd.Dir = dir
+
+            if err := term.RunPTY(cmd); err != nil {
+                if ctx.Err() == nil {
+                    errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+                    term.Write([]byte(errMsg))
+                    slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+                }
+                app.TriggerStackListRefresh()
+                return
+            }
+        }
+
+        term.Write([]byte("\r\n[Done]\r\n"))
+    }
+
     app.TriggerStackListRefresh()
 }
 

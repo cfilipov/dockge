@@ -6,6 +6,7 @@ import (
     "sync"
 
     "github.com/cfilipov/dockge/backend-go/internal/compose"
+    "github.com/cfilipov/dockge/backend-go/internal/docker"
     "github.com/cfilipov/dockge/backend-go/internal/models"
     "github.com/cfilipov/dockge/backend-go/internal/terminal"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
@@ -18,8 +19,10 @@ type App struct {
     Agents       *models.AgentStore
     ImageUpdates *models.ImageUpdateStore
     WS           *ws.Server
-    Compose      *compose.Exec
+    Docker       docker.Client
+    Compose      compose.Composer
     Terms        *terminal.Manager
+    Mock         bool
 
     JWTSecret        string
     NeedSetup        bool

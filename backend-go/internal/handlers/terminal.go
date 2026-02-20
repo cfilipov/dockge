@@ -1,6 +1,7 @@
 package handlers
 
 import (
+    "bufio"
     "context"
     "log/slog"
     "os"
@@ -266,7 +267,8 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     }
 }
 
-// handleJoinContainerLog starts streaming logs for a single service.
+// handleJoinContainerLog starts streaming logs for a single service using the
+// Docker client's ContainerLogs API (SDK or mock).
 func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
     if checkLogin(c, msg) == 0 {
         return
@@ -289,20 +291,36 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
 
     term := app.Terms.Get(termName)
     if term == nil {
-        term = app.Terms.Create(termName, terminal.TypePTY)
+        term = app.Terms.Create(termName, terminal.TypePipe)
 
-        // Start log streaming via PTY in background
-        dir := filepath.Join(app.StacksDir, stackName)
         ctx, cancel := context.WithCancel(context.Background())
-        cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f", "--tail", "100", serviceName)
-        cmd.Dir = dir
         term.SetCancel(cancel)
 
+        // Find the container ID for this service in this stack
         go func() {
-            if err := term.StartPTY(cmd); err != nil {
+            containerID, err := app.findContainerID(ctx, stackName, serviceName)
+            if err != nil {
+                slog.Warn("joinContainerLog: find container", "err", err, "stack", stackName, "service", serviceName)
+                term.Write([]byte("[Error] Could not find container for " + serviceName + "\r\n"))
+                return
+            }
+
+            stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
+            if err != nil {
                 if ctx.Err() == nil {
-                    slog.Warn("container log stream failed to start", "err", err, "stack", stackName, "service", serviceName)
+                    slog.Warn("container log stream", "err", err, "stack", stackName, "service", serviceName)
+                    term.Write([]byte("[Error] " + err.Error() + "\r\n"))
                 }
+                return
+            }
+            defer stream.Close()
+
+            // Pipe log stream into the terminal
+            scanner := bufio.NewScanner(stream)
+            scanner.Buffer(make([]byte, 64*1024), 64*1024)
+            for scanner.Scan() {
+                line := scanner.Text() + "\n"
+                term.Write([]byte(line))
             }
         }()
     }
@@ -345,25 +363,79 @@ func (app *App) handleLeaveCombinedTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     }
 }
 
-// startCombinedLogs creates a combined log terminal for a stack and starts streaming.
+// startCombinedLogs creates a combined log terminal for a stack and starts streaming
+// logs from all containers in the project using the Docker client.
 func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal {
-    term := app.Terms.Create(termName, terminal.TypePTY)
+    term := app.Terms.Create(termName, terminal.TypePipe)
 
-    dir := filepath.Join(app.StacksDir, stackName)
     ctx, cancel := context.WithCancel(context.Background())
-    cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f", "--tail", "100")
-    cmd.Dir = dir
     term.SetCancel(cancel)
 
     go func() {
-        if err := term.StartPTY(cmd); err != nil {
-            if ctx.Err() == nil {
-                slog.Warn("combined log stream failed to start", "err", err, "stack", stackName)
-            }
+        // Find all containers for this stack
+        containers, err := app.Docker.ContainerList(ctx, true, stackName)
+        if err != nil {
+            slog.Warn("combined logs: list containers", "err", err, "stack", stackName)
+            term.Write([]byte("[Error] Could not list containers: " + err.Error() + "\r\n"))
+            return
         }
+
+        if len(containers) == 0 {
+            term.Write([]byte("[Info] No containers found for stack " + stackName + "\r\n"))
+            return
+        }
+
+        // Open a log stream for each container and merge into the terminal
+        var wg sync.WaitGroup
+        for _, c := range containers {
+            wg.Add(1)
+            go func(containerID, svcName string) {
+                defer wg.Done()
+
+                stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
+                if err != nil {
+                    if ctx.Err() == nil {
+                        slog.Warn("combined log stream", "err", err, "service", svcName)
+                    }
+                    return
+                }
+                defer stream.Close()
+
+                prefix := svcName + " | "
+                scanner := bufio.NewScanner(stream)
+                scanner.Buffer(make([]byte, 64*1024), 64*1024)
+                for scanner.Scan() {
+                    line := prefix + scanner.Text() + "\n"
+                    term.Write([]byte(line))
+                }
+            }(c.ID, c.Service)
+        }
+        wg.Wait()
     }()
 
     return term
+}
+
+// findContainerID resolves a stack+service name to a container ID by querying
+// the Docker client.
+func (app *App) findContainerID(ctx context.Context, stackName, serviceName string) (string, error) {
+    containers, err := app.Docker.ContainerList(ctx, true, stackName)
+    if err != nil {
+        return "", err
+    }
+    for _, c := range containers {
+        if c.Service == serviceName {
+            return c.ID, nil
+        }
+    }
+    // Fallback: use container name (for mock mode where labels may not be set)
+    for _, c := range containers {
+        if strings.Contains(c.Name, serviceName) {
+            return c.ID, nil
+        }
+    }
+    // Last resort: return the name as-is (docker CLI will resolve it)
+    return stackName + "-" + serviceName + "-1", nil
 }
 
 // extractCombinedStackName extracts the stack name from a combined terminal name.

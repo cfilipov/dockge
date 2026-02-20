@@ -18,6 +18,7 @@ import (
     "github.com/cfilipov/dockge/backend-go/internal/compose"
     "github.com/cfilipov/dockge/backend-go/internal/config"
     "github.com/cfilipov/dockge/backend-go/internal/db"
+    "github.com/cfilipov/dockge/backend-go/internal/docker"
     "github.com/cfilipov/dockge/backend-go/internal/handlers"
     "github.com/cfilipov/dockge/backend-go/internal/models"
     "github.com/cfilipov/dockge/backend-go/internal/terminal"
@@ -39,6 +40,7 @@ func main() {
         "stacksDir", cfg.StacksDir,
         "dataDir", cfg.DataDir,
         "dev", cfg.Dev,
+        "mock", cfg.Mock,
     )
 
     // Open database
@@ -93,8 +95,21 @@ func main() {
         os.Exit(1)
     }
 
+    // Docker client (SDK or mock)
+    dockerClient, err := docker.NewClient(cfg.Mock, cfg.StacksDir)
+    if err != nil {
+        slog.Error("docker client", "err", err)
+        os.Exit(1)
+    }
+    defer dockerClient.Close()
+
     // Compose executor
-    composeExec := &compose.Exec{StacksDir: cfg.StacksDir}
+    var composeExec compose.Composer
+    if cfg.Mock {
+        composeExec = compose.NewMockCompose(cfg.StacksDir)
+    } else {
+        composeExec = &compose.Exec{StacksDir: cfg.StacksDir}
+    }
 
     // Terminal manager
     terms := terminal.NewManager()
@@ -109,12 +124,14 @@ func main() {
         Agents:       agents,
         ImageUpdates: imageUpdates,
         WS:           wss,
+        Docker:       dockerClient,
         Compose:      composeExec,
         Terms:        terms,
         JWTSecret:    jwtSecret,
         NeedSetup:    userCount == 0,
         Version:      version,
         StacksDir:    cfg.StacksDir,
+        Mock:         cfg.Mock,
     }
     handlers.RegisterAuthHandlers(app)
     handlers.RegisterSettingsHandlers(app)
@@ -132,7 +149,8 @@ func main() {
     // Start background tasks
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    app.StartStackListBroadcaster(ctx)
+    app.StartStackWatcher(ctx)
+    app.StartImageUpdateChecker(ctx)
 
     // Start HTTP server
     addr := fmt.Sprintf(":%d", cfg.Port)
