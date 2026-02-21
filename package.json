@@ -36,6 +36,7 @@
         "@fortawesome/vue-fontawesome": "3.0.3",
         "@playwright/test": "^1.58.2",
         "@types/bootstrap": "~5.2.10",
+        "@types/node": "^25.3.0",
         "@typescript-eslint/eslint-plugin": "~6.8.0",
         "@typescript-eslint/parser": "~6.8.0",
         "@vitejs/plugin-vue": "~5.2.3",
