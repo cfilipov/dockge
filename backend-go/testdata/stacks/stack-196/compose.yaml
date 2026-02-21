@@ -1,0 +1,9 @@
+services:
+  vault:
+    image: hashicorp/vault:1.15
+    restart: unless-stopped
+    ports:
+      - "10196:80"
+  nginx-1:
+    image: nginx:latest
+    restart: unless-stopped

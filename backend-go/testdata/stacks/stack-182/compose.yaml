@@ -1,0 +1,6 @@
+services:
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    ports:
+      - "10182:80"

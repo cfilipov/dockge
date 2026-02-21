@@ -36,8 +36,20 @@ type TestEnv struct {
 }
 
 // Setup creates a test environment with a real HTTP server, BoltDB, and mock Docker.
-// The test stacks from testdata/stacks/ are copied into a temp directory.
+// Only copies "test-stack" from testdata — fast for unit tests.
 func Setup(t testing.TB) *TestEnv {
+    return setupWithStacks(t, "test-stack")
+}
+
+// SetupFull creates a test environment with all 200+ stacks from testdata.
+// Use only for stress tests and benchmarks.
+func SetupFull(t testing.TB) *TestEnv {
+    return setupWithStacks(t)
+}
+
+// setupWithStacks creates a test env. If stackNames is empty, copies all stacks;
+// otherwise only the named ones.
+func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     t.Helper()
 
     // Create temp directories
@@ -51,7 +63,21 @@ func Setup(t testing.TB) *TestEnv {
 
     // Copy test stacks from testdata
     testdataDir := findTestdata(t)
-    copyDir(t, filepath.Join(testdataDir, "stacks"), stacksDir)
+    srcStacks := filepath.Join(testdataDir, "stacks")
+    if len(stackNames) == 0 {
+        // Copy everything
+        copyDir(t, srcStacks, stacksDir)
+    } else {
+        // Copy only named stacks
+        for _, name := range stackNames {
+            src := filepath.Join(srcStacks, name)
+            dst := filepath.Join(stacksDir, name)
+            if err := os.MkdirAll(dst, 0755); err != nil {
+                t.Fatal(err)
+            }
+            copyDir(t, src, dst)
+        }
+    }
 
     // Open BoltDB in temp dir
     database, err := db.Open(dataDir)

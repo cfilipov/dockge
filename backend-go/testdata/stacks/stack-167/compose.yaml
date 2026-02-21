@@ -1,0 +1,10 @@
+services:
+  golang:
+    image: golang:1.22
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10167:80"
+  vault-1:
+    image: hashicorp/vault:1.15
+    restart: unless-stopped

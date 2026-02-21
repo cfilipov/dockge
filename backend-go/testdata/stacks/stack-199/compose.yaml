@@ -1,0 +1,70 @@
+services:
+  debian:
+    image: debian:bookworm-slim
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10199:80"
+  php-1:
+    image: php:8.3-fpm
+    command: sleep infinity
+    restart: unless-stopped
+  minio-2:
+    image: minio/minio:latest
+    restart: unless-stopped
+  postgres-3:
+    image: postgres:16
+    restart: unless-stopped
+  node-4:
+    image: node:20-alpine
+    command: sleep infinity
+    restart: unless-stopped
+  memcached-5:
+    image: memcached:1.6
+    restart: unless-stopped
+  grafana-6:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+  caddy-7:
+    image: caddy:2
+    restart: unless-stopped
+  ubuntu-8:
+    image: ubuntu:24.04
+    command: sleep infinity
+    restart: unless-stopped
+  ruby-9:
+    image: ruby:3.3-slim
+    command: sleep infinity
+    restart: unless-stopped
+  consul-10:
+    image: hashicorp/consul:1.17
+    restart: unless-stopped
+  redis-11:
+    image: redis:7
+    restart: unless-stopped
+  mongo-12:
+    image: mongo:7
+    restart: unless-stopped
+  httpd-13:
+    image: httpd:2.4
+    restart: unless-stopped
+  mariadb-14:
+    image: mariadb:11
+    restart: unless-stopped
+  traefik-15:
+    image: traefik:v3.0
+    restart: unless-stopped
+  alpine-16:
+    image: alpine:latest
+    command: sleep infinity
+    restart: unless-stopped
+  golang-17:
+    image: golang:1.22
+    command: sleep infinity
+    restart: unless-stopped
+  vault-18:
+    image: hashicorp/vault:1.15
+    restart: unless-stopped
+  nginx-19:
+    image: nginx:latest
+    restart: unless-stopped

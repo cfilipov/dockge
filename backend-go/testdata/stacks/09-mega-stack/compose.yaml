@@ -1,0 +1,481 @@
+services:
+  svc-000:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-001:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-002:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-003:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-004:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-005:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-006:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-007:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-008:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-009:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-010:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-011:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-012:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-013:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-014:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-015:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-016:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-017:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-018:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-019:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-020:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-021:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-022:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-023:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-024:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-025:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-026:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-027:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-028:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-029:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-030:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-031:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-032:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-033:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-034:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-035:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-036:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-037:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-038:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-039:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-040:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-041:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-042:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-043:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-044:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-045:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-046:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-047:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-048:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-049:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-050:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-051:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-052:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-053:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-054:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-055:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-056:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-057:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-058:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-059:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-060:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-061:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-062:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-063:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-064:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-065:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-066:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-067:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-068:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-069:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-070:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-071:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-072:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-073:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-074:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-075:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-076:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-077:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-078:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-079:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-080:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-081:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-082:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-083:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-084:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-085:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-086:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-087:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-088:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-089:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-090:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-091:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-092:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-093:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-094:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-095:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-096:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-097:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-098:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-099:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-100:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-101:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-102:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-103:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-104:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-105:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-106:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-107:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-108:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-109:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-110:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-111:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-112:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-113:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-114:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-115:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-116:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-117:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-118:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  svc-119:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped

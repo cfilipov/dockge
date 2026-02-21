@@ -1,0 +1,13 @@
+services:
+  php:
+    image: php:8.3-fpm
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10128:80"
+  minio-1:
+    image: minio/minio:latest
+    restart: unless-stopped
+  postgres-2:
+    image: postgres:16
+    restart: unless-stopped

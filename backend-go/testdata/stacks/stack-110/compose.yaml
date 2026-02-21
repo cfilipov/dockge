@@ -1,0 +1,7 @@
+services:
+  ruby:
+    image: ruby:3.3-slim
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10110:80"

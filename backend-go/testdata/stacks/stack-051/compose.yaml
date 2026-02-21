@@ -1,0 +1,6 @@
+services:
+  httpd:
+    image: httpd:2.4
+    restart: unless-stopped
+    ports:
+      - "10051:80"

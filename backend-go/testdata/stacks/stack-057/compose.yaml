@@ -1,0 +1,9 @@
+services:
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    ports:
+      - "10057:80"
+  postgres-1:
+    image: postgres:16
+    restart: unless-stopped

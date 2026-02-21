@@ -1,0 +1,6 @@
+services:
+  mariadb:
+    image: mariadb:11
+    restart: unless-stopped
+    ports:
+      - "10080:80"

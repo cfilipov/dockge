@@ -1,0 +1,20 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "10198:80"
+  caddy-1:
+    image: caddy:2
+    restart: unless-stopped
+  ubuntu-2:
+    image: ubuntu:24.04
+    command: sleep infinity
+    restart: unless-stopped
+  ruby-3:
+    image: ruby:3.3-slim
+    command: sleep infinity
+    restart: unless-stopped
+  consul-4:
+    image: hashicorp/consul:1.17
+    restart: unless-stopped

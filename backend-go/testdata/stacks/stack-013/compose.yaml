@@ -1,0 +1,7 @@
+services:
+  alpine:
+    image: alpine:latest
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10013:80"

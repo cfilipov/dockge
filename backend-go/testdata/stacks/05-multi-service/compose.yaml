@@ -1,0 +1,61 @@
+services:
+  app:
+    image: node:20-alpine
+    command: node server.js
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - frontend
+      - backend
+  api:
+    image: python:3.12-slim
+    command: python -m http.server 8000
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - frontend
+      - backend
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: secret
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - backend
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    networks:
+      - backend
+  worker:
+    image: python:3.12-slim
+    command: python worker.py
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - db
+    networks:
+      - backend
+
+volumes:
+  dbdata:
+
+networks:
+  frontend:
+  backend:

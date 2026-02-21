@@ -1,0 +1,7 @@
+services:
+  python:
+    image: python:3.12-slim
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10033:80"

@@ -114,14 +114,17 @@ func main() {
         os.Exit(1)
     }
 
-    // Dev mode: auto-seed admin user when mock is enabled and DB is empty
-    if cfg.Dev && cfg.Mock && userCount == 0 {
-        if _, err := users.Create("admin", "testpass123"); err != nil {
-            slog.Error("dev seed", "err", err)
-        } else {
-            slog.Info("dev mode: seeded admin user")
-            userCount = 1
+    // Dev mode: auto-seed admin user and test stacks when mock is enabled
+    if cfg.Dev && cfg.Mock {
+        if userCount == 0 {
+            if _, err := users.Create("admin", "testpass123"); err != nil {
+                slog.Error("dev seed", "err", err)
+            } else {
+                slog.Info("dev mode: seeded admin user")
+                userCount = 1
+            }
         }
+        seedDevStacks(cfg.StacksDir)
     }
 
     // Mock state (shared between MockClient and MockCompose)
@@ -289,4 +292,81 @@ type gzipResponseWriter struct {
 
 func (w *gzipResponseWriter) Write(b []byte) (int, error) {
     return w.Writer.Write(b)
+}
+
+// seedDevStacks copies testdata stacks into the stacks directory for dev+mock mode.
+// It uses a marker file (.dockge-dev-stacks) to avoid re-copying on subsequent runs.
+// If the directory has user content (no marker, not empty), it's left alone.
+func seedDevStacks(stacksDir string) {
+    marker := filepath.Join(stacksDir, ".dockge-dev-stacks")
+
+    // If marker exists, already seeded
+    if _, err := os.Stat(marker); err == nil {
+        slog.Debug("dev stacks already seeded")
+        return
+    }
+
+    // If directory has content but no marker, it's user data — don't overwrite
+    entries, err := os.ReadDir(stacksDir)
+    if err == nil && len(entries) > 0 {
+        slog.Info("stacks dir has existing content, skipping dev seed")
+        return
+    }
+
+    // Find testdata/stacks/ relative to cwd
+    srcDir := filepath.Join("testdata", "stacks")
+    if info, err := os.Stat(srcDir); err != nil || !info.IsDir() {
+        slog.Warn("testdata/stacks not found, skipping dev stack seed (run from backend-go/)")
+        return
+    }
+
+    // Copy all stacks
+    count := 0
+    srcEntries, err := os.ReadDir(srcDir)
+    if err != nil {
+        slog.Warn("read testdata/stacks", "err", err)
+        return
+    }
+
+    for _, entry := range srcEntries {
+        if !entry.IsDir() {
+            continue
+        }
+        dst := filepath.Join(stacksDir, entry.Name())
+        if err := os.MkdirAll(dst, 0755); err != nil {
+            slog.Warn("mkdir", "path", dst, "err", err)
+            continue
+        }
+        if err := copyDirRecursive(filepath.Join(srcDir, entry.Name()), dst); err != nil {
+            slog.Warn("copy stack", "name", entry.Name(), "err", err)
+            continue
+        }
+        count++
+    }
+
+    // Write marker
+    os.WriteFile(marker, []byte("seeded by dockge dev mode\n"), 0644)
+    slog.Info("dev mode: seeded test stacks", "count", count)
+}
+
+// copyDirRecursive copies all files from src to dst recursively.
+func copyDirRecursive(src, dst string) error {
+    return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+        if err != nil {
+            return err
+        }
+        rel, err := filepath.Rel(src, path)
+        if err != nil {
+            return err
+        }
+        target := filepath.Join(dst, rel)
+        if d.IsDir() {
+            return os.MkdirAll(target, 0755)
+        }
+        data, err := os.ReadFile(path)
+        if err != nil {
+            return err
+        }
+        return os.WriteFile(target, data, 0644)
+    })
 }

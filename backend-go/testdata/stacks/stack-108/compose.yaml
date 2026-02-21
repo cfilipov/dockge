@@ -1,0 +1,13 @@
+services:
+  python:
+    image: python:3.12-slim
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10108:80"
+  rabbitmq-1:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+  elasticsearch-2:
+    image: elasticsearch:8.12.0
+    restart: unless-stopped

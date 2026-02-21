@@ -1,0 +1,12 @@
+services:
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "10018:80"
+  mongo-1:
+    image: mongo:7
+    restart: unless-stopped
+  httpd-2:
+    image: httpd:2.4
+    restart: unless-stopped

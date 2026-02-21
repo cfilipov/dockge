@@ -1,0 +1,17 @@
+services:
+  alpine:
+    image: alpine:latest
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10188:80"
+  golang-1:
+    image: golang:1.22
+    command: sleep infinity
+    restart: unless-stopped
+  vault-2:
+    image: hashicorp/vault:1.15
+    restart: unless-stopped
+  nginx-3:
+    image: nginx:latest
+    restart: unless-stopped

@@ -1,0 +1,6 @@
+services:
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    restart: unless-stopped
+    ports:
+      - "10041:80"

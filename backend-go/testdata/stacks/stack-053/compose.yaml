@@ -1,0 +1,7 @@
+services:
+  php:
+    image: php:8.3-fpm
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10053:80"

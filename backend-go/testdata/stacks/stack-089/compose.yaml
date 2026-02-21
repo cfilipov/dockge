@@ -1,0 +1,35 @@
+services:
+  consul:
+    image: hashicorp/consul:1.17
+    restart: unless-stopped
+    ports:
+      - "10089:80"
+  redis-1:
+    image: redis:7
+    restart: unless-stopped
+  mongo-2:
+    image: mongo:7
+    restart: unless-stopped
+  httpd-3:
+    image: httpd:2.4
+    restart: unless-stopped
+  mariadb-4:
+    image: mariadb:11
+    restart: unless-stopped
+  traefik-5:
+    image: traefik:v3.0
+    restart: unless-stopped
+  alpine-6:
+    image: alpine:latest
+    command: sleep infinity
+    restart: unless-stopped
+  golang-7:
+    image: golang:1.22
+    command: sleep infinity
+    restart: unless-stopped
+  vault-8:
+    image: hashicorp/vault:1.15
+    restart: unless-stopped
+  nginx-9:
+    image: nginx:latest
+    restart: unless-stopped

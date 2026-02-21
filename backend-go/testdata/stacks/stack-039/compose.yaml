@@ -1,0 +1,70 @@
+services:
+  consul:
+    image: hashicorp/consul:1.17
+    restart: unless-stopped
+    ports:
+      - "10039:80"
+  redis-1:
+    image: redis:7
+    restart: unless-stopped
+  mongo-2:
+    image: mongo:7
+    restart: unless-stopped
+  httpd-3:
+    image: httpd:2.4
+    restart: unless-stopped
+  mariadb-4:
+    image: mariadb:11
+    restart: unless-stopped
+  traefik-5:
+    image: traefik:v3.0
+    restart: unless-stopped
+  alpine-6:
+    image: alpine:latest
+    command: sleep infinity
+    restart: unless-stopped
+  golang-7:
+    image: golang:1.22
+    command: sleep infinity
+    restart: unless-stopped
+  vault-8:
+    image: hashicorp/vault:1.15
+    restart: unless-stopped
+  nginx-9:
+    image: nginx:latest
+    restart: unless-stopped
+  mysql-10:
+    image: mysql:8.0
+    restart: unless-stopped
+  python-11:
+    image: python:3.12-slim
+    command: sleep infinity
+    restart: unless-stopped
+  rabbitmq-12:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+  elasticsearch-13:
+    image: elasticsearch:8.12.0
+    restart: unless-stopped
+  busybox-14:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  debian-15:
+    image: debian:bookworm-slim
+    command: sleep infinity
+    restart: unless-stopped
+  php-16:
+    image: php:8.3-fpm
+    command: sleep infinity
+    restart: unless-stopped
+  minio-17:
+    image: minio/minio:latest
+    restart: unless-stopped
+  postgres-18:
+    image: postgres:16
+    restart: unless-stopped
+  node-19:
+    image: node:20-alpine
+    command: sleep infinity
+    restart: unless-stopped

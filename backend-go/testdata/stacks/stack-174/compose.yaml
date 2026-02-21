@@ -1,0 +1,7 @@
+services:
+  debian:
+    image: debian:bookworm-slim
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10174:80"

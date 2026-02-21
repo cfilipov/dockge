@@ -1,0 +1,17 @@
+services:
+  wordpress:
+    image: wordpress:6.4
+    restart: unless-stopped
+    ports:
+      - 8081:80
+    labels:
+      dockge.urls.0: http://example.com
+      dockge.urls.3: http://example2.com
+      dockge.urls.foo: http://example3.com
+      dockge.imageupdates.changelog: https://example.com
+      dockge.imageupdates.check: "false"
+      dockge.status.ignore: "true"
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+networks: {}

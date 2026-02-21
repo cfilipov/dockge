@@ -1,0 +1,32 @@
+services:
+  memcached:
+    image: memcached:1.6
+    restart: unless-stopped
+    ports:
+      - "10169:80"
+  grafana-1:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+  caddy-2:
+    image: caddy:2
+    restart: unless-stopped
+  ubuntu-3:
+    image: ubuntu:24.04
+    command: sleep infinity
+    restart: unless-stopped
+  ruby-4:
+    image: ruby:3.3-slim
+    command: sleep infinity
+    restart: unless-stopped
+  consul-5:
+    image: hashicorp/consul:1.17
+    restart: unless-stopped
+  redis-6:
+    image: redis:7
+    restart: unless-stopped
+  mongo-7:
+    image: mongo:7
+    restart: unless-stopped
+  httpd-8:
+    image: httpd:2.4
+    restart: unless-stopped

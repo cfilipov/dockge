@@ -1,0 +1,9 @@
+services:
+  httpd:
+    image: httpd:2.4
+    restart: unless-stopped
+    ports:
+      - "10176:80"
+  mariadb-1:
+    image: mariadb:11
+    restart: unless-stopped

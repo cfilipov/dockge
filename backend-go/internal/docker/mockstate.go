@@ -1,6 +1,9 @@
 package docker
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // MockState holds in-memory container state for mock Docker/Compose.
 // It is shared between MockClient and MockCompose so both see the same
@@ -24,14 +27,39 @@ func NewMockStateFrom(defaults map[string]string) *MockState {
 	return &MockState{stacks: m}
 }
 
-// DefaultDevState returns hardcoded state matching the test stacks in /opt/stacks.
+// DefaultDevState returns state for all 200+ test stacks.
+// Featured stacks (00–09) get explicit statuses; filler stacks (010–199)
+// are assigned ~60% running, ~20% exited, ~20% inactive based on index.
 func DefaultDevState() *MockState {
-	return NewMockStateFrom(map[string]string{
-		"web-app":     "running",
-		"monitoring":  "running",
-		"test-alpine": "exited",
-		"blog":        "running",
-	})
+	m := make(map[string]string, 210)
+
+	// Featured stacks
+	m["00-single-service"] = "running"
+	m["01-web-app"] = "running"
+	m["02-blog"] = "running"
+	m["03-monitoring"] = "exited"
+	m["04-database"] = "running"
+	m["05-multi-service"] = "running"
+	m["06-mixed-state"] = "running"
+	m["07-full-features"] = "running"
+	m["08-env-config"] = "inactive"
+	m["09-mega-stack"] = "running"
+	m["test-stack"] = "running"
+
+	// Filler stacks: 60% running, 20% exited, 20% inactive
+	for i := 10; i < 200; i++ {
+		name := fmt.Sprintf("stack-%03d", i)
+		switch i % 5 {
+		case 0, 1, 2:
+			m[name] = "running"
+		case 3:
+			m[name] = "exited"
+		case 4:
+			m[name] = "inactive"
+		}
+	}
+
+	return NewMockStateFrom(m)
 }
 
 // Get returns the status for a stack, or "inactive" if not present.

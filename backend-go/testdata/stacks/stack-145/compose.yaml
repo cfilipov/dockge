@@ -1,0 +1,7 @@
+services:
+  busybox:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10145:80"

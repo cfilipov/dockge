@@ -1,0 +1,9 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "10047:80"
+  httpd-1:
+    image: httpd:2.4
+    restart: unless-stopped

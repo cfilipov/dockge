@@ -82,10 +82,11 @@ func GetStackListFromContainers(stacksDir string, containers []ContainerInfo, ig
 
     // Group by compose project label
     type projectState struct {
-        running int
-        exited  int
-        created int
-        paused  int
+        running   int
+        exited    int
+        created   int
+        paused    int
+        unhealthy int
     }
     projects := make(map[string]*projectState)
 
@@ -111,15 +112,21 @@ func GetStackListFromContainers(stacksDir string, containers []ContainerInfo, ig
             ps = &projectState{}
             projects[project] = ps
         }
-        switch strings.ToLower(c.State) {
-        case "running":
-            ps.running++
-        case "exited", "dead":
-            ps.exited++
-        case "created":
-            ps.created++
-        case "paused":
-            ps.paused++
+
+        // Health field takes priority over State for status classification
+        if strings.ToLower(c.Health) == "unhealthy" {
+            ps.unhealthy++
+        } else {
+            switch strings.ToLower(c.State) {
+            case "running":
+                ps.running++
+            case "exited", "dead":
+                ps.exited++
+            case "created":
+                ps.created++
+            case "paused":
+                ps.paused++
+            }
         }
     }
 
@@ -138,7 +145,9 @@ func GetStackListFromContainers(stacksDir string, containers []ContainerInfo, ig
         }
 
         // Derive status from container states
-        if ps.running > 0 && ps.exited > 0 {
+        if ps.unhealthy > 0 {
+            s.Status = UNHEALTHY
+        } else if ps.running > 0 && ps.exited > 0 {
             s.Status = RUNNING_AND_EXITED
         } else if ps.running > 0 {
             s.Status = RUNNING

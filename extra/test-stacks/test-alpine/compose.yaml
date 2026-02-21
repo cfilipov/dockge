@@ -1,6 +1,0 @@
-services:
-  alpine:
-    image: alpine:latest
-    command: sleep infinity
-    restart: unless-stopped
-    network_mode: host

@@ -1,0 +1,70 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    ports:
+      - "10079:80"
+  python-1:
+    image: python:3.12-slim
+    command: sleep infinity
+    restart: unless-stopped
+  rabbitmq-2:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+  elasticsearch-3:
+    image: elasticsearch:8.12.0
+    restart: unless-stopped
+  busybox-4:
+    image: busybox:latest
+    command: sleep infinity
+    restart: unless-stopped
+  debian-5:
+    image: debian:bookworm-slim
+    command: sleep infinity
+    restart: unless-stopped
+  php-6:
+    image: php:8.3-fpm
+    command: sleep infinity
+    restart: unless-stopped
+  minio-7:
+    image: minio/minio:latest
+    restart: unless-stopped
+  postgres-8:
+    image: postgres:16
+    restart: unless-stopped
+  node-9:
+    image: node:20-alpine
+    command: sleep infinity
+    restart: unless-stopped
+  memcached-10:
+    image: memcached:1.6
+    restart: unless-stopped
+  grafana-11:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+  caddy-12:
+    image: caddy:2
+    restart: unless-stopped
+  ubuntu-13:
+    image: ubuntu:24.04
+    command: sleep infinity
+    restart: unless-stopped
+  ruby-14:
+    image: ruby:3.3-slim
+    command: sleep infinity
+    restart: unless-stopped
+  consul-15:
+    image: hashicorp/consul:1.17
+    restart: unless-stopped
+  redis-16:
+    image: redis:7
+    restart: unless-stopped
+  mongo-17:
+    image: mongo:7
+    restart: unless-stopped
+  httpd-18:
+    image: httpd:2.4
+    restart: unless-stopped
+  mariadb-19:
+    image: mariadb:11
+    restart: unless-stopped

@@ -1,0 +1,7 @@
+services:
+  node:
+    image: node:20-alpine
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10090:80"

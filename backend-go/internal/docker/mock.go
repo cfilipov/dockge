@@ -75,7 +75,7 @@ func (m *MockClient) ContainerList(ctx context.Context, all bool, projectFilter 
 				Service: svc,
 				Image:   image,
 				State:   svcState,
-				Health:  "", // mock doesn't simulate health checks
+				Health:  m.getServiceHealth(stackName, svc),
 			})
 		}
 	}
@@ -324,19 +324,50 @@ func (m *MockClient) getServiceState(stackName, svc, stackStatus string) string 
 	if stackStatus != "running" {
 		return "exited"
 	}
-	// Hardcoded mock behaviors for testing
-	if stackName == "web-app" && svc == "redis" {
+	// Hardcoded mock behaviors for featured stacks
+	if stackName == "01-web-app" && svc == "redis" {
 		return "exited"
+	}
+	if stackName == "06-mixed-state" && svc == "worker" {
+		return "exited"
+	}
+	// Some filler stacks with multiple services get a mix of running/exited
+	// (indices ending in 8 or 9 have >1 service; make the second service exited
+	// for indices divisible by 20)
+	if strings.HasPrefix(stackName, "stack-") {
+		var idx int
+		if _, err := fmt.Sscanf(stackName, "stack-%d", &idx); err == nil {
+			if idx%20 == 8 && svc != "" && strings.HasSuffix(svc, "-1") {
+				return "exited"
+			}
+		}
 	}
 	return "running"
 }
 
+func (m *MockClient) getServiceHealth(stackName, svc string) string {
+	// Simulate unhealthy services for specific stacks
+	if stackName == "05-multi-service" && svc == "db" {
+		return "unhealthy"
+	}
+	// Some filler stacks get unhealthy status (indices ending in 7, mod 30 == 17)
+	if strings.HasPrefix(stackName, "stack-") {
+		var idx int
+		if _, err := fmt.Sscanf(stackName, "stack-%d", &idx); err == nil {
+			if idx%30 == 17 && svc != "" {
+				return "unhealthy"
+			}
+		}
+	}
+	return ""
+}
+
 func (m *MockClient) getRunningImage(stackName, svc, composeFile string) string {
 	// Simulate recreateNecessary for specific stacks
-	if stackName == "blog" && svc == "wordpress" {
+	if stackName == "02-blog" && svc == "wordpress" {
 		return "wordpress:6.3"
 	}
-	if stackName == "web-app" && svc == "nginx" {
+	if stackName == "01-web-app" && svc == "nginx" {
 		return "nginx:1.24"
 	}
 	// Default: parse compose.yaml for the image

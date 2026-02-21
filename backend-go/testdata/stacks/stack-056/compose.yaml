@@ -1,0 +1,11 @@
+services:
+  ubuntu:
+    image: ubuntu:24.04
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10056:80"
+  ruby-1:
+    image: ruby:3.3-slim
+    command: sleep infinity
+    restart: unless-stopped

@@ -1,0 +1,6 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "10023:80"

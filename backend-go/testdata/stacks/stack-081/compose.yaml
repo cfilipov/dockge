@@ -1,0 +1,7 @@
+services:
+  ubuntu:
+    image: ubuntu:24.04
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10081:80"

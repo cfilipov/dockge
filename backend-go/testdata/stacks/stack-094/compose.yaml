@@ -1,0 +1,6 @@
+services:
+  memcached:
+    image: memcached:1.6
+    restart: unless-stopped
+    ports:
+      - "10094:80"

@@ -1,0 +1,6 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    restart: unless-stopped
+    ports:
+      - "10134:80"

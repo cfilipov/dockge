@@ -7,6 +7,7 @@ import (
     "runtime/debug"
     "testing"
 
+    "github.com/cfilipov/dockge/backend-go/internal/docker"
     "github.com/cfilipov/dockge/backend-go/internal/testutil"
 )
 
@@ -155,5 +156,25 @@ func BenchmarkDockerStats(b *testing.B) {
     b.ResetTimer()
     for b.Loop() {
         env.SendAndReceive(b, conn, "dockerStats", "test-stack")
+    }
+}
+
+func BenchmarkRequestStackList200(b *testing.B) {
+    env := testutil.SetupFull(b)
+    env.SeedAdmin(b)
+
+    // Set all stacks to their default states
+    state := docker.DefaultDevState()
+    for name, status := range state.All() {
+        env.State.Set(name, status)
+    }
+
+    conn := env.DialWS(b)
+    env.Login(b, conn)
+
+    b.ReportAllocs()
+    b.ResetTimer()
+    for b.Loop() {
+        env.SendAndReceive(b, conn, "requestStackList")
     }
 }

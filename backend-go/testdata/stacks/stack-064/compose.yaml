@@ -1,0 +1,6 @@
+services:
+  consul:
+    image: hashicorp/consul:1.17
+    restart: unless-stopped
+    ports:
+      - "10064:80"

@@ -1,0 +1,6 @@
+services:
+  vault:
+    image: hashicorp/vault:1.15
+    restart: unless-stopped
+    ports:
+      - "10121:80"

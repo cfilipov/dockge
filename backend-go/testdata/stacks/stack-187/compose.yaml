@@ -1,0 +1,9 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    ports:
+      - "10187:80"
+  elasticsearch-1:
+    image: elasticsearch:8.12.0
+    restart: unless-stopped

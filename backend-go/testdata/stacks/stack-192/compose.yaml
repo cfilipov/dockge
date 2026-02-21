@@ -1,0 +1,7 @@
+services:
+  golang:
+    image: golang:1.22
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10192:80"

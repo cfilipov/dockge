@@ -1,0 +1,30 @@
+services:
+  debian:
+    image: debian:bookworm-slim
+    command: sleep infinity
+    restart: unless-stopped
+    ports:
+      - "10049:80"
+  php-1:
+    image: php:8.3-fpm
+    command: sleep infinity
+    restart: unless-stopped
+  minio-2:
+    image: minio/minio:latest
+    restart: unless-stopped
+  postgres-3:
+    image: postgres:16
+    restart: unless-stopped
+  node-4:
+    image: node:20-alpine
+    command: sleep infinity
+    restart: unless-stopped
+  memcached-5:
+    image: memcached:1.6
+    restart: unless-stopped
+  grafana-6:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+  caddy-7:
+    image: caddy:2
+    restart: unless-stopped
