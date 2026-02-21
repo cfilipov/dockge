@@ -46,11 +46,11 @@ func main() {
         os.Exit(0)
     }
 
-    slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-        Level: slog.LevelDebug,
-    })))
-
     cfg := config.Parse()
+
+    slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+        Level: cfg.LogLevel,
+    })))
 
     slog.Info("starting dockge",
         "port", cfg.Port,
@@ -58,6 +58,8 @@ func main() {
         "dataDir", cfg.DataDir,
         "dev", cfg.Dev,
         "mock", cfg.Mock,
+        "logLevel", cfg.LogLevel,
+        "noAuth", cfg.NoAuth,
     )
 
     // Open database
@@ -187,6 +189,7 @@ func main() {
         Version:      version,
         StacksDir:    cfg.StacksDir,
         Mock:         cfg.Mock,
+        NoAuth:       cfg.NoAuth,
     }
     handlers.RegisterAuthHandlers(app)
     handlers.RegisterSettingsHandlers(app)
@@ -195,6 +198,14 @@ func main() {
     handlers.RegisterTerminalHandlers(app)
     handlers.RegisterDockerHandlers(app)
     handlers.RegisterServiceHandlers(app)
+
+    // No-auth mode: auto-authenticate every connection as user 1
+    if cfg.NoAuth {
+        slog.Warn("authentication disabled (--no-auth)")
+        wss.HandleConnect(func(c *ws.Conn) {
+            c.SetUser(1)
+        })
+    }
 
     // Clean up terminal writers when a connection disconnects
     wss.OnDisconnect(func(c *ws.Conn) {

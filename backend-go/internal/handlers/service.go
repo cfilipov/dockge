@@ -215,7 +215,7 @@ func (app *App) checkImageUpdatesForStack(stackName string) {
         }
     }
 
-    slog.Info("image update check complete", "stack", stackName, "anyUpdate", anyUpdate)
+    slog.Debug("image update check complete", "stack", stackName, "anyUpdate", anyUpdate)
 }
 
 // imageDigest returns the local digest for an image using the Docker client.
@@ -326,5 +326,5 @@ func (app *App) checkAllImageUpdates() {
     }
 
     wg.Wait()
-    slog.Info("background image update check complete")
+    slog.Debug("background image update check complete")
 }

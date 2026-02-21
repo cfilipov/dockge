@@ -2,8 +2,10 @@ package config
 
 import (
     "flag"
+    "log/slog"
     "os"
     "strconv"
+    "strings"
 )
 
 type Config struct {
@@ -11,17 +13,22 @@ type Config struct {
     StacksDir string
     DataDir   string
     Dev       bool
-    Mock      bool // Use mock Docker CLI instead of SDK (for dev without Docker socket)
+    Mock      bool       // Use mock Docker CLI instead of SDK (for dev without Docker socket)
+    LogLevel  slog.Level // Parsed log level (debug, info, warn, error)
+    NoAuth    bool       // Skip authentication (all endpoints open)
 }
 
 func Parse() *Config {
     cfg := &Config{}
 
+    var logLevel string
     flag.IntVar(&cfg.Port, "port", 5001, "HTTP server port")
     flag.StringVar(&cfg.StacksDir, "stacks-dir", "/opt/stacks", "Path to stacks directory")
     flag.StringVar(&cfg.DataDir, "data-dir", "./data", "Path to data directory (SQLite DB)")
     flag.BoolVar(&cfg.Dev, "dev", false, "Development mode (serve frontend from filesystem)")
     flag.BoolVar(&cfg.Mock, "mock", false, "Use mock Docker CLI instead of SDK")
+    flag.StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+    flag.BoolVar(&cfg.NoAuth, "no-auth", false, "Disable authentication (all endpoints open)")
     flag.Parse()
 
     // Env vars override flags (if set)
@@ -39,6 +46,27 @@ func Parse() *Config {
     if v := os.Getenv("DOCKGE_MOCK"); v == "1" || v == "true" {
         cfg.Mock = true
     }
+    if v := os.Getenv("DOCKGE_LOG_LEVEL"); v != "" {
+        logLevel = v
+    }
+    if v := os.Getenv("DOCKGE_NO_AUTH"); v == "1" || v == "true" {
+        cfg.NoAuth = true
+    }
+
+    cfg.LogLevel = parseLogLevel(logLevel)
 
     return cfg
+}
+
+func parseLogLevel(s string) slog.Level {
+    switch strings.ToLower(strings.TrimSpace(s)) {
+    case "debug":
+        return slog.LevelDebug
+    case "warn", "warning":
+        return slog.LevelWarn
+    case "error":
+        return slog.LevelError
+    default:
+        return slog.LevelInfo
+    }
 }

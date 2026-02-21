@@ -25,6 +25,7 @@ type App struct {
     ComposeCache *compose.ComposeCache
     Terms        *terminal.Manager
     Mock         bool
+    NoAuth       bool // Skip authentication checks (all endpoints open)
 
     JWTSecret        string
     NeedSetup        bool
@@ -42,6 +43,8 @@ type App struct {
 
 // checkLogin verifies that the connection is authenticated.
 // Returns the user ID or sends an error ack and returns 0.
+// When --no-auth is enabled, connections are auto-authenticated at connect time,
+// so this function returns 1 without any special handling.
 func checkLogin(c *ws.Conn, msg *ws.ClientMessage) int {
     uid := c.UserID()
     if uid == 0 && msg.ID != nil {

@@ -65,6 +65,20 @@ This fork has rewritten the Node.js backend entirely with a Go implementation.
 | Docker image size | ~500MB | **16.5MB** |
 | Memory (docker container) | ~135MB-250MB | ~25MB-40MB |
 
+### Configuration
+
+The Go backend is configured via CLI flags or environment variables. Environment variables override flags if set.
+
+| Flag | Default | Env var | Description |
+|------|---------|---------|-------------|
+| `--port` | `5001` | `DOCKGE_PORT` | HTTP server port |
+| `--stacks-dir` | `/opt/stacks` | `DOCKGE_STACKS_DIR` | Path to stacks directory |
+| `--data-dir` | `./data` | `DOCKGE_DATA_DIR` | Path to data directory (BoltDB) |
+| `--log-level` | `info` | `DOCKGE_LOG_LEVEL` | Log level: `debug`, `info`, `warn`, or `error` |
+| `--no-auth` | `false` | `DOCKGE_NO_AUTH=1` | Disable authentication — all endpoints open without login |
+| `--dev` | `false` | — | Development mode (serves frontend from disk, enables pprof) |
+| `--mock` | `false` | `DOCKGE_MOCK=1` | Use mock Docker (no daemon needed, for development) |
+
 ---
 
 *The rest of this README is from the upstream [cmcooper1980/dockge](https://github.com/cmcooper1980/dockge) fork.*

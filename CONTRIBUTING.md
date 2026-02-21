@@ -86,8 +86,10 @@ go build -o dockge-backend . && ./dockge-backend --dev --mock --port 5001 --stac
 | `--port` | `5001` | `DOCKGE_PORT` | HTTP server port |
 | `--stacks-dir` | `/opt/stacks` | `DOCKGE_STACKS_DIR` | Path to stacks directory |
 | `--data-dir` | `./data` | `DOCKGE_DATA_DIR` | Path to data directory (BoltDB) |
-| `--dev` | `false` | — | Serves frontend from `../frontend-dist/` on disk instead of the embedded `embed.FS`, so you can rebuild the frontend and refresh without restarting the backend. When combined with `--mock` on an empty database, auto-seeds an admin user (`admin`/`testpass123`). |
+| `--dev` | `false` | — | Serves frontend from `../frontend-dist/` on disk instead of the embedded `embed.FS`, so you can rebuild the frontend and refresh without restarting the backend. When combined with `--mock` on an empty database, auto-seeds an admin user (`admin`/`testpass123`). Also enables `/debug/pprof/` endpoints. |
 | `--mock` | `false` | `DOCKGE_MOCK=1` | Uses in-memory `MockClient` and `MockCompose` instead of the real Docker SDK — no Docker daemon needed. `DefaultDevState()` seeds four stacks (`web-app`, `monitoring`, `test-alpine`, `blog`) with running/exited statuses. State is lost on restart. |
+| `--log-level` | `info` | `DOCKGE_LOG_LEVEL` | Log level: `debug`, `info`, `warn`, or `error`. |
+| `--no-auth` | `false` | `DOCKGE_NO_AUTH=1` | Disable authentication — all WebSocket endpoints are open without login. Useful for development and testing. |
 
 Environment variables override flags if set.
 
