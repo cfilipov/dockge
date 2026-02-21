@@ -372,6 +372,7 @@ import { yaml } from "@codemirror/lang-yaml";
 import { python } from "@codemirror/lang-python";
 import { dracula as editorTheme } from "thememirror";
 import { lineNumbers, EditorView } from "@codemirror/view";
+import { indentUnit, indentService } from "@codemirror/language";
 import { parseDocument, Document } from "yaml";
 
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
@@ -428,9 +429,28 @@ export default {
             return null;
         };
 
+        const yamlIndent = indentService.of((cx, pos) => {
+            const line = cx.lineAt(pos);
+            if (line.number === 1) {
+                return 0;
+            }
+            const prev = cx.lineAt(line.from - 1);
+            const prevText = prev.text;
+            const prevIndent = prevText.match(/^\s*/)[0].length;
+            // If previous line ends with ":" or "- " or "|" or ">", indent one level deeper
+            const trimmed = prevText.trimEnd();
+            if (trimmed.endsWith(":") || trimmed.endsWith("|-") || trimmed.endsWith("|") || trimmed.endsWith(">") || trimmed.endsWith(">-")) {
+                return prevIndent + 2;
+            }
+            // If previous line is a sequence item "- key: value", maintain same indent
+            return prevIndent;
+        });
+
         const extensions = [
             editorTheme,
             yaml(),
+            indentUnit.of("  "),
+            yamlIndent,
             lineNumbers(),
             EditorView.focusChangeEffect.of(focusEffectHandler)
         ];

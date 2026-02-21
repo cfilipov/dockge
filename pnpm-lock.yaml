@@ -11,6 +11,9 @@ importers:
       '@codemirror/lang-json':
         specifier: ^6.0.2
         version: 6.0.2
+      '@codemirror/language':
+        specifier: ^6.12.1
+        version: 6.12.1
       '@inventage/envsubst':
         specifier: ^0.16.0
         version: 0.16.0
