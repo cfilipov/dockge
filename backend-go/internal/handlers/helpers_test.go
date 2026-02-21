@@ -212,9 +212,7 @@ func TestArgObject(t *testing.T) {
 func TestRecreateCacheSetGet(t *testing.T) {
     t.Parallel()
 
-    app := &App{
-        RecreateCache: make(map[string]bool),
-    }
+    app := &App{}
 
     // Initially empty
     cache := app.GetRecreateCache()
@@ -234,11 +232,11 @@ func TestRecreateCacheSetGet(t *testing.T) {
         t.Error("expected stack-b = false")
     }
 
-    // Verify copy semantics: mutating the returned map doesn't affect internal state
-    cache["stack-a"] = false
+    // Verify that SetRecreateNecessary publishes a new snapshot
+    app.SetRecreateNecessary("stack-a", false)
     cache2 := app.GetRecreateCache()
-    if !cache2["stack-a"] {
-        t.Error("cache mutation leaked to internal state")
+    if cache2["stack-a"] {
+        t.Error("expected stack-a = false after update")
     }
 }
 

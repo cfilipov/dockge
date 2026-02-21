@@ -124,26 +124,26 @@ func TestToSimpleJSON(t *testing.T) {
 
     result := s.ToSimpleJSON("", true, false)
 
-    if result["name"] != "my-stack" {
-        t.Errorf("name = %v", result["name"])
+    if result.Name != "my-stack" {
+        t.Errorf("Name = %v", result.Name)
     }
-    if result["status"] != RUNNING {
-        t.Errorf("status = %v", result["status"])
+    if result.Status != RUNNING {
+        t.Errorf("Status = %v", result.Status)
     }
-    if result["started"] != true {
-        t.Errorf("started = %v", result["started"])
+    if result.Started != true {
+        t.Errorf("Started = %v", result.Started)
     }
-    if result["isManagedByDockge"] != true {
-        t.Errorf("isManagedByDockge = %v", result["isManagedByDockge"])
+    if result.IsManagedByDockge != true {
+        t.Errorf("IsManagedByDockge = %v", result.IsManagedByDockge)
     }
-    if result["imageUpdatesAvailable"] != true {
-        t.Errorf("imageUpdatesAvailable = %v", result["imageUpdatesAvailable"])
+    if result.ImageUpdatesAvailable != true {
+        t.Errorf("ImageUpdatesAvailable = %v", result.ImageUpdatesAvailable)
     }
-    if result["recreateNecessary"] != false {
-        t.Errorf("recreateNecessary = %v", result["recreateNecessary"])
+    if result.RecreateNecessary != false {
+        t.Errorf("RecreateNecessary = %v", result.RecreateNecessary)
     }
-    if result["endpoint"] != "" {
-        t.Errorf("endpoint = %v", result["endpoint"])
+    if result.Endpoint != "" {
+        t.Errorf("Endpoint = %v", result.Endpoint)
     }
 }
 
@@ -160,23 +160,23 @@ func TestToJSON(t *testing.T) {
 
     result := s.ToJSON("ep1", "example.com", false, true)
 
-    if result["composeYAML"] != s.ComposeYAML {
-        t.Errorf("composeYAML mismatch")
+    if result.ComposeYAML != s.ComposeYAML {
+        t.Errorf("ComposeYAML mismatch")
     }
-    if result["composeENV"] != s.ComposeENV {
-        t.Errorf("composeENV mismatch")
+    if result.ComposeENV != s.ComposeENV {
+        t.Errorf("ComposeENV mismatch")
     }
-    if result["composeOverrideYAML"] != s.ComposeOverrideYAML {
-        t.Errorf("composeOverrideYAML mismatch")
+    if result.ComposeOverrideYAML != s.ComposeOverrideYAML {
+        t.Errorf("ComposeOverrideYAML mismatch")
     }
-    if result["primaryHostname"] != "example.com" {
-        t.Errorf("primaryHostname = %v", result["primaryHostname"])
+    if result.PrimaryHostname != "example.com" {
+        t.Errorf("PrimaryHostname = %v", result.PrimaryHostname)
     }
-    if result["endpoint"] != "ep1" {
-        t.Errorf("endpoint = %v", result["endpoint"])
+    if result.Endpoint != "ep1" {
+        t.Errorf("Endpoint = %v", result.Endpoint)
     }
-    if result["recreateNecessary"] != true {
-        t.Errorf("recreateNecessary = %v", result["recreateNecessary"])
+    if result.RecreateNecessary != true {
+        t.Errorf("RecreateNecessary = %v", result.RecreateNecessary)
     }
 }
 

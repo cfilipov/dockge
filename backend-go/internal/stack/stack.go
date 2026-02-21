@@ -52,32 +52,55 @@ func (s *Stack) IsStarted() bool {
     return s.Status == RUNNING || s.Status == RUNNING_AND_EXITED || s.Status == UNHEALTHY
 }
 
+// StackSimpleJSON is the JSON representation of a stack in the stack list.
+// Using a typed struct avoids 10+ map[string]interface{} boxing allocations per stack.
+type StackSimpleJSON struct {
+    Name                    string   `json:"name"`
+    Status                  int      `json:"status"`
+    Started                 bool     `json:"started"`
+    RecreateNecessary       bool     `json:"recreateNecessary"`
+    Tags                    []string `json:"tags"`
+    IsManagedByDockge       bool     `json:"isManagedByDockge"`
+    ComposeFileName         string   `json:"composeFileName"`
+    ComposeOverrideFileName string   `json:"composeOverrideFileName"`
+    Endpoint                string   `json:"endpoint"`
+    ImageUpdatesAvailable   bool     `json:"imageUpdatesAvailable"`
+}
+
+// StackFullJSON is the JSON representation for getStack (includes YAML content).
+type StackFullJSON struct {
+    StackSimpleJSON
+    ComposeYAML         string `json:"composeYAML"`
+    ComposeENV          string `json:"composeENV"`
+    ComposeOverrideYAML string `json:"composeOverrideYAML"`
+    PrimaryHostname     string `json:"primaryHostname"`
+}
+
 // ToSimpleJSON returns the stack data for the stack list broadcast.
-// stackUpdates indicates whether this stack has image updates available.
-// stackRecreate indicates whether this stack has containers needing recreation.
-func (s *Stack) ToSimpleJSON(endpoint string, hasUpdates, recreateNecessary bool) map[string]interface{} {
-    return map[string]interface{}{
-        "name":                    s.Name,
-        "status":                  s.Status,
-        "started":                 s.IsStarted(),
-        "recreateNecessary":       recreateNecessary,
-        "tags":                    []string{},
-        "isManagedByDockge":       s.IsManagedByDockge,
-        "composeFileName":         s.ComposeFileName,
-        "composeOverrideFileName": s.ComposeOverrideFileName,
-        "endpoint":                endpoint,
-        "imageUpdatesAvailable":   hasUpdates,
+func (s *Stack) ToSimpleJSON(endpoint string, hasUpdates, recreateNecessary bool) StackSimpleJSON {
+    return StackSimpleJSON{
+        Name:                    s.Name,
+        Status:                  s.Status,
+        Started:                 s.IsStarted(),
+        RecreateNecessary:       recreateNecessary,
+        Tags:                    []string{},
+        IsManagedByDockge:       s.IsManagedByDockge,
+        ComposeFileName:         s.ComposeFileName,
+        ComposeOverrideFileName: s.ComposeOverrideFileName,
+        Endpoint:                endpoint,
+        ImageUpdatesAvailable:   hasUpdates,
     }
 }
 
 // ToJSON returns full stack data including YAML content (for getStack).
-func (s *Stack) ToJSON(endpoint, primaryHostname string, hasUpdates, recreateNecessary bool) map[string]interface{} {
-    obj := s.ToSimpleJSON(endpoint, hasUpdates, recreateNecessary)
-    obj["composeYAML"] = s.ComposeYAML
-    obj["composeENV"] = s.ComposeENV
-    obj["composeOverrideYAML"] = s.ComposeOverrideYAML
-    obj["primaryHostname"] = primaryHostname
-    return obj
+func (s *Stack) ToJSON(endpoint, primaryHostname string, hasUpdates, recreateNecessary bool) StackFullJSON {
+    return StackFullJSON{
+        StackSimpleJSON:     s.ToSimpleJSON(endpoint, hasUpdates, recreateNecessary),
+        ComposeYAML:         s.ComposeYAML,
+        ComposeENV:          s.ComposeENV,
+        ComposeOverrideYAML: s.ComposeOverrideYAML,
+        PrimaryHostname:     primaryHostname,
+    }
 }
 
 // LoadFromDisk reads the compose files from the stack directory.

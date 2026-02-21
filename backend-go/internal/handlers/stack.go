@@ -266,7 +266,7 @@ func (app *App) refreshStackCache() {
 // populates the recreate cache. Uses the already-fetched container list.
 func (app *App) refreshRecreateCache(stacks map[string]*stack.Stack, containers []docker.Container) {
     // Group containers by project
-    byProject := make(map[string][]docker.Container)
+    byProject := make(map[string][]docker.Container, len(containers))
     for _, c := range containers {
         if c.Project != "" {
             byProject[c.Project] = append(byProject[c.Project], c)
@@ -303,6 +303,12 @@ func (app *App) refreshRecreateCache(stacks map[string]*stack.Stack, containers 
     }
 }
 
+// stackListResponse is the typed response for the stackList event.
+type stackListResponse struct {
+    OK        bool                             `json:"ok"`
+    StackList map[string]stack.StackSimpleJSON `json:"stackList"`
+}
+
 func (app *App) broadcastStackList() {
     stackCacheMu.RLock()
     stacks := stackCache
@@ -315,9 +321,9 @@ func (app *App) broadcastStackList() {
     updateMap := app.GetImageUpdateMap()
     recreateMap := app.GetRecreateCache()
     listJSON := stack.BuildStackListJSON(stacks, "", updateMap, recreateMap)
-    app.WS.BroadcastAuthenticated("agent", "stackList", map[string]interface{}{
-        "ok":        true,
-        "stackList": listJSON,
+    app.WS.BroadcastAuthenticatedRaw("agent", "stackList", stackListResponse{
+        OK:        true,
+        StackList: listJSON,
     })
 }
 
@@ -362,16 +368,19 @@ func (app *App) sendStackListTo(c *ws.Conn) {
     stacks := stackCache
     stackCacheMu.RUnlock()
 
-    listJSON := map[string]interface{}{}
+    var listJSON map[string]stack.StackSimpleJSON
     if stacks != nil {
         updateMap := app.GetImageUpdateMap()
         recreateMap := app.GetRecreateCache()
         listJSON = stack.BuildStackListJSON(stacks, "", updateMap, recreateMap)
     }
+    if listJSON == nil {
+        listJSON = map[string]stack.StackSimpleJSON{}
+    }
 
-    c.SendEvent("agent", "stackList", map[string]interface{}{
-        "ok":        true,
-        "stackList": listJSON,
+    c.SendEvent("agent", "stackList", stackListResponse{
+        OK:        true,
+        StackList: listJSON,
     })
 }
 
@@ -414,9 +423,12 @@ func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
     recreateMap := app.GetRecreateCache()
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
-            "ok":    true,
-            "stack": s.ToJSON("", hostname, updateMap[stackName], recreateMap[stackName]),
+        c.SendAck(*msg.ID, struct {
+            OK    bool               `json:"ok"`
+            Stack stack.StackFullJSON `json:"stack"`
+        }{
+            OK:    true,
+            Stack: s.ToJSON("", hostname, updateMap[stackName], recreateMap[stackName]),
         })
     }
 }
@@ -788,6 +800,9 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
         }
     }
 
+    // Schedule terminal cleanup after a grace period
+    app.Terms.RemoveAfter(termName, 30*time.Second)
+
     app.TriggerStackListRefresh(stackName)
 }
 
@@ -856,6 +871,9 @@ func (app *App) runDeployWithValidation(stackName string) {
         }
     }
 
+    // Schedule terminal cleanup after a grace period
+    app.Terms.RemoveAfter(termName, 30*time.Second)
+
     app.TriggerStackListRefresh(stackName)
 }
 
@@ -917,6 +935,9 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 
         term.Write([]byte("\r\n[Done]\r\n"))
     }
+
+    // Schedule terminal cleanup after a grace period
+    app.Terms.RemoveAfter(termName, 30*time.Second)
 
     app.TriggerStackListRefresh(stackName)
 }

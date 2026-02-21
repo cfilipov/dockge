@@ -17,6 +17,21 @@ func RegisterDockerHandlers(app *App) {
     app.WS.Handle("getDockerNetworkList", app.handleGetDockerNetworkList)
 }
 
+// ServiceEntry represents a single container's status within a service.
+type ServiceEntry struct {
+    Status string `json:"status"`
+    Name   string `json:"name"`
+    Image  string `json:"image"`
+}
+
+// serviceStatusResponse is the typed response for serviceStatusList.
+type serviceStatusResponse struct {
+    OK                    bool                       `json:"ok"`
+    ServiceStatusList     map[string][]ServiceEntry  `json:"serviceStatusList"`
+    ServiceUpdateStatus   map[string]bool            `json:"serviceUpdateStatus"`
+    ServiceRecreateStatus map[string]bool            `json:"serviceRecreateStatus"`
+}
+
 // handleServiceStatusList returns per-service status from the in-memory container
 // cache (populated by the stack watcher). Falls back to a live ContainerList query
 // only if the cache has no data for this stack.
@@ -42,11 +57,11 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil {
         slog.Warn("serviceStatusList", "err", err, "stack", stackName)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, map[string]interface{}{
-                "ok":                    true,
-                "serviceStatusList":     map[string]interface{}{},
-                "serviceUpdateStatus":   map[string]interface{}{},
-                "serviceRecreateStatus": map[string]interface{}{},
+            c.SendAck(*msg.ID, serviceStatusResponse{
+                OK:                    true,
+                ServiceStatusList:     map[string][]ServiceEntry{},
+                ServiceUpdateStatus:   map[string]bool{},
+                ServiceRecreateStatus: map[string]bool{},
             })
         }
         return
@@ -56,7 +71,7 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
 
     // Compare running images vs compose.yaml to compute recreateNecessary per service
     composeImages := app.ComposeCache.GetImages(stackName)
-    serviceRecreateStatus := make(map[string]interface{})
+    serviceRecreateStatus := make(map[string]bool, len(runningImages))
     anyRecreate := false
     for svc, runningImage := range runningImages {
         composeImage, ok := composeImages[svc]
@@ -70,19 +85,17 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
     app.SetRecreateNecessary(stackName, anyRecreate)
 
     // Per-service image update status from BBolt cache
-    serviceUpdateStatus := make(map[string]interface{})
+    serviceUpdateStatus := make(map[string]bool)
     if svcUpdates, err := app.ImageUpdates.ServiceUpdatesForStack(stackName); err == nil {
-        for svc, hasUpdate := range svcUpdates {
-            serviceUpdateStatus[svc] = hasUpdate
-        }
+        serviceUpdateStatus = svcUpdates
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
-            "ok":                    true,
-            "serviceStatusList":     serviceStatusList,
-            "serviceUpdateStatus":   serviceUpdateStatus,
-            "serviceRecreateStatus": serviceRecreateStatus,
+        c.SendAck(*msg.ID, serviceStatusResponse{
+            OK:                    true,
+            ServiceStatusList:     serviceStatusList,
+            ServiceUpdateStatus:   serviceUpdateStatus,
+            ServiceRecreateStatus: serviceRecreateStatus,
         })
     }
 }
@@ -90,9 +103,9 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
 // containersToServiceStatus converts a list of containers (from the Docker client)
 // into the serviceStatusList map and a running-images map, matching the format
 // the frontend expects.
-func containersToServiceStatus(containers []docker.Container) (map[string]interface{}, map[string]string) {
-    result := make(map[string]interface{})
-    runningImages := make(map[string]string)
+func containersToServiceStatus(containers []docker.Container) (map[string][]ServiceEntry, map[string]string) {
+    result := make(map[string][]ServiceEntry, len(containers))
+    runningImages := make(map[string]string, len(containers))
 
     for _, c := range containers {
         serviceName := c.Service
@@ -112,17 +125,13 @@ func containersToServiceStatus(containers []docker.Container) (map[string]interf
 
         runningImages[serviceName] = c.Image
 
-        entry := map[string]interface{}{
-            "status": status,
-            "name":   c.Name,
-            "image":  c.Image,
+        entry := ServiceEntry{
+            Status: status,
+            Name:   c.Name,
+            Image:  c.Image,
         }
 
-        if existing, ok := result[serviceName]; ok {
-            result[serviceName] = append(existing.([]interface{}), entry)
-        } else {
-            result[serviceName] = []interface{}{entry}
-        }
+        result[serviceName] = append(result[serviceName], entry)
     }
 
     return result, runningImages
@@ -159,16 +168,13 @@ func (app *App) handleDockerStats(c *ws.Conn, msg *ws.ClientMessage) {
         stats = map[string]docker.ContainerStat{}
     }
 
-    // Convert to map[string]interface{} for JSON serialization
-    statsMap := make(map[string]interface{}, len(stats))
-    for k, v := range stats {
-        statsMap[k] = v
-    }
-
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
-            "ok":          true,
-            "dockerStats": statsMap,
+        c.SendAck(*msg.ID, struct {
+            OK          bool                           `json:"ok"`
+            DockerStats map[string]docker.ContainerStat `json:"dockerStats"`
+        }{
+            OK:          true,
+            DockerStats: stats,
         })
     }
 }
@@ -201,9 +207,12 @@ func (app *App) handleContainerInspect(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
-            "ok":          true,
-            "inspectData": inspectData,
+        c.SendAck(*msg.ID, struct {
+            OK          bool   `json:"ok"`
+            InspectData string `json:"inspectData"`
+        }{
+            OK:          true,
+            InspectData: inspectData,
         })
     }
 }
@@ -224,9 +233,12 @@ func (app *App) handleGetDockerNetworkList(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
-            "ok":          true,
-            "networkList": networks,
+        c.SendAck(*msg.ID, struct {
+            OK          bool     `json:"ok"`
+            NetworkList []string `json:"networkList"`
+        }{
+            OK:          true,
+            NetworkList: networks,
         })
     }
 }

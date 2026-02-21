@@ -5,6 +5,7 @@ import (
     "os"
     "os/exec"
     "sync"
+    "time"
 
     "github.com/creack/pty"
 )
@@ -33,6 +34,7 @@ type Terminal struct {
     // Process tracking
     cmd    *exec.Cmd
     cancel func() // context cancel or custom cleanup
+    onExit func() // called when process exits (StartPTY only)
 
     // PTY master fd (nil for pipe-based terminals)
     ptyFile *os.File
@@ -128,6 +130,33 @@ func (m *Manager) Remove(name string) {
     if t != nil {
         t.Close()
     }
+}
+
+// RemoveAfter schedules removal of the named terminal after a delay.
+// If the terminal is recreated (pointer changes) before the timer fires,
+// the removal is a no-op — this prevents cleaning up a fresh terminal.
+func (m *Manager) RemoveAfter(name string, delay time.Duration) {
+    m.mu.RLock()
+    current := m.terminals[name]
+    m.mu.RUnlock()
+
+    if current == nil {
+        return
+    }
+
+    time.AfterFunc(delay, func() {
+        m.mu.Lock()
+        t, ok := m.terminals[name]
+        if ok && t == current {
+            // Same terminal pointer — safe to remove
+            delete(m.terminals, name)
+            m.mu.Unlock()
+            t.Close()
+        } else {
+            // Terminal was recreated — don't touch it
+            m.mu.Unlock()
+        }
+    })
 }
 
 // RemoveWriterFromAll removes a writer (by connID) from every terminal.
@@ -295,7 +324,12 @@ func (t *Terminal) StartPTY(cmd *exec.Cmd) error {
 
         t.mu.Lock()
         t.ptyFile = nil
+        exitFn := t.onExit
         t.mu.Unlock()
+
+        if exitFn != nil {
+            exitFn()
+        }
     }()
 
     return nil
@@ -343,6 +377,13 @@ func (t *Terminal) SetCancel(fn func()) {
     t.mu.Lock()
     defer t.mu.Unlock()
     t.cancel = fn
+}
+
+// OnExit registers a callback invoked when a StartPTY process exits.
+func (t *Terminal) OnExit(fn func()) {
+    t.mu.Lock()
+    defer t.mu.Unlock()
+    t.onExit = fn
 }
 
 // Close terminates the terminal process and cleans up.

@@ -99,6 +99,25 @@ func (c *Conn) writeJSON(v interface{}) {
     }
 }
 
+// writeRaw sends pre-marshalled JSON bytes to the connection.
+// Used by BroadcastAuthenticatedRaw to avoid marshalling the same payload per connection.
+func (c *Conn) writeRaw(data []byte) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+
+    if c.closed {
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
+    defer cancel()
+
+    if err := c.ws.Write(ctx, websocket.MessageText, data); err != nil {
+        slog.Debug("ws write raw", "err", err)
+        c.closeLocked()
+    }
+}
+
 // readPump reads messages from the WebSocket and dispatches them.
 func (c *Conn) readPump(ctx context.Context) {
     defer func() {

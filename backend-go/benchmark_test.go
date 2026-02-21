@@ -5,6 +5,7 @@ import (
     "os/exec"
     "runtime"
     "runtime/debug"
+    "runtime/pprof"
     "testing"
 
     "github.com/cfilipov/dockge/backend-go/internal/docker"
@@ -177,4 +178,46 @@ func BenchmarkRequestStackList200(b *testing.B) {
     for b.Loop() {
         env.SendAndReceive(b, conn, "requestStackList")
     }
+}
+
+// BenchmarkRequestStackList200_HeapProfile writes heap profiles before and after
+// a workload for offline analysis with `go tool pprof`.
+// Usage: go test -bench=BenchmarkRequestStackList200_HeapProfile -benchtime=1x -run='^$' .
+// Then:  go tool pprof -http=:8080 heap-after.prof
+func BenchmarkRequestStackList200_HeapProfile(b *testing.B) {
+    env := testutil.SetupFull(b)
+    env.SeedAdmin(b)
+
+    state := docker.DefaultDevState()
+    for name, status := range state.All() {
+        env.State.Set(name, status)
+    }
+
+    conn := env.DialWS(b)
+    env.Login(b, conn)
+
+    runtime.GC()
+    writeHeapProfile(b, "heap-before.prof")
+
+    b.ResetTimer()
+    for i := 0; i < 100; i++ {
+        env.SendAndReceive(b, conn, "requestStackList")
+    }
+    b.StopTimer()
+
+    runtime.GC()
+    writeHeapProfile(b, "heap-after.prof")
+}
+
+func writeHeapProfile(tb testing.TB, filename string) {
+    tb.Helper()
+    f, err := os.Create(filename)
+    if err != nil {
+        tb.Fatalf("create heap profile: %v", err)
+    }
+    defer f.Close()
+    if err := pprof.WriteHeapProfile(f); err != nil {
+        tb.Fatalf("write heap profile: %v", err)
+    }
+    tb.Logf("wrote heap profile to %s", filename)
 }

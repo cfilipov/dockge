@@ -10,6 +10,7 @@ import (
     "path/filepath"
     "strings"
     "sync"
+    "time"
 
     "github.com/cfilipov/dockge/backend-go/internal/terminal"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
@@ -97,9 +98,12 @@ func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
-            "ok":     true,
-            "buffer": buf,
+        c.SendAck(*msg.ID, struct {
+            OK     bool   `json:"ok"`
+            Buffer string `json:"buffer"`
+        }{
+            OK:     true,
+            Buffer: buf,
         })
     }
 }
@@ -231,9 +235,12 @@ func (app *App) handleCheckMainTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
-            "ok":        true,
-            "isRunning": running,
+        c.SendAck(*msg.ID, struct {
+            OK        bool `json:"ok"`
+            IsRunning bool `json:"isRunning"`
+        }{
+            OK:        true,
+            IsRunning: running,
         })
     }
 }
@@ -284,6 +291,11 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
+    // Schedule cleanup when the exec process exits
+    term.OnExit(func() {
+        app.Terms.RemoveAfter(termName, 30*time.Second)
+    })
+
     slog.Info("interactive terminal started", "name", termName, "stack", stackName, "service", serviceName)
 
     if msg.ID != nil {
@@ -324,6 +336,8 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
 
     // Find the container ID for this service in this stack
     go func() {
+        defer app.Terms.RemoveAfter(termName, 30*time.Second)
+
         containerID, err := app.findContainerID(ctx, stackName, serviceName)
         if err != nil {
             slog.Warn("joinContainerLog: find container", "err", err, "stack", stackName, "service", serviceName)
@@ -354,9 +368,12 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
-            "ok":     true,
-            "buffer": term.Buffer(),
+        c.SendAck(*msg.ID, struct {
+            OK     bool   `json:"ok"`
+            Buffer string `json:"buffer"`
+        }{
+            OK:     true,
+            Buffer: term.Buffer(),
         })
     }
 }

@@ -8,10 +8,12 @@ import (
     "io/fs"
     "log/slog"
     "net/http"
+    netpprof "net/http/pprof"
     "os"
     "os/signal"
     "path/filepath"
     "strings"
+    "sync"
     "syscall"
     "time"
 
@@ -76,6 +78,16 @@ func main() {
         w.WriteHeader(http.StatusOK)
         w.Write([]byte("ok"))
     })
+
+    // Enable pprof endpoints in dev mode for live profiling
+    if cfg.Dev {
+        mux.HandleFunc("/debug/pprof/", pprofIndex)
+        mux.HandleFunc("/debug/pprof/cmdline", pprofCmdline)
+        mux.HandleFunc("/debug/pprof/profile", pprofProfile)
+        mux.HandleFunc("/debug/pprof/symbol", pprofSymbol)
+        mux.HandleFunc("/debug/pprof/trace", pprofTrace)
+        slog.Info("pprof enabled at /debug/pprof/")
+    }
 
     // Frontend SPA handler
     var frontendFS fs.FS
@@ -258,6 +270,24 @@ func spaHandler(fsys fs.FS) http.Handler {
     })
 }
 
+// pprof handler wrappers — net/http/pprof registers on DefaultServeMux via init(),
+// but we use a custom mux. Reference the exported handler functions directly.
+var (
+    pprofIndex   = netpprof.Index
+    pprofCmdline = netpprof.Cmdline
+    pprofProfile = netpprof.Profile
+    pprofSymbol  = netpprof.Symbol
+    pprofTrace   = netpprof.Trace
+)
+
+// gzipPool reuses gzip.Writer instances (~256KB internal state each).
+var gzipPool = sync.Pool{
+    New: func() any {
+        w, _ := gzip.NewWriterLevel(nil, gzip.DefaultCompression)
+        return w
+    },
+}
+
 // gzipMiddleware compresses responses on the fly for clients that accept it.
 func gzipMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -275,8 +305,12 @@ func gzipMiddleware(next http.Handler) http.Handler {
             return
         }
 
-        gz, _ := gzip.NewWriterLevel(w, gzip.DefaultCompression)
-        defer gz.Close()
+        gz := gzipPool.Get().(*gzip.Writer)
+        gz.Reset(w)
+        defer func() {
+            gz.Close()
+            gzipPool.Put(gz)
+        }()
 
         w.Header().Set("Content-Encoding", "gzip")
         w.Header().Del("Content-Length")

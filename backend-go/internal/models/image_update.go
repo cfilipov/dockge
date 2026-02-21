@@ -4,6 +4,7 @@ import (
     "bytes"
     "encoding/json"
     "fmt"
+    "sync/atomic"
 
     bolt "go.etcd.io/bbolt"
 
@@ -11,8 +12,10 @@ import (
 )
 
 // ImageUpdateStore manages cached image update check results.
+// An in-memory cache (atomic pointer) avoids reading BoltDB on every broadcast.
 type ImageUpdateStore struct {
-    db *bolt.DB
+    db    *bolt.DB
+    cache atomic.Pointer[map[string]bool] // lazily rebuilt, invalidated on writes
 }
 
 func NewImageUpdateStore(database *bolt.DB) *ImageUpdateStore {
@@ -71,22 +74,39 @@ func (s *ImageUpdateStore) GetAll() ([]ImageUpdateEntry, error) {
 }
 
 // StackHasUpdates returns a map of stack name → true if any service has an update.
+// Uses an in-memory cache that is lazily rebuilt on first read and invalidated
+// on Upsert/DeleteForStack/DeleteService — avoiding BoltDB I/O on every broadcast.
 func (s *ImageUpdateStore) StackHasUpdates() (map[string]bool, error) {
+    if cached := s.cache.Load(); cached != nil {
+        return *cached, nil
+    }
+    return s.rebuildCache()
+}
+
+// rebuildCache reads all entries from BoltDB and populates the in-memory cache.
+func (s *ImageUpdateStore) rebuildCache() (map[string]bool, error) {
     entries, err := s.GetAll()
     if err != nil {
         return nil, err
     }
-    result := make(map[string]bool)
+    result := make(map[string]bool, len(entries))
     for _, e := range entries {
         if e.HasUpdate {
             result[e.StackName] = true
         }
     }
+    s.cache.Store(&result)
     return result, nil
+}
+
+// invalidateCache clears the in-memory cache, forcing a rebuild on next read.
+func (s *ImageUpdateStore) invalidateCache() {
+    s.cache.Store(nil)
 }
 
 // Upsert inserts or updates a single cache entry.
 func (s *ImageUpdateStore) Upsert(stackName, serviceName, imageRef, localDigest, remoteDigest string, hasUpdate bool) error {
+    defer s.invalidateCache()
     return s.db.Update(func(tx *bolt.Tx) error {
         rec := imageUpdateRecord{
             StackName:    stackName,
@@ -106,6 +126,7 @@ func (s *ImageUpdateStore) Upsert(stackName, serviceName, imageRef, localDigest,
 
 // DeleteForStack removes all cache entries for a stack.
 func (s *ImageUpdateStore) DeleteForStack(stackName string) error {
+    defer s.invalidateCache()
     prefix := stackPrefix(stackName)
     return s.db.Update(func(tx *bolt.Tx) error {
         b := tx.Bucket(db.BucketImageUpdates)
@@ -121,6 +142,7 @@ func (s *ImageUpdateStore) DeleteForStack(stackName string) error {
 
 // DeleteService removes a single service's cache entry.
 func (s *ImageUpdateStore) DeleteService(stackName, serviceName string) error {
+    defer s.invalidateCache()
     return s.db.Update(func(tx *bolt.Tx) error {
         return tx.Bucket(db.BucketImageUpdates).Delete(compoundKey(stackName, serviceName))
     })

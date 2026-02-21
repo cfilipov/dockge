@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "log/slog"
     "sync"
+    "sync/atomic"
 
     "github.com/cfilipov/dockge/backend-go/internal/compose"
     "github.com/cfilipov/dockge/backend-go/internal/docker"
@@ -33,8 +34,10 @@ type App struct {
 
     // recreateCache: stack name → true if any service needs recreation
     // (running image differs from compose.yaml image). Populated by serviceStatusList.
-    recreateMu    sync.RWMutex
-    RecreateCache map[string]bool
+    // Uses copy-on-write via atomic.Pointer for zero-allocation reads.
+    recreateMu       sync.Mutex              // protects writes to recreateInternal
+    recreateInternal map[string]bool          // mutable, guarded by recreateMu
+    recreateSnapshot atomic.Pointer[map[string]bool] // immutable snapshot for readers
 }
 
 // checkLogin verifies that the connection is authenticated.
@@ -92,28 +95,32 @@ func argBool(args []json.RawMessage, index int) bool {
     return b
 }
 
-// GetRecreateCache returns a snapshot of the recreate necessary cache.
+// GetRecreateCache returns the immutable snapshot of the recreate cache.
+// Zero allocations — just loads an atomic pointer.
+// Callers must NOT mutate the returned map; it is shared.
 func (app *App) GetRecreateCache() map[string]bool {
-    app.recreateMu.RLock()
-    defer app.recreateMu.RUnlock()
-    if app.RecreateCache == nil {
-        return map[string]bool{}
+    if p := app.recreateSnapshot.Load(); p != nil {
+        return *p
     }
-    cp := make(map[string]bool, len(app.RecreateCache))
-    for k, v := range app.RecreateCache {
-        cp[k] = v
-    }
-    return cp
+    return map[string]bool{}
 }
 
-// SetRecreateNecessary updates the recreate flag for a stack.
+// SetRecreateNecessary updates the recreate flag for a stack and publishes
+// a new immutable snapshot via atomic pointer (copy-on-write).
 func (app *App) SetRecreateNecessary(stackName string, needed bool) {
     app.recreateMu.Lock()
     defer app.recreateMu.Unlock()
-    if app.RecreateCache == nil {
-        app.RecreateCache = make(map[string]bool)
+    if app.recreateInternal == nil {
+        app.recreateInternal = make(map[string]bool)
     }
-    app.RecreateCache[stackName] = needed
+    app.recreateInternal[stackName] = needed
+
+    // Build and publish immutable snapshot
+    snap := make(map[string]bool, len(app.recreateInternal))
+    for k, v := range app.recreateInternal {
+        snap[k] = v
+    }
+    app.recreateSnapshot.Store(&snap)
 }
 
 // GetImageUpdateMap returns stack name → true for stacks with available updates.

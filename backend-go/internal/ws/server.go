@@ -1,6 +1,7 @@
 package ws
 
 import (
+    "encoding/json"
     "log/slog"
     "net/http"
     "sync"
@@ -78,6 +79,33 @@ func (s *Server) BroadcastAuthenticated(event string, args ...interface{}) {
     for c := range s.conns {
         if c.UserID() != 0 {
             c.SendEvent(event, args...)
+        }
+    }
+}
+
+// BroadcastAuthenticatedRaw marshals the event payload once and sends the
+// pre-encoded bytes to all authenticated connections. For N connections this
+// saves (N-1) json.Marshal calls compared to BroadcastAuthenticated.
+func (s *Server) BroadcastAuthenticatedRaw(event string, args ...interface{}) {
+    var a interface{}
+    if len(args) == 1 {
+        a = args[0]
+    } else {
+        a = args
+    }
+
+    data, err := json.Marshal(ServerMessage{Event: event, Args: a})
+    if err != nil {
+        slog.Error("ws marshal raw broadcast", "err", err)
+        return
+    }
+
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+
+    for c := range s.conns {
+        if c.UserID() != 0 {
+            c.writeRaw(data)
         }
     }
 }

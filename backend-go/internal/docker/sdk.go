@@ -6,6 +6,7 @@ import (
     "fmt"
     "io"
     "runtime/debug"
+    "strconv"
     "strings"
     "sync"
 
@@ -179,12 +180,12 @@ func (s *SDKClient) ContainerStats(ctx context.Context, projectFilter string) (m
                 name: name,
                 stat: ContainerStat{
                     Name:     name,
-                    CPUPerc:  fmt.Sprintf("%.2f%%", cpuPerc),
-                    MemPerc:  fmt.Sprintf("%.2f%%", memPerc),
-                    MemUsage: fmt.Sprintf("%s / %s", formatBytes(memUsage), formatBytes(memLimit)),
-                    NetIO:    fmt.Sprintf("%s / %s", formatBytes(netRx), formatBytes(netTx)),
-                    BlockIO:  fmt.Sprintf("%s / %s", formatBytes(blkRead), formatBytes(blkWrite)),
-                    PIDs:     fmt.Sprintf("%d", stats.PidsStats.Current),
+                    CPUPerc:  strconv.FormatFloat(cpuPerc, 'f', 2, 64) + "%",
+                    MemPerc:  strconv.FormatFloat(memPerc, 'f', 2, 64) + "%",
+                    MemUsage: formatBytes(memUsage) + " / " + formatBytes(memLimit),
+                    NetIO:    formatBytes(netRx) + " / " + formatBytes(netTx),
+                    BlockIO:  formatBytes(blkRead) + " / " + formatBytes(blkWrite),
+                    PIDs:     strconv.FormatUint(stats.PidsStats.Current, 10),
                 },
             }
         }()
@@ -277,7 +278,7 @@ func (s *SDKClient) ImagePrune(ctx context.Context, all bool) (string, error) {
     if err != nil {
         return "", fmt.Errorf("image prune: %w", err)
     }
-    return fmt.Sprintf("Total reclaimed space: %s", formatBytes(report.SpaceReclaimed)), nil
+    return "Total reclaimed space: " + formatBytes(report.SpaceReclaimed), nil
 }
 
 func (s *SDKClient) NetworkList(ctx context.Context) ([]string, error) {
@@ -364,14 +365,14 @@ func (s *SDKClient) Close() error {
 func formatBytes(b uint64) string {
     const unit = 1024
     if b < unit {
-        return fmt.Sprintf("%dB", b)
+        return strconv.FormatUint(b, 10) + "B"
     }
     div, exp := uint64(unit), 0
     for n := b / unit; n >= unit; n /= unit {
         div *= unit
         exp++
     }
-    return fmt.Sprintf("%.1f%ciB", float64(b)/float64(div), "KMGTPE"[exp])
+    return strconv.FormatFloat(float64(b)/float64(div), 'f', 1, 64) + string("KMGTPE"[exp]) + "iB"
 }
 
 // Ensure SDKClient implements Client at compile time.
