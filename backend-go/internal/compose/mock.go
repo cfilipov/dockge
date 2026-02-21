@@ -13,6 +13,123 @@ import (
     "github.com/cfilipov/dockge/backend-go/internal/docker"
 )
 
+// ANSI escape sequences for Docker Compose v2 style output.
+const (
+    ansiGreen   = "\033[32m"
+    ansiReset   = "\033[0m"
+    ansiHideCur = "\033[?25l"
+    ansiShowCur = "\033[?25h"
+    ansiCurUp   = "\033[A"
+    ansiEraseLn = "\033[2K"
+)
+
+// spinnerFrames matches the Braille spinner used by Docker Compose v2.
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+// progressTask represents a single line in the Docker Compose progress display.
+type progressTask struct {
+    name   string // e.g. "Container web-app-nginx-1" or "Network web-app_default"
+    action string // in-progress verb: "Creating", "Starting", etc.
+    done   string // completed verb: "Created", "Started", etc.
+}
+
+// progressRenderer draws Docker Compose v2 style animated progress output.
+type progressRenderer struct {
+    w     io.Writer
+    verb  string // header verb: "Running", "Restarting", etc.
+    tasks []progressTask
+    delay time.Duration // per-frame delay
+}
+
+// render draws the full animated progress sequence to w.
+// It shows a header line and one line per task. Tasks complete one at a time,
+// with spinner animation on pending/in-progress tasks and green checkmarks on
+// completed ones.
+func (r *progressRenderer) render() {
+    n := len(r.tasks)
+    if n == 0 {
+        return
+    }
+
+    // Number of spinner frames to show per task before marking it done.
+    const framesPerTask = 3
+
+    // Track when each task starts spinning for elapsed time.
+    taskStart := make([]time.Time, n)
+    taskElapsed := make([]time.Duration, n)
+
+    // Hide cursor.
+    fmt.Fprint(r.w, ansiHideCur)
+
+    // Draw initial frame: all tasks pending.
+    r.writeHeader(0)
+    spinIdx := 0
+    for i := range r.tasks {
+        r.writeTaskPending(i, spinIdx)
+    }
+
+    // Animate: complete tasks one at a time.
+    for completed := 0; completed < n; completed++ {
+        taskStart[completed] = time.Now()
+
+        // Show spinner frames for this task.
+        for frame := 0; frame < framesPerTask; frame++ {
+            time.Sleep(r.delay)
+            spinIdx++
+            r.moveCursorUp(n + 1) // +1 for header
+            r.writeHeader(completed)
+            for i := range r.tasks {
+                if i < completed {
+                    r.writeTaskDone(i, taskElapsed[i])
+                } else {
+                    r.writeTaskPending(i, spinIdx)
+                }
+            }
+        }
+
+        // Mark this task as done.
+        taskElapsed[completed] = time.Since(taskStart[completed])
+        time.Sleep(r.delay)
+        r.moveCursorUp(n + 1)
+        r.writeHeader(completed + 1)
+        for i := range r.tasks {
+            if i <= completed {
+                r.writeTaskDone(i, taskElapsed[i])
+            } else {
+                r.writeTaskPending(i, spinIdx)
+            }
+        }
+    }
+
+    // Show cursor.
+    fmt.Fprint(r.w, ansiShowCur)
+}
+
+func (r *progressRenderer) writeHeader(completed int) {
+    total := len(r.tasks)
+    fmt.Fprintf(r.w, "\r%s %s[+]%s %s %d/%d\r\n",
+        ansiEraseLn, ansiGreen, ansiReset, r.verb, completed, total)
+}
+
+func (r *progressRenderer) writeTaskPending(i, spinIdx int) {
+    frame := spinnerFrames[spinIdx%len(spinnerFrames)]
+    fmt.Fprintf(r.w, "\r%s %s %s  %s\r\n",
+        ansiEraseLn, frame, r.tasks[i].name, r.tasks[i].action)
+}
+
+func (r *progressRenderer) writeTaskDone(i int, elapsed time.Duration) {
+    secs := elapsed.Seconds()
+    fmt.Fprintf(r.w, "\r%s %s✔%s %s  %-12s %.1fs\r\n",
+        ansiEraseLn, ansiGreen, ansiReset,
+        r.tasks[i].name, r.tasks[i].done, secs)
+}
+
+func (r *progressRenderer) moveCursorUp(lines int) {
+    for i := 0; i < lines; i++ {
+        fmt.Fprint(r.w, ansiCurUp)
+    }
+}
+
 // MockCompose implements Composer as a pure in-memory mock.
 // Stack state is tracked via a shared MockState (in-memory map)
 // so it stays in sync with MockClient.
@@ -86,29 +203,56 @@ func (m *MockCompose) DownVolumes(_ context.Context, stackName string, w io.Writ
 }
 
 func (m *MockCompose) ServiceUp(_ context.Context, stackName, serviceName string, w io.Writer) error {
-    m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Starting", stackName, serviceName))
-    m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, serviceName))
+    r := &progressRenderer{
+        w:     w,
+        verb:  "Running",
+        delay: 50 * time.Millisecond,
+        tasks: []progressTask{
+            {name: fmt.Sprintf("Container %s-%s-1", stackName, serviceName), action: "Starting", done: "Started"},
+        },
+    }
+    r.render()
     m.state.Set(stackName, "running")
     return nil
 }
 
 func (m *MockCompose) ServiceStop(_ context.Context, stackName, serviceName string, w io.Writer) error {
-    m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopping", stackName, serviceName))
-    m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopped", stackName, serviceName))
+    r := &progressRenderer{
+        w:     w,
+        verb:  "Stopping",
+        delay: 50 * time.Millisecond,
+        tasks: []progressTask{
+            {name: fmt.Sprintf("Container %s-%s-1", stackName, serviceName), action: "Stopping", done: "Stopped"},
+        },
+    }
+    r.render()
     return nil
 }
 
 func (m *MockCompose) ServiceRestart(_ context.Context, stackName, serviceName string, w io.Writer) error {
-    m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Restarting", stackName, serviceName))
-    m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, serviceName))
+    r := &progressRenderer{
+        w:     w,
+        verb:  "Restarting",
+        delay: 50 * time.Millisecond,
+        tasks: []progressTask{
+            {name: fmt.Sprintf("Container %s-%s-1", stackName, serviceName), action: "Restarting", done: "Started"},
+        },
+    }
+    r.render()
     return nil
 }
 
 func (m *MockCompose) ServicePullAndUp(_ context.Context, stackName, serviceName string, w io.Writer) error {
-    m.fakeDelay(w, fmt.Sprintf(" %s Pulling", serviceName))
-    m.fakeDelay(w, fmt.Sprintf(" %s Pull complete", serviceName))
-    m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Starting", stackName, serviceName))
-    m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, serviceName))
+    r := &progressRenderer{
+        w:     w,
+        verb:  "Pulling",
+        delay: 50 * time.Millisecond,
+        tasks: []progressTask{
+            {name: serviceName, action: "Pulling", done: "Pulled"},
+            {name: fmt.Sprintf("Container %s-%s-1", stackName, serviceName), action: "Starting", done: "Started"},
+        },
+    }
+    r.render()
     m.state.Set(stackName, "running")
     return nil
 }
@@ -117,55 +261,108 @@ func (m *MockCompose) ServicePullAndUp(_ context.Context, stackName, serviceName
 
 func (m *MockCompose) up(stackName string, w io.Writer) error {
     services := m.getServices(stackName)
+
+    var tasks []progressTask
+    // Network creation first.
+    tasks = append(tasks, progressTask{
+        name:   fmt.Sprintf("Network %s_default", stackName),
+        action: "Creating",
+        done:   "Created",
+    })
+    // Then per-service: create + start.
     for _, svc := range services {
-        m.fakeDelay(w, fmt.Sprintf(" Network %s_default  Creating", stackName))
-        m.fakeDelay(w, fmt.Sprintf(" Network %s_default  Created", stackName))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Creating", stackName, svc))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Created", stackName, svc))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Starting", stackName, svc))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, svc))
+        tasks = append(tasks,
+            progressTask{
+                name:   fmt.Sprintf("Container %s-%s-1", stackName, svc),
+                action: "Creating",
+                done:   "Created",
+            },
+            progressTask{
+                name:   fmt.Sprintf("Container %s-%s-1", stackName, svc),
+                action: "Starting",
+                done:   "Started",
+            },
+        )
     }
+
+    r := &progressRenderer{w: w, verb: "Running", delay: 50 * time.Millisecond, tasks: tasks}
+    r.render()
     m.state.Set(stackName, "running")
     return nil
 }
 
 func (m *MockCompose) stop(stackName, targetService string, w io.Writer) error {
+    var tasks []progressTask
     if targetService != "" {
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopping", stackName, targetService))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopped", stackName, targetService))
+        tasks = []progressTask{
+            {name: fmt.Sprintf("Container %s-%s-1", stackName, targetService), action: "Stopping", done: "Stopped"},
+        }
     } else {
         for _, svc := range m.getServices(stackName) {
-            m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopping", stackName, svc))
-            m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopped", stackName, svc))
+            tasks = append(tasks, progressTask{
+                name:   fmt.Sprintf("Container %s-%s-1", stackName, svc),
+                action: "Stopping",
+                done:   "Stopped",
+            })
         }
+    }
+
+    r := &progressRenderer{w: w, verb: "Stopping", delay: 50 * time.Millisecond, tasks: tasks}
+    r.render()
+    if targetService == "" {
         m.state.Set(stackName, "exited")
     }
     return nil
 }
 
 func (m *MockCompose) down(stackName string, w io.Writer) error {
+    var tasks []progressTask
+    // Per-service: stop + remove.
     for _, svc := range m.getServices(stackName) {
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopping", stackName, svc))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopped", stackName, svc))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Removing", stackName, svc))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Removed", stackName, svc))
+        tasks = append(tasks,
+            progressTask{
+                name:   fmt.Sprintf("Container %s-%s-1", stackName, svc),
+                action: "Stopping",
+                done:   "Stopped",
+            },
+            progressTask{
+                name:   fmt.Sprintf("Container %s-%s-1", stackName, svc),
+                action: "Removing",
+                done:   "Removed",
+            },
+        )
     }
-    m.fakeDelay(w, fmt.Sprintf(" Network %s_default  Removing", stackName))
-    m.fakeDelay(w, fmt.Sprintf(" Network %s_default  Removed", stackName))
+    // Network removal last.
+    tasks = append(tasks, progressTask{
+        name:   fmt.Sprintf("Network %s_default", stackName),
+        action: "Removing",
+        done:   "Removed",
+    })
+
+    r := &progressRenderer{w: w, verb: "Running", delay: 50 * time.Millisecond, tasks: tasks}
+    r.render()
     m.state.Remove(stackName)
     return nil
 }
 
 func (m *MockCompose) restart(stackName, targetService string, w io.Writer) error {
+    var tasks []progressTask
     if targetService != "" {
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Restarting", stackName, targetService))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, targetService))
+        tasks = []progressTask{
+            {name: fmt.Sprintf("Container %s-%s-1", stackName, targetService), action: "Restarting", done: "Started"},
+        }
     } else {
         for _, svc := range m.getServices(stackName) {
-            m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Restarting", stackName, svc))
-            m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, svc))
+            tasks = append(tasks, progressTask{
+                name:   fmt.Sprintf("Container %s-%s-1", stackName, svc),
+                action: "Restarting",
+                done:   "Started",
+            })
         }
     }
+
+    r := &progressRenderer{w: w, verb: "Restarting", delay: 50 * time.Millisecond, tasks: tasks}
+    r.render()
     m.state.Set(stackName, "running")
     return nil
 }
@@ -175,26 +372,48 @@ func (m *MockCompose) pull(stackName, targetService string, w io.Writer) error {
     if targetService != "" {
         services = []string{targetService}
     }
+
+    var tasks []progressTask
     for _, svc := range services {
-        m.fakeDelay(w, fmt.Sprintf(" %s Pulling", svc))
-        m.fakeDelay(w, fmt.Sprintf(" %s Pull complete", svc))
+        tasks = append(tasks, progressTask{
+            name:   svc,
+            action: "Pulling",
+            done:   "Pulled",
+        })
     }
+
+    r := &progressRenderer{w: w, verb: "Pulling", delay: 50 * time.Millisecond, tasks: tasks}
+    r.render()
     return nil
 }
 
 func (m *MockCompose) pause(stackName string, w io.Writer) error {
+    var tasks []progressTask
     for _, svc := range m.getServices(stackName) {
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Pausing", stackName, svc))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Paused", stackName, svc))
+        tasks = append(tasks, progressTask{
+            name:   fmt.Sprintf("Container %s-%s-1", stackName, svc),
+            action: "Pausing",
+            done:   "Paused",
+        })
     }
+
+    r := &progressRenderer{w: w, verb: "Pausing", delay: 50 * time.Millisecond, tasks: tasks}
+    r.render()
     return nil
 }
 
 func (m *MockCompose) unpause(stackName string, w io.Writer) error {
+    var tasks []progressTask
     for _, svc := range m.getServices(stackName) {
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Unpausing", stackName, svc))
-        m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Unpaused", stackName, svc))
+        tasks = append(tasks, progressTask{
+            name:   fmt.Sprintf("Container %s-%s-1", stackName, svc),
+            action: "Unpausing",
+            done:   "Unpaused",
+        })
     }
+
+    r := &progressRenderer{w: w, verb: "Unpausing", delay: 50 * time.Millisecond, tasks: tasks}
+    r.render()
     m.state.Set(stackName, "running")
     return nil
 }
@@ -270,11 +489,6 @@ func (m *MockCompose) getServices(stackName string) []string {
         }
     }
     return services
-}
-
-func (m *MockCompose) fakeDelay(w io.Writer, msg string) {
-    fmt.Fprintf(w, "%s\r\n", msg)
-    time.Sleep(50 * time.Millisecond) // Brief delay for realistic terminal output
 }
 
 // findServiceArg extracts a service name from compose args, skipping flags.
