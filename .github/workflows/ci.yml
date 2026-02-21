@@ -59,3 +59,53 @@ jobs:
       - name: Benchmarks
         run: go test -bench=. -benchmem -run='^$' .
 
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install Node dependencies
+        run: pnpm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Build frontend
+        run: pnpm run build:frontend
+
+      - name: Build Go backend
+        run: cd backend-go && go build -o dockge-backend .
+
+      - name: Create stacks directory
+        run: sudo mkdir -p /opt/stacks && sudo chown $USER /opt/stacks
+
+      - name: Run E2E tests
+        run: pnpm run test:e2e
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Upload screenshot diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-diffs
+          path: e2e/test-results/
+          retention-days: 14
+

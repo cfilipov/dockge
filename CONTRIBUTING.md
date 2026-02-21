@@ -36,6 +36,7 @@ common/                        # Shared types between frontend and backend (Type
 - [Go](https://go.dev/dl/) 1.24+
 - [Node.js](https://nodejs.org/) 22+ and [pnpm](https://pnpm.io/) (for the frontend)
 - [git](https://git-scm.com/)
+- Chromium for Playwright (for E2E tests) — installed via `npx playwright install chromium` after `pnpm install`
 
 ## Building
 
@@ -166,6 +167,73 @@ pnpm run lint
 pnpm run check-ts
 pnpm run build:frontend
 ```
+
+### E2E tests (Playwright)
+
+E2E tests live in `e2e/` and use Playwright with Chromium. They run against the Go backend in `--dev --mock` mode (started automatically) and cover both functional assertions and visual regression via screenshot comparison.
+
+#### First-time setup
+
+After `pnpm install`, you need to download the Chromium browser binary once:
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright npx playwright install chromium
+```
+
+This downloads ~280 MB to `~/.cache/ms-playwright/`. You only need to redo this when upgrading `@playwright/test`.
+
+#### Running tests
+
+The test runner automatically starts the Go backend (`--dev --mock`), so make sure both the backend binary and `frontend-dist/` are built first:
+
+```bash
+# Build everything
+cd backend-go && go build -o dockge-backend . && cd ..
+pnpm run build:frontend
+
+# Run all E2E tests
+pnpm run test:e2e
+
+# Run with visible browser
+pnpm run test:e2e:headed
+
+# Open Playwright UI mode (interactive)
+pnpm run test:e2e:ui
+```
+
+#### Visual regression screenshots
+
+Golden screenshots are committed to `e2e/__screenshots__/`. Playwright compares each test's screenshot against its golden file and fails if they differ beyond the configured threshold.
+
+**When your changes intentionally alter the UI:**
+
+```bash
+# Re-generate all golden screenshots
+pnpm run test:e2e:update-screenshots
+
+# Verify the new screenshots pass
+pnpm run test:e2e
+```
+
+Always review the updated screenshots before committing — `git diff` won't show image changes, so open the PNGs in `e2e/__screenshots__/` and verify they look correct.
+
+**When a screenshot test fails unexpectedly:**
+
+Playwright writes three images to `e2e/test-results/`:
+- `*-expected.png` — the golden file
+- `*-actual.png` — what the test captured
+- `*-diff.png` — red highlights showing the differences
+
+Open the HTML report for a side-by-side view:
+
+```bash
+pnpm run test:e2e:report
+```
+
+**Key design notes:**
+- Tests run sequentially (`workers: 1`) because the mock backend has shared mutable state
+- All UI state is deterministic (mock backend provides fixed statuses, icons, etc.)
+- Auth is handled via Playwright's `storageState` pattern — `auth.setup.ts` logs in once and all other tests reuse the saved session
 
 ### Adding test stacks
 

@@ -8,7 +8,12 @@
         "dev:frontend": "cross-env NODE_ENV=development vite --host --config ./frontend/vite.config.ts",
         "build:frontend": "vite build --config ./frontend/vite.config.ts",
         "build:docker": "docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t cfilipov/dockge:latest --target release -f ./docker/Dockerfile . --push",
-        "start-docker": "docker run --rm -p 5001:5001 --name dockge cfilipov/dockge:latest"
+        "start-docker": "docker run --rm -p 5001:5001 --name dockge cfilipov/dockge:latest",
+        "test:e2e": "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright playwright test --config e2e/playwright.config.ts",
+        "test:e2e:ui": "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright playwright test --config e2e/playwright.config.ts --ui",
+        "test:e2e:headed": "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright playwright test --config e2e/playwright.config.ts --headed",
+        "test:e2e:update-screenshots": "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright playwright test --config e2e/playwright.config.ts --update-snapshots",
+        "test:e2e:report": "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright playwright show-report e2e/playwright-report"
     },
     "dependencies": {
         "@codemirror/lang-json": "^6.0.2",
@@ -29,6 +34,7 @@
         "@fortawesome/free-regular-svg-icons": "6.4.2",
         "@fortawesome/free-solid-svg-icons": "6.4.2",
         "@fortawesome/vue-fontawesome": "3.0.3",
+        "@playwright/test": "^1.58.2",
         "@types/bootstrap": "~5.2.10",
         "@typescript-eslint/eslint-plugin": "~6.8.0",
         "@typescript-eslint/parser": "~6.8.0",
