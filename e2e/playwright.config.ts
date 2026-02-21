@@ -47,7 +47,7 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: "cd ../backend-go && ./dockge-backend --dev --mock --port 5001 --stacks-dir testdata/stacks",
+        command: "cd ../backend-go && ./dockge-backend --dev --mock --port 5001 --stacks-dir test-data/stacks",
         port: 5001,
         reuseExistingServer: !process.env.CI,
     },

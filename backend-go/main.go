@@ -294,7 +294,7 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
     return w.Writer.Write(b)
 }
 
-// seedDevStacks copies testdata stacks into the stacks directory for dev+mock mode.
+// seedDevStacks copies test-data stacks into the stacks directory for dev+mock mode.
 // It uses a marker file (.dockge-dev-stacks) to avoid re-copying on subsequent runs.
 // If the directory has user content (no marker, not empty), it's left alone.
 func seedDevStacks(stacksDir string) {
@@ -313,10 +313,10 @@ func seedDevStacks(stacksDir string) {
         return
     }
 
-    // Find testdata/stacks/ relative to cwd
-    srcDir := filepath.Join("testdata", "stacks")
+    // Find test-data/stacks/ relative to cwd
+    srcDir := filepath.Join("test-data", "stacks")
     if info, err := os.Stat(srcDir); err != nil || !info.IsDir() {
-        slog.Warn("testdata/stacks not found, skipping dev stack seed (run from backend-go/)")
+        slog.Warn("test-data/stacks not found, skipping dev stack seed (run from backend-go/)")
         return
     }
 
@@ -324,7 +324,7 @@ func seedDevStacks(stacksDir string) {
     count := 0
     srcEntries, err := os.ReadDir(srcDir)
     if err != nil {
-        slog.Warn("read testdata/stacks", "err", err)
+        slog.Warn("read test-data/stacks", "err", err)
         return
     }
 

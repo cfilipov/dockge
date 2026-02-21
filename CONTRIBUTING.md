@@ -76,7 +76,7 @@ The standard way to develop is with both `--dev` and `--mock` enabled. No real D
 
 ```bash
 cd backend-go
-go build -o dockge-backend . && ./dockge-backend --dev --mock --port 5001 --stacks-dir /opt/stacks
+go build -o dockge-backend . && ./dockge-backend --dev --mock --port 5001 --stacks-dir test-data/stacks
 ```
 
 ### CLI flags
@@ -111,7 +111,7 @@ Port 5000 (Vite HMR) reflects changes immediately. Port 5001 serves the pre-buil
 
 When `--mock` is set, the Go backend uses in-memory `MockClient` and `MockCompose` implementations instead of the real Docker SDK. Both share a `MockState` map of stack statuses. `DefaultDevState()` seeds four stacks on startup; state is lost on restart.
 
-**Test stacks** in `/opt/stacks/`:
+**Test stacks** in `backend-go/test-data/stacks/`:
 
 | Stack | Services | Notes |
 |-------|----------|-------|
@@ -182,7 +182,7 @@ PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright npx playwright install chrom
 
 This downloads ~280 MB to `~/.cache/ms-playwright/`. You only need to redo this when upgrading `@playwright/test`.
 
-#### Running tests
+#### Running e2e tests
 
 The test runner automatically starts the Go backend (`--dev --mock`), so make sure both the backend binary and `frontend-dist/` are built first:
 
@@ -237,7 +237,7 @@ pnpm run test:e2e:report
 
 ### Adding test stacks
 
-Place a `compose.yaml` in `backend-go/testdata/stacks/<name>/`. Tests automatically copy these into isolated temp directories.
+Place a `compose.yaml` in `backend-go/test-data/stacks/<name>/`. Tests automatically copy these into isolated temp directories.
 
 ## Coding style
 

@@ -36,12 +36,12 @@ type TestEnv struct {
 }
 
 // Setup creates a test environment with a real HTTP server, BoltDB, and mock Docker.
-// Only copies "test-stack" from testdata — fast for unit tests.
+// Only copies "test-stack" from test-data — fast for unit tests.
 func Setup(t testing.TB) *TestEnv {
     return setupWithStacks(t, "test-stack")
 }
 
-// SetupFull creates a test environment with all 200+ stacks from testdata.
+// SetupFull creates a test environment with all 200+ stacks from test-data.
 // Use only for stress tests and benchmarks.
 func SetupFull(t testing.TB) *TestEnv {
     return setupWithStacks(t)
@@ -61,7 +61,7 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
         t.Fatal(err)
     }
 
-    // Copy test stacks from testdata
+    // Copy test stacks from test-data
     testdataDir := findTestdata(t)
     srcStacks := filepath.Join(testdataDir, "stacks")
     if len(stackNames) == 0 {
@@ -319,24 +319,24 @@ func (e *TestEnv) SendEvent(t testing.TB, conn *websocket.Conn, event string, ar
     }
 }
 
-// findTestdata locates the testdata directory relative to the backend-go root.
+// findTestdata locates the test-data directory relative to the backend-go root.
 func findTestdata(t testing.TB) string {
     t.Helper()
 
-    // Walk up from cwd to find testdata/
+    // Walk up from cwd to find test-data/
     dir, err := os.Getwd()
     if err != nil {
         t.Fatal(err)
     }
 
     for {
-        candidate := filepath.Join(dir, "testdata")
+        candidate := filepath.Join(dir, "test-data")
         if info, err := os.Stat(candidate); err == nil && info.IsDir() {
             return candidate
         }
         parent := filepath.Dir(dir)
         if parent == dir {
-            t.Fatal("testdata directory not found")
+            t.Fatal("test-data directory not found")
         }
         dir = parent
     }

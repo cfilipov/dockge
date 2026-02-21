@@ -1,5 +1,5 @@
 // gen-teststacks deterministically generates 190 filler test stacks
-// (stack-010 through stack-199) under backend-go/testdata/stacks/.
+// (stack-010 through stack-199) under backend-go/test-data/stacks/.
 //
 // Usage:
 //
@@ -74,7 +74,7 @@ func serviceCount(i int) int {
 }
 
 func main() {
-	outDir := filepath.Join("testdata", "stacks")
+	outDir := filepath.Join("test-data", "stacks")
 
 	for i := 10; i < 200; i++ {
 		name := fmt.Sprintf("stack-%03d", i)
