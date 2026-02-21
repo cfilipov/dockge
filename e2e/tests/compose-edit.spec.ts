@@ -1,6 +1,14 @@
 import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
 
+// Use evaluate(el.click()) instead of Playwright's .click() for the Edit
+// button. Playwright's click() calls scrollIntoViewIfNeeded before clicking,
+// which can cause a ~150 px scroll when a concurrent WebSocket event shifts
+// the layout during the click preparation.
+function clickEdit(page: import("@playwright/test").Page) {
+    return page.getByRole("button", { name: "Edit" }).evaluate((el: HTMLElement) => el.click());
+}
+
 test.describe("Compose Edit Mode", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/compose/01-web-app");
@@ -9,7 +17,7 @@ test.describe("Compose Edit Mode", () => {
     });
 
     test("clicking Edit shows Deploy, Save, and Discard buttons", async ({ page }) => {
-        await page.getByRole("button", { name: "Edit" }).click();
+        await clickEdit(page);
 
         await expect(page.getByRole("button", { name: "Deploy" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
@@ -17,18 +25,15 @@ test.describe("Compose Edit Mode", () => {
     });
 
     test("editor gets edit-mode class", async ({ page }) => {
-        await page.getByRole("button", { name: "Edit" }).click();
+        await clickEdit(page);
 
         await expect(page.locator(".editor-box.edit-mode").first()).toBeVisible();
     });
 
     test("screenshot: compose edit mode", async ({ page }) => {
-        await page.getByRole("button", { name: "Edit" }).click();
+        await clickEdit(page);
         await expect(page.getByRole("button", { name: "Deploy" })).toBeVisible();
         await expect(page.locator(".editor-box.edit-mode").first()).toBeVisible();
-        // Edit mode adds .env editor below, which can cause a scroll — reset to top
-        await page.evaluate(() => window.scrollTo(0, 0));
-        await page.waitForTimeout(500);
         await expect(page).toHaveScreenshot("compose-edit-mode.png");
     });
 });

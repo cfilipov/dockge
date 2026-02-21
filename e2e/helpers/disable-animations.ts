@@ -13,6 +13,9 @@ export async function disableAnimations(page: Page): Promise<void> {
                 transition-duration: 0s !important;
                 transition-delay: 0s !important;
             }
+            html {
+                scroll-behavior: auto !important;
+            }
         `,
     });
 }

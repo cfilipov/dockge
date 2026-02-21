@@ -963,6 +963,13 @@ export default {
         },
 
         enableEditMode() {
+            // Blur the focused element (typically the Edit button) before
+            // toggling state. The Edit button is removed via v-if when
+            // isEditMode becomes true; if it still holds focus, the browser
+            // relocates focus to another focusable element and scrolls to it.
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
             this.isEditMode = true;
         },
 
