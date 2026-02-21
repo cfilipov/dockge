@@ -33,7 +33,7 @@ common/                        # Shared types between frontend and backend (Type
 
 ## Prerequisites
 
-- [Go](https://go.dev/dl/) 1.24+
+- [Go](https://go.dev/dl/) 1.25+
 - [Node.js](https://nodejs.org/) 22+ and [pnpm](https://pnpm.io/) (for the frontend)
 - [git](https://git-scm.com/)
 - Chromium for Playwright (for E2E tests) — installed via `npx playwright install chromium` after `pnpm install`

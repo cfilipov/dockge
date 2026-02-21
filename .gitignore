@@ -20,6 +20,10 @@ backend-rust/target
 # Go backend embedded frontend (copied at build time)
 backend-go/frontend-dist
 
+# Go workspace (local dev convenience for gopls)
+go.work
+go.work.sum
+
 # Playwright E2E test artifacts (golden screenshots ARE committed)
 e2e/.auth/
 e2e/test-results/
