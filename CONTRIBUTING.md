@@ -1,141 +1,108 @@
-## Can I create a pull request for Dockge?
+# Contributing to Dockge (cfilipov fork)
 
-Yes or no, it depends on what you will try to do. Since I don't want to waste your time, be sure to **create open a discussion, so we can have a discussion first**. Especially for a large pull request or you don't know if it will be merged or not.
+## Architecture
 
-Here are some references:
+- **Frontend**: Vue.js 3 + Bootstrap 5, built with Vite, communicates via WebSocket
+- **Backend**: Go (`backend-go/`), using BoltDB for persistence, `coder/websocket` for real-time communication
+- **Stacks**: Plain `compose.yaml` + `.env` files on disk (`/opt/stacks/`), not in the database
 
-### ✅ Usually accepted:
-- Bug fix
-- Security fix
-- Adding new language files (see [these instructions](https://github.com/louislam/dockge/blob/master/frontend/src/lang/README.md))
-- Adding new language keys: `$t("...")`
+### Key directories
 
-### ⚠️ Discussion required:
-- Large pull requests
-- New features
+```
+backend-go/
+  main.go                      # Entry point, HTTP server, WebSocket upgrade
+  internal/
+    config/                    # CLI flags and env var parsing
+    db/                        # BoltDB wrapper
+    docker/                    # Docker/Compose command interfaces + mock
+    handlers/                  # WebSocket event handlers (auth, stack, service, settings, agent)
+    models/                    # User, Setting, Agent, ImageUpdate stores (BoltDB)
+    compose/                   # YAML parser, compose file resolution, ComposeCache
+    stack/                     # Stack model (status, file I/O, JSON serialization)
+    terminal/                  # PTY/pipe terminal manager
+    updatechecker/             # Background image update checker (registry digest comparison)
+    ws/                        # WebSocket protocol types
+    testutil/                  # Integration test harness (TestEnv, MockDocker, MockCompose)
+frontend/
+  src/
+    pages/                     # Vue page components (Compose.vue, DashboardHome.vue)
+    components/                # Reusable Vue components
+    lang/                      # i18n translations
+common/                        # Shared types between frontend and backend (TypeScript)
+```
 
-### ❌ Won't be merged:
-- A dedicated PR for translating existing languages (see [these instructions](https://github.com/louislam/dockge/blob/master/frontend/src/lang/README.md))
-- Do not pass the auto-test
-- Any breaking changes
-- Duplicated pull requests
-- Buggy
-- UI/UX is not close to Dockge
-- Modifications or deletions of existing logic without a valid reason.
-- Adding functions that is completely out of scope
-- Converting existing code into other programming languages
-- Unnecessarily large code changes that are hard to review and cause conflicts with other PRs.
+## Prerequisites
 
-The above cases may not cover all possible situations.
+- [Go](https://go.dev/dl/) 1.24+
+- [Node.js](https://nodejs.org/) 22+ and [pnpm](https://pnpm.io/) (for the frontend)
+- [git](https://git-scm.com/)
 
-I (@louislam) have the final say. If your pull request does not meet my expectations, I will reject it, no matter how much time you spend on it. Therefore, it is essential to have a discussion beforehand.
+## Building
 
-I will assign your pull request to a [milestone](https://github.com/louislam/dockge/milestones), if I plan to review and merge it.
+### Backend
 
-Also, please don't rush or ask for an ETA, because I have to understand the pull request, make sure it is no breaking changes and stick to my vision of this project, especially for large pull requests.
+```bash
+cd backend-go
+go build -o dockge-backend .
+```
 
-## Project Styles
+The binary is self-contained. In production it embeds the frontend via `embed.FS`.
 
-I personally do not like something that requires so many configurations before you can finally start the app.
-
-- Settings should be configurable in the frontend. Environment variables are discouraged, unless it is related to startup such as `DOCKGE_STACKS_DIR`
-- Easy to use
-- The web UI styling should be consistent and nice
-- No native build dependency
-
-## Coding Styles
-
-- 4 spaces indentation
-- Follow `.editorconfig`
-- Follow ESLint
-- Methods and functions should be documented with JSDoc
-
-## Name Conventions
-
-- Javascript/Typescript: camelCaseType
-- SQLite: snake_case (Underscore)
-- CSS/SCSS: kebab-case (Dash)
-
-## Tools
-
-- [`Node.js`](https://nodejs.org/) >= 22.14.0
-- [`git`](https://git-scm.com/)
-- IDE that supports [`ESLint`](https://eslint.org/) and EditorConfig (I am using [`IntelliJ IDEA`](https://www.jetbrains.com/idea/))
-- A SQLite GUI tool (f.ex. [`SQLite Expert Personal`](https://www.sqliteexpert.com/download.html) or [`DBeaver Community`](https://dbeaver.io/download/))
-
-## Install Dependencies for Development
+### Frontend
 
 ```bash
 pnpm install
+pnpm run build:frontend
 ```
 
-## Dev Server
+This outputs to `frontend-dist/`, which the Go backend serves.
 
-The recommended way to develop is with the mock Docker CLI, which simulates Docker without requiring a real daemon. This is especially useful in environments without Docker-in-Docker support.
-
-### Quick Start (with mock Docker)
-
-```bash
-# 1. Install dependencies
-pnpm install
-
-# 2. Set up test stacks and mock state
-#    (requires /opt/stacks to exist and be writable)
-sudo mkdir -p /opt/stacks && sudo chown $USER /opt/stacks
-./extra/mock-docker/setup-mock-env.sh
-
-# 3. Start the dev server with mock Docker on the PATH
-PATH="$PWD/extra/mock-docker:$PATH" DOCKGE_STACKS_DIR=/opt/stacks pnpm run dev
-```
-
-This starts:
-- **Vite frontend** on `http://localhost:5000` (hot reload)
-- **Express backend** on `http://localhost:5001` (serves API + Socket.IO)
-
-### Quick Start (with real Docker)
-
-If you have a real Docker daemon available:
+### Full production build
 
 ```bash
 pnpm install
-pnpm run dev
+pnpm run build:frontend
+cd backend-go && go build -o dockge-backend .
 ```
 
-### Mock Docker CLI
+## Development
 
-The mock Docker CLI at `extra/mock-docker/docker` intercepts all `docker` and `docker compose` commands. It simulates container lifecycle by writing state files to `/tmp/mock-docker/state/`.
+### Dev mode with mock Docker
 
-**Supported commands:**
-- `docker compose ls/ps/up/stop/down/restart/pull/config/logs`
-- `docker inspect`, `docker stats`, `docker network ls`, `docker version`
-- `docker image inspect`, `docker image prune`
+The project includes a mock Docker CLI that simulates container lifecycle without a real Docker daemon. This is the standard way to develop.
 
-**How it works:**
-- Stack state (running/exited) is stored in `/tmp/mock-docker/state/<stackname>/status`
-- Service names are parsed from the actual `compose.yaml` files in the stacks directory
-- `compose up` sets status to `running`, `stop` sets to `exited`, `down` removes state
-- `compose logs -f` outputs mock lines with periodic heartbeats
-- `compose ps --format json` returns mock container JSON for running stacks
-- Some stacks have hardcoded quirks for testing (e.g., `web-app/redis` is always exited to test mixed-status stacks)
+**Start the Go backend in dev mode:**
 
-**Test stacks** are in `extra/test-stacks/` and get copied to `/opt/stacks/` by the setup script:
+```bash
+cd backend-go
+go build -o dockge-backend . && ./dockge-backend --dev --mock --port 5001 --stacks-dir /opt/stacks
+```
 
-| Stack | Services | Default State | Has Update |
-|-------|----------|---------------|------------|
-| `web-app` | nginx, redis | running | Yes (nginx) |
-| `blog` | wordpress, mysql | running | Yes (wordpress) |
-| `test-alpine` | alpine | exited | No |
-| `monitoring` | grafana | exited | No |
-| `database` | postgres | exited | Yes |
-| `cache` | redis | down | No |
+In `--dev` mode the backend serves the frontend from `../frontend-dist/` on the filesystem (not embedded), so you can rebuild the frontend and refresh without restarting the backend.
 
-**Adding a new test stack:** Create a directory in `extra/test-stacks/<name>/` with a `compose.yaml`, then re-run `setup-mock-env.sh`.
+When `--dev --mock` are both set and the database is empty, an admin user (`admin`/`testpass123`) is created automatically.
 
-**Adding new mock commands:** Edit `extra/mock-docker/docker`. Add a `cmd_*` function and wire it into the routing case statements at the bottom.
+### CLI flags
 
-### Build the frontend
+| Flag | Default | Env var | Description |
+|------|---------|---------|-------------|
+| `--port` | `5001` | `DOCKGE_PORT` | HTTP server port |
+| `--stacks-dir` | `/opt/stacks` | `DOCKGE_STACKS_DIR` | Path to stacks directory |
+| `--data-dir` | `./data` | `DOCKGE_DATA_DIR` | Path to data directory (BoltDB) |
+| `--dev` | `false` | — | Serve frontend from filesystem instead of embedded |
+| `--mock` | `false` | `DOCKGE_MOCK=1` | Use mock Docker CLI instead of Docker SDK |
 
-After making frontend changes, rebuild the bundle for the backend to serve:
+Environment variables override flags if set.
+
+### Vite dev server (optional, for frontend HMR)
+
+```bash
+pnpm run dev:frontend
+```
+
+This runs Vite on port 5000 with hot module replacement. The Vite config proxies `/socket.io/` requests to the Go backend on port 5001.
+
+After making frontend changes, rebuild the bundle for the backend to serve on port 5001:
 
 ```bash
 pnpm run build:frontend
@@ -143,214 +110,114 @@ pnpm run build:frontend
 
 Port 5000 (Vite HMR) reflects changes immediately. Port 5001 serves the pre-built bundle.
 
-## Backend Dev Server (Node.js)
+### Mock Docker CLI
 
-It binds to `0.0.0.0:5001` by default.
+The mock at `~/.local/bin/docker` handles:
+- `docker compose ls/ps/up/stop/down/restart/pull/config/logs`
+- `docker inspect`, `docker stats`, `docker network ls`, `docker version`
+- `docker image inspect`, `docker image prune`
 
-It is mainly a socket.io app + express.js.
+Stack state is stored in `/tmp/mock-docker/state/<stackname>/status`. Service names are parsed from actual `compose.yaml` files.
 
-## Backend Dev Server (Rust) — Experimental
+**Test stacks** in `/opt/stacks/`:
 
-An alternative backend written in Rust is available in `backend-rust/`. It implements the same Socket.IO protocol as the Node.js backend, so the frontend works with either one.
+| Stack | Services | Notes |
+|-------|----------|-------|
+| `test-alpine` | alpine | Single service |
+| `web-app` | nginx, redis | Two services, port 8080 |
+| `monitoring` | grafana | Single service |
+| `blog` | wordpress, mysql | Triggers recreateNecessary |
 
-### Prerequisites
-
-- [Rust toolchain](https://rustup.rs/) (stable, 1.75+)
-- No other dependencies — everything is statically linked
-
-### Building
-
-```bash
-# Debug build (fast compile, large binary ~182MB, includes debug symbols)
-cd backend-rust
-cargo build
-
-# Release build (optimized, ~11MB binary)
-cargo build --release
-```
-
-### Running
-
-```bash
-# With the mock Docker CLI:
-PATH="$PWD/extra/mock-docker:$PATH" \
-  ./backend-rust/target/release/dockge-backend \
-  --port 5002 \
-  --stacks-dir /opt/stacks
-
-# With real Docker (just omit the PATH override):
-./backend-rust/target/release/dockge-backend \
-  --port 5002 \
-  --stacks-dir /opt/stacks
-```
-
-The Rust backend uses its own data directory (`backend-rust/data/` by default) with its own SQLite database and JWT secret. This means you'll need to create a new admin account the first time you connect.
-
-### Using with the Vite frontend
-
-To point the Vite dev server at the Rust backend instead of Node.js, change the proxy target in `frontend/vite.config.ts`:
-
-```typescript
-proxy: {
-    "/socket.io/": {
-        target: "http://localhost:5002",  // Rust backend
-        // target: "http://localhost:5001",  // Node.js backend
-        ws: true,
-    },
-},
-```
-
-Then access the frontend at `http://localhost:5000` as usual.
-
-### CLI options
-
-```
-Options:
-  --port <PORT>            Port to listen on [default: 5001]
-  --hostname <HOSTNAME>    Hostname to bind to [default: 0.0.0.0]
-  --data-dir <DATA_DIR>    Data directory [default: ./data/]
-  --stacks-dir <PATH>      Stacks directory [default: /opt/stacks]
-  --enable-console         Enable the web terminal console
-```
-
-### Architecture
-
-The Rust backend uses:
-- **axum** for HTTP/WebSocket serving
-- **socketioxide** for Socket.IO protocol
-- **sqlx** with SQLite for database
-- **portable-pty** for real PTY terminals (compose actions, interactive exec, logs)
-- **tokio** async runtime
-
-### Current limitations
-
-- Agent-to-agent communication is stubbed (local stacks only)
-- No SSL/TLS support (use a reverse proxy)
-- No Docker image management feature
-
-## Backend Dev Server (Go) — Experimental
-
-An alternative backend written in Go is available in `backend-go/`. It implements the same WebSocket protocol as the Node.js backend, so the frontend works with either one.
-
-### Prerequisites
-
-- [Go](https://go.dev/dl/) 1.25+
-
-### Building
-
-```bash
-cd backend-go
-go build -o dockge-backend .
-```
-
-### Running
-
-```bash
-# With mock Docker (no real Docker daemon needed):
-./dockge-backend --dev --mock --port 5002 --stacks-dir /opt/stacks
-
-# With real Docker:
-./dockge-backend --port 5002 --stacks-dir /opt/stacks
-```
-
-When `--dev --mock` are both set and the database is empty, an admin user (`admin`/`testpass123`) is created automatically.
-
-### Running Tests
+## Running tests
 
 Tests use an in-process HTTP server with real WebSocket connections and mock Docker — no Docker daemon or external services needed.
 
+### All tests with race detector (recommended)
+
 ```bash
 cd backend-go
-
-# Quick correctness tests (skips binary size and memory budget checks):
-go test -short -v ./...
-
-# Full test suite including binary size and memory budget:
-go test -v -count=1 ./...
-
-# Run benchmarks only (for regression tracking):
-go test -bench=. -benchmem -count=5 -run='^$' .
-
-# Compare benchmarks against committed baseline:
-# (requires golang.org/x/perf/cmd/benchstat)
-go test -bench=. -benchmem -count=5 -run='^$' . 2>/dev/null \
-  | grep -E "(^goos:|^goarch:|^pkg:|^cpu:|ns/op)" > bench-new.txt
-benchstat testdata/benchmarks/baseline.txt bench-new.txt
-
-# Update baseline after intentional changes:
-cp bench-new.txt testdata/benchmarks/baseline.txt
+go test -race ./...
 ```
 
-**Test categories:**
+### Verbose output
 
-| Test | What it checks |
-|------|---------------|
-| `TestNeedSetup` | Fresh DB returns needSetup=true |
-| `TestSetupAndLogin` | Create user, then login succeeds |
-| `TestLoginBadPassword` | Wrong password returns ok=false |
-| `TestRequestStackList` | Returns stack list without error |
-| `TestGetStack` | Returns YAML content from disk |
-| `TestSaveStack` | Saves YAML, verifies file on disk |
-| `TestDockerStats` | Returns stats for a running stack |
-| `TestServiceStatusList` | Returns container statuses |
-| `TestGetDockerNetworkList` | Returns network names |
-| `TestUnauthenticatedAccess` | Protected endpoints reject unauthenticated requests |
-| `TestBinarySize` | Production binary stays under 20 MB |
-| `TestMemoryBudget` | Heap stays under 50 MB after a workload |
+```bash
+cd backend-go
+go test -race -v ./...
+```
 
-**Benchmarks:** `BenchmarkLogin`, `BenchmarkRequestStackList`, `BenchmarkGetStack`, `BenchmarkServiceStatusList`, `BenchmarkDockerStats`
+### Coverage report
 
-### Adding Test Stacks
+```bash
+cd backend-go
+go test -coverpkg=./... -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out
+```
+
+### Fuzz tests
+
+```bash
+cd backend-go
+go test -fuzz=FuzzParseYAML -fuzztime=10s ./internal/compose/
+```
+
+### Benchmarks
+
+```bash
+cd backend-go
+go test -bench=. -benchmem -run='^$' .
+```
+
+### Frontend checks
+
+```bash
+pnpm run lint
+pnpm run check-ts
+pnpm run build:frontend
+```
+
+### Adding test stacks
 
 Place a `compose.yaml` in `backend-go/testdata/stacks/<name>/`. Tests automatically copy these into isolated temp directories.
 
-## Frontend Dev Server
+## Coding style
 
-It binds to `0.0.0.0:5000` by default. The frontend dev server is used for development only.
+- **Go**: standard `gofmt`
+- **TypeScript/Vue**: 4 spaces, camelCase
+- **CSS/SCSS**: kebab-case
+- **BoltDB keys**: snake_case
+- Follow `.editorconfig` and ESLint
 
-For production, it is not used. It will be compiled to `frontend-dist` directory instead.
+## Commit messages
 
-You can use Vue.js devtools Chrome extension for debugging.
+Use descriptive commit messages with a prefix:
 
-## Database Migration
+- `[feature]` — new features
+- `[fix]` — bug fixes
+- `[cleanup]` — removing or tidying code
+- `[hamphh]` — features ported from the hamphh fork
 
-TODO
+Do **not** include `Co-Authored-By` footers or other trailers.
 
-## Dependencies
+## Performance rules
 
-Both frontend and backend share the same package.json. However, the frontend dependencies are eventually not used in the production environment, because it is usually also baked into dist files. So:
+Performance is the top priority. All changes must follow these rules:
 
-- Frontend dependencies = "devDependencies"
-    - Examples: vue, chart.js
-- Backend dependencies = "dependencies"
-    - Examples: socket.io, sqlite3
-- Development dependencies = "devDependencies"
-    - Examples: eslint, sass
-
-### Update Dependencies
-
-Should only be done by the maintainer.
-
-```bash
-npm update
-````
-
-It should update the patch release version only.
-
-Patch release = the third digit ([Semantic Versioning](https://semver.org/))
-
-If for security / bug / other reasons, a library must be updated, breaking changes need to be checked by the person proposing the change.
+- The stack list must load instantly — never block on update checks or registry lookups
+- All Docker and registry API calls must be async and non-blocking
+- Image update checks run on a background timer (default: every 6 hours), never on page load
+- Results are cached in BoltDB; the UI reads cached state only
+- Never add polling loops or `setInterval` calls to the frontend
 
 ## Translations
 
-Please add **all** the strings which are translatable to `src/lang/en.json` (If translation keys are omitted, they can not be translated).
+Please add all translatable strings to `frontend/src/lang/en.json`. Don't include other languages in your initial PR to avoid merge conflicts.
 
-**Don't include any other languages in your initial Pull-Request** (even if this is your mother tongue), to avoid merge-conflicts between weblate and `master`.  
-The translations can then (after merging a PR into `master`) be translated by awesome people donating their language skills.
+## Dependencies
 
-If you want to help by translating Uptime Kuma into your language, please visit the [instructions on how to translate using weblate](https://github.com/louislam/uptime-kuma/blob/master/src/lang/README.md).
+Frontend and backend share the same `package.json` for the Node.js/Vue toolchain:
 
-## Spelling & Grammar
+- Frontend dependencies = `devDependencies` (vue, chart.js, etc.)
+- Development tooling = `devDependencies` (eslint, sass, vite, etc.)
 
-Feel free to correct the grammar in the documentation or code.
-My mother language is not English and my grammar is not that great.
+Go backend dependencies are managed separately via `backend-go/go.mod`.
