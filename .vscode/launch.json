@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Backend (dev + mock)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/backend-go",
+            "output": "${workspaceFolder}/backend-go/.build/debug",
+            "args": ["--dev", "--mock", "--port", "5001", "--stacks-dir", "test-data/stacks"],
+            "cwd": "${workspaceFolder}/backend-go",
+            "preLaunchTask": "Build Frontend"
+        },
+        {
+            "name": "Backend (dev + mock, skip frontend build)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/backend-go",
+            "output": "${workspaceFolder}/backend-go/.build/debug",
+            "args": ["--dev", "--mock", "--port", "5001", "--stacks-dir", "test-data/stacks"],
+            "cwd": "${workspaceFolder}/backend-go"
+        },
+        {
+            "name": "Backend (attach)",
+            "type": "go",
+            "request": "attach",
+            "mode": "local",
+            "processId": "${command:pickProcess}"
+        }
+    ]
+}

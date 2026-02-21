@@ -1,0 +1,82 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Backend",
+            "type": "shell",
+            "command": "go build -o dockge-backend .",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/backend-go"
+            },
+            "problemMatcher": ["$go"],
+            "detail": "Build the Go backend binary"
+        },
+        {
+            "label": "Build Frontend",
+            "type": "shell",
+            "command": "pnpm run build:frontend",
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Build frontend to frontend-dist/"
+        },
+        {
+            "label": "Build All",
+            "dependsOn": ["Build Frontend", "Build Backend"],
+            "dependsOrder": "parallel",
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Build frontend and backend in parallel"
+        },
+        {
+            "label": "Go Tests",
+            "type": "shell",
+            "command": "go test -race ./...",
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}/backend-go"
+            },
+            "problemMatcher": ["$go"],
+            "detail": "Run all Go tests with race detector"
+        },
+        {
+            "label": "E2E Tests",
+            "type": "shell",
+            "command": "pnpm run test:e2e",
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Run Playwright E2E tests"
+        },
+        {
+            "label": "Frontend Lint",
+            "type": "shell",
+            "command": "pnpm run lint",
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$eslint-stylish"],
+            "detail": "Run ESLint on frontend code"
+        },
+        {
+            "label": "Frontend Type Check",
+            "type": "shell",
+            "command": "pnpm run check-ts",
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$tsc"],
+            "detail": "TypeScript type checking"
+        }
+    ]
+}
