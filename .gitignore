@@ -17,6 +17,9 @@ PLAN.md
 # Rust backend build artifacts
 backend-rust/target
 
+# Go backend build output
+backend-go/dockge-backend
+
 # Go backend embedded frontend (copied at build time)
 backend-go/frontend-dist
 
