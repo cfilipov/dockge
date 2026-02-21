@@ -1,0 +1,51 @@
+{
+  "commands": [
+    {
+      "name": "Build: frontend",
+      "commands": [
+        "pnpm run build:frontend"
+      ]
+    },
+    {
+      "name": "Test: full e2e",
+      "commands": [
+        "pnpm run test:e2e"
+      ]
+    },
+    {
+      "name": "Test: backend with race detector",
+      "commands": [
+        "cd backend-go",
+        "go test -race -v ./..."
+      ]
+    },
+    {
+      "name": "Test: update screenshots",
+      "commands": [
+        "pnpm run test:e2e:update-screenshots"
+      ]
+    },
+    {
+      "name": "Test: backend fuzzing",
+      "commands": [
+        "cd backend-go",
+        "go test -fuzz=FuzzParseYAML -fuzztime=10s ./internal/compose/"
+      ]
+    },
+    {
+      "name": "Test: backend benchmark",
+      "commands": [
+        "cd backend-go",
+        "go test -bench=. -benchmem -run='^$' ."
+      ]
+    },
+    {
+      "name": "Run: dev with mock data",
+      "commands": [
+        "cd backend-go",
+        "go build -o dockge-backend .",
+        "./dockge-backend --dev --mock --port 5001 --stacks-dir test-data/stacks"
+      ]
+    }
+  ]
+}
