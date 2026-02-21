@@ -205,8 +205,6 @@ func (app *App) checkImageUpdatesForStack(stackName string) {
         localDigest := imageDigest(ctx, app, imageRef)
         remoteDigest := manifestDigest(ctx, app, imageRef)
 
-        slog.Debug("image digest comparison", "svc", svc, "image", imageRef, "local", localDigest, "remote", remoteDigest)
-
         hasUpdate := localDigest != "" && remoteDigest != "" && localDigest != remoteDigest
         if hasUpdate {
             anyUpdate = true
