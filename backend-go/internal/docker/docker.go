@@ -52,9 +52,10 @@ type Client interface {
 // that synthesizes container data in memory from compose.yaml files on disk
 // (no Docker daemon or mock script needed). Otherwise returns an SDKClient
 // that talks directly to the Docker daemon socket.
-func NewClient(mock bool, stacksDir string) (Client, error) {
+// The state parameter is only used when mock is true and may be nil otherwise.
+func NewClient(mock bool, stacksDir string, state *MockState) (Client, error) {
     if mock {
-        return NewMockClient(stacksDir), nil
+        return NewMockClient(stacksDir, state), nil
     }
     return NewSDKClient()
 }

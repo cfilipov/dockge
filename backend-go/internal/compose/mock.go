@@ -9,27 +9,23 @@ import (
     "path/filepath"
     "strings"
     "time"
+
+    "github.com/cfilipov/dockge/backend-go/internal/docker"
 )
 
 // MockCompose implements Composer as a pure in-memory mock.
-// Stack state is tracked in /tmp/mock-docker/state/<stack>/status files
-// so it persists across server restarts during development.
+// Stack state is tracked via a shared MockState (in-memory map)
+// so it stays in sync with MockClient.
 type MockCompose struct {
     StacksDir string
-    stateDir  string
+    state     *docker.MockState
 }
 
 // NewMockCompose creates a new mock compose executor.
-func NewMockCompose(stacksDir string) *MockCompose {
-    return NewMockComposeWithStateDir(stacksDir, "/tmp/mock-docker/state")
-}
-
-// NewMockComposeWithStateDir creates a mock compose executor with a custom state directory.
-func NewMockComposeWithStateDir(stacksDir, stateDir string) *MockCompose {
-    os.MkdirAll(stateDir, 0755)
+func NewMockCompose(stacksDir string, state *docker.MockState) *MockCompose {
     return &MockCompose{
         StacksDir: stacksDir,
-        stateDir:  stateDir,
+        state:     state,
     }
 }
 
@@ -92,7 +88,7 @@ func (m *MockCompose) DownVolumes(_ context.Context, stackName string, w io.Writ
 func (m *MockCompose) ServiceUp(_ context.Context, stackName, serviceName string, w io.Writer) error {
     m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Starting", stackName, serviceName))
     m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, serviceName))
-    m.setStatus(stackName, "running")
+    m.state.Set(stackName, "running")
     return nil
 }
 
@@ -113,7 +109,7 @@ func (m *MockCompose) ServicePullAndUp(_ context.Context, stackName, serviceName
     m.fakeDelay(w, fmt.Sprintf(" %s Pull complete", serviceName))
     m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Starting", stackName, serviceName))
     m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, serviceName))
-    m.setStatus(stackName, "running")
+    m.state.Set(stackName, "running")
     return nil
 }
 
@@ -129,7 +125,7 @@ func (m *MockCompose) up(stackName string, w io.Writer) error {
         m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Starting", stackName, svc))
         m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, svc))
     }
-    m.setStatus(stackName, "running")
+    m.state.Set(stackName, "running")
     return nil
 }
 
@@ -142,7 +138,7 @@ func (m *MockCompose) stop(stackName, targetService string, w io.Writer) error {
             m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopping", stackName, svc))
             m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Stopped", stackName, svc))
         }
-        m.setStatus(stackName, "exited")
+        m.state.Set(stackName, "exited")
     }
     return nil
 }
@@ -156,7 +152,7 @@ func (m *MockCompose) down(stackName string, w io.Writer) error {
     }
     m.fakeDelay(w, fmt.Sprintf(" Network %s_default  Removing", stackName))
     m.fakeDelay(w, fmt.Sprintf(" Network %s_default  Removed", stackName))
-    m.removeState(stackName)
+    m.state.Remove(stackName)
     return nil
 }
 
@@ -170,7 +166,7 @@ func (m *MockCompose) restart(stackName, targetService string, w io.Writer) erro
             m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Started", stackName, svc))
         }
     }
-    m.setStatus(stackName, "running")
+    m.state.Set(stackName, "running")
     return nil
 }
 
@@ -199,7 +195,7 @@ func (m *MockCompose) unpause(stackName string, w io.Writer) error {
         m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Unpausing", stackName, svc))
         m.fakeDelay(w, fmt.Sprintf(" Container %s-%s-1  Unpaused", stackName, svc))
     }
-    m.setStatus(stackName, "running")
+    m.state.Set(stackName, "running")
     return nil
 }
 
@@ -228,16 +224,6 @@ func (m *MockCompose) config(stackName string, w io.Writer) error {
         return fmt.Errorf("services must be a mapping")
     }
     return nil
-}
-
-func (m *MockCompose) setStatus(stackName, status string) {
-    dir := filepath.Join(m.stateDir, stackName)
-    os.MkdirAll(dir, 0755)
-    os.WriteFile(filepath.Join(dir, "status"), []byte(status), 0644)
-}
-
-func (m *MockCompose) removeState(stackName string) {
-    os.RemoveAll(filepath.Join(m.stateDir, stackName))
 }
 
 func (m *MockCompose) findComposeFile(stackName string) string {

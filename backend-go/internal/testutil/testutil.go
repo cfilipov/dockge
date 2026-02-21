@@ -31,7 +31,7 @@ type TestEnv struct {
     WSServer  *ws.Server
     StacksDir string
     DataDir   string
-    StateDir  string
+    State     *docker.MockState
     cancel    context.CancelFunc
 }
 
@@ -44,12 +44,8 @@ func Setup(t testing.TB) *TestEnv {
     tmpDir := t.TempDir()
     stacksDir := filepath.Join(tmpDir, "stacks")
     dataDir := filepath.Join(tmpDir, "data")
-    stateDir := filepath.Join(tmpDir, "mock-state")
 
     if err := os.MkdirAll(stacksDir, 0755); err != nil {
-        t.Fatal(err)
-    }
-    if err := os.MkdirAll(stateDir, 0755); err != nil {
         t.Fatal(err)
     }
 
@@ -81,9 +77,10 @@ func Setup(t testing.TB) *TestEnv {
         t.Fatal(err)
     }
 
-    // Mock Docker + Compose with isolated state dir
-    dockerClient := docker.NewMockClientWithStateDir(stacksDir, stateDir)
-    composeExec := compose.NewMockComposeWithStateDir(stacksDir, stateDir)
+    // Mock Docker + Compose with shared in-memory state
+    state := docker.NewMockState()
+    dockerClient := docker.NewMockClient(stacksDir, state)
+    composeExec := compose.NewMockCompose(stacksDir, state)
 
     // Terminal manager
     terms := terminal.NewManager()
@@ -154,7 +151,7 @@ func Setup(t testing.TB) *TestEnv {
         WSServer:  wss,
         StacksDir: stacksDir,
         DataDir:   dataDir,
-        StateDir:  stateDir,
+        State:     state,
         cancel:    cancel,
     }
 }
@@ -169,16 +166,10 @@ func (e *TestEnv) SeedAdmin(t testing.TB) {
     e.App.NeedSetup = false
 }
 
-// SetStackRunning marks a stack as running in the mock state directory.
+// SetStackRunning marks a stack as running in the mock state.
 func (e *TestEnv) SetStackRunning(t testing.TB, stackName string) {
     t.Helper()
-    stateFile := filepath.Join(e.StateDir, stackName, "status")
-    if err := os.MkdirAll(filepath.Dir(stateFile), 0755); err != nil {
-        t.Fatal(err)
-    }
-    if err := os.WriteFile(stateFile, []byte("running"), 0644); err != nil {
-        t.Fatal(err)
-    }
+    e.State.Set(stackName, "running")
 }
 
 // DialWS opens a WebSocket connection to the test server.

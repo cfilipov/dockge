@@ -110,14 +110,9 @@ pnpm run build:frontend
 
 Port 5000 (Vite HMR) reflects changes immediately. Port 5001 serves the pre-built bundle.
 
-### Mock Docker CLI
+### Mock Docker mode
 
-The mock at `~/.local/bin/docker` handles:
-- `docker compose ls/ps/up/stop/down/restart/pull/config/logs`
-- `docker inspect`, `docker stats`, `docker network ls`, `docker version`
-- `docker image inspect`, `docker image prune`
-
-Stack state is stored in `/tmp/mock-docker/state/<stackname>/status`. Service names are parsed from actual `compose.yaml` files.
+When `--mock` is set, the Go backend uses in-memory `MockClient` and `MockCompose` implementations instead of the real Docker SDK. Both share a `MockState` map of stack statuses. `DefaultDevState()` seeds four stacks on startup; state is lost on restart.
 
 **Test stacks** in `/opt/stacks/`:
 

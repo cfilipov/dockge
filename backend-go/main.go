@@ -124,8 +124,14 @@ func main() {
         }
     }
 
+    // Mock state (shared between MockClient and MockCompose)
+    var mockState *docker.MockState
+    if cfg.Mock {
+        mockState = docker.DefaultDevState()
+    }
+
     // Docker client (SDK or mock)
-    dockerClient, err := docker.NewClient(cfg.Mock, cfg.StacksDir)
+    dockerClient, err := docker.NewClient(cfg.Mock, cfg.StacksDir, mockState)
     if err != nil {
         slog.Error("docker client", "err", err)
         os.Exit(1)
@@ -135,7 +141,7 @@ func main() {
     // Compose executor
     var composeExec compose.Composer
     if cfg.Mock {
-        composeExec = compose.NewMockCompose(cfg.StacksDir)
+        composeExec = compose.NewMockCompose(cfg.StacksDir, mockState)
     } else {
         composeExec = &compose.Exec{StacksDir: cfg.StacksDir}
     }
