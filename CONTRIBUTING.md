@@ -67,9 +67,9 @@ cd backend-go && go build -o dockge-backend .
 
 ## Development
 
-### Dev mode with mock Docker
+### Running in dev mode
 
-The project includes a mock Docker CLI that simulates container lifecycle without a real Docker daemon. This is the standard way to develop.
+The standard way to develop is with both `--dev` and `--mock` enabled. No real Docker daemon is needed.
 
 **Start the Go backend in dev mode:**
 
@@ -78,10 +78,6 @@ cd backend-go
 go build -o dockge-backend . && ./dockge-backend --dev --mock --port 5001 --stacks-dir /opt/stacks
 ```
 
-In `--dev` mode the backend serves the frontend from `../frontend-dist/` on the filesystem (not embedded), so you can rebuild the frontend and refresh without restarting the backend.
-
-When `--dev --mock` are both set and the database is empty, an admin user (`admin`/`testpass123`) is created automatically.
-
 ### CLI flags
 
 | Flag | Default | Env var | Description |
@@ -89,8 +85,8 @@ When `--dev --mock` are both set and the database is empty, an admin user (`admi
 | `--port` | `5001` | `DOCKGE_PORT` | HTTP server port |
 | `--stacks-dir` | `/opt/stacks` | `DOCKGE_STACKS_DIR` | Path to stacks directory |
 | `--data-dir` | `./data` | `DOCKGE_DATA_DIR` | Path to data directory (BoltDB) |
-| `--dev` | `false` | — | Serve frontend from filesystem instead of embedded |
-| `--mock` | `false` | `DOCKGE_MOCK=1` | Use mock Docker CLI instead of Docker SDK |
+| `--dev` | `false` | — | Serves frontend from `../frontend-dist/` on disk instead of the embedded `embed.FS`, so you can rebuild the frontend and refresh without restarting the backend. When combined with `--mock` on an empty database, auto-seeds an admin user (`admin`/`testpass123`). |
+| `--mock` | `false` | `DOCKGE_MOCK=1` | Uses in-memory `MockClient` and `MockCompose` instead of the real Docker SDK — no Docker daemon needed. `DefaultDevState()` seeds four stacks (`web-app`, `monitoring`, `test-alpine`, `blog`) with running/exited statuses. State is lost on restart. |
 
 Environment variables override flags if set.
 
