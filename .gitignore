@@ -19,7 +19,6 @@ backend-rust/target
 
 # Go backend build output
 backend-go/dockge-backend
-backend-go/.build/
 
 # Go backend embedded frontend (copied at build time)
 backend-go/frontend-dist

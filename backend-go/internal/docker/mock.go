@@ -350,15 +350,6 @@ func (m *MockClient) getServiceHealth(stackName, svc string) string {
 	if stackName == "05-multi-service" && svc == "db" {
 		return "unhealthy"
 	}
-	// Some filler stacks get unhealthy status (indices ending in 7, mod 30 == 17)
-	if strings.HasPrefix(stackName, "stack-") {
-		var idx int
-		if _, err := fmt.Sscanf(stackName, "stack-%d", &idx); err == nil {
-			if idx%30 == 17 && svc != "" {
-				return "unhealthy"
-			}
-		}
-	}
 	return ""
 }
 

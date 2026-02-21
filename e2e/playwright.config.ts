@@ -27,7 +27,7 @@ export default defineConfig({
     },
     expect: {
         toHaveScreenshot: {
-            maxDiffPixelRatio: 0.02,
+            maxDiffPixelRatio: 0.005,
             animations: "disabled",
         },
     },
@@ -47,7 +47,7 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: "cd ../backend-go && ./dockge-backend --dev --mock --port 5001 --stacks-dir test-data/stacks",
+        command: "cd ../backend-go && go build -o dockge-backend . && ./dockge-backend --dev --mock --port 5001 --stacks-dir test-data/stacks",
         port: 5001,
         reuseExistingServer: !process.env.CI,
     },

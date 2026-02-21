@@ -184,11 +184,10 @@ This downloads ~280 MB to `~/.cache/ms-playwright/`. You only need to redo this 
 
 #### Running e2e tests
 
-The test runner automatically starts the Go backend (`--dev --mock`), so make sure both the backend binary and `frontend-dist/` are built first:
+The test runner automatically builds the Go backend and starts it in `--dev --mock` mode. Make sure the frontend is built first:
 
 ```bash
-# Build everything
-cd backend-go && go build -o dockge-backend . && cd ..
+# Build the frontend (backend is built automatically by the test runner)
 pnpm run build:frontend
 
 # Run all E2E tests

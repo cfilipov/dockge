@@ -49,12 +49,16 @@
             "label": "E2E Tests",
             "type": "shell",
             "command": "pnpm run test:e2e",
-            "group": "test",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
             "options": {
                 "cwd": "${workspaceFolder}"
             },
+            "dependsOn": ["Build Frontend"],
             "problemMatcher": [],
-            "detail": "Run Playwright E2E tests"
+            "detail": "Build frontend, then run E2E tests (backend is built by Playwright)"
         },
         {
             "label": "Frontend Lint",
