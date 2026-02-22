@@ -40,12 +40,14 @@ test.describe("Settings — Appearance", () => {
     test("screenshot: light theme", async ({ page }) => {
         await page.getByText("Light", { exact: true }).click();
         await page.waitForTimeout(1000);
+        await page.evaluate(() => window.scrollTo(0, 0));
         await expect(page).toHaveScreenshot("settings-appearance-light.png");
     });
 
     test("screenshot: dark theme", async ({ page }) => {
         await page.getByText("Dark", { exact: true }).click();
         await page.waitForTimeout(1000);
+        await page.evaluate(() => window.scrollTo(0, 0));
         await expect(page).toHaveScreenshot("settings-appearance-dark.png");
     });
 });
