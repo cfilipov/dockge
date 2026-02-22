@@ -18,7 +18,7 @@
                     </router-link>
 
                     <!-- Logout Button -->
-                    <a v-if="$root.isMobile && $root.loggedIn && $root.socket.token !== 'autoLogin'" class="logout" @click.prevent="$root.logout">
+                    <a v-if="isMobile && loggedIn && socketIO.token !== 'autoLogin'" class="logout" @click.prevent="logout">
                         <div class="menu-item">
                             <font-awesome-icon icon="sign-out-alt" />
                             {{ $t("Logout") }}
@@ -42,142 +42,112 @@
     </div>
 </template>
 
-<script>
-import { useRoute } from "vue-router";
+<script setup lang="ts">
+import { ref, computed, watch, provide, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
+import { useSocket } from "../composables/useSocket";
+import { useTheme } from "../composables/useTheme";
+import { useAppToast } from "../composables/useAppToast";
 
-export default {
-    data() {
-        return {
-            show: true,
-            settings: {},
-            settingsLoaded: false,
-        };
-    },
+const route = useRoute();
+const router = useRouter();
+const { t } = useI18n();
+const { getSocket, loggedIn, socketIO, logout } = useSocket();
+const { isMobile } = useTheme();
+const { toastRes, toastError } = useAppToast();
 
-    computed: {
-        currentPage() {
-            let pathSplit = useRoute().path.split("/");
-            let pathEnd = pathSplit[pathSplit.length - 1];
-            if (!pathEnd || pathEnd === "settings") {
-                return null;
-            }
-            return pathEnd;
-        },
+const show = ref(true);
+const settings = ref<Record<string, any>>({});
+const settingsLoaded = ref(false);
 
-        showSubMenu() {
-            if (this.$root.isMobile) {
-                return !this.currentPage;
-            } else {
-                return true;
-            }
-        },
+// Provide to child settings components (Security, General, GlobalEnv, About)
+provide("settings", settings);
+provide("saveSettings", saveSettings);
+provide("settingsLoaded", settingsLoaded);
 
-        subMenus() {
-            return {
-                general: {
-                    title: this.$t("general"),
-                },
-                appearance: {
-                    title: this.$t("Appearance"),
-                },
-                security: {
-                    title: this.$t("Security"),
-                },
-                globalEnv: {
-                    title: this.$t("GlobalEnv"),
-                },
-                about: {
-                    title: this.$t("About"),
-                },
-            };
-        },
-    },
-
-    watch: {
-        "$root.isMobile"() {
-            this.loadGeneralPage();
-        }
-    },
-
-    mounted() {
-        this.loadSettings();
-        this.loadGeneralPage();
-    },
-
-    methods: {
-
-        /**
-         * Load the general settings page
-         * For desktop only, on mobile do nothing
-         */
-        loadGeneralPage() {
-            if (!this.currentPage && !this.$root.isMobile) {
-                this.$router.push("/settings/appearance");
-            }
-        },
-
-        /** Load settings from server */
-        loadSettings() {
-            this.$root.getSocket().emit("getSettings", (res) => {
-                this.settings = res.data;
-                if (this.settings.checkUpdate === undefined) {
-                    this.settings.checkUpdate = true;
-                }
-                if (this.settings.imageUpdateCheckEnabled === undefined) {
-                    this.settings.imageUpdateCheckEnabled = true;
-                }
-                if (this.settings.imageUpdateCheckInterval === undefined) {
-                    this.settings.imageUpdateCheckInterval = 6;
-                }
-                this.settingsLoaded = true;
-            });
-        },
-
-        /**
-         * Callback for saving settings
-         * @callback saveSettingsCB
-         * @param {Object} res Result of operation
-         */
-
-        /**
-         * Save Settings
-         * @param {saveSettingsCB} [callback]
-         * @param {string} [currentPassword] Only need for disableAuth to true
-         */
-        saveSettings(callback, currentPassword) {
-            let valid = this.validateSettings();
-            if (valid.success) {
-                this.$root.getSocket().emit("setSettings", this.settings, currentPassword, (res) => {
-                    this.$root.toastRes(res);
-                    this.loadSettings();
-
-                    if (callback) {
-                        callback();
-                    }
-                });
-            } else {
-                this.$root.toastError(valid.msg);
-            }
-        },
-
-        /**
-         * Ensure settings are valid
-         * @returns {Object} Contains success state and error msg
-         */
-        validateSettings() {
-            if (this.settings.keepDataPeriodDays < 0) {
-                return {
-                    success: false,
-                    msg: this.$t("dataRetentionTimeError"),
-                };
-            }
-            return {
-                success: true,
-                msg: "",
-            };
-        },
+const currentPage = computed(() => {
+    const pathSplit = route.path.split("/");
+    const pathEnd = pathSplit[pathSplit.length - 1];
+    if (!pathEnd || pathEnd === "settings") {
+        return null;
     }
-};
+    return pathEnd;
+});
+
+const showSubMenu = computed(() => {
+    if (isMobile.value) {
+        return !currentPage.value;
+    }
+    return true;
+});
+
+const subMenus = computed<Record<string, { title: string }>>(() => ({
+    general: { title: t("general") },
+    appearance: { title: t("Appearance") },
+    security: { title: t("Security") },
+    globalEnv: { title: t("GlobalEnv") },
+    about: { title: t("About") },
+}));
+
+watch(isMobile, () => {
+    loadGeneralPage();
+});
+
+function loadGeneralPage() {
+    if (!currentPage.value && !isMobile.value) {
+        router.push("/settings/appearance");
+    }
+}
+
+function loadSettings() {
+    getSocket().emit("getSettings", (res: any) => {
+        settings.value = res.data;
+        if (settings.value.checkUpdate === undefined) {
+            settings.value.checkUpdate = true;
+        }
+        if (settings.value.imageUpdateCheckEnabled === undefined) {
+            settings.value.imageUpdateCheckEnabled = true;
+        }
+        if (settings.value.imageUpdateCheckInterval === undefined) {
+            settings.value.imageUpdateCheckInterval = 6;
+        }
+        settingsLoaded.value = true;
+    });
+}
+
+function saveSettings(callback?: () => void, currentPassword?: string) {
+    const valid = validateSettings();
+    if (valid.success) {
+        getSocket().emit("setSettings", settings.value, currentPassword, (res: any) => {
+            toastRes(res);
+            loadSettings();
+            if (callback) {
+                callback();
+            }
+        });
+    } else {
+        toastError(valid.msg);
+    }
+}
+
+function validateSettings() {
+    if (settings.value.keepDataPeriodDays < 0) {
+        return {
+            success: false,
+            msg: t("dataRetentionTimeError"),
+        };
+    }
+    return {
+        success: true,
+        msg: "",
+    };
+}
+
+onMounted(() => {
+    loadSettings();
+    loadGeneralPage();
+});
 </script>
 
 <style lang="scss" scoped>

@@ -34,13 +34,13 @@
             </div>
         </div>
 
-        <div ref="stackList" class="stack-list" :class="{ scrollbar: scrollbar }" :style="stackListStyle">
+        <div ref="stackListRef" class="stack-list" :class="{ scrollbar: scrollbar }" :style="stackListStyle">
             <div v-if="flatStackList.length === 0" class="text-center mt-3">
                 <router-link to="/compose">{{ $t("addFirstStackMsg") }}</router-link>
             </div>
 
             <div class="stack-list-inner" v-for="(agent, index) in agentStackList" :key="index">
-                <div v-if="$root.agentCount > 1"
+                <div v-if="agentCount > 1"
                      class="p-2 agent-select"
                      @click="closedAgents.set(agent.endpoint, !closedAgents.get(agent.endpoint))">
                     <span class="me-1">
@@ -52,7 +52,7 @@
                 </div>
 
                 <StackListItem
-                    v-show="$root.agentCount === 1 || !closedAgents.get(agent.endpoint)"
+                    v-show="agentCount === 1 || !closedAgents.get(agent.endpoint)"
                     v-for="(item, i) in agent.stacks"
                     :key="i"
                     :stack="item"
@@ -65,252 +65,254 @@
         </div>
     </div>
 
-    <Confirm ref="confirmPause" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="pauseSelected">
+    <Confirm ref="confirmPauseRef" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="pauseSelected">
         {{ $t("pauseStackMsg") }}
     </Confirm>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
+import { useSocket } from "../composables/useSocket";
 import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, RUNNING_AND_EXITED, UNHEALTHY, UNKNOWN, StackFilter, StackStatusInfo } from "../../../common/util-common";
 
-export default {
-    components: { Confirm, StackListItem },
-    props: {
-        scrollbar: { type: Boolean },
-    },
-    data() {
-        return {
-            searchText: "",
-            selectMode: false,
-            selectAll: false,
-            disableSelectAllWatcher: false,
-            selectedStacks: {},
-            windowTop: 0,
-            stackFilter: new StackFilter(),
-            closedAgents: new Map(),
-        };
-    },
-    computed: {
-        boxStyle() {
-            if (window.innerWidth > 550) {
-                return { height: `calc(100vh - 160px + ${this.windowTop}px)` };
-            } else {
-                return { height: "calc(100vh - 160px)" };
-            }
-        },
-        /** Grouped stacks (PR #800 behavior), with filters + sort applied */
-        agentStackList() {
-            let result = Object.values(this.$root.completeStackList);
+defineProps<{
+    scrollbar?: boolean;
+}>();
 
-            // Populate filter options from current data
-            this.updateFilterOptions(result);
+const { completeStackList, agentCount, stackList, getSocket } = useSocket();
 
-            // filter
-            result = result.filter(stack => {
-                // search text
-                let searchTextMatch = true;
-                if (this.searchText !== "") {
-                    const lowered = this.searchText.toLowerCase();
-                    searchTextMatch =
-                        stack.name.toLowerCase().includes(lowered) ||
-                        (stack.tags && stack.tags.find(tag =>
-                            tag.name.toLowerCase().includes(lowered) ||
-                            tag.value?.toLowerCase().includes(lowered)
-                        ));
-                }
+const searchText = ref("");
+const selectMode = ref(false);
+const selectAll = ref(false);
+const disableSelectAllWatcher = ref(false);
+const selectedStacks = ref<Record<string, boolean>>({});
+const windowTop = ref(0);
+const stackFilter = reactive(new StackFilter());
+const closedAgents = reactive(new Map<string, boolean>());
+const stackListRef = ref<HTMLElement>();
+const confirmPauseRef = ref<InstanceType<typeof Confirm>>();
 
-                // status filter
-                let statusMatch = true;
-                if (this.stackFilter.status.isFilterSelected()) {
-                    const statusLabel = StackStatusInfo.get(stack.status).label;
-                    statusMatch = this.stackFilter.status.selected.has(statusLabel);
-                }
+const boxStyle = computed(() => {
+    if (window.innerWidth > 550) {
+        return { height: `calc(100vh - 160px + ${windowTop.value}px)` };
+    } else {
+        return { height: "calc(100vh - 160px)" };
+    }
+});
 
-                // agent filter
-                let agentMatch = true;
-                if (this.stackFilter.agents.isFilterSelected()) {
-                    const endpoint = stack.endpoint || "current";
-                    agentMatch = this.stackFilter.agents.selected.has(endpoint);
-                }
+const agentStackList = computed(() => {
+    let result = Object.values(completeStackList.value) as any[];
 
-                // attribute filter
-                let attributeMatch = true;
-                if (this.stackFilter.attributes.isFilterSelected()) {
-                    attributeMatch = false;
-                    for (const attribute of this.stackFilter.attributes.selected) {
-                        if (stack[attribute] === true) {
-                            attributeMatch = true;
-                        }
-                    }
-                }
+    // Populate filter options from current data
+    updateFilterOptions(result);
 
-                return searchTextMatch && statusMatch && agentMatch && attributeMatch;
-            });
-
-            // sort
-            result.sort((m1, m2) => {
-                if (m1.isManagedByDockge && !m2.isManagedByDockge) return -1;
-                if (!m1.isManagedByDockge && m2.isManagedByDockge) return 1;
-
-                if (m1.status !== m2.status) {
-                    if (m2.status === UNHEALTHY) return 1;
-                    if (m1.status === UNHEALTHY) return -1;
-                    if (m2.status === RUNNING) return 1;
-                    if (m1.status === RUNNING) return -1;
-                    if (m2.status === RUNNING_AND_EXITED) return 1;
-                    if (m1.status === RUNNING_AND_EXITED) return -1;
-                    if (m2.status === EXITED) return 1;
-                    if (m1.status === EXITED) return -1;
-                    if (m2.status === CREATED_STACK) return 1;
-                    if (m1.status === CREATED_STACK) return -1;
-                    if (m2.status === CREATED_FILE) return 1;
-                    if (m1.status === CREATED_FILE) return -1;
-                    if (m2.status === UNKNOWN) return 1;
-                    if (m1.status === UNKNOWN) return -1;
-                }
-                return m1.name.localeCompare(m2.name);
-            });
-
-            // group by endpoint with 'current' first, others alphabetical
-            const groups = [
-                ...result.reduce((acc, stack) => {
-                    const endpoint = stack.endpoint || 'current';
-                    if (!acc.has(endpoint)) acc.set(endpoint, []);
-                    acc.get(endpoint).push(stack);
-                    return acc;
-                }, new Map()).entries()
-            ].map(([endpoint, stacks]) => ({ endpoint, stacks }));
-
-            groups.sort((a, b) => {
-                if (a.endpoint === 'current' && b.endpoint !== 'current') return -1;
-                if (a.endpoint !== 'current' && b.endpoint === 'current') return 1;
-                return a.endpoint.localeCompare(b.endpoint);
-            });
-
-            return groups;
-        },
-        /** flat list for convenience (button states, updateAll, selection watchers) */
-        flatStackList() {
-            return this.agentStackList.flatMap(g => g.stacks);
-        },
-        isDarkTheme() {
-            return document.body.classList.contains("dark");
-        },
-        stackListStyle() {
-            let listHeaderHeight = 60;
-            if (this.selectMode) listHeaderHeight += 42;
-            return { height: `calc(100% - ${listHeaderHeight}px)` };
-        },
-        selectedStackCount() {
-            return Object.keys(this.selectedStacks).length;
-        },
-        filtersActive() {
-            return this.stackFilter.isFilterSelected() || this.searchText !== "";
+    // filter
+    result = result.filter(stack => {
+        // search text
+        let searchTextMatch = true;
+        if (searchText.value !== "") {
+            const lowered = searchText.value.toLowerCase();
+            searchTextMatch =
+                stack.name.toLowerCase().includes(lowered) ||
+                (stack.tags && stack.tags.find((tag: any) =>
+                    tag.name.toLowerCase().includes(lowered) ||
+                    tag.value?.toLowerCase().includes(lowered)
+                ));
         }
-    },
-    watch: {
-        searchText() {
-            for (let stack of this.flatStackList) {
-                if (!this.selectedStacks[stack.id]) {
-                    if (this.selectAll) {
-                        this.disableSelectAllWatcher = true;
-                        this.selectAll = false;
-                    }
-                    break;
-                }
-            }
-        },
-        selectAll() {
-            if (!this.disableSelectAllWatcher) {
-                this.selectedStacks = {};
-                if (this.selectAll) {
-                    this.flatStackList.forEach((item) => {
-                        this.selectedStacks[item.id] = true;
-                    });
-                }
-            } else {
-                this.disableSelectAllWatcher = false;
-            }
-        },
-        selectMode() {
-            if (!this.selectMode) {
-                this.selectAll = false;
-                this.selectedStacks = {};
-            }
-        },
-    },
-    mounted() {
-        window.addEventListener("scroll", this.onScroll);
-    },
-    beforeUnmount() {
-        window.removeEventListener("scroll", this.onScroll);
-    },
-    methods: {
-        onScroll() {
-            if (window.top.scrollY <= 133) {
-                this.windowTop = window.top.scrollY;
-            } else {
-                this.windowTop = 133;
-            }
-        },
-        clearSearchText() {
-            this.searchText = "";
-        },
-        updateFilterOptions(stacks) {
-            // Build status options from StackStatusInfo
-            const statusOptions = {};
-            for (const info of StackStatusInfo.ALL) {
-                statusOptions[info.label] = info.label;
-            }
-            this.stackFilter.status.options = statusOptions;
 
-            // Build agent options from current stacks
-            if (this.$root.agentCount > 1) {
-                const agentOptions = {};
-                for (const stack of stacks) {
-                    const endpoint = stack.endpoint || "current";
-                    if (!agentOptions[endpoint]) {
-                        agentOptions[endpoint] = endpoint;
-                    }
-                }
-                this.stackFilter.agents.options = agentOptions;
-            }
+        // status filter
+        let statusMatch = true;
+        if (stackFilter.status.isFilterSelected()) {
+            const statusLabel = StackStatusInfo.get(stack.status).label;
+            statusMatch = stackFilter.status.selected.has(statusLabel);
+        }
 
-            // Attribute filter options
-            this.stackFilter.attributes.options = { imageUpdatesAvailable: "imageUpdatesAvailable" };
-        },
-        deselect(id) {
-            delete this.selectedStacks[id];
-        },
-        select(id) {
-            this.selectedStacks[id] = true;
-        },
-        isSelected(id) {
-            return id in this.selectedStacks;
-        },
-        cancelSelectMode() {
-            this.selectMode = false;
-            this.selectedStacks = {};
-        },
-        pauseDialog() {
-            this.$refs.confirmPause.show();
-        },
-        pauseSelected() {
-            Object.keys(this.selectedStacks)
-                .filter(id => this.$root.stackList[id].active)
-                .forEach(id => this.$root.getSocket().emit("pauseStack", id, () => {}));
-            this.cancelSelectMode();
-        },
-        resumeSelected() {
-            Object.keys(this.selectedStacks)
-                .filter(id => !this.$root.stackList[id].active)
-                .forEach(id => this.$root.getSocket().emit("resumeStack", id, () => {}));
-            this.cancelSelectMode();
-        },
-    },
-};
+        // agent filter
+        let agentMatch = true;
+        if (stackFilter.agents.isFilterSelected()) {
+            const endpoint = stack.endpoint || "current";
+            agentMatch = stackFilter.agents.selected.has(endpoint);
+        }
+
+        // attribute filter
+        let attributeMatch = true;
+        if (stackFilter.attributes.isFilterSelected()) {
+            attributeMatch = false;
+            for (const attribute of stackFilter.attributes.selected) {
+                if (stack[attribute] === true) {
+                    attributeMatch = true;
+                }
+            }
+        }
+
+        return searchTextMatch && statusMatch && agentMatch && attributeMatch;
+    });
+
+    // sort
+    result.sort((m1: any, m2: any) => {
+        if (m1.isManagedByDockge && !m2.isManagedByDockge) return -1;
+        if (!m1.isManagedByDockge && m2.isManagedByDockge) return 1;
+
+        if (m1.status !== m2.status) {
+            if (m2.status === UNHEALTHY) return 1;
+            if (m1.status === UNHEALTHY) return -1;
+            if (m2.status === RUNNING) return 1;
+            if (m1.status === RUNNING) return -1;
+            if (m2.status === RUNNING_AND_EXITED) return 1;
+            if (m1.status === RUNNING_AND_EXITED) return -1;
+            if (m2.status === EXITED) return 1;
+            if (m1.status === EXITED) return -1;
+            if (m2.status === CREATED_STACK) return 1;
+            if (m1.status === CREATED_STACK) return -1;
+            if (m2.status === CREATED_FILE) return 1;
+            if (m1.status === CREATED_FILE) return -1;
+            if (m2.status === UNKNOWN) return 1;
+            if (m1.status === UNKNOWN) return -1;
+        }
+        return m1.name.localeCompare(m2.name);
+    });
+
+    // group by endpoint with 'current' first, others alphabetical
+    const groups = [
+        ...result.reduce((acc: Map<string, any[]>, stack: any) => {
+            const endpoint = stack.endpoint || 'current';
+            if (!acc.has(endpoint)) acc.set(endpoint, []);
+            acc.get(endpoint)!.push(stack);
+            return acc;
+        }, new Map()).entries()
+    ].map(([endpoint, stacks]) => ({ endpoint, stacks }));
+
+    groups.sort((a, b) => {
+        if (a.endpoint === 'current' && b.endpoint !== 'current') return -1;
+        if (a.endpoint !== 'current' && b.endpoint === 'current') return 1;
+        return a.endpoint.localeCompare(b.endpoint);
+    });
+
+    return groups;
+});
+
+const flatStackList = computed(() => {
+    return agentStackList.value.flatMap((g: any) => g.stacks);
+});
+
+const stackListStyle = computed(() => {
+    let listHeaderHeight = 60;
+    if (selectMode.value) listHeaderHeight += 42;
+    return { height: `calc(100% - ${listHeaderHeight}px)` };
+});
+
+function updateFilterOptions(stacks: any[]) {
+    // Build status options from StackStatusInfo
+    const statusOptions: Record<string, string> = {};
+    for (const info of StackStatusInfo.ALL) {
+        statusOptions[info.label] = info.label;
+    }
+    stackFilter.status.options = statusOptions;
+
+    // Build agent options from current stacks
+    if (agentCount.value > 1) {
+        const agentOptions: Record<string, string> = {};
+        for (const stack of stacks) {
+            const endpoint = stack.endpoint || "current";
+            if (!agentOptions[endpoint]) {
+                agentOptions[endpoint] = endpoint;
+            }
+        }
+        stackFilter.agents.options = agentOptions;
+    }
+
+    // Attribute filter options
+    stackFilter.attributes.options = { imageUpdatesAvailable: "imageUpdatesAvailable" };
+}
+
+function clearSearchText() {
+    searchText.value = "";
+}
+
+function deselect(id: string) {
+    delete selectedStacks.value[id];
+}
+
+function select(id: string) {
+    selectedStacks.value[id] = true;
+}
+
+function isSelected(id: string) {
+    return id in selectedStacks.value;
+}
+
+function cancelSelectMode() {
+    selectMode.value = false;
+    selectedStacks.value = {};
+}
+
+function pauseDialog() {
+    confirmPauseRef.value?.show();
+}
+
+function pauseSelected() {
+    Object.keys(selectedStacks.value)
+        .filter(id => (stackList.value as any)[id]?.active)
+        .forEach(id => getSocket().emit("pauseStack", id, () => {}));
+    cancelSelectMode();
+}
+
+function resumeSelected() {
+    Object.keys(selectedStacks.value)
+        .filter(id => !(stackList.value as any)[id]?.active)
+        .forEach(id => getSocket().emit("resumeStack", id, () => {}));
+    cancelSelectMode();
+}
+
+function onScroll() {
+    if (window.top!.scrollY <= 133) {
+        windowTop.value = window.top!.scrollY;
+    } else {
+        windowTop.value = 133;
+    }
+}
+
+watch(searchText, () => {
+    for (let stack of flatStackList.value) {
+        if (!selectedStacks.value[stack.id]) {
+            if (selectAll.value) {
+                disableSelectAllWatcher.value = true;
+                selectAll.value = false;
+            }
+            break;
+        }
+    }
+});
+
+watch(selectAll, () => {
+    if (!disableSelectAllWatcher.value) {
+        selectedStacks.value = {};
+        if (selectAll.value) {
+            flatStackList.value.forEach((item: any) => {
+                selectedStacks.value[item.id] = true;
+            });
+        }
+    } else {
+        disableSelectAllWatcher.value = false;
+    }
+});
+
+watch(selectMode, () => {
+    if (!selectMode.value) {
+        selectAll.value = false;
+        selectedStacks.value = {};
+    }
+});
+
+onMounted(() => {
+    window.addEventListener("scroll", onScroll);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener("scroll", onScroll);
+});
 </script>
 
 <style lang="scss" scoped>

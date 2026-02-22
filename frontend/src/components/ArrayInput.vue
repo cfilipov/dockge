@@ -16,94 +16,58 @@
     </div>
 </template>
 
-<script>
-export default {
-    props: {
-        name: {
-            type: String,
-            required: true,
-        },
-        placeholder: {
-            type: String,
-            default: "",
-        },
-        displayName: {
-            type: String,
-            required: true,
-        },
-        objectType: {
-            type: String,
-            default: "service",
-        }
-    },
-    data() {
-        return {
+<script setup lang="ts">
+import { computed, inject, type ComputedRef } from "vue";
 
-        };
-    },
-    computed: {
-        array() {
-            // Create the array if not exists, it should be safe.
-            if (!this.service[this.name]) {
-                return [];
-            }
-            return this.service[this.name];
-        },
+const props = defineProps<{
+    name: string;
+    placeholder?: string;
+    displayName: string;
+    objectType?: string;
+}>();
 
-        /**
-         * Check if the array is inited before called v-for.
-         * Prevent empty arrays inserted to the YAML file.
-         * @return {boolean}
-         */
-        isArrayInited() {
-            return this.service[this.name] !== undefined;
-        },
+const injectedService = inject<ComputedRef<Record<string, any>>>("service")!;
 
-        /**
-         * Not a good name, but it is used to get the object.
-         */
-        service() {
-            if (this.objectType === "service") {
-                // Used in Container.vue
-                return this.$parent.$parent.service;
-            } else {
-                return {};
-            }
-        },
-
-        valid() {
-            // Check if the array is actually an array
-            if (!Array.isArray(this.array)) {
-                return false;
-            }
-
-            // Check if the array contains non-object only.
-            for (let item of this.array) {
-                if (typeof item === "object") {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-    },
-    created() {
-
-    },
-    methods: {
-        addField() {
-            // Create the array if not exists.
-            if (!this.service[this.name]) {
-                this.service[this.name] = [];
-            }
-
-            this.array.push("");
-        },
-        remove(index) {
-            this.array.splice(index, 1);
-        },
+const service = computed(() => {
+    if ((props.objectType ?? "service") === "service") {
+        return injectedService.value;
     }
-};
+    return {};
+});
+
+const array = computed(() => {
+    if (!service.value[props.name]) {
+        return [];
+    }
+    return service.value[props.name];
+});
+
+const isArrayInited = computed(() => {
+    return service.value[props.name] !== undefined;
+});
+
+const valid = computed(() => {
+    if (!Array.isArray(array.value)) {
+        return false;
+    }
+    for (let item of array.value) {
+        if (typeof item === "object") {
+            return false;
+        }
+    }
+    return true;
+});
+
+function addField() {
+    if (!service.value[props.name]) {
+        service.value[props.name] = [];
+    }
+    array.value.push("");
+}
+
+function remove(index: number) {
+    array.value.splice(index, 1);
+}
 </script>
 
 <style lang="scss" scoped>

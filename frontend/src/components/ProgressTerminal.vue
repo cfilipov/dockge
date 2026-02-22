@@ -17,59 +17,47 @@
     </div>
 </template>
 
-<script>
-import { defineComponent } from "vue";
+<script setup lang="ts">
+import { ref } from "vue";
 import { PROGRESS_TERMINAL_ROWS } from "../../../common/util-common";
 
-export default defineComponent({
-    props: {
-        name: {
-            type: String,
-            required: true
-        },
-        endpoint: {
-            type: String,
-            required: true
-        },
-        rows: {
-            type: Number,
-            default: PROGRESS_TERMINAL_ROWS
-        },
-        autoHideTimeout: {
-            type: Number,
-            default: 10000
-        }
-    },
-
-    data() {
-        return {
-            showProgressTerminal: false,
-            autoHideTimer: null,
-        };
-    },
-
-    methods: {
-        show() {
-            const term = this.$refs.progressTerminal;
-            if (term) {
-                term.bind(this.endpoint, this.name);
-                if (term.terminal) {
-                    term.terminal.clear();
-                }
-            }
-            this.showProgressTerminal = true;
-            clearTimeout(this.autoHideTimer);
-        },
-
-        hideWithTimeout() {
-            if (this.autoHideTimeout > 0) {
-                this.autoHideTimer = setTimeout(() => {
-                    this.showProgressTerminal = false;
-                }, this.autoHideTimeout);
-            }
-        },
-    }
+const props = withDefaults(defineProps<{
+    name: string;
+    endpoint: string;
+    rows?: number;
+    autoHideTimeout?: number;
+}>(), {
+    rows: PROGRESS_TERMINAL_ROWS,
+    autoHideTimeout: 10000,
 });
+
+const showProgressTerminal = ref(false);
+let autoHideTimer: ReturnType<typeof setTimeout> | null = null;
+const progressTerminal = ref<InstanceType<any>>();
+
+function show() {
+    const term = progressTerminal.value;
+    if (term) {
+        term.bind(props.endpoint, props.name);
+        if (term.terminal) {
+            term.terminal.clear();
+        }
+    }
+    showProgressTerminal.value = true;
+    if (autoHideTimer) {
+        clearTimeout(autoHideTimer);
+    }
+}
+
+function hideWithTimeout() {
+    if (props.autoHideTimeout > 0) {
+        autoHideTimer = setTimeout(() => {
+            showProgressTerminal.value = false;
+        }, props.autoHideTimeout);
+    }
+}
+
+defineExpose({ show, hideWithTimeout });
 </script>
 
 <style lang="scss" scoped>

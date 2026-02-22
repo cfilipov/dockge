@@ -1,6 +1,6 @@
 <template>
     <form @submit.prevent="submit">
-        <div ref="modal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
+        <div ref="modalRef" class="modal fade" tabindex="-1" data-bs-backdrop="static">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -37,7 +37,7 @@
                                 {{ $t("Enable 2FA") }}
                             </button>
 
-                            <button v-if="twoFAStatus == true" class="btn btn-danger" type="button" :disabled="processing" @click="confirmDisableTwoFA()">
+                            <button v-if="twoFAStatus == true" class="btn btn-danger" type="button" :disabled="processing" @click="showConfirmDisable()">
                                 {{ $t("Disable 2FA") }}
                             </button>
 
@@ -53,7 +53,7 @@
                     </div>
 
                     <div v-if="uri && twoFAStatus == false" class="modal-footer">
-                        <button type="submit" class="btn btn-primary" :disabled="processing || tokenValid == false" @click="confirmEnableTwoFA()">
+                        <button type="submit" class="btn btn-primary" :disabled="processing || tokenValid == false" @click="showConfirmEnable()">
                             <div v-if="processing" class="spinner-border spinner-border-sm me-1"></div>
                             {{ $t("Save") }}
                         </button>
@@ -63,133 +63,122 @@
         </div>
     </form>
 
-    <Confirm ref="confirmEnableTwoFA" btn-style="btn-danger" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="save2FA">
+    <Confirm ref="confirmEnableRef" btn-style="btn-danger" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="save2FA">
         {{ $t("confirmEnableTwoFAMsg") }}
     </Confirm>
 
-    <Confirm ref="confirmDisableTwoFA" btn-style="btn-danger" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="disable2FA">
+    <Confirm ref="confirmDisableRef" btn-style="btn-danger" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="disable2FA">
         {{ $t("confirmDisableTwoFAMsg") }}
     </Confirm>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
 import { Modal } from "bootstrap";
 import Confirm from "./Confirm.vue";
 import VueQrcode from "vue-qrcode";
 import { useToast } from "vue-toastification";
+import { useSocket } from "../composables/useSocket";
+import { useAppToast } from "../composables/useAppToast";
+
 const toast = useToast();
+const { getSocket } = useSocket();
+const { toastRes } = useAppToast();
 
-export default {
-    components: {
-        Confirm,
-        VueQrcode,
-    },
-    props: {},
-    data() {
-        return {
-            currentPassword: "",
-            processing: false,
-            uri: null,
-            tokenValid: false,
-            twoFAStatus: null,
-            token: null,
-            showURI: false,
-        };
-    },
-    mounted() {
-        this.modal = new Modal(this.$refs.modal);
-        this.getStatus();
-    },
-    methods: {
-        /** Show the dialog */
-        show() {
-            this.modal.show();
-        },
+const modalRef = ref<HTMLElement>();
+const confirmEnableRef = ref<InstanceType<typeof Confirm>>();
+const confirmDisableRef = ref<InstanceType<typeof Confirm>>();
 
-        /** Show dialog to confirm enabling 2FA */
-        confirmEnableTwoFA() {
-            this.$refs.confirmEnableTwoFA.show();
-        },
+let modal: Modal | null = null;
 
-        /** Show dialog to confirm disabling 2FA */
-        confirmDisableTwoFA() {
-            this.$refs.confirmDisableTwoFA.show();
-        },
+const currentPassword = ref("");
+const processing = ref(false);
+const uri = ref<string | null>(null);
+const tokenValid = ref(false);
+const twoFAStatus = ref<boolean | null>(null);
+const token = ref<string | null>(null);
+const showURI = ref(false);
 
-        /** Prepare 2FA configuration */
-        prepare2FA() {
-            this.processing = true;
+onMounted(() => {
+    modal = new Modal(modalRef.value!);
+    getStatus();
+});
 
-            this.$root.getSocket().emit("prepare2FA", this.currentPassword, (res) => {
-                this.processing = false;
+function show() {
+    modal?.show();
+}
 
-                if (res.ok) {
-                    this.uri = res.uri;
-                } else {
-                    toast.error(res.msg);
-                }
-            });
-        },
+function showConfirmEnable() {
+    confirmEnableRef.value?.show();
+}
 
-        /** Save the current 2FA configuration */
-        save2FA() {
-            this.processing = true;
+function showConfirmDisable() {
+    confirmDisableRef.value?.show();
+}
 
-            this.$root.getSocket().emit("save2FA", this.currentPassword, (res) => {
-                this.processing = false;
+function prepare2FA() {
+    processing.value = true;
+    getSocket().emit("prepare2FA", currentPassword.value, (res: any) => {
+        processing.value = false;
+        if (res.ok) {
+            uri.value = res.uri;
+        } else {
+            toast.error(res.msg);
+        }
+    });
+}
 
-                if (res.ok) {
-                    this.$root.toastRes(res);
-                    this.getStatus();
-                    this.currentPassword = "";
-                    this.modal.hide();
-                } else {
-                    toast.error(res.msg);
-                }
-            });
-        },
+function save2FA() {
+    processing.value = true;
+    getSocket().emit("save2FA", currentPassword.value, (res: any) => {
+        processing.value = false;
+        if (res.ok) {
+            toastRes(res);
+            getStatus();
+            currentPassword.value = "";
+            modal?.hide();
+        } else {
+            toast.error(res.msg);
+        }
+    });
+}
 
-        /** Disable 2FA for this user */
-        disable2FA() {
-            this.processing = true;
+function disable2FA() {
+    processing.value = true;
+    getSocket().emit("disable2FA", currentPassword.value, (res: any) => {
+        processing.value = false;
+        if (res.ok) {
+            toastRes(res);
+            getStatus();
+            currentPassword.value = "";
+            modal?.hide();
+        } else {
+            toast.error(res.msg);
+        }
+    });
+}
 
-            this.$root.getSocket().emit("disable2FA", this.currentPassword, (res) => {
-                this.processing = false;
+function verifyToken() {
+    getSocket().emit("verifyToken", token.value, currentPassword.value, (res: any) => {
+        if (res.ok) {
+            tokenValid.value = res.valid;
+        } else {
+            toast.error(res.msg);
+        }
+    });
+}
 
-                if (res.ok) {
-                    this.$root.toastRes(res);
-                    this.getStatus();
-                    this.currentPassword = "";
-                    this.modal.hide();
-                } else {
-                    toast.error(res.msg);
-                }
-            });
-        },
+function getStatus() {
+    getSocket().emit("twoFAStatus", (res: any) => {
+        if (res.ok) {
+            twoFAStatus.value = res.status;
+        } else {
+            toast.error(res.msg);
+        }
+    });
+}
 
-        /** Verify the token generated by the user */
-        verifyToken() {
-            this.$root.getSocket().emit("verifyToken", this.token, this.currentPassword, (res) => {
-                if (res.ok) {
-                    this.tokenValid = res.valid;
-                } else {
-                    toast.error(res.msg);
-                }
-            });
-        },
-
-        /** Get current status of 2FA */
-        getStatus() {
-            this.$root.getSocket().emit("twoFAStatus", (res) => {
-                if (res.ok) {
-                    this.twoFAStatus = res.status;
-                } else {
-                    toast.error(res.msg);
-                }
-            });
-        },
-    },
-};
+defineExpose({ show });
 </script>
 
 <style lang="scss" scoped>

@@ -1,5 +1,5 @@
 <template>
-    <transition ref="tableContainer" name="slide-fade" appear>
+    <transition ref="tableContainerRef" name="slide-fade" appear>
         <div v-if="$route.name === 'DashboardHome'">
             <h1 class="mb-3">
                 {{ $t("home") }}
@@ -52,16 +52,16 @@
                     <div class="shadow-box big-padding">
                         <h4 class="mb-3">{{ $tc("dockgeAgent", 2) }} <span class="badge bg-warning" style="font-size: 12px;">beta</span></h4>
 
-                        <div v-for="(agent, endpoint) in $root.agentList" :key="endpoint" class="mb-3 agent">
+                        <div v-for="(agent, endpoint) in agentList" :key="endpoint" class="mb-3 agent">
                             <!-- Agent Status -->
-                            <template v-if="$root.agentStatusList[endpoint]">
-                                <span v-if="$root.agentStatusList[endpoint] === 'online'" class="badge bg-primary me-2">{{ $t("agentOnline") }}</span>
-                                <span v-else-if="$root.agentStatusList[endpoint] === 'offline'" class="badge bg-danger me-2">{{ $t("agentOffline") }}</span>
-                                <span v-else class="badge bg-secondary me-2">{{ $t($root.agentStatusList[endpoint]) }}</span>
+                            <template v-if="agentStatusList[endpoint]">
+                                <span v-if="agentStatusList[endpoint] === 'online'" class="badge bg-primary me-2">{{ $t("agentOnline") }}</span>
+                                <span v-else-if="agentStatusList[endpoint] === 'offline'" class="badge bg-danger me-2">{{ $t("agentOffline") }}</span>
+                                <span v-else class="badge bg-secondary me-2">{{ $t(agentStatusList[endpoint]) }}</span>
                             </template>
 
                             <!-- Agent Display Name -->
-                            <template v-if="$root.agentStatusList[endpoint]">
+                            <template v-if="agentStatusList[endpoint]">
                                 <span v-if="endpoint === '' && agent.name === ''" class="badge bg-secondary me-2">Controller</span>
                                 <span v-else-if="agent.name === ''" :href="agent.url" class="me-2">{{ endpoint }}</span>
                                 <span v-else :href="agent.url" class="me-2">{{ agent.name }}</span>
@@ -123,232 +123,190 @@
     <router-view ref="child" />
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { useRouter } from "vue-router";
 import { statusNameShort } from "../../../common/util-common";
+import { useSocket } from "../composables/useSocket";
+import { useAppToast } from "../composables/useAppToast";
 
-export default {
-    components: {
+defineProps<{
+    calculatedHeight?: number;
+}>();
 
-    },
-    props: {
-        calculatedHeight: {
-            type: Number,
-            default: 0
+const router = useRouter();
+const { completeStackList, allAgentStackList, agentList, agentStatusList, composeTemplate, getSocket } = useSocket();
+const { toastRes } = useAppToast();
+
+const page = ref(1);
+const perPage = ref(25);
+const initialPerPage = ref(25);
+const importantHeartBeatListLength = ref(0);
+const displayedRecords = ref<any[]>([]);
+const dockerRunCommand = ref("");
+const showAgentForm = ref(false);
+const showRemoveAgentDialog = reactive<Record<string, boolean>>({});
+const showEditAgentNameDialog = reactive<Record<string, boolean>>({});
+const connectingAgent = ref(false);
+const agent = reactive({
+    url: "http://",
+    username: "",
+    password: "",
+    name: "",
+    updatedName: "",
+});
+const tableContainerRef = ref<HTMLElement>();
+
+function getStatusNum(statusName: string) {
+    let num = 0;
+    for (let stackName in completeStackList.value) {
+        const stack = (completeStackList.value as any)[stackName];
+        if (statusNameShort(stack.status) === statusName) {
+            num += 1;
         }
-    },
-    data() {
-        return {
-            page: 1,
-            perPage: 25,
-            initialPerPage: 25,
-            paginationConfig: {
-                hideCount: true,
-                chunksNavigation: "scroll",
-            },
-            importantHeartBeatListLength: 0,
-            displayedRecords: [],
-            dockerRunCommand: "",
-            showAgentForm: false,
-            showRemoveAgentDialog: {},
-            showEditAgentNameDialog: {},
-            connectingAgent: false,
-            agent: {
+    }
+    return num;
+}
+
+const activeNum = computed(() => getStatusNum("active"));
+const partiallyNum = computed(() => getStatusNum("partially"));
+const unhealthyNum = computed(() => getStatusNum("unhealthy"));
+const downNum = computed(() => getStatusNum("down"));
+const exitedNum = computed(() => getStatusNum("exited"));
+const updateAvailableNum = computed(() => {
+    let num = 0;
+    for (let stackName in completeStackList.value) {
+        const stack = (completeStackList.value as any)[stackName];
+        if (stack.imageUpdatesAvailable) {
+            num += 1;
+        }
+    }
+    return num;
+});
+
+function addAgent() {
+    connectingAgent.value = true;
+    getSocket().emit("addAgent", agent, (res: any) => {
+        toastRes(res);
+
+        if (res.ok) {
+            showAgentForm.value = false;
+            Object.assign(agent, {
                 url: "http://",
                 username: "",
                 password: "",
                 name: "",
                 updatedName: "",
-            }
-        };
-    },
-
-    computed: {
-        activeNum() {
-            return this.getStatusNum("active");
-        },
-        partiallyNum() {
-            return this.getStatusNum("partially");
-        },
-        unhealthyNum() {
-            return this.getStatusNum("unhealthy");
-        },
-        downNum() {
-            return this.getStatusNum("down");
-        },
-        exitedNum() {
-            return this.getStatusNum("exited");
-        },
-        updateAvailableNum() {
-            let num = 0;
-            for (let stackName in this.$root.completeStackList) {
-                const stack = this.$root.completeStackList[stackName];
-                if (stack.imageUpdatesAvailable) {
-                    num += 1;
-                }
-            }
-            return num;
-        },
-    },
-
-    watch: {
-        perPage() {
-            this.$nextTick(() => {
-                this.getImportantHeartbeatListPaged();
             });
-        },
+        }
 
-        page() {
-            this.getImportantHeartbeatListPaged();
-        },
-    },
+        connectingAgent.value = false;
+    });
+}
 
-    mounted() {
-        this.initialPerPage = this.perPage;
+function removeAgent(url: string) {
+    getSocket().emit("removeAgent", url, (res: any) => {
+        if (res.ok) {
+            toastRes(res);
 
-        window.addEventListener("resize", this.updatePerPage);
-        this.updatePerPage();
-    },
+            let urlObj = new URL(url);
+            let endpoint = urlObj.host;
 
-    beforeUnmount() {
-        window.removeEventListener("resize", this.updatePerPage);
-    },
+            // Remove the stack list and status list of the removed agent
+            delete allAgentStackList.value[endpoint];
+        }
+    });
+}
 
-    methods: {
+function updateName(url: string, updatedName: string) {
+    getSocket().emit("updateAgent", url, updatedName, (res: any) => {
+        toastRes(res);
 
-        addAgent() {
-            this.connectingAgent = true;
-            this.$root.getSocket().emit("addAgent", this.agent, (res) => {
-                this.$root.toastRes(res);
-
-                if (res.ok) {
-                    this.showAgentForm = false;
-                    this.agent = {
-                        url: "http://",
-                        username: "",
-                        password: "",
-                    };
-                }
-
-                this.connectingAgent = false;
+        if (res.ok) {
+            showAgentForm.value = false;
+            Object.assign(agent, {
+                updatedName: "",
             });
-        },
+        }
+    });
+}
 
-        removeAgent(url) {
-            this.$root.getSocket().emit("removeAgent", url, (res) => {
-                if (res.ok) {
-                    this.$root.toastRes(res);
-
-                    let urlObj = new URL(url);
-                    let endpoint = urlObj.host;
-
-                    // Remove the stack list and status list of the removed agent
-                    delete this.$root.allAgentStackList[endpoint];
-                }
-            });
-        },
-
-        updateName(url, updatedName) {
-            this.$root.getSocket().emit("updateAgent", url, updatedName, (res) => {
-                this.$root.toastRes(res);
-
-                if (res.ok) {
-                    this.showAgentForm = false;
-                    this.agent = {
-                        updatedName: "",
-                    };
-                }
-            });
-        },
-
-        getStatusNum(statusName) {
-            let num = 0;
-
-            for (let stackName in this.$root.completeStackList) {
-                const stack = this.$root.completeStackList[stackName];
-                if (statusNameShort(stack.status) === statusName) {
-                    num += 1;
-                }
-            }
-            return num;
-        },
-
-        convertDockerRun() {
-            if (this.dockerRunCommand.trim() === "docker run") {
-                throw new Error("Please enter a docker run command");
-            }
-
-            // composerize is working in dev, but after "vite build", it is not working
-            // So pass to backend to do the conversion
-            this.$root.getSocket().emit("composerize", this.dockerRunCommand, (res) => {
-                if (res.ok) {
-                    this.$root.composeTemplate = res.composeTemplate;
-                    this.$router.push("/compose");
-                } else {
-                    this.$root.toastRes(res);
-                }
-            });
-        },
-
-        /**
-         * Updates the displayed records when a new important heartbeat arrives.
-         * @param {object} heartbeat - The heartbeat object received.
-         * @returns {void}
-         */
-        onNewImportantHeartbeat(heartbeat) {
-            if (this.page === 1) {
-                this.displayedRecords.unshift(heartbeat);
-                if (this.displayedRecords.length > this.perPage) {
-                    this.displayedRecords.pop();
-                }
-                this.importantHeartBeatListLength += 1;
-            }
-        },
-
-        /**
-         * Retrieves the length of the important heartbeat list for all monitors.
-         * @returns {void}
-         */
-        getImportantHeartbeatListLength() {
-            this.$root.getSocket().emit("monitorImportantHeartbeatListCount", null, (res) => {
-                if (res.ok) {
-                    this.importantHeartBeatListLength = res.count;
-                    this.getImportantHeartbeatListPaged();
-                }
-            });
-        },
-
-        /**
-         * Retrieves the important heartbeat list for the current page.
-         * @returns {void}
-         */
-        getImportantHeartbeatListPaged() {
-            const offset = (this.page - 1) * this.perPage;
-            this.$root.getSocket().emit("monitorImportantHeartbeatListPaged", null, offset, this.perPage, (res) => {
-                if (res.ok) {
-                    this.displayedRecords = res.data;
-                }
-            });
-        },
-
-        /**
-         * Updates the number of items shown per page based on the available height.
-         * @returns {void}
-         */
-        updatePerPage() {
-            const tableContainer = this.$refs.tableContainer;
-            const tableContainerHeight = tableContainer.offsetHeight;
-            const availableHeight = window.innerHeight - tableContainerHeight;
-            const additionalPerPage = Math.floor(availableHeight / 58);
-
-            if (additionalPerPage > 0) {
-                this.perPage = Math.max(this.initialPerPage, this.perPage + additionalPerPage);
-            } else {
-                this.perPage = this.initialPerPage;
-            }
-
-        },
+function convertDockerRun() {
+    if (dockerRunCommand.value.trim() === "docker run") {
+        throw new Error("Please enter a docker run command");
     }
-};
+
+    getSocket().emit("composerize", dockerRunCommand.value, (res: any) => {
+        if (res.ok) {
+            composeTemplate.value = res.composeTemplate;
+            router.push("/compose");
+        } else {
+            toastRes(res);
+        }
+    });
+}
+
+function onNewImportantHeartbeat(heartbeat: any) {
+    if (page.value === 1) {
+        displayedRecords.value.unshift(heartbeat);
+        if (displayedRecords.value.length > perPage.value) {
+            displayedRecords.value.pop();
+        }
+        importantHeartBeatListLength.value += 1;
+    }
+}
+
+function getImportantHeartbeatListLength() {
+    getSocket().emit("monitorImportantHeartbeatListCount", null, (res: any) => {
+        if (res.ok) {
+            importantHeartBeatListLength.value = res.count;
+            getImportantHeartbeatListPaged();
+        }
+    });
+}
+
+function getImportantHeartbeatListPaged() {
+    const offset = (page.value - 1) * perPage.value;
+    getSocket().emit("monitorImportantHeartbeatListPaged", null, offset, perPage.value, (res: any) => {
+        if (res.ok) {
+            displayedRecords.value = res.data;
+        }
+    });
+}
+
+function updatePerPage() {
+    const tableContainer = tableContainerRef.value;
+    if (!tableContainer) return;
+    const tableContainerHeight = tableContainer.offsetHeight;
+    const availableHeight = window.innerHeight - tableContainerHeight;
+    const additionalPerPage = Math.floor(availableHeight / 58);
+
+    if (additionalPerPage > 0) {
+        perPage.value = Math.max(initialPerPage.value, perPage.value + additionalPerPage);
+    } else {
+        perPage.value = initialPerPage.value;
+    }
+}
+
+watch(perPage, () => {
+    nextTick(() => {
+        getImportantHeartbeatListPaged();
+    });
+});
+
+watch(page, () => {
+    getImportantHeartbeatListPaged();
+});
+
+onMounted(() => {
+    initialPerPage.value = perPage.value;
+    window.addEventListener("resize", updatePerPage);
+    updatePerPage();
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener("resize", updatePerPage);
+});
 </script>
 
 <style lang="scss" scoped>

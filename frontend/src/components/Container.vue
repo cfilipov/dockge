@@ -26,7 +26,7 @@
                 </button>
 
                 <!-- Image update modal -->
-                <BModal :id="updateModalId" :ref="updateModalId" :title="$tc('imageUpdate', 1)">
+                <BModal :id="updateModalId" :ref="(el: any) => { updateModalRef = el }" :title="$tc('imageUpdate', 1)">
                     <div>
                         <h5>{{ $t("image") }}</h5>
                         <span>{{ envsubstService.image }}</span>
@@ -47,7 +47,7 @@
                         <button class="btn btn-normal" :title="$t('tooltipServiceUpdateIgnore')" @click="skipCurrentUpdate">
                             <font-awesome-icon icon="ban" class="me-1" />{{ $t("ignoreUpdate") }}
                         </button>
-                        <button class="btn btn-primary" :title="$t('tooltipDoServiceUpdate', [name])" @click="updateService">
+                        <button class="btn btn-primary" :title="$t('tooltipDoServiceUpdate', [name])" @click="doUpdateService">
                             <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
                         </button>
                     </template>
@@ -134,7 +134,6 @@
                         />
                     </div>
 
-                    <!-- TODO: Search online: https://hub.docker.com/api/content/v1/products/search?q=louislam%2Fuptime&source=community&page=1&page_size=4 -->
                     <datalist id="image-datalist">
                         <option value="louislam/uptime-kuma:1" />
                     </datalist>
@@ -220,7 +219,7 @@
                     </label>
                     <ul v-if="urlList.length > 0" class="list-group url-list">
                         <li v-for="entry in urlList" :key="entry.key" class="list-group-item">
-                            <input :value="entry.url" type="text" class="no-bg domain-input" placeholder="https://" @input="updateUrl(entry.key, $event.target.value)" />
+                            <input :value="entry.url" type="text" class="no-bg domain-input" placeholder="https://" @input="updateUrl(entry.key, ($event.target as HTMLInputElement).value)" />
                             <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" @click="removeUrl(entry.key)" />
                         </li>
                     </ul>
@@ -254,382 +253,335 @@
     </div>
 </template>
 
-<script>
-import { defineComponent } from "vue";
+<script setup lang="ts">
+import { ref, computed, inject, provide, reactive } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { parseDockerPort } from "../../../common/util-common";
 import { LABEL_STATUS_IGNORE, LABEL_IMAGEUPDATES_CHECK, LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../../../common/compose-labels";
 import { BModal, BForm, BFormCheckbox } from "bootstrap-vue-next";
 import DockerStat from "./DockerStat.vue";
+import ArrayInput from "./ArrayInput.vue";
+import ArraySelect from "./ArraySelect.vue";
+import { useSocket } from "../composables/useSocket";
+import { useAppToast } from "../composables/useAppToast";
 
-export default defineComponent({
-    components: {
-        FontAwesomeIcon,
-        DockerStat,
-        BModal,
-        BForm,
-        BFormCheckbox,
+const { emitAgent, info } = useSocket();
+const { toastRes } = useAppToast();
+
+// Injected from Compose.vue
+const jsonConfig = inject<Record<string, any>>("jsonConfig")!;
+const envsubstJSONConfig = inject<Record<string, any>>("envsubstJSONConfig")!;
+const composeStack = inject<Record<string, any>>("composeStack")!;
+const composeEndpoint = inject<string>("composeEndpoint", "");
+const startComposeAction = inject<() => void>("startComposeAction")!;
+const stopComposeAction = inject<() => void>("stopComposeAction")!;
+
+const props = defineProps<{
+    name: string;
+    isEditMode?: boolean;
+    first?: boolean;
+    serviceStatus: any;
+    serviceImageUpdateAvailable?: boolean;
+    serviceRecreateNecessary?: boolean;
+    dockerStats: any;
+    ports?: any[];
+    processing?: boolean;
+}>();
+
+const emit = defineEmits<{
+    (e: "start-service", name: string): void;
+    (e: "stop-service", name: string): void;
+    (e: "restart-service", name: string): void;
+    (e: "update-service", name: string): void;
+}>();
+
+const showConfig = ref(false);
+const expandedStats = ref(false);
+const updateDialogData = reactive({
+    pruneAfterUpdate: false,
+    pruneAllAfterUpdate: false,
+});
+const updateModalRef = ref<any>(null);
+
+// Computed from injected state
+const endpoint = computed(() => composeEndpoint);
+const stackName = computed(() => composeStack.name);
+
+const service = computed(() => {
+    if (!jsonConfig.services[props.name]) {
+        return {};
+    }
+    return jsonConfig.services[props.name];
+});
+
+// Provide service to ArrayInput and ArraySelect children
+provide("service", service);
+
+const serviceCount = computed(() => Object.keys(jsonConfig.services).length);
+
+const envsubstService = computed(() => {
+    if (!envsubstJSONConfig.services[props.name]) {
+        return {};
+    }
+    return envsubstJSONConfig.services[props.name];
+});
+
+const networkList = computed(() => {
+    const list: string[] = [];
+    for (const networkName in jsonConfig.networks) {
+        list.push(networkName);
+    }
+    return list;
+});
+
+const updateModalId = computed(() => "image-update-modal-" + props.name);
+
+const changelogLink = computed(() => {
+    const labels = envsubstService.value?.labels;
+    if (labels && labels[LABEL_IMAGEUPDATES_CHANGELOG]) {
+        return labels[LABEL_IMAGEUPDATES_CHANGELOG];
+    }
+    return "";
+});
+
+const urlList = computed(() => {
+    const labels = service.value?.labels;
+    if (!labels || typeof labels !== "object" || Array.isArray(labels)) {
+        return [];
+    }
+    const entries: { key: string; url: string }[] = [];
+    for (const [key, value] of Object.entries(labels)) {
+        if (key.startsWith(LABEL_URLS_PREFIX)) {
+            entries.push({ key, url: (value as string) || "" });
+        }
+    }
+    return entries;
+});
+
+const statusIgnore = computed({
+    get() {
+        return service.value?.labels?.[LABEL_STATUS_IGNORE] === "true";
     },
-    props: {
-        name: {
-            type: String,
-            required: true,
-        },
-        isEditMode: {
-            type: Boolean,
-            default: false,
-        },
-        first: {
-            type: Boolean,
-            default: false,
-        },
-        serviceStatus: {
-            type: Object,
-            default: null,
-        },
-        serviceImageUpdateAvailable: {
-            type: Boolean,
-            default: false,
-        },
-        serviceRecreateNecessary: {
-            type: Boolean,
-            default: false,
-        },
-        dockerStats: {
-            type: Object,
-            default: null,
-        },
-        ports: {
-            type: Array,
-            default: null
-        },
-        processing: {
-            type: Boolean,
-            default: false,
+    set(val: boolean) {
+        ensureLabels();
+        if (val) {
+            service.value.labels[LABEL_STATUS_IGNORE] = "true";
+        } else {
+            delete service.value.labels[LABEL_STATUS_IGNORE];
         }
     },
-    emits: [
-        "start-service",
-        "stop-service",
-        "restart-service",
-    ],
-    data() {
+});
+
+const imageUpdatesCheck = computed({
+    get() {
+        return service.value?.labels?.[LABEL_IMAGEUPDATES_CHECK] !== "false";
+    },
+    set(val: boolean) {
+        ensureLabels();
+        if (val) {
+            delete service.value.labels[LABEL_IMAGEUPDATES_CHECK];
+        } else {
+            service.value.labels[LABEL_IMAGEUPDATES_CHECK] = "false";
+        }
+    },
+});
+
+const changelogUrl = computed({
+    get() {
+        return service.value?.labels?.[LABEL_IMAGEUPDATES_CHANGELOG] || "";
+    },
+    set(val: string) {
+        ensureLabels();
+        if (val) {
+            service.value.labels[LABEL_IMAGEUPDATES_CHANGELOG] = val;
+        } else {
+            delete service.value.labels[LABEL_IMAGEUPDATES_CHANGELOG];
+        }
+    },
+});
+
+const bgStyle = computed(() => {
+    if (status.value === "running" || status.value === "healthy") {
+        return "bg-primary";
+    } else if (status.value === "unhealthy") {
+        return "bg-danger";
+    }
+    return "bg-secondary";
+});
+
+const logRouteLink = computed(() => {
+    if (endpoint.value) {
         return {
-            showConfig: false,
-            expandedStats: false,
-            updateDialogData: {
-                pruneAfterUpdate: false,
-                pruneAllAfterUpdate: false,
+            name: "containerLogEndpoint",
+            params: {
+                endpoint: endpoint.value,
+                stackName: stackName.value,
+                serviceName: props.name,
             },
         };
-    },
-    computed: {
-
-        networkList() {
-            let list = [];
-            for (const networkName in this.jsonObject.networks) {
-                list.push(networkName);
-            }
-            return list;
-        },
-
-        updateModalId() {
-            return "image-update-modal-" + this.name;
-        },
-
-        changelogLink() {
-            const labels = this.envsubstService?.labels;
-            if (labels && labels[LABEL_IMAGEUPDATES_CHANGELOG]) {
-                return labels[LABEL_IMAGEUPDATES_CHANGELOG];
-            }
-            return "";
-        },
-
-        urlList() {
-            const labels = this.service?.labels;
-            if (!labels || typeof labels !== "object" || Array.isArray(labels)) {
-                return [];
-            }
-            const entries = [];
-            for (const [key, value] of Object.entries(labels)) {
-                if (key.startsWith(LABEL_URLS_PREFIX)) {
-                    entries.push({ key, url: value || "" });
-                }
-            }
-            return entries;
-        },
-
-        statusIgnore: {
-            get() {
-                return this.service?.labels?.[LABEL_STATUS_IGNORE] === "true";
-            },
-            set(val) {
-                this.ensureLabels();
-                if (val) {
-                    this.service.labels[LABEL_STATUS_IGNORE] = "true";
-                } else {
-                    delete this.service.labels[LABEL_STATUS_IGNORE];
-                }
-            },
-        },
-
-        imageUpdatesCheck: {
-            get() {
-                return this.service?.labels?.[LABEL_IMAGEUPDATES_CHECK] !== "false";
-            },
-            set(val) {
-                this.ensureLabels();
-                if (val) {
-                    delete this.service.labels[LABEL_IMAGEUPDATES_CHECK];
-                } else {
-                    this.service.labels[LABEL_IMAGEUPDATES_CHECK] = "false";
-                }
-            },
-        },
-
-        changelogUrl: {
-            get() {
-                return this.service?.labels?.[LABEL_IMAGEUPDATES_CHANGELOG] || "";
-            },
-            set(val) {
-                this.ensureLabels();
-                if (val) {
-                    this.service.labels[LABEL_IMAGEUPDATES_CHANGELOG] = val;
-                } else {
-                    delete this.service.labels[LABEL_IMAGEUPDATES_CHANGELOG];
-                }
-            },
-        },
-
-        bgStyle() {
-            if (this.status === "running" || this.status === "healthy") {
-                return "bg-primary";
-            } else if (this.status === "unhealthy") {
-                return "bg-danger";
-            } else {
-                return "bg-secondary";
-            }
-        },
-
-        logRouteLink() {
-            if (this.endpoint) {
-                return {
-                    name: "containerLogEndpoint",
-                    params: {
-                        endpoint: this.endpoint,
-                        stackName: this.stackName,
-                        serviceName: this.name,
-                    },
-                };
-            } else {
-                return {
-                    name: "containerLog",
-                    params: {
-                        stackName: this.stackName,
-                        serviceName: this.name,
-                    },
-                };
-            }
-        },
-
-        containerName() {
-            if (this.serviceStatus && this.serviceStatus[0]) {
-                return this.serviceStatus[0].name;
-            }
-            return this.stackName + "-" + this.name + "-1";
-        },
-
-        inspectRouteLink() {
-            if (this.endpoint) {
-                return {
-                    name: "containerInspectEndpoint",
-                    params: {
-                        endpoint: this.endpoint,
-                        containerName: this.containerName,
-                    },
-                };
-            } else {
-                return {
-                    name: "containerInspect",
-                    params: {
-                        containerName: this.containerName,
-                    },
-                };
-            }
-        },
-
-        terminalRouteLink() {
-            if (this.endpoint) {
-                return {
-                    name: "containerTerminalEndpoint",
-                    params: {
-                        endpoint: this.endpoint,
-                        stackName: this.stackName,
-                        serviceName: this.name,
-                        type: "bash",
-                    },
-                };
-            } else {
-                return {
-                    name: "containerTerminal",
-                    params: {
-                        stackName: this.stackName,
-                        serviceName: this.name,
-                        type: "bash",
-                    },
-                };
-            }
-        },
-
-        endpoint() {
-            return this.$parent.$parent.endpoint;
-        },
-
-        stack() {
-            return this.$parent.$parent.stack;
-        },
-
-        stackName() {
-            return this.$parent.$parent.stack.name;
-        },
-
-        service() {
-            if (!this.jsonObject.services[this.name]) {
-                return {};
-            }
-            return this.jsonObject.services[this.name];
-        },
-
-        serviceCount() {
-            return Object.keys(this.jsonObject.services).length;
-        },
-
-        jsonObject() {
-            return this.$parent.$parent.jsonConfig;
-        },
-
-        envsubstJSONConfig() {
-            return this.$parent.$parent.envsubstJSONConfig;
-        },
-
-        envsubstService() {
-            if (!this.envsubstJSONConfig.services[this.name]) {
-                return {};
-            }
-            return this.envsubstJSONConfig.services[this.name];
-        },
-
-        imageName() {
-            if (this.envsubstService.image) {
-                return this.envsubstService.image.split(":")[0];
-            } else {
-                return "";
-            }
-        },
-
-        imageTag() {
-            if (this.envsubstService.image) {
-                let tag = this.envsubstService.image.split(":")[1];
-
-                if (tag) {
-                    return tag;
-                } else {
-                    return "latest";
-                }
-            } else {
-                return "";
-            }
-        },
-        statsInstances() {
-            if (!this.serviceStatus) {
-                return [];
-            }
-
-            return this.serviceStatus
-                .map(s => this.dockerStats[s.name])
-                .filter(s => !!s)
-                .sort((a, b) => a.Name.localeCompare(b.Name));
-        },
-        started() {
-            return this.status === "running" || this.status === "healthy";
-        },
-        status() {
-            if (!this.serviceStatus) {
-                return "N/A";
-            }
-            return this.serviceStatus[0].status;
-        }
-    },
-    mounted() {
-        if (this.first) {
-            //this.showConfig = true;
-        }
-    },
-    methods: {
-        parsePort(port) {
-            if (this.stack.endpoint) {
-                return parseDockerPort(port, this.stack.primaryHostname);
-            } else {
-                let hostname = this.$root.info.primaryHostname || location.hostname;
-                return parseDockerPort(port, hostname);
-            }
-        },
-        remove() {
-            delete this.jsonObject.services[this.name];
-        },
-        startService() {
-            this.$emit("start-service", this.name);
-        },
-        stopService() {
-            this.$emit("stop-service", this.name);
-        },
-        restartService() {
-            this.$emit("restart-service", this.name);
-        },
-        recreateService() {
-            this.$emit("restart-service", this.name);
-        },
-        resetUpdateDialog() {
-            this.updateDialogData = {
-                pruneAfterUpdate: false,
-                pruneAllAfterUpdate: false,
-            };
-        },
-        updateService() {
-            this.$refs[this.updateModalId].hide();
-
-            this.$parent.$parent.startComposeAction();
-            this.$root.emitAgent(this.endpoint, "updateService", this.stack.name, this.name, this.updateDialogData.pruneAfterUpdate, this.updateDialogData.pruneAllAfterUpdate, (res) => {
-                this.$parent.$parent.stopComposeAction();
-                this.$root.toastRes(res);
-            });
-        },
-        skipCurrentUpdate() {
-            this.$refs[this.updateModalId].hide();
-        },
-        ensureLabels() {
-            if (!this.service.labels) {
-                this.service.labels = {};
-            }
-        },
-        addUrl() {
-            this.ensureLabels();
-            let i = 0;
-            let key;
-            do {
-                key = LABEL_URLS_PREFIX + i;
-                i++;
-            } while (this.service.labels[key] !== undefined);
-            this.service.labels[key] = "";
-        },
-        removeUrl(key) {
-            delete this.service.labels[key];
-        },
-        updateUrl(key, value) {
-            this.service.labels[key] = value;
-        },
     }
+    return {
+        name: "containerLog",
+        params: {
+            stackName: stackName.value,
+            serviceName: props.name,
+        },
+    };
 });
+
+const containerName = computed(() => {
+    if (props.serviceStatus && props.serviceStatus[0]) {
+        return props.serviceStatus[0].name;
+    }
+    return stackName.value + "-" + props.name + "-1";
+});
+
+const inspectRouteLink = computed(() => {
+    if (endpoint.value) {
+        return {
+            name: "containerInspectEndpoint",
+            params: {
+                endpoint: endpoint.value,
+                containerName: containerName.value,
+            },
+        };
+    }
+    return {
+        name: "containerInspect",
+        params: {
+            containerName: containerName.value,
+        },
+    };
+});
+
+const terminalRouteLink = computed(() => {
+    if (endpoint.value) {
+        return {
+            name: "containerTerminalEndpoint",
+            params: {
+                endpoint: endpoint.value,
+                stackName: stackName.value,
+                serviceName: props.name,
+                type: "bash",
+            },
+        };
+    }
+    return {
+        name: "containerTerminal",
+        params: {
+            stackName: stackName.value,
+            serviceName: props.name,
+            type: "bash",
+        },
+    };
+});
+
+const imageName = computed(() => {
+    if (envsubstService.value.image) {
+        return envsubstService.value.image.split(":")[0];
+    }
+    return "";
+});
+
+const imageTag = computed(() => {
+    if (envsubstService.value.image) {
+        const tag = envsubstService.value.image.split(":")[1];
+        return tag || "latest";
+    }
+    return "";
+});
+
+const statsInstances = computed(() => {
+    if (!props.serviceStatus) {
+        return [];
+    }
+    return props.serviceStatus
+        .map((s: any) => props.dockerStats[s.name])
+        .filter((s: any) => !!s)
+        .sort((a: any, b: any) => a.Name.localeCompare(b.Name));
+});
+
+const started = computed(() => status.value === "running" || status.value === "healthy");
+
+const status = computed(() => {
+    if (!props.serviceStatus) {
+        return "N/A";
+    }
+    return props.serviceStatus[0].status;
+});
+
+// Methods
+function parsePort(port: any) {
+    if (composeStack.endpoint) {
+        return parseDockerPort(port, composeStack.primaryHostname);
+    }
+    const hostname = info.value.primaryHostname || location.hostname;
+    return parseDockerPort(port, hostname);
+}
+
+function remove() {
+    delete jsonConfig.services[props.name];
+}
+
+function startService() {
+    emit("start-service", props.name);
+}
+
+function stopService() {
+    emit("stop-service", props.name);
+}
+
+function restartService() {
+    emit("restart-service", props.name);
+}
+
+function recreateService() {
+    emit("restart-service", props.name);
+}
+
+function resetUpdateDialog() {
+    updateDialogData.pruneAfterUpdate = false;
+    updateDialogData.pruneAllAfterUpdate = false;
+}
+
+function doUpdateService() {
+    updateModalRef.value?.hide();
+
+    startComposeAction();
+    emitAgent(endpoint.value, "updateService", composeStack.name, props.name, updateDialogData.pruneAfterUpdate, updateDialogData.pruneAllAfterUpdate, (res: any) => {
+        stopComposeAction();
+        toastRes(res);
+    });
+}
+
+function skipCurrentUpdate() {
+    updateModalRef.value?.hide();
+}
+
+function ensureLabels() {
+    if (!service.value.labels) {
+        service.value.labels = {};
+    }
+}
+
+function addUrl() {
+    ensureLabels();
+    let i = 0;
+    let key;
+    do {
+        key = LABEL_URLS_PREFIX + i;
+        i++;
+    } while (service.value.labels[key] !== undefined);
+    service.value.labels[key] = "";
+}
+
+function removeUrl(key: string) {
+    delete service.value.labels[key];
+}
+
+function updateUrl(key: string, value: string) {
+    service.value.labels[key] = value;
+}
 </script>
 
 <style scoped lang="scss">

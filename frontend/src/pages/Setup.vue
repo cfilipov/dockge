@@ -14,7 +14,7 @@
                 </p>
 
                 <div class="form-floating">
-                    <select id="language" v-model="$root.language" class="form-select">
+                    <select id="language" v-model="language" class="form-select">
                         <option v-for="(lang, i) in $i18n.availableLocales" :key="`Lang${i}`" :value="lang">
                             {{ $i18n.messages[lang].languageName }}
                         </option>
@@ -45,58 +45,54 @@
     </div>
 </template>
 
-<script>
-export default {
-    data() {
-        return {
-            processing: false,
-            username: "",
-            password: "",
-            repeatPassword: "",
-        };
-    },
-    watch: {
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { useSocket } from "../composables/useSocket";
+import { useLang } from "../composables/useLang";
+import { useAppToast } from "../composables/useAppToast";
 
-    },
-    mounted() {
-        // TODO: Check if it is a database setup
+const router = useRouter();
+const { getSocket, login } = useSocket();
+const { language } = useLang();
+const { toastRes, toastError } = useAppToast();
 
-        this.$root.getSocket().emit("needSetup", (needSetup) => {
-            if (! needSetup) {
-                this.$router.push("/");
-            }
-        });
-    },
-    methods: {
-        /**
-         * Submit form data for processing
-         * @returns {void}
-         */
-        submit() {
-            this.processing = true;
+const processing = ref(false);
+const username = ref("");
+const password = ref("");
+const repeatPassword = ref("");
 
-            if (this.password !== this.repeatPassword) {
-                this.$root.toastError("PasswordsDoNotMatch");
-                this.processing = false;
-                return;
-            }
+onMounted(() => {
+    getSocket().emit("needSetup", (needSetup: boolean) => {
+        if (!needSetup) {
+            router.push("/");
+        }
+    });
+});
 
-            this.$root.getSocket().emit("setup", this.username, this.password, (res) => {
-                this.processing = false;
-                this.$root.toastRes(res);
+function submit() {
+    processing.value = true;
 
-                if (res.ok) {
-                    this.processing = true;
+    if (password.value !== repeatPassword.value) {
+        toastError("PasswordsDoNotMatch");
+        processing.value = false;
+        return;
+    }
 
-                    this.$root.login(this.username, this.password, "", "", () => {
-                        this.processing = false;
-                        this.$router.push("/");
-                    });
-                }
+    getSocket().emit("setup", username.value, password.value, (res: any) => {
+        processing.value = false;
+        toastRes(res);
+
+        if (res.ok) {
+            processing.value = true;
+
+            login(username.value, password.value, "", "", () => {
+                processing.value = false;
+                router.push("/");
             });
-        },
-    },
-};
+        }
+    });
+}
 </script>
 
 <style lang="scss" scoped>

@@ -12,60 +12,34 @@
     </transition>
 </template>
 
-<script>
+<script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 import { getContainerExecTerminalName } from "../../../common/util-common";
 
-export default {
-    components: {
-    },
-    data() {
-        return {
+const route = useRoute();
 
-        };
-    },
-    computed: {
-        stackName() {
-            return this.$route.params.stackName;
+const stackName = computed(() => route.params.stackName as string);
+const endpoint = computed(() => (route.params.endpoint as string) || "");
+const shell = computed(() => route.params.type as string);
+const serviceName = computed(() => route.params.serviceName as string);
+const terminalName = computed(() => getContainerExecTerminalName(endpoint.value, stackName.value, serviceName.value, 0));
+const sh = computed(() => {
+    const ep = route.params.endpoint;
+    const data: any = {
+        name: "containerTerminal",
+        params: {
+            stackName: stackName.value,
+            serviceName: serviceName.value,
+            type: "sh",
         },
-        endpoint() {
-            return this.$route.params.endpoint || "";
-        },
-        shell() {
-            return this.$route.params.type;
-        },
-        serviceName() {
-            return this.$route.params.serviceName;
-        },
-        terminalName() {
-            return getContainerExecTerminalName(this.endpoint, this.stackName, this.serviceName, 0);
-        },
-        sh() {
-            let endpoint = this.$route.params.endpoint;
-
-            let data = {
-                name: "containerTerminal",
-                params: {
-                    stackName: this.stackName,
-                    serviceName: this.serviceName,
-                    type: "sh",
-                },
-            };
-
-            if (endpoint) {
-                data.name = "containerTerminalEndpoint";
-                data.params.endpoint = endpoint;
-            }
-
-            return data;
-        },
-    },
-    mounted() {
-
-    },
-    methods: {
-
+    };
+    if (ep) {
+        data.name = "containerTerminalEndpoint";
+        data.params.endpoint = ep;
     }
-};
+    return data;
+});
 </script>
 
 <style scoped lang="scss">

@@ -43,155 +43,137 @@
     </div>
 </template>
 
-<script>
-export default {
-    data() {
-        return {
-            networkList: [],
-            externalList: {},
-            selectedExternalList: {},
-            externalNetworkList: [],
+<script setup lang="ts">
+import { ref, reactive, inject, watch, onMounted, type Ref } from "vue";
+import { useSocket } from "../composables/useSocket";
+import { useAppToast } from "../composables/useAppToast";
+
+const { emitAgent } = useSocket();
+const { toastRes } = useAppToast();
+
+const jsonConfig = inject<Record<string, any>>("jsonConfig")!;
+const stack = inject<Record<string, any>>("composeStack")!;
+const editorFocus = inject<Ref<boolean>>("editorFocus")!;
+const endpoint = inject<Ref<string>>("composeEndpoint")!;
+
+const networkList = ref<Array<{ key: string; value: any }>>([]);
+const externalList = reactive<Record<string, any>>({});
+const selectedExternalList = reactive<Record<string, boolean>>({});
+const externalNetworkList = ref<string[]>([]);
+
+function loadNetworkList() {
+    networkList.value = [];
+    // Clear externalList
+    for (const key in externalList) {
+        delete externalList[key];
+    }
+
+    for (const key in jsonConfig.networks) {
+        let obj = {
+            key: key,
+            value: jsonConfig.networks[key],
         };
-    },
-    computed: {
-        jsonConfig() {
-            return this.$parent.$parent.jsonConfig;
-        },
 
-        stack() {
-            return this.$parent.$parent.stack;
-        },
-
-        editorFocus() {
-            return this.$parent.$parent.editorFocus;
-        },
-
-        endpoint() {
-            return this.$parent.$parent.endpoint;
-        },
-    },
-    watch: {
-        "jsonConfig.networks": {
-            handler() {
-                if (this.editorFocus) {
-                    console.debug("jsonConfig.networks changed");
-                    this.loadNetworkList();
-                }
-            },
-            deep: true,
-        },
-
-        "selectedExternalList": {
-            handler() {
-                for (const networkName in this.selectedExternalList) {
-                    const enable = this.selectedExternalList[networkName];
-
-                    if (enable) {
-                        if (!this.externalList[networkName]) {
-                            this.externalList[networkName] = {};
-                        }
-                        this.externalList[networkName].external = true;
-                    } else {
-                        delete this.externalList[networkName];
-                    }
-                }
-                this.applyToYAML();
-            },
-            deep: true,
-        },
-
-        "networkList": {
-            handler() {
-                this.applyToYAML();
-            },
-            deep: true,
+        if (obj.value && obj.value.external) {
+            externalList[key] = Object.assign({}, obj.value);
+        } else {
+            networkList.value.push(obj);
         }
+    }
 
-    },
-    mounted() {
-        this.loadNetworkList();
-        this.loadExternalNetworkList();
-    },
-    methods: {
-        loadNetworkList() {
-            this.networkList = [];
-            this.externalList = {};
+    // Restore selectedExternalList
+    for (const key in selectedExternalList) {
+        delete selectedExternalList[key];
+    }
+    for (const networkName in externalList) {
+        selectedExternalList[networkName] = true;
+    }
+}
 
-            for (const key in this.jsonConfig.networks) {
-                let obj = {
-                    key: key,
-                    value: this.jsonConfig.networks[key],
-                };
-
-                if (obj.value && obj.value.external) {
-                    this.externalList[key] = Object.assign({}, obj.value);
-                } else {
-                    this.networkList.push(obj);
+function loadExternalNetworkList() {
+    emitAgent(endpoint.value, "getDockerNetworkList", (res: any) => {
+        if (res.ok) {
+            externalNetworkList.value = res.dockerNetworkList.filter((n: string) => {
+                // Filter out this stack networks
+                if (n.startsWith(stack.name + "_")) {
+                    return false;
                 }
-            }
-
-            // Restore selectedExternalList
-            this.selectedExternalList = {};
-            for (const networkName in this.externalList) {
-                this.selectedExternalList[networkName] = true;
-            }
-        },
-
-        loadExternalNetworkList() {
-            this.$root.emitAgent(this.endpoint, "getDockerNetworkList", (res) => {
-                if (res.ok) {
-                    this.externalNetworkList = res.dockerNetworkList.filter((n) => {
-                        // Filter out this stack networks
-                        if (n.startsWith(this.stack.name + "_")) {
-                            return false;
-                        }
-                        // They should be not supported.
-                        // https://docs.docker.com/compose/compose-file/06-networks/#host-or-none
-                        if (n === "none" || n === "host" || n === "bridge") {
-                            return false;
-                        }
-                        return true;
-                    });
-                } else {
-                    this.$root.toastRes(res);
+                // They should be not supported.
+                // https://docs.docker.com/compose/compose-file/06-networks/#host-or-none
+                if (n === "none" || n === "host" || n === "bridge") {
+                    return false;
                 }
+                return true;
             });
-        },
-
-        addField() {
-            this.networkList.push({
-                key: "",
-                value: {},
-            });
-        },
-
-        remove(index) {
-            this.networkList.splice(index, 1);
-            this.applyToYAML();
-        },
-
-        applyToYAML() {
-            if (this.editorFocus) {
-                return;
-            }
-
-            this.jsonConfig.networks = {};
-
-            // Internal networks
-            for (const networkRow of this.networkList) {
-                this.jsonConfig.networks[networkRow.key] = networkRow.value;
-            }
-
-            // External networks
-            for (const networkName in this.externalList) {
-                this.jsonConfig.networks[networkName] = this.externalList[networkName];
-            }
-
-            console.debug("applyToYAML", this.jsonConfig.networks);
+        } else {
+            toastRes(res);
         }
+    });
+}
 
-    },
-};
+function addField() {
+    networkList.value.push({
+        key: "",
+        value: {},
+    });
+}
+
+function remove(index: number) {
+    networkList.value.splice(index, 1);
+    applyToYAML();
+}
+
+function applyToYAML() {
+    if (editorFocus.value) {
+        return;
+    }
+
+    jsonConfig.networks = {};
+
+    // Internal networks
+    for (const networkRow of networkList.value) {
+        jsonConfig.networks[networkRow.key] = networkRow.value;
+    }
+
+    // External networks
+    for (const networkName in externalList) {
+        jsonConfig.networks[networkName] = externalList[networkName];
+    }
+
+    console.debug("applyToYAML", jsonConfig.networks);
+}
+
+watch(() => jsonConfig.networks, () => {
+    if (editorFocus.value) {
+        console.debug("jsonConfig.networks changed");
+        loadNetworkList();
+    }
+}, { deep: true });
+
+watch(selectedExternalList, () => {
+    for (const networkName in selectedExternalList) {
+        const enable = selectedExternalList[networkName];
+
+        if (enable) {
+            if (!externalList[networkName]) {
+                externalList[networkName] = {};
+            }
+            externalList[networkName].external = true;
+        } else {
+            delete externalList[networkName];
+        }
+    }
+    applyToYAML();
+}, { deep: true });
+
+watch(networkList, () => {
+    applyToYAML();
+}, { deep: true });
+
+onMounted(() => {
+    loadNetworkList();
+    loadExternalNetworkList();
+});
 </script>
 
 <style lang="scss" scoped>

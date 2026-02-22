@@ -1,16 +1,16 @@
 <template>
     <div :class="classes">
-        <div v-if="! $root.socketIO.connected && ! $root.socketIO.firstConnect" class="lost-connection">
+        <div v-if="! socketIO.connected && ! socketIO.firstConnect" class="lost-connection">
             <div class="container-fluid">
-                {{ $root.socketIO.connectionErrorMsg }}
-                <div v-if="$root.socketIO.showReverseProxyGuide">
+                {{ socketIO.connectionErrorMsg }}
+                <div v-if="socketIO.showReverseProxyGuide">
                     {{ $t("reverseProxyMsg1") }} <a href="https://github.com/louislam/uptime-kuma/wiki/Reverse-Proxy" target="_blank">{{ $t("reverseProxyMsg2") }}</a>
                 </div>
             </div>
         </div>
 
         <!-- Desktop header -->
-        <header v-if="! $root.isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
+        <header v-if="! isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
             <router-link to="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
                 <object class="bi me-2 ms-4" width="40" height="40" data="/icon.svg" />
                 <span class="fs-4 title">Dockge</span>
@@ -21,22 +21,22 @@
             </a>
 
             <ul class="nav nav-pills">
-                <li v-if="$root.loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-2">
                     <router-link to="/" class="nav-link">
                         <font-awesome-icon icon="home" /> {{ $t("home") }}
                     </router-link>
                 </li>
 
-                <li v-if="$root.loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-2">
                     <router-link to="/console" class="nav-link">
                         <font-awesome-icon icon="terminal" /> {{ $t("console") }}
                     </router-link>
                 </li>
 
-                <li v-if="$root.loggedIn" class="nav-item">
+                <li v-if="loggedIn" class="nav-item">
                     <div class="dropdown dropdown-profile-pic">
                         <div class="nav-link" data-bs-toggle="dropdown">
-                            <div class="profile-pic">{{ $root.usernameFirstChar }}</div>
+                            <div class="profile-pic">{{ usernameFirstChar }}</div>
                             <font-awesome-icon icon="angle-down" />
                         </div>
 
@@ -44,21 +44,15 @@
                         <ul class="dropdown-menu">
                             <!-- Username -->
                             <li>
-                                <i18n-t v-if="$root.username != null" tag="span" keypath="signedInDisp" class="dropdown-item-text">
-                                    <strong>{{ $root.username }}</strong>
+                                <i18n-t v-if="username != null" tag="span" keypath="signedInDisp" class="dropdown-item-text">
+                                    <strong>{{ username }}</strong>
                                 </i18n-t>
-                                <span v-if="$root.username == null" class="dropdown-item-text">{{ $t("signedInDispDisabled") }}</span>
+                                <span v-if="username == null" class="dropdown-item-text">{{ $t("signedInDispDisabled") }}</span>
                             </li>
 
                             <li><hr class="dropdown-divider"></li>
 
                             <!-- Functions -->
-
-                            <!--<li>
-                                <router-link to="/registry" class="dropdown-item" :class="{ active: $route.path.includes('settings') }">
-                                    <font-awesome-icon icon="warehouse" /> {{ $t("registry") }}
-                                </router-link>
-                            </li>-->
 
                             <li>
                                 <button class="dropdown-item" @click="scanFolder">
@@ -73,7 +67,7 @@
                             </li>
 
                             <li>
-                                <button class="dropdown-item" @click="$root.logout">
+                                <button class="dropdown-item" @click="logout">
                                     <font-awesome-icon icon="sign-out-alt" />
                                     {{ $t("Logout") }}
                                 </button>
@@ -85,74 +79,62 @@
         </header>
 
         <main>
-            <div v-if="$root.socketIO.connecting" class="container mt-5">
+            <div v-if="socketIO.connecting" class="container mt-5">
                 <h4>{{ $t("connecting...") }}</h4>
             </div>
 
-            <router-view v-if="$root.loggedIn" />
-            <Login v-if="! $root.loggedIn && $root.allowLoginDialog" />
+            <router-view v-if="loggedIn" />
+            <Login v-if="! loggedIn && allowLoginDialog" />
         </main>
     </div>
 </template>
 
-<script>
-import Login from "../components/Login.vue";
+<script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 import { compareVersions } from "compare-versions";
 import { ALL_ENDPOINTS } from "../../../common/util-common";
+import Login from "../components/Login.vue";
+import { useSocket } from "../composables/useSocket";
+import { useTheme } from "../composables/useTheme";
+import { useAppToast } from "../composables/useAppToast";
 
-export default {
+const route = useRoute();
 
-    components: {
-        Login,
-    },
+const {
+    socketIO,
+    loggedIn,
+    allowLoginDialog,
+    username,
+    usernameFirstChar,
+    info,
+    emitAgent,
+    logout,
+} = useSocket();
 
-    data() {
-        return {
+const { theme, isMobile } = useTheme();
+const { toastRes } = useAppToast();
 
-        };
-    },
+const classes = computed(() => {
+    const cls: Record<string, boolean> = {};
+    cls[theme.value] = true;
+    cls["mobile"] = isMobile.value;
+    return cls;
+});
 
-    computed: {
+const hasNewVersion = computed(() => {
+    if (info.value.latestVersion && info.value.version) {
+        return compareVersions(info.value.latestVersion, info.value.version) >= 1;
+    } else {
+        return false;
+    }
+});
 
-        // Theme or Mobile
-        classes() {
-            const classes = {};
-            classes[this.$root.theme] = true;
-            classes["mobile"] = this.$root.isMobile;
-            return classes;
-        },
-
-        hasNewVersion() {
-            if (this.$root.info.latestVersion && this.$root.info.version) {
-                return compareVersions(this.$root.info.latestVersion, this.$root.info.version) >= 1;
-            } else {
-                return false;
-            }
-        },
-
-    },
-
-    watch: {
-
-    },
-
-    mounted() {
-
-    },
-
-    beforeUnmount() {
-
-    },
-
-    methods: {
-        scanFolder() {
-            this.$root.emitAgent(ALL_ENDPOINTS, "requestStackList", (res) => {
-                this.$root.toastRes(res);
-            });
-        },
-    },
-
-};
+function scanFolder() {
+    emitAgent(ALL_ENDPOINTS, "requestStackList", (res: any) => {
+        toastRes(res);
+    });
+}
 </script>
 
 <style lang="scss" scoped>

@@ -2,48 +2,29 @@
     <span :class="className">{{ statusName }}</span>
 </template>
 
-<script>
+<script setup lang="ts">
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { StackStatusInfo } from "../../../common/util-common";
 
-export default {
-    props: {
-        stack: {
-            type: Object,
-            default: null,
-        },
-        fixedWidth: {
-            type: Boolean,
-            default: false,
-        },
-    },
+const { t } = useI18n();
 
-    computed: {
-        statusInfo() {
-            return StackStatusInfo.get(this.stack?.status);
-        },
+const props = defineProps<{
+    stack: Record<string, any> | null;
+    fixedWidth?: boolean;
+}>();
 
-        uptime() {
-            return this.$t("notAvailableShort");
-        },
+const statusInfo = computed(() => StackStatusInfo.get(props.stack?.status));
+const color = computed(() => statusInfo.value.badgeColor);
+const statusName = computed(() => t(statusInfo.value.label));
 
-        color() {
-            return this.statusInfo.badgeColor;
-        },
-
-        statusName() {
-            return this.$t(this.statusInfo.label);
-        },
-
-        className() {
-            let className = `badge rounded-pill bg-${this.color}`;
-
-            if (this.fixedWidth) {
-                className += " fixed-width";
-            }
-            return className;
-        },
-    },
-};
+const className = computed(() => {
+    let cls = `badge rounded-pill bg-${color.value}`;
+    if (props.fixedWidth) {
+        cls += " fixed-width";
+    }
+    return cls;
+});
 </script>
 
 <style scoped>

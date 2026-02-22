@@ -15,31 +15,25 @@
     </transition>
 </template>
 
-<script>
-export default {
-    components: {
-    },
-    data() {
-        return {
-            processing: true,
-            enableConsole: false,
-        };
-    },
-    computed: {
-        endpoint() {
-            return this.$route.params.endpoint || "";
-        },
-    },
-    mounted() {
-        this.$root.emitAgent(this.endpoint, "checkMainTerminal", (res) => {
-            this.enableConsole = res.ok;
-            this.processing = false;
-        });
-    },
-    methods: {
-        
-    }
-};
+<script setup lang="ts">
+import { ref, computed, onMounted } from "vue";
+import { useRoute } from "vue-router";
+import { useSocket } from "../composables/useSocket";
+
+const route = useRoute();
+const { emitAgent } = useSocket();
+
+const processing = ref(true);
+const enableConsole = ref(false);
+
+const endpoint = computed(() => (route.params.endpoint as string) || "");
+
+onMounted(() => {
+    emitAgent(endpoint.value, "checkMainTerminal", (res: any) => {
+        enableConsole.value = res.ok;
+        processing.value = false;
+    });
+});
 </script>
 
 <style scoped lang="scss">

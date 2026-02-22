@@ -4,8 +4,8 @@
             <!-- Change Password -->
             <template v-if="!settings.disableAuth">
                 <p>
-                    {{ $t("Current User") }}: <strong>{{ $root.username }}</strong>
-                    <button v-if="! settings.disableAuth" id="logout-btn" class="btn btn-danger ms-4 me-2 mb-2" @click="$root.logout">{{ $t("Logout") }}</button>
+                    {{ $t("Current User") }}: <strong>{{ username }}</strong>
+                    <button v-if="! settings.disableAuth" id="logout-btn" class="btn btn-danger ms-4 me-2 mb-2" @click="logout">{{ $t("Logout") }}</button>
                 </p>
 
                 <h5 class="my-4 settings-subheading">{{ $t("Change Password") }}</h5>
@@ -73,7 +73,7 @@
                     <button
                         class="btn btn-primary me-2"
                         type="button"
-                        @click="$refs.TwoFADialog.show()"
+                        @click="TwoFADialogRef?.show()"
                     >
                         {{ $t("2FA Settings") }}
                     </button>
@@ -91,9 +91,9 @@
             </div>
         </div>
 
-        <TwoFADialog ref="TwoFADialog" />
+        <TwoFADialog ref="TwoFADialogRef" />
 
-        <Confirm ref="confirmDisableAuth" btn-style="btn-danger" :yes-text="$t('I understand, please disable')" :no-text="$t('Leave')" @yes="disableAuth">
+        <Confirm ref="confirmDisableAuthRef" btn-style="btn-danger" :yes-text="$t('I understand, please disable')" :no-text="$t('Leave')" @yes="disableAuth">
             <!-- eslint-disable-next-line vue/no-v-html -->
             <p v-html="$t('disableauth.message1')"></p>
             <!-- eslint-disable-next-line vue/no-v-html -->
@@ -116,90 +116,66 @@
     </div>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, inject, watch, type Ref } from "vue";
 import Confirm from "../../components/Confirm.vue";
 import TwoFADialog from "../../components/TwoFADialog.vue";
+import { useSocket } from "../../composables/useSocket";
+import { useAppToast } from "../../composables/useAppToast";
 
-export default {
-    components: {
-        Confirm,
-        TwoFADialog
-    },
+const settings = inject<Ref<Record<string, any>>>("settings")!;
+const saveSettings = inject<(callback?: () => void, currentPassword?: string) => void>("saveSettings")!;
+const settingsLoaded = inject<Ref<boolean>>("settingsLoaded")!;
 
-    data() {
-        return {
-            invalidPassword: false,
-            password: {
-                currentPassword: "",
-                newPassword: "",
-                repeatNewPassword: "",
+const { getSocket, username, socketIO, logout, storage } = useSocket();
+const { toastRes } = useAppToast();
+
+const invalidPassword = ref(false);
+const password = ref({
+    currentPassword: "",
+    newPassword: "",
+    repeatNewPassword: "",
+});
+
+const TwoFADialogRef = ref<InstanceType<typeof TwoFADialog>>();
+const confirmDisableAuthRef = ref<InstanceType<typeof Confirm>>();
+
+watch(() => password.value.repeatNewPassword, () => {
+    invalidPassword.value = false;
+});
+
+function savePassword() {
+    if (password.value.newPassword !== password.value.repeatNewPassword) {
+        invalidPassword.value = true;
+    } else {
+        getSocket().emit("changePassword", password.value, (res: any) => {
+            toastRes(res);
+            if (res.ok) {
+                password.value.currentPassword = "";
+                password.value.newPassword = "";
+                password.value.repeatNewPassword = "";
             }
-        };
-    },
+        });
+    }
+}
 
-    computed: {
-        settings() {
-            return this.$parent.$parent.$parent.settings;
-        },
-        saveSettings() {
-            return this.$parent.$parent.$parent.saveSettings;
-        },
-        settingsLoaded() {
-            return this.$parent.$parent.$parent.settingsLoaded;
-        }
-    },
+function disableAuth() {
+    settings.value.disableAuth = true;
+    saveSettings(() => {
+        password.value.currentPassword = "";
+        username.value = "";
+        socketIO.token = "autoLogin";
+    }, password.value.currentPassword);
+}
 
-    watch: {
-        "password.repeatNewPassword"() {
-            this.invalidPassword = false;
-        },
-    },
+function enableAuth() {
+    settings.value.disableAuth = false;
+    saveSettings();
+    storage().removeItem("token");
+    location.reload();
+}
 
-    methods: {
-        /** Check new passwords match before saving them */
-        savePassword() {
-            if (this.password.newPassword !== this.password.repeatNewPassword) {
-                this.invalidPassword = true;
-            } else {
-                this.$root
-                    .getSocket()
-                    .emit("changePassword", this.password, (res) => {
-                        this.$root.toastRes(res);
-                        if (res.ok) {
-                            this.password.currentPassword = "";
-                            this.password.newPassword = "";
-                            this.password.repeatNewPassword = "";
-                        }
-                    });
-            }
-        },
-
-        /** Disable authentication for web app access */
-        disableAuth() {
-            this.settings.disableAuth = true;
-
-            // Need current password to disable auth
-            // Set it to empty if done
-            this.saveSettings(() => {
-                this.password.currentPassword = "";
-                this.$root.username = null;
-                this.$root.socketIO.token = "autoLogin";
-            }, this.password.currentPassword);
-        },
-
-        /** Enable authentication for web app access */
-        enableAuth() {
-            this.settings.disableAuth = false;
-            this.saveSettings();
-            this.$root.storage().removeItem("token");
-            location.reload();
-        },
-
-        /** Show confirmation dialog for disable auth */
-        confirmDisableAuth() {
-            this.$refs.confirmDisableAuth.show();
-        },
-
-    },
-};
+function confirmDisableAuth() {
+    confirmDisableAuthRef.value?.show();
+}
 </script>

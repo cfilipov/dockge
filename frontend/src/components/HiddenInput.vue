@@ -21,67 +21,45 @@
     </div>
 </template>
 
-<script>
-export default {
-    props: {
-        /** The value of the input */
-        modelValue: {
-            type: String,
-            default: ""
-        },
-        /** A placeholder to use */
-        placeholder: {
-            type: String,
-            default: ""
-        },
-        /** Maximum length of the input */
-        maxlength: {
-            type: Number,
-            default: 255
-        },
-        /** Should the field auto complete */
-        autocomplete: {
-            type: String,
-            default: "new-password",
-        },
-        /** Is the input required? */
-        required: {
-            type: Boolean
-        },
-        /** Should the input be read only? */
-        readonly: {
-            type: String,
-            default: undefined,
-        },
-    },
-    emits: [ "update:modelValue" ],
-    data() {
-        return {
-            visibility: "password",
-        };
-    },
-    computed: {
-        model: {
-            get() {
-                return this.modelValue;
-            },
-            set(value) {
-                this.$emit("update:modelValue", value);
-            }
-        }
-    },
-    created() {
+<script setup lang="ts">
+import { ref, computed } from "vue";
 
+const props = withDefaults(defineProps<{
+    modelValue?: string;
+    placeholder?: string;
+    maxlength?: number;
+    autocomplete?: string;
+    required?: boolean;
+    readonly?: string;
+}>(), {
+    modelValue: "",
+    placeholder: "",
+    maxlength: 255,
+    autocomplete: "new-password",
+    required: false,
+    readonly: undefined,
+});
+
+const emit = defineEmits<{
+    (e: "update:modelValue", value: string): void;
+}>();
+
+const visibility = ref("password");
+
+const model = computed({
+    get() {
+        return props.modelValue;
     },
-    methods: {
-        /** Show users input in plain text */
-        showInput() {
-            this.visibility = "text";
-        },
-        /** Censor users input */
-        hideInput() {
-            this.visibility = "password";
-        },
+    set(value: string) {
+        emit("update:modelValue", value);
     }
-};
+});
+
+function showInput() {
+    visibility.value = "text";
+}
+
+function hideInput() {
+    visibility.value = "password";
+}
 </script>

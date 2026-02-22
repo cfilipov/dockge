@@ -1,5 +1,5 @@
 <template>
-    <div ref="modal" class="modal fade" tabindex="-1">
+    <div ref="modalEl" class="modal fade" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -12,10 +12,10 @@
                     <slot />
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn" :class="btnStyle" data-bs-dismiss="modal" @click="yes">
+                    <button type="button" class="btn" :class="btnStyle" data-bs-dismiss="modal" @click="emit('yes')">
                         {{ yesText }}
                     </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="no">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="emit('no')">
                         {{ noText }}
                     </button>
                 </div>
@@ -24,61 +24,37 @@
     </div>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
 import { Modal } from "bootstrap";
 
-export default {
-    props: {
-        /** Style of button */
-        btnStyle: {
-            type: String,
-            default: "btn-primary",
-        },
-        /** Text to use as yes */
-        yesText: {
-            type: String,
-            default: "Yes",     // TODO: No idea what to translate this
-        },
-        /** Text to use as no */
-        noText: {
-            type: String,
-            default: "No",
-        },
-        /** Title to show on modal. Defaults to translated version of "Config" */
-        title: {
-            type: String,
-            default: null,
-        }
-    },
-    emits: [ "yes", "no" ],
-    data: () => ({
-        modal: null,
-    }),
-    mounted() {
-        this.modal = new Modal(this.$refs.modal);
-    },
-    methods: {
-        /**
-         * Show the confirm dialog
-         * @returns {void}
-         */
-        show() {
-            this.modal.show();
-        },
-        /**
-         * @fires string "yes" Notify the parent when Yes is pressed
-         * @returns {void}
-         */
-        yes() {
-            this.$emit("yes");
-        },
-        /**
-         * @fires string "no" Notify the parent when No is pressed
-         * @returns {void}
-         */
-        no() {
-            this.$emit("no");
-        }
-    },
-};
+withDefaults(defineProps<{
+    btnStyle?: string;
+    yesText?: string;
+    noText?: string;
+    title?: string | null;
+}>(), {
+    btnStyle: "btn-primary",
+    yesText: "Yes",
+    noText: "No",
+    title: null,
+});
+
+const emit = defineEmits<{
+    (e: "yes"): void;
+    (e: "no"): void;
+}>();
+
+const modalEl = ref<HTMLElement>();
+let modal: Modal | null = null;
+
+onMounted(() => {
+    modal = new Modal(modalEl.value!);
+});
+
+function show() {
+    modal?.show();
+}
+
+defineExpose({ show });
 </script>

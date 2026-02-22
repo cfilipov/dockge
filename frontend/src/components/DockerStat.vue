@@ -40,15 +40,10 @@
     </div>
 </template>
 
-<script>
-export default {
-    props: {
-        stat: {
-            type: Object,
-            required: true
-        }
-    },
-};
+<script setup lang="ts">
+defineProps<{
+    stat: Record<string, any>;
+}>();
 </script>
 
 <style lang="scss" scoped>

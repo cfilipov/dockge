@@ -28,60 +28,38 @@
     </div>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, inject, type Ref } from "vue";
 import CodeMirror from "vue-codemirror6";
-import { python } from "@codemirror/lang-python"; // good enough for .env key=value highlighting
+import { python } from "@codemirror/lang-python";
 import { dracula as editorTheme } from "thememirror";
 import { lineNumbers, EditorView } from "@codemirror/view";
-import { ref } from "vue";
 
-export default {
-    name: "GlobalEnv",
-    components: {
-        CodeMirror,
-    },
+const settings = inject<Ref<Record<string, any>>>("settings")!;
+const saveSettings = inject<(callback?: () => void, currentPassword?: string) => void>("saveSettings")!;
+const settingsLoaded = inject<Ref<boolean>>("settingsLoaded")!;
 
-    setup() {
-        const editorFocus = ref(false);
+const editorFocus = ref(false);
 
-        const focusEffectHandler = (state, focusing) => {
-            editorFocus.value = focusing;
-            return null;
-        };
-
-        const extensionsEnv = [
-            editorTheme,
-            python(),
-            lineNumbers(),
-            EditorView.focusChangeEffect.of(focusEffectHandler),
-        ];
-
-        return { editorFocus, extensionsEnv };
-    },
-
-    computed: {
-        settings() {
-            return this.$parent.$parent.$parent.settings;
-        },
-        saveSettings() {
-            return this.$parent.$parent.$parent.saveSettings;
-        },
-        settingsLoaded() {
-            return this.$parent.$parent.$parent.settingsLoaded;
-        },
-    },
-
-    methods: {
-        /** Save the settings */
-        saveGeneral() {
-            this.saveSettings();
-        },
-
-        onChange() {
-            // hook for future live validation if desired
-        },
-    },
+const focusEffectHandler = (state: any, focusing: boolean) => {
+    editorFocus.value = focusing;
+    return null;
 };
+
+const extensionsEnv = [
+    editorTheme,
+    python(),
+    lineNumbers(),
+    EditorView.focusChangeEffect.of(focusEffectHandler),
+];
+
+function saveGeneral() {
+    saveSettings();
+}
+
+function onChange() {
+    // hook for future live validation if desired
+}
 </script>
 
 <style scoped lang="scss">

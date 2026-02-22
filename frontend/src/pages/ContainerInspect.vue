@@ -18,55 +18,41 @@
     </transition>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, computed, onMounted } from "vue";
+import { useRoute } from "vue-router";
 import CodeMirror from "vue-codemirror6";
 import { yaml as yamlLang } from "@codemirror/lang-yaml";
 import { dracula as editorTheme } from "thememirror";
 import { lineNumbers } from "@codemirror/view";
 import yaml from "yaml";
+import { useSocket } from "../composables/useSocket";
 
-export default {
-    components: {
-        CodeMirror,
-    },
-    data() {
-        return {
-            inspectData: "fetching ...",
-        };
-    },
-    computed: {
-        stackName() {
-            return this.$route.params.stackName;
-        },
-        endpoint() {
-            return this.$route.params.endpoint || "";
-        },
-        containerName() {
-            return this.$route.params.containerName;
-        },
-    },
-    setup() {
-        const extensionsYAML = [
-            editorTheme,
-            yamlLang(),
-            lineNumbers(),
-        ];
+const route = useRoute();
+const { emitAgent } = useSocket();
 
-        return { extensionsYAML };
-    },
-    mounted() {
-        this.$root.emitAgent(this.endpoint, "containerInspect", this.containerName, (res) => {
-            if (res.ok) {
-                const inspectObj = JSON.parse(res.inspectData);
-                if (inspectObj) {
-                    this.inspectData = yaml.stringify(inspectObj, { lineWidth: 0 });
-                }
+const inspectData = ref("fetching ...");
+
+const extensionsYAML = [
+    editorTheme,
+    yamlLang(),
+    lineNumbers(),
+];
+
+const stackName = computed(() => route.params.stackName as string);
+const endpoint = computed(() => (route.params.endpoint as string) || "");
+const containerName = computed(() => route.params.containerName as string);
+
+onMounted(() => {
+    emitAgent(endpoint.value, "containerInspect", containerName.value, (res: any) => {
+        if (res.ok) {
+            const inspectObj = JSON.parse(res.inspectData);
+            if (inspectObj) {
+                inspectData.value = yaml.stringify(inspectObj, { lineWidth: 0 });
             }
-        });
-    },
-    methods: {
-    }
-};
+        }
+    });
+});
 </script>
 
 <style scoped lang="scss">

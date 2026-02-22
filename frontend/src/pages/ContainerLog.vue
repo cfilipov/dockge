@@ -8,37 +8,23 @@
     </transition>
 </template>
 
-<script>
+<script setup lang="ts">
+import { computed, onMounted } from "vue";
+import { useRoute } from "vue-router";
 import { getContainerLogName } from "../../../common/util-common";
+import { useSocket } from "../composables/useSocket";
 
-export default {
-    components: {
-    },
-    data() {
-        return {
+const route = useRoute();
+const { emitAgent } = useSocket();
 
-        };
-    },
-    computed: {
-        stackName() {
-            return this.$route.params.stackName;
-        },
-        endpoint() {
-            return this.$route.params.endpoint || "";
-        },
-        serviceName() {
-            return this.$route.params.serviceName;
-        },
-        terminalName() {
-            return getContainerLogName(this.endpoint, this.stackName, this.serviceName, 0);
-        },
-    },
-    mounted() {
-        this.$root.emitAgent(this.endpoint, "joinContainerLog", this.stackName, this.serviceName, (res) => {});
-    },
-    methods: {
-    }
-};
+const stackName = computed(() => route.params.stackName as string);
+const endpoint = computed(() => (route.params.endpoint as string) || "");
+const serviceName = computed(() => route.params.serviceName as string);
+const terminalName = computed(() => getContainerLogName(endpoint.value, stackName.value, serviceName.value, 0));
+
+onMounted(() => {
+    emitAgent(endpoint.value, "joinContainerLog", stackName.value, serviceName.value, () => {});
+});
 </script>
 
 <style scoped lang="scss">

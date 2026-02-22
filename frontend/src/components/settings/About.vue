@@ -3,10 +3,10 @@
         <div class="logo d-flex flex-column justify-content-center align-items-center">
             <object class="my-4" width="200" height="200" data="/icon.svg" />
             <div class="fs-4 fw-bold">Dockge</div>
-            <div>{{ $t("Version") }}: {{ $root.info.version }}</div>
-            <div class="frontend-version">{{ $t("Frontend Version") }}: {{ $root.frontendVersion }}</div>
+            <div>{{ $t("Version") }}: {{ info.version }}</div>
+            <div class="frontend-version">{{ $t("Frontend Version") }}: {{ frontendVersion }}</div>
 
-            <div v-if="!$root.isFrontendBackendVersionMatched" class="alert alert-warning mt-4" role="alert">
+            <div v-if="!isFrontendBackendVersionMatched" class="alert alert-warning mt-4" role="alert">
                 ⚠️ {{ $t("Frontend Version do not match backend version!") }}
             </div>
 
@@ -25,24 +25,15 @@
     </div>
 </template>
 
-<script>
-export default {
-    computed: {
-        settings() {
-            return this.$parent.$parent.$parent.settings;
-        },
-        saveSettings() {
-            return this.$parent.$parent.$parent.saveSettings;
-        },
-        settingsLoaded() {
-            return this.$parent.$parent.$parent.settingsLoaded;
-        },
-    },
+<script setup lang="ts">
+import { inject, type Ref } from "vue";
+import { useSocket } from "../../composables/useSocket";
 
-    watch: {
+const settings = inject<Ref<Record<string, any>>>("settings")!;
+const saveSettings = inject<(callback?: () => void, currentPassword?: string) => void>("saveSettings")!;
+const settingsLoaded = inject<Ref<boolean>>("settingsLoaded")!;
 
-    }
-};
+const { info, frontendVersion, isFrontendBackendVersionMatched } = useSocket();
 </script>
 
 <style lang="scss" scoped>

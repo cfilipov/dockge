@@ -23,14 +23,14 @@
 
                 <div class="form-check mb-3 mt-3 d-flex justify-content-center pe-4">
                     <div class="form-check">
-                        <input id="remember" v-model="$root.remember" type="checkbox" value="remember-me" class="form-check-input">
+                        <input id="remember" v-model="remember" type="checkbox" value="remember-me" class="form-check-input">
 
                         <label class="form-check-label" for="remember">
                             {{ $t("Remember me") }}
                         </label>
                     </div>
                 </div>
-                <div v-if="siteKey" id="turnstile-widget" ref="turnstile" class="mt-3 mb-3"></div>
+                <div v-if="siteKey" id="turnstile-widget" ref="turnstileEl" class="mt-3 mb-3"></div>
 
                 <button class="w-100 btn btn-primary" type="submit" :disabled="processing">
                     {{ $t("Login") }}
@@ -44,119 +44,106 @@
     </div>
 </template>
 
-<script>
-export default {
-    data() {
-        return {
-            processing: false,
-            username: "",
-            password: "",
-            token: "",
-            res: null,
-            tokenRequired: false,
-            captchaToken: "",
-            siteKey: "",
-        };
-    },
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from "vue";
+import { useSocket } from "../composables/useSocket";
 
-    mounted() {
+const { login, remember, getTurnstileSiteKey: fetchTurnstileSiteKey } = useSocket();
 
-        this.getTurnstileSiteKey();
-        document.title += " - Login";
-    },
+const processing = ref(false);
+const username = ref("");
+const password = ref("");
+const token = ref("");
+const res = ref<any>(null);
+const tokenRequired = ref(false);
+const captchaToken = ref("");
+const siteKey = ref("");
+const turnstileEl = ref<HTMLElement>();
 
-    unmounted() {
-        document.title = document.title.replace(" - Login", "");
-    },
+function submit() {
+    processing.value = true;
 
-    methods: {
-        /**
-         * Submit the user details and attempt to log in
-         * @returns {void}
-         */
-        submit() {
-            this.processing = true;
+    if (siteKey.value && !captchaToken.value) {
+        console.error("CAPTCHA token is missing or invalid.");
+        processing.value = false;
+        res.value = { ok: false, msg: "Invalid CAPTCHA!" };
+        resetTurnstile();
+        return;
+    }
 
-            if (this.siteKey && !this.captchaToken) {
-                console.error("CAPTCHA token is missing or invalid.");
-                this.processing = false;
-                this.res = { ok: false,
-                    msg: "Invalid CAPTCHA!" };
-                this.resetTurnstile(); // Reset the widget
-                return;
+    login(username.value, password.value, token.value, captchaToken.value, (r: any) => {
+        processing.value = false;
+        if (r.tokenRequired) {
+            tokenRequired.value = true;
+        } else if (!r.ok) {
+            res.value = r;
+            resetTurnstile();
+        } else {
+            res.value = r;
+        }
+    });
+}
+
+function resetTurnstile() {
+    if ((window as any).turnstile && turnstileEl.value) {
+        console.log("Resetting Turnstile widget...");
+        (window as any).turnstile.reset(turnstileEl.value);
+        captchaToken.value = "";
+    }
+}
+
+function doGetTurnstileSiteKey() {
+    fetchTurnstileSiteKey((r: any) => {
+        if (r.ok) {
+            siteKey.value = r.siteKey;
+            if (siteKey.value) {
+                console.log("Turnstile site key is provided. Loading Turnstile script...");
+                const script = document.createElement("script");
+                script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+                script.async = true;
+                script.defer = true;
+                script.onload = () => {
+                    console.log("Turnstile script loaded successfully.");
+                    initializeTurnstile();
+                };
+                script.onerror = () => {
+                    console.error("Failed to load Turnstile script.");
+                };
+                document.head.appendChild(script);
+                console.log("Turnstile script loaded...");
+            } else {
+                console.warn("Turnstile site key is not provided. Widget will not be rendered.");
             }
+        } else {
+            console.error("Failed to fetch Turnstile site key from socket:", r.msg);
+        }
+    });
+}
 
-            this.$root.login(this.username, this.password, this.token, this.captchaToken, (res) => {
-                this.processing = false;
-                if (res.tokenRequired) {
-                    this.tokenRequired = true;
-                } else if (!res.ok) {
-                    this.res = res;
-                    this.resetTurnstile();
-                } else {
-                    this.res = res;
-                }
-            });
-        },
+function initializeTurnstile() {
+    if ((window as any).turnstile) {
+        console.log("Initializing Turnstile widget...");
+        (window as any).turnstile.render(turnstileEl.value, {
+            sitekey: siteKey.value,
+            callback: (t: string) => {
+                captchaToken.value = t;
+            },
+            "error-callback": () => {
+                console.error("Turnstile error occurred");
+                captchaToken.value = "";
+            },
+        });
+    }
+}
 
-        resetTurnstile() {
-            if (window.turnstile && this.$refs.turnstile) {
-                console.log("Resetting Turnstile widget...");
-                window.turnstile.reset(this.$refs.turnstile);
-                this.captchaToken = ""; // Clear the old token
-            }
-        },
+onMounted(() => {
+    doGetTurnstileSiteKey();
+    document.title += " - Login";
+});
 
-        getTurnstileSiteKey() {
-            this.$root.getTurnstileSiteKey((res) => {
-                if (res.ok) {
-                    this.siteKey = res.siteKey;
-                    if (this.siteKey) {
-                        console.log("Turnstile site key is provided. Loading Turnstile script...");
-                        const script = document.createElement("script");
-                        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-                        script.async = true;
-                        script.defer = true;
-                        script.onload = () => {
-                            console.log("Turnstile script loaded successfully.");
-                            this.initializeTurnstile();
-                        };
-                        script.onerror = () => {
-                            console.error("Failed to load Turnstile script.");
-                        };
-                        document.head.appendChild(script);
-                        console.log("Turnstile script loaded...");
-                    } else {
-                        console.warn("Turnstile site key is not provided. Widget will not be rendered.");
-                    }
-
-                } else {
-                    console.error("Failed to fetch Turnstile site key from socket:", res.msg);
-                }
-            });
-        },
-
-        /**
-         * Initialize the Turnstile widget
-         */
-        initializeTurnstile() {
-            if (window.turnstile) {
-                console.log("Initializing Turnstile widget...");
-                window.turnstile.render(this.$refs.turnstile, {
-                    sitekey: this.siteKey,
-                    callback: (token) => {
-                        this.captchaToken = token; // Save the token
-                    },
-                    "error-callback": () => {
-                        console.error("Turnstile error occurred");
-                        this.captchaToken = null;
-                    },
-                });
-            }
-        },
-
-    },
-};
+onUnmounted(() => {
+    document.title = document.title.replace(" - Login", "");
+});
 </script>
 
 <style lang="scss" scoped>

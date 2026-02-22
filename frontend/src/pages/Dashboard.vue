@@ -1,14 +1,14 @@
 <template>
     <div class="container-fluid">
         <div class="row">
-            <div v-if="!$root.isMobile" class="col-12 col-md-4 col-xl-3">
+            <div v-if="!isMobile" class="col-12 col-md-4 col-xl-3">
                 <div>
                     <router-link to="/compose" class="btn btn-primary mb-3"><font-awesome-icon icon="plus" /> {{ $t("compose") }}</router-link>
                 </div>
                 <StackList :scrollbar="true" />
             </div>
 
-            <div ref="container" class="col-12 col-md-8 col-xl-9 mb-3">
+            <div ref="containerRef" class="col-12 col-md-8 col-xl-9 mb-3">
                 <!-- Add :key to disable vue router re-use the same component -->
                 <router-view :key="$route.fullPath" :calculatedHeight="height" />
             </div>
@@ -16,23 +16,21 @@
     </div>
 </template>
 
-<script>
-
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
 import StackList from "../components/StackList.vue";
+import { useTheme } from "../composables/useTheme";
 
-export default {
-    components: {
-        StackList,
-    },
-    data() {
-        return {
-            height: 0
-        };
-    },
-    mounted() {
-        this.height = this.$refs.container.offsetHeight;
-    },
-};
+const { isMobile } = useTheme();
+
+const containerRef = ref<HTMLElement>();
+const height = ref(0);
+
+onMounted(() => {
+    if (containerRef.value) {
+        height.value = containerRef.value.offsetHeight;
+    }
+});
 </script>
 
 <style lang="scss" scoped>

@@ -2,7 +2,5 @@
     <router-view />
 </template>
 
-<script>
-export default {};
+<script setup lang="ts">
 </script>
-

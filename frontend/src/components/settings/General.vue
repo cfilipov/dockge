@@ -6,7 +6,7 @@
                 <label for="timezone" class="form-label">
                     {{ $t("Display Timezone") }}
                 </label>
-                <select id="timezone" v-model="$root.userTimezone" class="form-select">
+                <select id="timezone" v-model="userTimezone" class="form-select">
                     <option value="auto">
                         {{ $t("Auto") }}: {{ guessTimezone }}
                     </option>
@@ -98,48 +98,26 @@
     </div>
 </template>
 
-<script>
-
+<script setup lang="ts">
+import { computed, inject, type Ref } from "vue";
 import dayjs from "dayjs";
-import { timezoneList } from "../../util-frontend";
+import { timezoneList as getTimezoneList } from "../../util-frontend";
+import { useTheme } from "../../composables/useTheme";
 
-export default {
-    components: {
+const settings = inject<Ref<Record<string, any>>>("settings")!;
+const saveSettings = inject<(callback?: () => void, currentPassword?: string) => void>("saveSettings")!;
 
-    },
+const { userTimezone } = useTheme();
 
-    data() {
-        return {
-            timezoneList: timezoneList(),
-        };
-    },
+const timezoneList = getTimezoneList();
+const guessTimezone = computed(() => dayjs.tz.guess());
 
-    computed: {
-        settings() {
-            return this.$parent.$parent.$parent.settings;
-        },
-        saveSettings() {
-            return this.$parent.$parent.$parent.saveSettings;
-        },
-        settingsLoaded() {
-            return this.$parent.$parent.$parent.settingsLoaded;
-        },
-        guessTimezone() {
-            return dayjs.tz.guess();
-        }
-    },
+function saveGeneral() {
+    localStorage.timezone = userTimezone.value;
+    saveSettings();
+}
 
-    methods: {
-        /** Save the settings */
-        saveGeneral() {
-            localStorage.timezone = this.$root.userTimezone;
-            this.saveSettings();
-        },
-        /** Get the base URL of the application */
-        autoGetPrimaryHostname() {
-            this.settings.primaryHostname = location.hostname;
-        },
-    },
-};
+function autoGetPrimaryHostname() {
+    settings.value.primaryHostname = location.hostname;
+}
 </script>
-
