@@ -18,7 +18,7 @@ test.describe("Compose Operations", () => {
     // ── Test 1: Start Stack ──────────────────────────────────────────────
     // 03-monitoring starts as "exited" in DefaultDevState()
     test("start stack (03-monitoring)", async ({ page }) => {
-        await page.goto("/compose/03-monitoring");
+        await page.goto("/stacks/03-monitoring");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "03-monitoring" })).toBeVisible({ timeout: 15000 });
 
@@ -47,7 +47,7 @@ test.describe("Compose Operations", () => {
     // ── Test 2: Stop Stack ───────────────────────────────────────────────
     // 04-database starts as "running" in DefaultDevState()
     test("stop stack (04-database)", async ({ page }) => {
-        await page.goto("/compose/04-database");
+        await page.goto("/stacks/04-database");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "04-database" })).toBeVisible({ timeout: 15000 });
 
@@ -72,7 +72,7 @@ test.describe("Compose Operations", () => {
     // ── Test 3: Restart Stack ────────────────────────────────────────────
     // 02-blog starts as "running" in DefaultDevState()
     test("restart stack (02-blog)", async ({ page }) => {
-        await page.goto("/compose/02-blog");
+        await page.goto("/stacks/02-blog");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "02-blog" })).toBeVisible({ timeout: 15000 });
 
@@ -98,7 +98,7 @@ test.describe("Compose Operations", () => {
     // ── Test 4: Down Stack ───────────────────────────────────────────────
     // 00-single-service starts as "running" in DefaultDevState()
     test("down stack (00-single-service)", async ({ page }) => {
-        await page.goto("/compose/00-single-service");
+        await page.goto("/stacks/00-single-service");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "00-single-service" })).toBeVisible({ timeout: 15000 });
 
@@ -120,7 +120,7 @@ test.describe("Compose Operations", () => {
     // ── Test 5: Update Stack ─────────────────────────────────────────────
     // 01-web-app starts as "running" in DefaultDevState()
     test("update stack (01-web-app)", async ({ page }) => {
-        await page.goto("/compose/01-web-app");
+        await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "01-web-app" })).toBeVisible({ timeout: 15000 });
 
@@ -149,7 +149,7 @@ test.describe("Compose Operations", () => {
     // ── Test 6: Service Restart ──────────────────────────────────────────
     // 01-web-app nginx service (running)
     test("service restart (01-web-app nginx)", async ({ page }) => {
-        await page.goto("/compose/01-web-app");
+        await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "01-web-app" })).toBeVisible({ timeout: 15000 });
 
@@ -169,7 +169,7 @@ test.describe("Compose Operations", () => {
     // ── Test 7: Service Stop ─────────────────────────────────────────────
     // stack-010 ruby service (running)
     test("service stop (stack-010 ruby)", async ({ page }) => {
-        await page.goto("/compose/stack-010");
+        await page.goto("/stacks/stack-010");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "stack-010" })).toBeVisible({ timeout: 15000 });
 

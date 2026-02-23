@@ -3,7 +3,7 @@ import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Compose View — Running Stack", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/compose/01-web-app");
+        await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         // Wait for the stack name heading to appear
         await expect(page.getByRole("heading", { name: "01-web-app" })).toBeVisible({ timeout: 15000 });
@@ -24,8 +24,8 @@ test.describe("Compose View — Running Stack", () => {
         await expect(page.locator(".cm-editor").first()).toBeVisible();
     });
 
-    test("shows terminal section", async ({ page }) => {
-        await expect(page.getByRole("heading", { name: "Terminal" })).toBeVisible();
+    test("shows logs section", async ({ page }) => {
+        await expect(page.getByRole("heading", { name: "Logs" })).toBeVisible();
     });
 
     test("screenshot: compose view running stack", async ({ page }) => {

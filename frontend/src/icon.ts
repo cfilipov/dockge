@@ -62,6 +62,13 @@ import {
     faChevronCircleRight,
     faChevronCircleDown,
     faExpand,
+    faLayerGroup,
+    faCubes,
+    faNetworkWired,
+    faCode,
+    faFileCode,
+    faBoxArchive,
+    faHardDrive,
 } from "@fortawesome/free-solid-svg-icons";
 
 library.add(
@@ -125,6 +132,13 @@ library.add(
     faChevronCircleRight,
     faChevronCircleDown,
     faExpand,
+    faLayerGroup,
+    faCubes,
+    faNetworkWired,
+    faCode,
+    faFileCode,
+    faBoxArchive,
+    faHardDrive,
 );
 
 export { FontAwesomeIcon };

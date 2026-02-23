@@ -542,7 +542,7 @@ const changelogLinks = computed(() => {
     return links;
 });
 
-const isAdd = computed(() => route.path === "/compose" && !submitted.value);
+const isAdd = computed(() => route.path === "/stacks/compose" && !submitted.value);
 
 const globalStack = computed(() => completeStackList.value[stack.name + "_" + endpoint.value]);
 
@@ -570,9 +570,9 @@ const endpoint = computed(() => stack.endpoint || (route.params.endpoint as stri
 
 const url = computed(() => {
     if (stack.endpoint) {
-        return `/compose/${stack.name}/${stack.endpoint}`;
+        return `/stacks/${stack.name}/${stack.endpoint}`;
     }
-    return `/compose/${stack.name}`;
+    return `/stacks/${stack.name}`;
 });
 
 // Watchers
@@ -826,7 +826,7 @@ function deleteDialog() {
     emitAgent(endpoint.value, "deleteStack", stack.name, { deleteStackFiles: deleteStackFiles.value }, (res: any) => {
         toastRes(res);
         if (res.ok) {
-            router.push("/");
+            router.push("/stacks");
         } else {
             errorDelete.value = true;
         }
@@ -837,7 +837,7 @@ function forceDeleteDialog() {
     emitAgent(endpoint.value, "forceDeleteStack", stack.name, (res: any) => {
         toastRes(res);
         if (res.ok) {
-            router.push("/");
+            router.push("/stacks");
         }
     });
 }

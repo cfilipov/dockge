@@ -30,7 +30,7 @@ test.describe("Container Card Editing", () => {
     let yamlEditor: Locator;
 
     test.beforeEach(async ({ page }) => {
-        await page.goto("/compose/06-mixed-state");
+        await page.goto("/stacks/06-mixed-state");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "06-mixed-state" })).toBeVisible({ timeout: 15000 });
 

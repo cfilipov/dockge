@@ -11,7 +11,7 @@
 
         <!-- Desktop header -->
         <header v-if="! isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
-            <router-link to="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
+            <router-link to="/stacks" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
                 <object class="bi me-2 ms-4" width="40" height="40" data="/icon.svg" />
                 <span class="fs-4 title">Dockge</span>
             </router-link>
@@ -22,8 +22,50 @@
 
             <ul class="nav nav-pills">
                 <li v-if="loggedIn" class="nav-item me-2">
-                    <router-link to="/" class="nav-link">
-                        <font-awesome-icon icon="home" /> {{ $t("home") }}
+                    <router-link to="/stacks" class="nav-link">
+                        <font-awesome-icon icon="layer-group" /> {{ $t("stacks") }}
+                    </router-link>
+                </li>
+
+                <li v-if="loggedIn" class="nav-item me-2">
+                    <router-link to="/containers" class="nav-link">
+                        <font-awesome-icon icon="cubes" /> {{ $t("containersNav") }}
+                    </router-link>
+                </li>
+
+                <li v-if="loggedIn" class="nav-item me-2">
+                    <router-link to="/networks" class="nav-link">
+                        <font-awesome-icon icon="network-wired" /> {{ $t("networksNav") }}
+                    </router-link>
+                </li>
+
+                <li v-if="loggedIn" class="nav-item me-2">
+                    <router-link to="/logs" class="nav-link">
+                        <font-awesome-icon icon="file-lines" /> {{ $t("logs") }}
+                    </router-link>
+                </li>
+
+                <li v-if="loggedIn" class="nav-item me-2">
+                    <router-link to="/shell" class="nav-link">
+                        <font-awesome-icon icon="code" /> {{ $t("shell") }}
+                    </router-link>
+                </li>
+
+                <li v-if="loggedIn" class="nav-item me-2">
+                    <router-link to="/yaml" class="nav-link">
+                        <font-awesome-icon icon="file-code" /> {{ $t("yaml") }}
+                    </router-link>
+                </li>
+
+                <li v-if="loggedIn" class="nav-item me-2">
+                    <router-link to="/images" class="nav-link">
+                        <font-awesome-icon icon="box-archive" /> {{ $t("imagesNav") }}
+                    </router-link>
+                </li>
+
+                <li v-if="loggedIn" class="nav-item me-2">
+                    <router-link to="/volumes" class="nav-link">
+                        <font-awesome-icon icon="hard-drive" /> {{ $t("volumesNav") }}
                     </router-link>
                 </li>
 

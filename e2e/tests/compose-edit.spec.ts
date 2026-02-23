@@ -11,7 +11,7 @@ function clickEdit(page: import("@playwright/test").Page) {
 
 test.describe("Compose Edit Mode", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/compose/01-web-app");
+        await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "01-web-app" })).toBeVisible({ timeout: 15000 });
     });

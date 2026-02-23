@@ -20,11 +20,11 @@ test.describe("Performance", () => {
     test("navigating to a stack loads within 1 second", async ({ page }) => {
         await page.goto("/");
         // Wait for app to be ready
-        await expect(page.getByRole("link", { name: "Home" })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("link", { name: "Stacks" })).toBeVisible({ timeout: 15000 });
 
         const start = Date.now();
 
-        await page.goto("/compose/01-web-app");
+        await page.goto("/stacks/01-web-app");
         await expect(page.getByRole("heading", { name: "01-web-app" })).toBeVisible({ timeout: 10000 });
 
         const elapsed = Date.now() - start;

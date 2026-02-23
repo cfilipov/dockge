@@ -7,8 +7,8 @@ test.describe("Dashboard Home", () => {
         await waitForApp(page);
     });
 
-    test("displays Home heading", async ({ page }) => {
-        await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+    test("displays Stacks heading", async ({ page }) => {
+        await expect(page.getByRole("heading", { name: "Stacks" })).toBeVisible();
     });
 
     test("shows stack status stats", async ({ page }) => {

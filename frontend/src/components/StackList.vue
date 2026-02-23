@@ -36,7 +36,7 @@
 
         <div ref="stackListRef" class="stack-list" :class="{ scrollbar: scrollbar }" :style="stackListStyle">
             <div v-if="flatStackList.length === 0" class="text-center mt-3">
-                <router-link to="/compose">{{ $t("addFirstStackMsg") }}</router-link>
+                <router-link to="/stacks/compose">{{ $t("addFirstStackMsg") }}</router-link>
             </div>
 
             <div class="stack-list-inner" v-for="(agent, index) in agentStackList" :key="index">

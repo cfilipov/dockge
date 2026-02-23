@@ -7,8 +7,8 @@ test.describe("Header Navigation", () => {
         await waitForApp(page);
     });
 
-    test("header shows Home and Console nav links", async ({ page }) => {
-        await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
+    test("header shows Stacks and Console nav links", async ({ page }) => {
+        await expect(page.getByRole("link", { name: "Stacks" })).toBeVisible();
         await expect(page.getByRole("link", { name: "Console" })).toBeVisible();
     });
 
@@ -27,12 +27,12 @@ test.describe("Header Navigation", () => {
         await expect(page.getByText("Logout")).toBeVisible();
     });
 
-    test("clicking Compose link in sidebar navigates to /compose", async ({ page }) => {
+    test("clicking Compose link in sidebar navigates to /stacks/compose", async ({ page }) => {
         // The "+" or compose link in the stack list
-        const composeLink = page.locator("a[href='/compose']").first();
+        const composeLink = page.locator("a[href='/stacks/compose']").first();
         if (await composeLink.isVisible()) {
             await composeLink.click();
-            await expect(page).toHaveURL(/\/compose$/);
+            await expect(page).toHaveURL(/\/stacks\/compose$/);
         }
     });
 

@@ -37,9 +37,9 @@ const endpointDisplay = computed(() => endpointDisplayFunction(props.stack.endpo
 
 const url = computed(() => {
     if (props.stack.endpoint) {
-        return `/compose/${props.stack.name}/${props.stack.endpoint}`;
+        return `/stacks/${props.stack.name}/${props.stack.endpoint}`;
     }
-    return `/compose/${props.stack.name}`;
+    return `/stacks/${props.stack.name}`;
 });
 
 const depthMargin = computed(() => ({

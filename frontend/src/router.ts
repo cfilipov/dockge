@@ -9,6 +9,7 @@ import Compose from "./pages/Compose.vue";
 import ContainerTerminal from "./pages/ContainerTerminal.vue";
 import ContainerLog from "./pages/ContainerLog.vue";
 import ContainerInspect from "./pages/ContainerInspect.vue";
+import StubPage from "./pages/StubPage.vue";
 
 const Settings = () => import("./pages/Settings.vue");
 
@@ -30,19 +31,19 @@ const routes = [
                 children: [
                     {
                         name: "DashboardHome",
-                        path: "/",
+                        path: "/stacks",
                         component: DashboardHome,
                         children: [
                             {
-                                path: "/compose",
+                                path: "/stacks/compose",
                                 component: Compose,
                             },
                             {
-                                path: "/compose/:stackName/:endpoint",
+                                path: "/stacks/:stackName/:endpoint",
                                 component: Compose,
                             },
                             {
-                                path: "/compose/:stackName",
+                                path: "/stacks/:stackName",
                                 component: Compose,
                             },
                             {
@@ -86,6 +87,41 @@ const routes = [
                         component: Console,
                     },
                     {
+                        path: "/containers",
+                        component: StubPage,
+                        props: { title: "Containers" },
+                    },
+                    {
+                        path: "/networks",
+                        component: StubPage,
+                        props: { title: "Networks" },
+                    },
+                    {
+                        path: "/logs",
+                        component: StubPage,
+                        props: { title: "Logs" },
+                    },
+                    {
+                        path: "/shell",
+                        component: StubPage,
+                        props: { title: "Shell" },
+                    },
+                    {
+                        path: "/yaml",
+                        component: StubPage,
+                        props: { title: "YAML" },
+                    },
+                    {
+                        path: "/images",
+                        component: StubPage,
+                        props: { title: "Images" },
+                    },
+                    {
+                        path: "/volumes",
+                        component: StubPage,
+                        props: { title: "Volumes" },
+                    },
+                    {
                         path: "/settings",
                         component: Settings,
                         children: [
@@ -118,6 +154,19 @@ const routes = [
     {
         path: "/setup",
         component: Setup,
+    },
+    // Redirects
+    {
+        path: "/",
+        redirect: "/stacks",
+    },
+    {
+        path: "/compose",
+        redirect: "/stacks/compose",
+    },
+    {
+        path: "/compose/:pathMatch(.*)",
+        redirect: (to: any) => `/stacks/${to.params.pathMatch}`,
     },
 ];
 

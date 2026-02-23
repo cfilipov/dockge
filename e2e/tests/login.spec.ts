@@ -29,7 +29,7 @@ test.describe("Login Page", () => {
         await page.getByPlaceholder("Password").fill("testpass123");
         await page.getByRole("button", { name: "Login" }).click();
 
-        await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: "Stacks" })).toBeVisible({ timeout: 15000 });
     });
 
     test("screenshot: login form", async ({ page }) => {

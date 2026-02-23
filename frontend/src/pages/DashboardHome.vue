@@ -2,7 +2,7 @@
     <transition ref="tableContainerRef" name="slide-fade" appear>
         <div v-if="$route.name === 'DashboardHome'">
             <h1 class="mb-3">
-                {{ $t("home") }}
+                {{ $t("stacks") }}
             </h1>
 
             <div class="row first-row">
@@ -239,7 +239,7 @@ function convertDockerRun() {
     getSocket().emit("composerize", dockerRunCommand.value, (res: any) => {
         if (res.ok) {
             composeTemplate.value = res.composeTemplate;
-            router.push("/compose");
+            router.push("/stacks/compose");
         } else {
             toastRes(res);
         }

@@ -3,7 +3,7 @@
         <div class="row">
             <div v-if="!isMobile" class="col-12 col-md-4 col-xl-3">
                 <div>
-                    <router-link to="/compose" class="btn btn-primary mb-3"><font-awesome-icon icon="plus" /> {{ $t("compose") }}</router-link>
+                    <router-link to="/stacks/compose" class="btn btn-primary mb-3"><font-awesome-icon icon="plus" /> {{ $t("compose") }}</router-link>
                 </div>
                 <StackList :scrollbar="true" />
             </div>
