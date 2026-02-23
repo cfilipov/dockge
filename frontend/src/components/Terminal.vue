@@ -216,7 +216,13 @@ async function copyToClipboard(text: string) {
     }
 }
 
-onMounted(() => {
+onMounted(async () => {
+    // Ensure JetBrains Mono is loaded before xterm measures character metrics.
+    // Without this, xterm caches fallback monospace dimensions on first render,
+    // causing inconsistent cell sizes depending on whether the font was
+    // previously loaded by another component (e.g., CodeMirror on compose page).
+    await document.fonts.load("14px 'JetBrains Mono'");
+
     let cursorBlink = true;
     if (props.mode === "displayOnly") {
         cursorBlink = false;

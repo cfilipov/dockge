@@ -327,6 +327,16 @@ func (app *App) broadcastStackList() {
     })
 }
 
+// FlushStackCache clears and synchronously repopulates the stack cache
+// from the Docker client. Used by mock reset to ensure all handlers
+// (including getStack) see the updated state immediately.
+func (app *App) FlushStackCache() {
+    stackCacheMu.Lock()
+    stackCache = nil
+    stackCacheMu.Unlock()
+    app.refreshStackCache()
+}
+
 // TriggerStackListRefresh refreshes the cache and broadcasts immediately (after a mutation).
 // If stackName is non-empty, only that stack is re-queried (much cheaper).
 func (app *App) TriggerStackListRefresh(stackName ...string) {

@@ -254,7 +254,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, provide, reactive } from "vue";
+import { ref, computed, inject, provide, reactive, type Ref } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { parseDockerPort } from "../../../common/util-common";
 import { LABEL_STATUS_IGNORE, LABEL_IMAGEUPDATES_CHECK, LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../../../common/compose-labels";
@@ -272,7 +272,7 @@ const { toastRes } = useAppToast();
 const jsonConfig = inject<Record<string, any>>("jsonConfig")!;
 const envsubstJSONConfig = inject<Record<string, any>>("envsubstJSONConfig")!;
 const composeStack = inject<Record<string, any>>("composeStack")!;
-const composeEndpoint = inject<string>("composeEndpoint", "");
+const composeEndpoint = inject<Ref<string>>("composeEndpoint")!;
 const startComposeAction = inject<() => void>("startComposeAction")!;
 const stopComposeAction = inject<() => void>("stopComposeAction")!;
 
@@ -304,7 +304,7 @@ const updateDialogData = reactive({
 const updateModalRef = ref<any>(null);
 
 // Computed from injected state
-const endpoint = computed(() => composeEndpoint);
+const endpoint = computed(() => composeEndpoint.value);
 const stackName = computed(() => composeStack.name);
 
 const service = computed(() => {

@@ -27,10 +27,8 @@ func NewMockStateFrom(defaults map[string]string) *MockState {
 	return &MockState{stacks: m}
 }
 
-// DefaultDevState returns state for all 200+ test stacks.
-// Featured stacks (00–09) get explicit statuses; filler stacks (010–199)
-// are assigned ~60% running, ~20% exited, ~20% inactive based on index.
-func DefaultDevState() *MockState {
+// defaultDevStateMap returns the default state map for dev/test use.
+func defaultDevStateMap() map[string]string {
 	m := make(map[string]string, 210)
 
 	// Featured stacks
@@ -59,7 +57,22 @@ func DefaultDevState() *MockState {
 		}
 	}
 
-	return NewMockStateFrom(m)
+	return m
+}
+
+// DefaultDevState returns state for all 200+ test stacks.
+// Featured stacks (00–09) get explicit statuses; filler stacks (010–199)
+// are assigned ~60% running, ~20% exited, ~20% inactive based on index.
+func DefaultDevState() *MockState {
+	return NewMockStateFrom(defaultDevStateMap())
+}
+
+// Reset restores the mock state to DefaultDevState, discarding any
+// mutations made by tests (start/stop/down operations).
+func (s *MockState) Reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.stacks = defaultDevStateMap()
 }
 
 // Get returns the status for a stack, or "inactive" if not present.

@@ -3,8 +3,13 @@ import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Container Log", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/log/01-web-app/nginx");
+        // Navigate via the container card log button (not a direct URL)
+        await page.goto("/compose/01-web-app");
         await waitForApp(page);
+        const logLink = page.locator("a[title='docker compose logs nginx']");
+        await expect(logLink).toBeVisible({ timeout: 10000 });
+        await logLink.click();
+        await expect(page).toHaveURL("/log/01-web-app/nginx");
     });
 
     test("displays log heading with service and stack name", async ({ page }) => {

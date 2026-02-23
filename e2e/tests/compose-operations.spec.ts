@@ -9,6 +9,12 @@ const terminal = (page: import("@playwright/test").Page) =>
 
 test.describe("Compose Operations", () => {
 
+    // Reset mock state after all operations so subsequent test files
+    // (screenshot tests, etc.) see a clean DefaultDevState.
+    test.afterAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     // ── Test 1: Start Stack ──────────────────────────────────────────────
     // 03-monitoring starts as "exited" in DefaultDevState()
     test("start stack (03-monitoring)", async ({ page }) => {

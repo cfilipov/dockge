@@ -199,6 +199,17 @@ func main() {
     handlers.RegisterDockerHandlers(app)
     handlers.RegisterServiceHandlers(app)
 
+    // Mock state reset endpoint (test use only)
+    if cfg.Mock && mockState != nil {
+        mux.HandleFunc("POST /api/mock/reset", func(w http.ResponseWriter, _ *http.Request) {
+            mockState.Reset()
+            app.FlushStackCache()
+            slog.Info("mock state reset to default")
+            w.WriteHeader(http.StatusOK)
+            w.Write([]byte("ok"))
+        })
+    }
+
     // No-auth mode: auto-authenticate every connection as user 1
     if cfg.NoAuth {
         slog.Warn("authentication disabled (--no-auth)")
