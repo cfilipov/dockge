@@ -172,6 +172,7 @@ const composeTemplate = ref("");
 const envTemplate = ref("");
 
 const stackList = ref<Record<string, any>>({});
+const containerList = ref<Record<string, any>[]>([]);
 const allAgentStackList = ref<Record<string, any>>({});
 const agentStatusList = ref<Record<string, any>>({});
 const agentList = ref<Record<string, any>>({});
@@ -335,7 +336,7 @@ function clearData() {
 }
 
 function afterLogin() {
-    // Placeholder for future use
+    socket.emit("requestContainerList", () => {});
 }
 
 function bindTerminal(endpoint: string, terminalName: string, terminal: Terminal) {
@@ -471,6 +472,12 @@ export function initWebSocket() {
         }
     });
 
+    agentSocket.on("containerList", (res: any) => {
+        if (res.ok) {
+            containerList.value = res.containerList;
+        }
+    });
+
     socket.on("stackStatusList", (res: any) => {
         if (res.ok) {
             for (let stackName in res.stackStatusList) {
@@ -522,6 +529,7 @@ export function useSocket() {
         composeTemplate,
         envTemplate,
         stackList,
+        containerList,
         allAgentStackList,
         agentStatusList,
         agentList,

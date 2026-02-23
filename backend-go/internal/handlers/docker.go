@@ -15,6 +15,7 @@ func RegisterDockerHandlers(app *App) {
     app.WS.Handle("dockerStats", app.handleDockerStats)
     app.WS.Handle("containerInspect", app.handleContainerInspect)
     app.WS.Handle("getDockerNetworkList", app.handleGetDockerNetworkList)
+    app.WS.Handle("requestContainerList", app.handleRequestContainerList)
 }
 
 // ServiceEntry represents a single container's status within a service.

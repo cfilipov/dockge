@@ -14,8 +14,9 @@ import (
 // ImageUpdateStore manages cached image update check results.
 // An in-memory cache (atomic pointer) avoids reading BoltDB on every broadcast.
 type ImageUpdateStore struct {
-    db    *bolt.DB
-    cache atomic.Pointer[map[string]bool] // lazily rebuilt, invalidated on writes
+    db           *bolt.DB
+    cache        atomic.Pointer[map[string]bool] // lazily rebuilt, invalidated on writes
+    serviceCache atomic.Pointer[map[string]bool] // "stack/service" → hasUpdate, invalidated on writes
 }
 
 func NewImageUpdateStore(database *bolt.DB) *ImageUpdateStore {
@@ -99,9 +100,36 @@ func (s *ImageUpdateStore) rebuildCache() (map[string]bool, error) {
     return result, nil
 }
 
-// invalidateCache clears the in-memory cache, forcing a rebuild on next read.
+// invalidateCache clears both in-memory caches, forcing a rebuild on next read.
 func (s *ImageUpdateStore) invalidateCache() {
     s.cache.Store(nil)
+    s.serviceCache.Store(nil)
+}
+
+// AllServiceUpdates returns a map of "stackName/serviceName" → true for services
+// with available image updates. Uses an in-memory cache (same invalidation as
+// StackHasUpdates) to avoid repeated BoltDB scans.
+func (s *ImageUpdateStore) AllServiceUpdates() (map[string]bool, error) {
+    if cached := s.serviceCache.Load(); cached != nil {
+        return *cached, nil
+    }
+    return s.rebuildServiceCache()
+}
+
+// rebuildServiceCache reads all entries from BoltDB and populates the per-service cache.
+func (s *ImageUpdateStore) rebuildServiceCache() (map[string]bool, error) {
+    entries, err := s.GetAll()
+    if err != nil {
+        return nil, err
+    }
+    result := make(map[string]bool, len(entries))
+    for _, e := range entries {
+        if e.HasUpdate {
+            result[e.StackName+"/"+e.ServiceName] = true
+        }
+    }
+    s.serviceCache.Store(&result)
+    return result, nil
 }
 
 // Upsert inserts or updates a single cache entry.

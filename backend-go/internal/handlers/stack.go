@@ -24,6 +24,12 @@ var (
     stackCache   map[string]*stack.Stack
 )
 
+// containerCache holds containers grouped by compose project, updated alongside stackCache.
+var (
+    containerCacheMu sync.RWMutex
+    containerCache   map[string][]docker.Container
+)
+
 func RegisterStackHandlers(app *App) {
     app.WS.Handle("requestStackList", app.handleRequestStackList)
     app.WS.Handle("getStack", app.handleGetStack)
@@ -50,6 +56,7 @@ func (app *App) StartStackWatcher(ctx context.Context) {
     // Initial full refresh
     app.refreshStackCache()
     app.broadcastStackList()
+    app.broadcastContainerList()
 
     // Subscribe to Docker events
     eventCh, errCh := app.Docker.Events(ctx)
@@ -84,6 +91,7 @@ func (app *App) StartStackWatcher(ctx context.Context) {
                     app.refreshStackProject(p)
                 }
                 app.broadcastStackList()
+                app.broadcastContainerList()
             })
         }
 
@@ -119,6 +127,7 @@ func (app *App) StartStackWatcher(ctx context.Context) {
             case <-ticker.C:
                 app.refreshStackCache()
                 app.broadcastStackList()
+                app.broadcastContainerList()
             }
         }
     }()
@@ -136,6 +145,7 @@ func (app *App) runPollingFallback(ctx context.Context) {
         case <-ticker.C:
             app.refreshStackCache()
             app.broadcastStackList()
+            app.broadcastContainerList()
         }
     }
 }
@@ -175,6 +185,14 @@ func (app *App) refreshStackProject(project string) {
             paused++
         }
     }
+
+    // Update container cache for this project
+    containerCacheMu.Lock()
+    if containerCache == nil {
+        containerCache = make(map[string][]docker.Container)
+    }
+    containerCache[project] = containers
+    containerCacheMu.Unlock()
 
     stackCacheMu.Lock()
     if stackCache == nil {
@@ -254,9 +272,21 @@ func (app *App) refreshStackCache() {
 
     stacks := stack.GetStackListFromContainers(app.StacksDir, containers, app.buildIgnoreMap())
 
+    // Group containers by project for the container cache
+    byProject := make(map[string][]docker.Container, len(containers))
+    for _, c := range containers {
+        if c.Project != "" {
+            byProject[c.Project] = append(byProject[c.Project], c)
+        }
+    }
+
     stackCacheMu.Lock()
     stackCache = stacks
     stackCacheMu.Unlock()
+
+    containerCacheMu.Lock()
+    containerCache = byProject
+    containerCacheMu.Unlock()
 
     // Compute recreateNecessary for all running stacks
     app.refreshRecreateCache(stacks, containers)
@@ -327,6 +357,76 @@ func (app *App) broadcastStackList() {
     })
 }
 
+// containerListResponse is the typed response for the containerList event.
+type containerListResponse struct {
+    OK            bool                      `json:"ok"`
+    ContainerList []stack.ContainerSimpleJSON `json:"containerList"`
+}
+
+func (app *App) broadcastContainerList() {
+    containerCacheMu.RLock()
+    containers := containerCache
+    containerCacheMu.RUnlock()
+
+    stackCacheMu.RLock()
+    stacks := stackCache
+    stackCacheMu.RUnlock()
+
+    if containers == nil {
+        return
+    }
+
+    serviceUpdates, _ := app.ImageUpdates.AllServiceUpdates()
+    listJSON := stack.BuildContainerListJSON(containers, stacks, serviceUpdates, app.ComposeCache)
+
+    app.WS.BroadcastAuthenticatedRaw("agent", "containerList", containerListResponse{
+        OK:            true,
+        ContainerList: listJSON,
+    })
+}
+
+func (app *App) handleRequestContainerList(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+    }
+
+    // If cache is empty, refresh synchronously so the first load is instant
+    containerCacheMu.RLock()
+    empty := len(containerCache) == 0
+    containerCacheMu.RUnlock()
+    if empty {
+        app.refreshStackCache()
+    }
+
+    app.sendContainerListTo(c)
+}
+
+// sendContainerListTo sends the cached container list to a single connection.
+func (app *App) sendContainerListTo(c *ws.Conn) {
+    containerCacheMu.RLock()
+    containers := containerCache
+    containerCacheMu.RUnlock()
+
+    stackCacheMu.RLock()
+    stacks := stackCache
+    stackCacheMu.RUnlock()
+
+    serviceUpdates, _ := app.ImageUpdates.AllServiceUpdates()
+    listJSON := stack.BuildContainerListJSON(containers, stacks, serviceUpdates, app.ComposeCache)
+    if listJSON == nil {
+        listJSON = []stack.ContainerSimpleJSON{}
+    }
+
+    c.SendEvent("agent", "containerList", containerListResponse{
+        OK:            true,
+        ContainerList: listJSON,
+    })
+}
+
 // FlushStackCache clears and synchronously repopulates the stack cache
 // from the Docker client. Used by mock reset to ensure all handlers
 // (including getStack) see the updated state immediately.
@@ -349,6 +449,7 @@ func (app *App) TriggerStackListRefresh(stackName ...string) {
             app.refreshStackCache()
         }
         app.broadcastStackList()
+        app.broadcastContainerList()
     }()
 }
 
@@ -647,6 +748,7 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
         }
         app.checkImageUpdatesForStack(stackName)
         app.broadcastStackList()
+        app.broadcastContainerList()
     }()
 }
 
@@ -978,6 +1080,7 @@ func (app *App) updateComposeCacheFromYAML(stackName, composeYAML string) {
         go func() {
             app.checkImageUpdatesForStack(stackName)
             app.broadcastStackList()
+            app.broadcastContainerList()
         }()
     }
 }

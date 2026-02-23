@@ -204,5 +204,12 @@
     "checkForImageUpdates": "Check for image updates",
     "ignoreUpdate": "Skip",
     "pruneAfterUpdate": "Prune <u>all</u> dangling images after update",
-    "pruneAllAfterUpdate": "Also <u>all</u> unused images"
+    "pruneAllAfterUpdate": "Also <u>all</u> unused images",
+    "containerRunning": "Running",
+    "containerExited": "Exited",
+    "containerPaused": "Paused",
+    "containerCreated": "Created",
+    "containerDead": "Dead",
+    "containerUnhealthy": "Unhealthy",
+    "noContainers": "No containers found."
 }
