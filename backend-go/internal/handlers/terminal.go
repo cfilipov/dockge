@@ -216,7 +216,7 @@ func (app *App) handleMainTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     }
 }
 
-// handleCheckMainTerminal checks if the main terminal is running.
+// handleCheckMainTerminal checks if the main terminal is available and running.
 func (app *App) handleCheckMainTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     if checkLogin(c, msg) == 0 {
         return
@@ -278,7 +278,7 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
     dir := filepath.Join(app.StacksDir, stackName)
-    cmd := exec.Command("docker-compose", "exec", serviceName, shell)
+    cmd := exec.Command("docker", "compose", "exec", serviceName, shell)
     cmd.Dir = dir
     cmd.Env = os.Environ()
 

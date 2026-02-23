@@ -42,25 +42,25 @@ RUN VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"\([0-9][^"]*\)
     upx --best --lzma /dockge
 
 ############################################
-# Compress docker-compose binary with UPX
+# Compress docker CLI + compose plugin with UPX
 ############################################
-FROM golang:1.25-alpine AS compress_compose
+FROM golang:1.25-alpine AS compress_docker
 RUN apk add --no-cache upx
+COPY --from=docker:27-cli /usr/local/bin/docker /docker
 COPY --from=docker:27-cli /usr/local/libexec/docker/cli-plugins/docker-compose /docker-compose
-RUN upx --best --lzma /docker-compose
+RUN upx --best --lzma /docker && upx --best --lzma /docker-compose
 
 ############################################
-# Final image — scratch (no OS, minimal size)
+# Final image — Alpine (bash + docker CLI)
 ############################################
-FROM scratch AS release
+FROM alpine:3 AS release
 
-# TLS root certificates for registry API calls (image update checks)
-COPY --from=build_backend /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN apk add --no-cache bash
 
-# docker-compose standalone binary for lifecycle commands (up/down/stop/restart/pull).
-# Read-only queries use the Docker SDK over the socket — no docker CLI needed.
-# UPX-compressed: ~55MB → ~20MB.
-COPY --from=compress_compose /docker-compose /usr/local/bin/docker-compose
+# Docker CLI + compose plugin for lifecycle commands and interactive exec.
+# UPX-compressed to keep image small.
+COPY --from=compress_docker /docker /usr/local/bin/docker
+COPY --from=compress_docker /docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
 
 WORKDIR /app
 COPY --from=build_backend /dockge /app/dockge

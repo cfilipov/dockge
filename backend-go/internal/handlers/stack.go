@@ -796,7 +796,8 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
         term.Write([]byte(cmdDisplay))
 
         dir := filepath.Join(app.StacksDir, stackName)
-        cmd := exec.CommandContext(ctx, "docker-compose", composeArgs...)
+        args := append([]string{"compose"}, composeArgs...)
+        cmd := exec.CommandContext(ctx, "docker", args...)
         cmd.Dir = dir
 
         if err := term.RunPTY(cmd); err != nil {
@@ -855,7 +856,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 
         // Step 1: Validate
         term.Write([]byte("$ docker compose config --dry-run\r\n"))
-        validateCmd := exec.CommandContext(ctx, "docker-compose", "config", "--dry-run")
+        validateCmd := exec.CommandContext(ctx, "docker", "compose", "config", "--dry-run")
         validateCmd.Dir = dir
         if err := term.RunPTY(validateCmd); err != nil {
             if ctx.Err() == nil {
@@ -868,7 +869,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 
         // Step 2: Deploy
         term.Write([]byte("$ docker compose up -d --remove-orphans\r\n"))
-        upCmd := exec.CommandContext(ctx, "docker-compose", "up", "-d", "--remove-orphans")
+        upCmd := exec.CommandContext(ctx, "docker", "compose", "up", "-d", "--remove-orphans")
         upCmd.Dir = dir
         if err := term.RunPTY(upCmd); err != nil {
             if ctx.Err() == nil {
@@ -928,8 +929,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
             cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(dockerArgs, " "))
             term.Write([]byte(cmdDisplay))
 
-            bin, cmdArgs := compose.DockerCommand(dockerArgs)
-            cmd := exec.CommandContext(ctx, bin, cmdArgs...)
+            cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
             cmd.Dir = dir
 
             if err := term.RunPTY(cmd); err != nil {

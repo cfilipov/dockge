@@ -16,7 +16,7 @@ The **hamphh fork** adds several valuable features like image update tracking, c
 - **Excessive polling** — frequent frontend polling and synchronous Docker API calls
 - **No persistent cache** — update check results are stored in memory only, lost on every restart, forcing full re-checks
 
-I've used nearly every docker management service there is, and I found myself always coming back to Dockge despite being unmaintained because of the performance, nothing came close to how speedy it it. The main goal of this fork is to maintain that level of responsiveness.
+I've used nearly every docker management service there is, and I found myself always coming back to Dockge despite being unmaintained because of the performance, nothing came close to how speedy it is. The main goal of this fork is to maintain that level of responsiveness.
 
 This fork takes the features from hamphh but re-implements them to address the aforementioned issues.
 
@@ -62,7 +62,7 @@ This fork has rewritten the Node.js backend entirely with a Go implementation.
 
 | | Node.js backend | Go backend |
 |---|---|---|
-| Docker image size | ~500MB | **16.5MB** |
+| Docker image size | ~500MB | **~55MB** |
 | Memory (docker container) | ~135MB-250MB | ~25MB-40MB |
 
 ### Configuration
