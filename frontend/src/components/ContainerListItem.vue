@@ -1,12 +1,12 @@
 <template>
-    <div :class="{ 'dim' : !container.isManagedByDockge }" class="item">
+    <router-link :to="shellLink" :class="{ 'dim' : !container.isManagedByDockge }" class="item" :title="tooltip">
         <span :class="badgeClass" class="badge rounded-pill me-2">{{ statusLabel }}</span>
         <div class="title">
             <span class="me-2">{{ container.name }}</span>
             <font-awesome-icon v-if="container.recreateNecessary" icon="rocket" class="notification-icon me-2" :title="$t('tooltipIconRecreate')" />
             <font-awesome-icon v-if="container.imageUpdatesAvailable" icon="arrow-up" class="notification-icon me-2" :title="$t('tooltipIconUpdate')" />
         </div>
-    </div>
+    </router-link>
 </template>
 
 <script setup lang="ts">
@@ -18,6 +18,13 @@ const { t } = useI18n();
 const props = defineProps<{
     container: Record<string, any>;
 }>();
+
+const shellLink = computed(() => ({
+    name: "containerShell",
+    params: { containerName: props.container.name, type: "bash" },
+}));
+
+const tooltip = computed(() => t("tooltipContainerShell", [props.container.name]));
 
 const badgeClass = computed(() => {
     const state = props.container.state;
@@ -51,6 +58,7 @@ const statusLabel = computed(() => {
 
 .item {
     text-decoration: none;
+    color: inherit;
     display: flex;
     align-items: center;
     min-height: 52px;
@@ -59,6 +67,9 @@ const statusLabel = computed(() => {
     width: 100%;
     padding: 5px 8px;
     &:hover {
+        background-color: $highlight-white;
+    }
+    &.active {
         background-color: $highlight-white;
     }
     .title {

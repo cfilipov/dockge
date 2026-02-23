@@ -20,6 +20,7 @@ const props = withDefaults(defineProps<{
     endpoint: string;
     stackName?: string;
     serviceName?: string;
+    containerName?: string;
     shell?: string;
     rows?: number;
     cols?: number;
@@ -27,6 +28,7 @@ const props = withDefaults(defineProps<{
 }>(), {
     stackName: undefined,
     serviceName: undefined,
+    containerName: undefined,
     shell: "bash",
     rows: TERMINAL_ROWS,
     cols: TERMINAL_COLS,
@@ -263,6 +265,13 @@ onMounted(async () => {
 
     if (props.mode === "mainTerminal") {
         emitAgent(props.endpoint, "mainTerminal", props.name, (res: any) => {
+            if (!res.ok) {
+                toastRes(res);
+            }
+        });
+    } else if (props.mode === "interactive" && props.containerName) {
+        console.debug("Create container exec terminal:", props.name);
+        emitAgent(props.endpoint, "containerExec", props.containerName, props.shell, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }

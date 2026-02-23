@@ -49,6 +49,7 @@ func RegisterTerminalHandlers(app *App) {
     app.WS.Handle("mainTerminal", app.handleMainTerminal)
     app.WS.Handle("checkMainTerminal", app.handleCheckMainTerminal)
     app.WS.Handle("interactiveTerminal", app.handleInteractiveTerminal)
+    app.WS.Handle("containerExec", app.handleContainerExec)
     app.WS.Handle("joinContainerLog", app.handleJoinContainerLog)
     app.WS.Handle("leaveCombinedTerminal", app.handleLeaveCombinedTerminal)
 }
@@ -297,6 +298,70 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     })
 
     slog.Info("interactive terminal started", "name", termName, "stack", stackName, "service", serviceName)
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+    }
+}
+
+// handleContainerExec creates a docker exec PTY terminal using the container name directly.
+// Unlike handleInteractiveTerminal which uses docker compose exec, this uses docker exec
+// and takes just the container name (e.g. "web-app-nginx-1") as the identifier.
+func (app *App) handleContainerExec(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    args := parseArgs(msg)
+    containerName := argString(args, 0)
+    shell := argString(args, 1)
+
+    if containerName == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+        }
+        return
+    }
+    if shell == "" {
+        shell = "bash"
+    }
+
+    termName := "container-exec-by-name--" + containerName
+
+    // Check if already running — register this client but don't recreate
+    existing := app.Terms.Get(termName)
+    if existing != nil && existing.IsRunning() {
+        existing.AddWriter(c.ID(), makeTermWriter(c, termName))
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        }
+        return
+    }
+
+    term := app.Terms.Create(termName, terminal.TypePTY)
+
+    // Register the requesting client BEFORE starting exec so the shell
+    // prompt is captured and delivered.
+    term.AddWriter(c.ID(), makeTermWriter(c, termName))
+
+    cmd := exec.Command("docker", "exec", "-it", containerName, shell)
+    cmd.Env = os.Environ()
+
+    if err := term.StartPTY(cmd); err != nil {
+        slog.Error("container exec start", "err", err, "container", containerName)
+        app.Terms.Remove(termName)
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to start terminal: " + err.Error()})
+        }
+        return
+    }
+
+    // Schedule cleanup when the exec process exits
+    term.OnExit(func() {
+        app.Terms.RemoveAfter(termName, 30*time.Second)
+    })
+
+    slog.Info("container exec started", "name", termName, "container", containerName)
 
     if msg.ID != nil {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})

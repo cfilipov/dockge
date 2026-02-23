@@ -9,6 +9,7 @@ import Compose from "./pages/Compose.vue";
 import ContainerTerminal from "./pages/ContainerTerminal.vue";
 import ContainerLog from "./pages/ContainerLog.vue";
 import ContainerInspect from "./pages/ContainerInspect.vue";
+import ContainerShell from "./pages/ContainerShell.vue";
 import StubPage from "./pages/StubPage.vue";
 
 const Settings = () => import("./pages/Settings.vue");
@@ -103,8 +104,18 @@ const routes = [
                     },
                     {
                         path: "/shell",
-                        component: StubPage,
-                        props: { title: "Shell" },
+                        children: [
+                            {
+                                path: "",
+                                component: ContainerShell,
+                                name: "shellHome",
+                            },
+                            {
+                                path: ":containerName/:type",
+                                component: ContainerShell,
+                                name: "containerShell",
+                            },
+                        ],
                     },
                     {
                         path: "/yaml",

@@ -211,5 +211,7 @@
     "containerCreated": "Created",
     "containerDead": "Dead",
     "containerUnhealthy": "Unhealthy",
-    "noContainers": "No containers found."
+    "noContainers": "No containers found.",
+    "selectContainer": "Select a container from the list.",
+    "tooltipContainerShell": "docker exec {0} bash"
 }

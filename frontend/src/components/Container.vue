@@ -455,22 +455,10 @@ const inspectRouteLink = computed(() => {
 });
 
 const terminalRouteLink = computed(() => {
-    if (endpoint.value) {
-        return {
-            name: "containerTerminalEndpoint",
-            params: {
-                endpoint: endpoint.value,
-                stackName: stackName.value,
-                serviceName: props.name,
-                type: "bash",
-            },
-        };
-    }
     return {
-        name: "containerTerminal",
+        name: "containerShell",
         params: {
-            stackName: stackName.value,
-            serviceName: props.name,
+            containerName: containerName.value,
             type: "bash",
         },
     };
