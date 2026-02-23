@@ -278,7 +278,7 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
     dir := filepath.Join(app.StacksDir, stackName)
-    cmd := exec.Command("docker", "compose", "exec", serviceName, shell)
+    cmd := exec.Command("docker-compose", "exec", serviceName, shell)
     cmd.Dir = dir
     cmd.Env = os.Environ()
 
