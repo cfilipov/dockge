@@ -173,7 +173,7 @@
 
                     <!-- Combined Terminal Output -->
                     <div v-show="!isEditMode">
-                        <h4 class="mb-3">{{ $t("terminal") }}</h4>
+                        <h4 class="mb-3">{{ $t("logs") }}</h4>
                         <Terminal
                             ref="combinedTerminal"
                             class="mb-3 terminal"
