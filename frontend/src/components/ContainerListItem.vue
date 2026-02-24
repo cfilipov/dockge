@@ -13,6 +13,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
+import { StackStatusInfo } from "../../../common/util-common";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -45,31 +46,22 @@ const tooltip = computed(() => {
     return t("tooltipContainerShell", [name]);
 });
 
-const badgeClass = computed(() => {
-    const state = props.container.state;
-    const health = props.container.health;
+function getContainerStatusLabel(c: Record<string, any>): string {
+    if (c.state === "running" && c.health === "unhealthy") return "unhealthy";
+    if (c.state === "running") return "active";
+    if (c.state === "exited" || c.state === "dead") return "exited";
+    if (c.state === "paused") return "active";
+    if (c.state === "created") return "down";
+    return "down";
+}
 
-    if (state === "running") {
-        if (health === "unhealthy") return "bg-danger";
-        return "bg-primary";
-    }
-    if (state === "exited" || state === "dead") return "bg-warning";
-    if (state === "paused") return "bg-info";
-    return "bg-dark"; // created or unknown
+const statusInfo = computed(() => {
+    const label = getContainerStatusLabel(props.container);
+    return StackStatusInfo.ALL.find(i => i.label === label) ?? StackStatusInfo.ALL[0];
 });
 
-const statusLabel = computed(() => {
-    const state = props.container.state;
-    const health = props.container.health;
-
-    if (state === "running" && health === "unhealthy") return t("containerUnhealthy");
-    if (state === "running") return t("containerRunning");
-    if (state === "exited") return t("containerExited");
-    if (state === "dead") return t("containerDead");
-    if (state === "paused") return t("containerPaused");
-    if (state === "created") return t("containerCreated");
-    return state || "unknown";
-});
+const badgeClass = computed(() => `bg-${statusInfo.value.badgeColor}`);
+const statusLabel = computed(() => t(statusInfo.value.label));
 </script>
 
 <style lang="scss" scoped>
