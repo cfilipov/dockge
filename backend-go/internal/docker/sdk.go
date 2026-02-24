@@ -405,6 +405,19 @@ func (s *SDKClient) NetworkList(ctx context.Context) ([]NetworkSummary, error) {
         return nil, fmt.Errorf("network list: %w", err)
     }
 
+    // The Docker list API does not populate the Containers field —
+    // only inspect does. Count containers per network from the
+    // container list instead.
+    containers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
+    countByNet := make(map[string]int)
+    for _, c := range containers {
+        if c.NetworkSettings != nil {
+            for netName := range c.NetworkSettings.Networks {
+                countByNet[netName]++
+            }
+        }
+    }
+
     result := make([]NetworkSummary, 0, len(networks))
     for _, n := range networks {
         result = append(result, NetworkSummary{
@@ -415,7 +428,7 @@ func (s *SDKClient) NetworkList(ctx context.Context) ([]NetworkSummary, error) {
             Internal:   n.Internal,
             Attachable: n.Attachable,
             Ingress:    n.Ingress,
-            Containers: len(n.Containers),
+            Containers: countByNet[n.Name],
         })
     }
     return result, nil
