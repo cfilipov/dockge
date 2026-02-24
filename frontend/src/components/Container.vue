@@ -55,7 +55,7 @@
 
                 <div v-if="!isEditMode" class="btn-group service-actions me-2" role="group">
                     <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
-                    <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceInspect')" :to="inspectRouteLink" :disabled="processing"><font-awesome-icon icon="cubes" /></router-link>
+                    <router-link v-if="hasContainer" class="btn btn-sm btn-normal" :title="$t('tooltipServiceInspect')" :to="inspectRouteLink" :disabled="processing"><font-awesome-icon icon="cubes" /></router-link>
                     <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
                 </div>
 
@@ -471,6 +471,7 @@ const statsInstances = computed(() => {
         .sort((a: any, b: any) => a.Name.localeCompare(b.Name));
 });
 
+const hasContainer = computed(() => !!props.serviceStatus?.[0]);
 const started = computed(() => status.value === "running" || status.value === "healthy");
 
 const status = computed(() => {
