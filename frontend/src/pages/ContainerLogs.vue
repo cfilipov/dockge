@@ -1,6 +1,6 @@
 <template>
     <transition name="slide-fade" appear>
-        <div v-if="containerName">
+        <div v-if="containerName" class="logs-page">
             <h1 class="mb-3"><span v-if="badgeLabel" :class="badgeClass">{{ badgeLabel }}</span> {{ containerName }}</h1>
 
             <div v-if="stackName && stackManaged" class="mb-3">
@@ -63,7 +63,7 @@
                 :endpoint="endpoint"
             />
 
-            <Terminal class="terminal" :rows="20" mode="displayOnly"
+            <Terminal class="terminal flex-grow-1" :rows="20" mode="displayOnly"
                 :name="terminalName" :endpoint="endpoint" />
         </div>
         <div v-else>
@@ -206,8 +206,14 @@ onMounted(() => {
 <style scoped lang="scss">
 @import "../styles/vars.scss";
 
+.logs-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 160px);
+}
+
 .terminal {
-    height: 410px;
+    min-height: 200px;
 }
 
 :deep(.overflow-dropdown) {
