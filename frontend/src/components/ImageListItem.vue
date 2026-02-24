@@ -67,6 +67,8 @@ const badgeLabel = computed(() => {
     transition: all ease-in-out 0.15s;
     width: 100%;
     padding: 5px 8px;
+    overflow: hidden;
+    min-width: 0;
     &:hover {
         background-color: $highlight-white;
     }
@@ -75,6 +77,9 @@ const badgeLabel = computed(() => {
     }
     .title {
         margin-top: -4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
 
