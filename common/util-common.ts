@@ -205,6 +205,41 @@ export function statusColor(status : number) : string {
     }
 }
 
+/**
+ * Container status info — maps Docker container state/health to display properties.
+ * Uses actual Docker state strings as labels (not stack status labels).
+ */
+export class ContainerStatusInfo {
+    static readonly RUNNING = new ContainerStatusInfo("running", "primary");
+    static readonly UNHEALTHY = new ContainerStatusInfo("unhealthy", "danger");
+    static readonly EXITED = new ContainerStatusInfo("exited", "warning");
+    static readonly PAUSED = new ContainerStatusInfo("paused", "info");
+    static readonly CREATED = new ContainerStatusInfo("created", "dark");
+    static readonly DEAD = new ContainerStatusInfo("dead", "dark");
+    static readonly UNKNOWN = new ContainerStatusInfo("down", "secondary");
+
+    static ALL = [this.RUNNING, this.UNHEALTHY, this.EXITED, this.PAUSED, this.CREATED, this.DEAD];
+
+    constructor(readonly label: string, readonly badgeColor: string) {}
+
+    /** Map split container state/health fields to a ContainerStatusInfo. */
+    static from(c: { state: string; health?: string }): ContainerStatusInfo {
+        if (c.state === "running" && c.health === "unhealthy") return this.UNHEALTHY;
+        if (c.state === "running") return this.RUNNING;
+        if (c.state === "exited") return this.EXITED;
+        if (c.state === "dead") return this.DEAD;
+        if (c.state === "paused") return this.PAUSED;
+        if (c.state === "created") return this.CREATED;
+        return this.UNKNOWN;
+    }
+
+    /** Map a combined status string (from serviceStatusList) to a ContainerStatusInfo. */
+    static fromStatus(status: string): ContainerStatusInfo {
+        if (status === "healthy") return this.RUNNING;
+        return this.from({ state: status });
+    }
+}
+
 export const isDev = process.env.NODE_ENV === "development";
 export const TERMINAL_COLS = 105;
 export const TERMINAL_ROWS = 10;

@@ -407,7 +407,6 @@ import {
     getCombinedTerminalName,
     getComposeTerminalName,
     PROGRESS_TERMINAL_ROWS,
-    RUNNING
 } from "../../../common/util-common";
 import { BModal } from "bootstrap-vue-next";
 import { LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../../../common/compose-labels";
@@ -578,9 +577,7 @@ const isAdd = computed(() => route.path === "/stacks/new" && !submitted.value);
 
 const globalStack = computed(() => completeStackList.value[stack.name + "_" + endpoint.value]);
 
-const status = computed(() => globalStack.value?.status);
-
-const active = computed(() => status.value === RUNNING);
+const active = computed(() => globalStack.value?.started ?? false);
 
 const terminalName = computed(() => {
     if (!stack.name) {

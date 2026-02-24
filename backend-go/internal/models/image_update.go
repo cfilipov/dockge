@@ -176,6 +176,43 @@ func (s *ImageUpdateStore) DeleteService(stackName, serviceName string) error {
     })
 }
 
+// SeedFromMock clears all existing image update entries and writes the given
+// flags ("stackName/serviceName" → hasUpdate) into BoltDB. Used in mock mode
+// to ensure BoltDB state matches mock.yaml on startup and mock reset.
+func (s *ImageUpdateStore) SeedFromMock(flags map[string]bool) error {
+    defer s.invalidateCache()
+    return s.db.Update(func(tx *bolt.Tx) error {
+        b := tx.Bucket(db.BucketImageUpdates)
+        // Clear all existing entries
+        c := b.Cursor()
+        for k, _ := c.First(); k != nil; k, _ = c.Next() {
+            if err := b.Delete(k); err != nil {
+                return err
+            }
+        }
+        // Write mock flags
+        for key, hasUpdate := range flags {
+            parts := bytes.SplitN([]byte(key), []byte("/"), 2)
+            if len(parts) != 2 {
+                continue
+            }
+            rec := imageUpdateRecord{
+                StackName:   string(parts[0]),
+                ServiceName: string(parts[1]),
+                HasUpdate:   hasUpdate,
+            }
+            data, err := json.Marshal(&rec)
+            if err != nil {
+                return fmt.Errorf("marshal mock image update: %w", err)
+            }
+            if err := b.Put([]byte(key), data); err != nil {
+                return err
+            }
+        }
+        return nil
+    })
+}
+
 // ServiceUpdatesForStack returns a map of service name → has_update for a given stack.
 func (s *ImageUpdateStore) ServiceUpdatesForStack(stackName string) (map[string]bool, error) {
     prefix := stackPrefix(stackName)

@@ -171,6 +171,15 @@ func main() {
     // Image update cache
     imageUpdates := models.NewImageUpdateStore(database)
 
+    // In mock mode, seed BoltDB image updates from mock.yaml flags
+    if cfg.Mock && mockData != nil {
+        if err := imageUpdates.SeedFromMock(mockData.UpdateFlags()); err != nil {
+            slog.Error("seed image updates from mock", "err", err)
+        } else {
+            slog.Info("mock mode: seeded image update flags", "count", len(mockData.UpdateFlags()))
+        }
+    }
+
     // Compose file cache — parse once, update via fsnotify
     composeCache := compose.NewComposeCache()
     composeCache.PopulateFromDisk(cfg.StacksDir)
@@ -205,6 +214,11 @@ func main() {
     if cfg.Mock && mockState != nil {
         mux.HandleFunc("POST /api/mock/reset", func(w http.ResponseWriter, _ *http.Request) {
             mockState.Reset()
+            if mockData != nil {
+                if err := imageUpdates.SeedFromMock(mockData.UpdateFlags()); err != nil {
+                    slog.Error("seed image updates on mock reset", "err", err)
+                }
+            }
             app.FlushStackCache()
             slog.Info("mock state reset to default")
             w.WriteHeader(http.StatusOK)

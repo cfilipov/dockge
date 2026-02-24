@@ -13,7 +13,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
-import { StackStatusInfo } from "../../../common/util-common";
+import { ContainerStatusInfo } from "../../../common/util-common";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -46,19 +46,7 @@ const tooltip = computed(() => {
     return t("tooltipContainerShell", [name]);
 });
 
-function getContainerStatusLabel(c: Record<string, any>): string {
-    if (c.state === "running" && c.health === "unhealthy") return "unhealthy";
-    if (c.state === "running") return "active";
-    if (c.state === "exited" || c.state === "dead") return "exited";
-    if (c.state === "paused") return "active";
-    if (c.state === "created") return "down";
-    return "down";
-}
-
-const statusInfo = computed(() => {
-    const label = getContainerStatusLabel(props.container);
-    return StackStatusInfo.ALL.find(i => i.label === label) ?? StackStatusInfo.ALL[0];
-});
+const statusInfo = computed(() => ContainerStatusInfo.from(props.container));
 
 const badgeClass = computed(() => `bg-${statusInfo.value.badgeColor}`);
 const statusLabel = computed(() => t(statusInfo.value.label));

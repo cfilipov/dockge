@@ -75,7 +75,7 @@
                 </div>
             </div>
             <div class="col">
-                <span class="badge me-1" :class="bgStyle">{{ status }}</span>
+                <span class="badge me-1" :class="bgStyle">{{ $t(containerStatusInfo.label) }}</span>
 
                 <a v-for="port in envsubstService.ports" :key="port" :href="parsePort(port).url" target="_blank">
                     <span class="badge me-1 bg-secondary">{{ parsePort(port).display }}</span>
@@ -258,7 +258,7 @@
 <script setup lang="ts">
 import { ref, computed, inject, provide, reactive, type Ref } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { parseDockerPort } from "../../../common/util-common";
+import { parseDockerPort, ContainerStatusInfo } from "../../../common/util-common";
 import { LABEL_STATUS_IGNORE, LABEL_IMAGEUPDATES_CHECK, LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../../../common/compose-labels";
 import { BModal, BForm, BFormCheckbox } from "bootstrap-vue-next";
 import DockerStat from "./DockerStat.vue";
@@ -402,14 +402,9 @@ const changelogUrl = computed({
     },
 });
 
-const bgStyle = computed(() => {
-    if (status.value === "running" || status.value === "healthy") {
-        return "bg-primary";
-    } else if (status.value === "unhealthy") {
-        return "bg-danger";
-    }
-    return "bg-secondary";
-});
+const containerStatusInfo = computed(() => ContainerStatusInfo.fromStatus(status.value));
+
+const bgStyle = computed(() => `bg-${containerStatusInfo.value.badgeColor}`);
 
 const logRouteLink = computed(() => {
     return {

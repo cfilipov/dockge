@@ -316,7 +316,7 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BModal } from "bootstrap-vue-next";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
-import { StackStatusInfo, RUNNING, getComposeTerminalName } from "../../../common/util-common";
+import { ContainerStatusInfo, getComposeTerminalName } from "../../../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 
 const route = useRoute();
@@ -324,23 +324,12 @@ const { t } = useI18n();
 const { emitAgent, containerList, completeStackList } = useSocket();
 const { toastRes } = useAppToast();
 
-function getContainerStatusLabel(c: Record<string, any>): string {
-    if (c.state === "running" && c.health === "unhealthy") return "unhealthy";
-    if (c.state === "running") return "active";
-    if (c.state === "exited" || c.state === "dead") return "exited";
-    if (c.state === "paused") return "active";
-    if (c.state === "created") return "down";
-    return "down";
-}
-
 const containerInfo = computed(() =>
     (containerList.value || []).find((c: any) => c.name === containerName.value)
 );
-const statusInfo = computed(() => {
-    if (!containerInfo.value) return null;
-    const label = getContainerStatusLabel(containerInfo.value);
-    return StackStatusInfo.ALL.find(i => i.label === label);
-});
+const statusInfo = computed(() =>
+    containerInfo.value ? ContainerStatusInfo.from(containerInfo.value) : null
+);
 const badgeClass = computed(() =>
     statusInfo.value ? `badge rounded-pill bg-${statusInfo.value.badgeColor}` : ""
 );
@@ -375,7 +364,7 @@ const endpoint = computed(() => (route.params.endpoint as string) || "");
 const containerName = computed(() => route.params.containerName as string || "");
 const stackName = computed(() => containerInfo.value?.stackName || "");
 const globalStack = computed(() => completeStackList.value[stackName.value + "_" + endpoint.value]);
-const stackActive = computed(() => globalStack.value?.status === RUNNING);
+const stackActive = computed(() => globalStack.value?.started ?? false);
 const stackManaged = computed(() => globalStack.value?.isManagedByDockge ?? false);
 const imageUpdatesAvailable = computed(() => globalStack.value?.imageUpdatesAvailable ?? false);
 const terminalName = computed(() => stackName.value ? getComposeTerminalName(endpoint.value, stackName.value) : "");

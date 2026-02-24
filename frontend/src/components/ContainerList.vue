@@ -52,7 +52,7 @@
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import ContainerListItem from "./ContainerListItem.vue";
 import { useSocket } from "../composables/useSocket";
-import { StackFilter, StackStatusInfo } from "../../../common/util-common";
+import { StackFilter, ContainerStatusInfo } from "../../../common/util-common";
 
 defineProps<{
     scrollbar?: boolean;
@@ -77,23 +77,9 @@ const listStyle = computed(() => {
     return { height: "calc(100% - 60px)" };
 });
 
-/**
- * Map a container's state/health to the same StackStatusInfo label
- * used by the stack list filter (active, exited, unhealthy, down, partially).
- */
-function getStatusLabel(c: any): string {
-    if (c.state === "running" && c.health === "unhealthy") return "unhealthy";
-    if (c.state === "running") return "active";
-    if (c.state === "exited" || c.state === "dead") return "exited";
-    if (c.state === "paused") return "active";
-    if (c.state === "created") return "down";
-    return "down";
-}
-
 function updateFilterOptions() {
-    // Same status options as the stack list: from StackStatusInfo.ALL
     const statusOptions: Record<string, string> = {};
-    for (const info of StackStatusInfo.ALL) {
+    for (const info of ContainerStatusInfo.ALL) {
         statusOptions[info.label] = info.label;
     }
     containerFilter.status.options = statusOptions;
@@ -121,7 +107,7 @@ const filteredContainers = computed(() => {
     // Status filter
     if (containerFilter.status.isFilterSelected()) {
         result = result.filter((c: any) => {
-            const label = getStatusLabel(c);
+            const label = ContainerStatusInfo.from(c).label;
             return containerFilter.status.selected.has(label);
         });
     }

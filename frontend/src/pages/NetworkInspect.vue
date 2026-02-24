@@ -123,7 +123,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
-import { StackStatusInfo } from "../../../common/util-common";
+import { ContainerStatusInfo } from "../../../common/util-common";
 
 const route = useRoute();
 const { t } = useI18n();
@@ -156,18 +156,11 @@ const primaryGateway = computed(() => {
 });
 
 function containerStatusLabel(c: Record<string, any>): string {
-    if (c.state === "running" && c.health === "unhealthy") return "unhealthy";
-    if (c.state === "running") return "active";
-    if (c.state === "exited" || c.state === "dead") return "exited";
-    if (c.state === "paused") return "active";
-    if (c.state === "created") return "down";
-    return "down";
+    return ContainerStatusInfo.from(c).label;
 }
 
 function containerBadgeColor(c: Record<string, any>): string {
-    const label = containerStatusLabel(c);
-    const info = StackStatusInfo.ALL.find(i => i.label === label);
-    return info ? info.badgeColor : "secondary";
+    return ContainerStatusInfo.from(c).badgeColor;
 }
 
 function formatDate(dateStr: string): string {

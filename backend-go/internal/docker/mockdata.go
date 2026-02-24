@@ -328,6 +328,11 @@ func (d *MockData) HasUpdateAvailable(imageRef string) bool {
 	return false
 }
 
+// UpdateFlags returns the mock update flags map ("stackName/svc" → has update).
+func (d *MockData) UpdateFlags() map[string]bool {
+	return d.updateFlags
+}
+
 // SortedImages returns all image refs (excluding danglings) sorted.
 func (d *MockData) SortedImages() []string {
 	var refs []string
