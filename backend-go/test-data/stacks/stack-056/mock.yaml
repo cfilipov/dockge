@@ -1,0 +1,4 @@
+status: running
+services:
+  ubuntu:
+    update_available: true

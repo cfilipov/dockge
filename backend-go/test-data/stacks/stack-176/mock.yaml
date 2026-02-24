@@ -1,0 +1,4 @@
+status: running
+services:
+  httpd:
+    update_available: true

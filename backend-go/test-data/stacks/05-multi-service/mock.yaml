@@ -1,0 +1,4 @@
+status: running
+services:
+  db:
+    health: unhealthy

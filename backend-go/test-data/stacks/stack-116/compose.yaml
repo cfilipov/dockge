@@ -4,7 +4,12 @@ services:
     restart: unless-stopped
     ports:
       - "10116:80"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
   busybox-1:
     image: busybox:latest
     command: sleep infinity
     restart: unless-stopped
+
+volumes:
+  elasticsearch-data:

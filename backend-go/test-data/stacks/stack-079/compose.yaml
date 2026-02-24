@@ -4,67 +4,133 @@ services:
     restart: unless-stopped
     ports:
       - "10079:80"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - app-net
   python-1:
     image: python:3.12-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   rabbitmq-2:
     image: rabbitmq:3-management
     restart: unless-stopped
+    networks:
+      - app-net
   elasticsearch-3:
     image: elasticsearch:8.12.0
     restart: unless-stopped
+    volumes:
+      - elasticsearch-3-data:/usr/share/elasticsearch/data
+    networks:
+      - app-net
   busybox-4:
     image: busybox:latest
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   debian-5:
     image: debian:bookworm-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   php-6:
     image: php:8.3-fpm
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   minio-7:
     image: minio/minio:latest
     restart: unless-stopped
+    volumes:
+      - minio-7-data:/data
+    networks:
+      - app-net
   postgres-8:
     image: postgres:16
     restart: unless-stopped
+    volumes:
+      - postgres-8-data:/var/lib/postgresql/data
+    networks:
+      - app-net
   node-9:
     image: node:20-alpine
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   memcached-10:
     image: memcached:1.6
     restart: unless-stopped
+    networks:
+      - app-net
   grafana-11:
     image: grafana/grafana:latest
     restart: unless-stopped
+    networks:
+      - app-net
   caddy-12:
     image: caddy:2
     restart: unless-stopped
+    networks:
+      - app-net
   ubuntu-13:
     image: ubuntu:24.04
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   ruby-14:
     image: ruby:3.3-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   consul-15:
     image: hashicorp/consul:1.17
     restart: unless-stopped
+    networks:
+      - app-net
   redis-16:
     image: redis:7
     restart: unless-stopped
+    volumes:
+      - redis-16-data:/data
+    networks:
+      - app-net
   mongo-17:
     image: mongo:7
     restart: unless-stopped
+    volumes:
+      - mongo-17-data:/data/db
+    networks:
+      - app-net
   httpd-18:
     image: httpd:2.4
     restart: unless-stopped
+    networks:
+      - app-net
   mariadb-19:
     image: mariadb:11
     restart: unless-stopped
+    volumes:
+      - mariadb-19-data:/var/lib/mysql
+    networks:
+      - app-net
+
+volumes:
+  mysql-data:
+  elasticsearch-3-data:
+  minio-7-data:
+  postgres-8-data:
+  redis-16-data:
+  mongo-17-data:
+  mariadb-19-data:
+
+networks:
+  app-net:

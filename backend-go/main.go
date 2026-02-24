@@ -141,14 +141,16 @@ func main() {
         seedDevStacks(cfg.StacksDir)
     }
 
-    // Mock state (shared between MockClient and MockCompose)
+    // Mock state and data (shared between MockClient and MockCompose)
     var mockState *docker.MockState
+    var mockData *docker.MockData
     if cfg.Mock {
-        mockState = docker.DefaultDevState()
+        mockData = docker.BuildMockData(cfg.StacksDir)
+        mockState = docker.DefaultDevStateFromData(mockData)
     }
 
     // Docker client (SDK or mock)
-    dockerClient, err := docker.NewClient(cfg.Mock, cfg.StacksDir, mockState)
+    dockerClient, err := docker.NewClient(cfg.Mock, cfg.StacksDir, mockState, mockData)
     if err != nil {
         slog.Error("docker client", "err", err)
         os.Exit(1)

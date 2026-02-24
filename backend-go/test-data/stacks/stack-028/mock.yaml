@@ -1,0 +1,4 @@
+status: running
+services:
+  minio-1:
+    state: exited

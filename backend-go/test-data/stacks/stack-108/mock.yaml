@@ -1,0 +1,4 @@
+status: running
+services:
+  rabbitmq-1:
+    state: exited

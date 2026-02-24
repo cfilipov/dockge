@@ -5,9 +5,26 @@ services:
     restart: unless-stopped
     ports:
       - "10078:80"
+    networks:
+      - app-net
   minio-1:
     image: minio/minio:latest
     restart: unless-stopped
+    volumes:
+      - minio-1-data:/data
+    networks:
+      - app-net
   postgres-2:
     image: postgres:16
     restart: unless-stopped
+    volumes:
+      - postgres-2-data:/var/lib/postgresql/data
+    networks:
+      - app-net
+
+volumes:
+  minio-1-data:
+  postgres-2-data:
+
+networks:
+  app-net:

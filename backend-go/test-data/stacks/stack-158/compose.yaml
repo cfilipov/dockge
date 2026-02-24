@@ -5,9 +5,23 @@ services:
     restart: unless-stopped
     ports:
       - "10158:80"
+    networks:
+      - app-net
   rabbitmq-1:
     image: rabbitmq:3-management
     restart: unless-stopped
+    networks:
+      - app-net
   elasticsearch-2:
     image: elasticsearch:8.12.0
     restart: unless-stopped
+    volumes:
+      - elasticsearch-2-data:/usr/share/elasticsearch/data
+    networks:
+      - app-net
+
+volumes:
+  elasticsearch-2-data:
+
+networks:
+  app-net:

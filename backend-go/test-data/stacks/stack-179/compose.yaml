@@ -4,31 +4,66 @@ services:
     restart: unless-stopped
     ports:
       - "10179:80"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - app-net
   python-1:
     image: python:3.12-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   rabbitmq-2:
     image: rabbitmq:3-management
     restart: unless-stopped
+    networks:
+      - app-net
   elasticsearch-3:
     image: elasticsearch:8.12.0
     restart: unless-stopped
+    volumes:
+      - elasticsearch-3-data:/usr/share/elasticsearch/data
+    networks:
+      - app-net
   busybox-4:
     image: busybox:latest
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   debian-5:
     image: debian:bookworm-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   php-6:
     image: php:8.3-fpm
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   minio-7:
     image: minio/minio:latest
     restart: unless-stopped
+    volumes:
+      - minio-7-data:/data
+    networks:
+      - app-net
   postgres-8:
     image: postgres:16
     restart: unless-stopped
+    volumes:
+      - postgres-8-data:/var/lib/postgresql/data
+    networks:
+      - app-net
+
+volumes:
+  mysql-data:
+  elasticsearch-3-data:
+  minio-7-data:
+  postgres-8-data:
+
+networks:
+  app-net:

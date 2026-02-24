@@ -4,29 +4,58 @@ services:
     restart: unless-stopped
     ports:
       - "10169:80"
+    networks:
+      - app-net
   grafana-1:
     image: grafana/grafana:latest
     restart: unless-stopped
+    networks:
+      - app-net
   caddy-2:
     image: caddy:2
     restart: unless-stopped
+    networks:
+      - app-net
   ubuntu-3:
     image: ubuntu:24.04
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   ruby-4:
     image: ruby:3.3-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   consul-5:
     image: hashicorp/consul:1.17
     restart: unless-stopped
+    networks:
+      - app-net
   redis-6:
     image: redis:7
     restart: unless-stopped
+    volumes:
+      - redis-6-data:/data
+    networks:
+      - app-net
   mongo-7:
     image: mongo:7
     restart: unless-stopped
+    volumes:
+      - mongo-7-data:/data/db
+    networks:
+      - app-net
   httpd-8:
     image: httpd:2.4
     restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  redis-6-data:
+  mongo-7-data:
+
+networks:
+  app-net:

@@ -1,0 +1,4 @@
+status: running
+services:
+  mongo-1:
+    state: exited

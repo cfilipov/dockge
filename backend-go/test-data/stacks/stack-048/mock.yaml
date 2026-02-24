@@ -1,0 +1,4 @@
+status: running
+services:
+  caddy-1:
+    state: exited

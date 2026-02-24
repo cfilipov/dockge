@@ -4,6 +4,14 @@ services:
     restart: unless-stopped
     ports:
       - "10057:80"
+    volumes:
+      - minio-data:/data
   postgres-1:
     image: postgres:16
     restart: unless-stopped
+    volumes:
+      - postgres-1-data:/var/lib/postgresql/data
+
+volumes:
+  minio-data:
+  postgres-1-data:

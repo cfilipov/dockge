@@ -9,8 +9,9 @@ import (
 // It is shared between MockClient and MockCompose so both see the same
 // running/exited/inactive status for each stack.
 type MockState struct {
-	mu     sync.RWMutex
-	stacks map[string]string // stackName → status ("running", "exited", "inactive")
+	mu       sync.RWMutex
+	stacks   map[string]string // stackName → status ("running", "exited", "inactive")
+	defaults map[string]string // initial state to restore on Reset()
 }
 
 // NewMockState returns an empty MockState (useful for tests).
@@ -24,10 +25,15 @@ func NewMockStateFrom(defaults map[string]string) *MockState {
 	for k, v := range defaults {
 		m[k] = v
 	}
-	return &MockState{stacks: m}
+	d := make(map[string]string, len(defaults))
+	for k, v := range defaults {
+		d[k] = v
+	}
+	return &MockState{stacks: m, defaults: d}
 }
 
 // defaultDevStateMap returns the default state map for dev/test use.
+// This is the hardcoded fallback; prefer DefaultDevStateFromData when MockData is available.
 func defaultDevStateMap() map[string]string {
 	m := make(map[string]string, 210)
 
@@ -60,19 +66,40 @@ func defaultDevStateMap() map[string]string {
 	return m
 }
 
-// DefaultDevState returns state for all 200+ test stacks.
+// DefaultDevState returns state for all 200+ test stacks using the hardcoded map.
 // Featured stacks (00–09) get explicit statuses; filler stacks (010–199)
 // are assigned ~60% running, ~20% exited, ~20% inactive based on index.
 func DefaultDevState() *MockState {
 	return NewMockStateFrom(defaultDevStateMap())
 }
 
-// Reset restores the mock state to DefaultDevState, discarding any
+// DefaultDevStateFromData builds the initial state map from MockData.
+// For stacks with mock.yaml status, uses that. For filler stacks without
+// mock.yaml, uses the 60/20/20 distribution based on index.
+func DefaultDevStateFromData(data *MockData) *MockState {
+	base := defaultDevStateMap()
+
+	// Override with mock.yaml statuses
+	for name, status := range data.stackStatuses {
+		base[name] = status
+	}
+
+	return NewMockStateFrom(base)
+}
+
+// Reset restores the mock state to its initial defaults, discarding any
 // mutations made by tests (start/stop/down operations).
 func (s *MockState) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.stacks = defaultDevStateMap()
+	if s.defaults != nil {
+		s.stacks = make(map[string]string, len(s.defaults))
+		for k, v := range s.defaults {
+			s.stacks[k] = v
+		}
+	} else {
+		s.stacks = defaultDevStateMap()
+	}
 }
 
 // Get returns the status for a stack, or "inactive" if not present.

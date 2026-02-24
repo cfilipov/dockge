@@ -4,7 +4,12 @@ services:
     restart: unless-stopped
     ports:
       - "10186:80"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
   node-1:
     image: node:20-alpine
     command: sleep infinity
     restart: unless-stopped
+
+volumes:
+  postgres-data:

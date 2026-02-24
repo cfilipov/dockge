@@ -5,26 +5,53 @@ services:
     restart: unless-stopped
     ports:
       - "10049:80"
+    networks:
+      - app-net
   php-1:
     image: php:8.3-fpm
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   minio-2:
     image: minio/minio:latest
     restart: unless-stopped
+    volumes:
+      - minio-2-data:/data
+    networks:
+      - app-net
   postgres-3:
     image: postgres:16
     restart: unless-stopped
+    volumes:
+      - postgres-3-data:/var/lib/postgresql/data
+    networks:
+      - app-net
   node-4:
     image: node:20-alpine
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   memcached-5:
     image: memcached:1.6
     restart: unless-stopped
+    networks:
+      - app-net
   grafana-6:
     image: grafana/grafana:latest
     restart: unless-stopped
+    networks:
+      - app-net
   caddy-7:
     image: caddy:2
     restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  minio-2-data:
+  postgres-3-data:
+
+networks:
+  app-net:

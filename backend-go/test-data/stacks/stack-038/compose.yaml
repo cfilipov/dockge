@@ -5,13 +5,24 @@ services:
     restart: unless-stopped
     ports:
       - "10038:80"
+    networks:
+      - app-net
   golang-1:
     image: golang:1.22
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   vault-2:
     image: hashicorp/vault:1.15
     restart: unless-stopped
+    networks:
+      - app-net
   nginx-3:
     image: nginx:latest
     restart: unless-stopped
+    networks:
+      - app-net
+
+networks:
+  app-net:

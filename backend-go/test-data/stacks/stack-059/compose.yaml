@@ -4,27 +4,51 @@ services:
     restart: unless-stopped
     ports:
       - "10059:80"
+    networks:
+      - app-net
   alpine-1:
     image: alpine:latest
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   golang-2:
     image: golang:1.22
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   vault-3:
     image: hashicorp/vault:1.15
     restart: unless-stopped
+    networks:
+      - app-net
   nginx-4:
     image: nginx:latest
     restart: unless-stopped
+    networks:
+      - app-net
   mysql-5:
     image: mysql:8.0
     restart: unless-stopped
+    volumes:
+      - mysql-5-data:/var/lib/mysql
+    networks:
+      - app-net
   python-6:
     image: python:3.12-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   rabbitmq-7:
     image: rabbitmq:3-management
     restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  mysql-5-data:
+
+networks:
+  app-net:

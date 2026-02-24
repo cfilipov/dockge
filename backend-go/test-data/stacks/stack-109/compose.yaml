@@ -4,52 +4,99 @@ services:
     restart: unless-stopped
     ports:
       - "10109:80"
+    networks:
+      - app-net
   alpine-1:
     image: alpine:latest
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   golang-2:
     image: golang:1.22
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   vault-3:
     image: hashicorp/vault:1.15
     restart: unless-stopped
+    networks:
+      - app-net
   nginx-4:
     image: nginx:latest
     restart: unless-stopped
+    networks:
+      - app-net
   mysql-5:
     image: mysql:8.0
     restart: unless-stopped
+    volumes:
+      - mysql-5-data:/var/lib/mysql
+    networks:
+      - app-net
   python-6:
     image: python:3.12-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   rabbitmq-7:
     image: rabbitmq:3-management
     restart: unless-stopped
+    networks:
+      - app-net
   elasticsearch-8:
     image: elasticsearch:8.12.0
     restart: unless-stopped
+    volumes:
+      - elasticsearch-8-data:/usr/share/elasticsearch/data
+    networks:
+      - app-net
   busybox-9:
     image: busybox:latest
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   debian-10:
     image: debian:bookworm-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   php-11:
     image: php:8.3-fpm
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   minio-12:
     image: minio/minio:latest
     restart: unless-stopped
+    volumes:
+      - minio-12-data:/data
+    networks:
+      - app-net
   postgres-13:
     image: postgres:16
     restart: unless-stopped
+    volumes:
+      - postgres-13-data:/var/lib/postgresql/data
+    networks:
+      - app-net
   node-14:
     image: node:20-alpine
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  mysql-5-data:
+  elasticsearch-8-data:
+  minio-12-data:
+  postgres-13-data:
+
+networks:
+  app-net:

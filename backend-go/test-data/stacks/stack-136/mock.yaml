@@ -1,0 +1,4 @@
+status: running
+services:
+  postgres:
+    update_available: true

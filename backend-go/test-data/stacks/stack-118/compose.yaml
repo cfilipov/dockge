@@ -4,9 +4,26 @@ services:
     restart: unless-stopped
     ports:
       - "10118:80"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-net
   mongo-1:
     image: mongo:7
     restart: unless-stopped
+    volumes:
+      - mongo-1-data:/data/db
+    networks:
+      - app-net
   httpd-2:
     image: httpd:2.4
     restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  redis-data:
+  mongo-1-data:
+
+networks:
+  app-net:

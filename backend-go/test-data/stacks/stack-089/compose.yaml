@@ -4,32 +4,66 @@ services:
     restart: unless-stopped
     ports:
       - "10089:80"
+    networks:
+      - app-net
   redis-1:
     image: redis:7
     restart: unless-stopped
+    volumes:
+      - redis-1-data:/data
+    networks:
+      - app-net
   mongo-2:
     image: mongo:7
     restart: unless-stopped
+    volumes:
+      - mongo-2-data:/data/db
+    networks:
+      - app-net
   httpd-3:
     image: httpd:2.4
     restart: unless-stopped
+    networks:
+      - app-net
   mariadb-4:
     image: mariadb:11
     restart: unless-stopped
+    volumes:
+      - mariadb-4-data:/var/lib/mysql
+    networks:
+      - app-net
   traefik-5:
     image: traefik:v3.0
     restart: unless-stopped
+    networks:
+      - app-net
   alpine-6:
     image: alpine:latest
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   golang-7:
     image: golang:1.22
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   vault-8:
     image: hashicorp/vault:1.15
     restart: unless-stopped
+    networks:
+      - app-net
   nginx-9:
     image: nginx:latest
     restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  redis-1-data:
+  mongo-2-data:
+  mariadb-4-data:
+
+networks:
+  app-net:

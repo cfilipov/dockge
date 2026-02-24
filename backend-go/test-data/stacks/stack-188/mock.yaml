@@ -1,0 +1,4 @@
+status: running
+services:
+  golang-1:
+    state: exited

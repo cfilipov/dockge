@@ -4,6 +4,11 @@ services:
     restart: unless-stopped
     ports:
       - "10147:80"
+    volumes:
+      - mongo-data:/data/db
   httpd-1:
     image: httpd:2.4
     restart: unless-stopped
+
+volumes:
+  mongo-data:

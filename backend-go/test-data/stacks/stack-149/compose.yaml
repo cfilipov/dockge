@@ -5,49 +5,99 @@ services:
     restart: unless-stopped
     ports:
       - "10149:80"
+    networks:
+      - app-net
   php-1:
     image: php:8.3-fpm
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   minio-2:
     image: minio/minio:latest
     restart: unless-stopped
+    volumes:
+      - minio-2-data:/data
+    networks:
+      - app-net
   postgres-3:
     image: postgres:16
     restart: unless-stopped
+    volumes:
+      - postgres-3-data:/var/lib/postgresql/data
+    networks:
+      - app-net
   node-4:
     image: node:20-alpine
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   memcached-5:
     image: memcached:1.6
     restart: unless-stopped
+    networks:
+      - app-net
   grafana-6:
     image: grafana/grafana:latest
     restart: unless-stopped
+    networks:
+      - app-net
   caddy-7:
     image: caddy:2
     restart: unless-stopped
+    networks:
+      - app-net
   ubuntu-8:
     image: ubuntu:24.04
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   ruby-9:
     image: ruby:3.3-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   consul-10:
     image: hashicorp/consul:1.17
     restart: unless-stopped
+    networks:
+      - app-net
   redis-11:
     image: redis:7
     restart: unless-stopped
+    volumes:
+      - redis-11-data:/data
+    networks:
+      - app-net
   mongo-12:
     image: mongo:7
     restart: unless-stopped
+    volumes:
+      - mongo-12-data:/data/db
+    networks:
+      - app-net
   httpd-13:
     image: httpd:2.4
     restart: unless-stopped
+    networks:
+      - app-net
   mariadb-14:
     image: mariadb:11
     restart: unless-stopped
+    volumes:
+      - mariadb-14-data:/var/lib/mysql
+    networks:
+      - app-net
+
+volumes:
+  minio-2-data:
+  postgres-3-data:
+  redis-11-data:
+  mongo-12-data:
+  mariadb-14-data:
+
+networks:
+  app-net:

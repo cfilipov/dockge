@@ -4,20 +4,35 @@ services:
     restart: unless-stopped
     ports:
       - "10019:80"
+    networks:
+      - app-net
   grafana-1:
     image: grafana/grafana:latest
     restart: unless-stopped
+    networks:
+      - app-net
   caddy-2:
     image: caddy:2
     restart: unless-stopped
+    networks:
+      - app-net
   ubuntu-3:
     image: ubuntu:24.04
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   ruby-4:
     image: ruby:3.3-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   consul-5:
     image: hashicorp/consul:1.17
     restart: unless-stopped
+    networks:
+      - app-net
+
+networks:
+  app-net:

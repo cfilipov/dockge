@@ -4,49 +4,93 @@ services:
     restart: unless-stopped
     ports:
       - "10069:80"
+    networks:
+      - app-net
   grafana-1:
     image: grafana/grafana:latest
     restart: unless-stopped
+    networks:
+      - app-net
   caddy-2:
     image: caddy:2
     restart: unless-stopped
+    networks:
+      - app-net
   ubuntu-3:
     image: ubuntu:24.04
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   ruby-4:
     image: ruby:3.3-slim
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   consul-5:
     image: hashicorp/consul:1.17
     restart: unless-stopped
+    networks:
+      - app-net
   redis-6:
     image: redis:7
     restart: unless-stopped
+    volumes:
+      - redis-6-data:/data
+    networks:
+      - app-net
   mongo-7:
     image: mongo:7
     restart: unless-stopped
+    volumes:
+      - mongo-7-data:/data/db
+    networks:
+      - app-net
   httpd-8:
     image: httpd:2.4
     restart: unless-stopped
+    networks:
+      - app-net
   mariadb-9:
     image: mariadb:11
     restart: unless-stopped
+    volumes:
+      - mariadb-9-data:/var/lib/mysql
+    networks:
+      - app-net
   traefik-10:
     image: traefik:v3.0
     restart: unless-stopped
+    networks:
+      - app-net
   alpine-11:
     image: alpine:latest
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   golang-12:
     image: golang:1.22
     command: sleep infinity
     restart: unless-stopped
+    networks:
+      - app-net
   vault-13:
     image: hashicorp/vault:1.15
     restart: unless-stopped
+    networks:
+      - app-net
   nginx-14:
     image: nginx:latest
     restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  redis-6-data:
+  mongo-7-data:
+  mariadb-9-data:
+
+networks:
+  app-net:

@@ -1,0 +1,5 @@
+status: running
+services:
+  wordpress:
+    running_image: "wordpress:6.3"
+    update_available: true

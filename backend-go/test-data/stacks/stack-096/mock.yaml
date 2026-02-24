@@ -1,0 +1,4 @@
+status: running
+services:
+  vault:
+    update_available: true

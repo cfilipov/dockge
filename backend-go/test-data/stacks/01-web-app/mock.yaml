@@ -1,0 +1,7 @@
+status: running
+services:
+  redis:
+    state: exited
+  nginx:
+    running_image: "nginx:1.24"
+    update_available: true
