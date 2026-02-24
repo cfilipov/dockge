@@ -38,37 +38,49 @@ func BuildContainerListJSON(
     result := make([]ContainerSimpleJSON, 0, total)
 
     for project, containers := range containersByProject {
-        // Look up stack for isManagedByDockge
+        standalone := project == "_standalone"
+
+        // Look up stack for isManagedByDockge (standalone containers are never managed)
         managed := false
-        if s, ok := stacks[project]; ok {
-            managed = s.IsManagedByDockge
+        if !standalone {
+            if s, ok := stacks[project]; ok {
+                managed = s.IsManagedByDockge
+            }
         }
 
         // Get compose images for recreate comparison
         composeImages := composeCache.GetImages(project)
 
         for _, c := range containers {
+            stackName := project
             svc := c.Service
-            if svc == "" {
+            if standalone {
+                stackName = ""
+                if svc == "" {
+                    svc = c.Name
+                }
+            } else if svc == "" {
                 svc = extractServiceFromName(c.Name)
             }
 
             // Recreate check: running image vs compose.yaml image
             recreate := false
-            if compImg, ok := composeImages[svc]; ok && c.Image != "" && compImg != "" && c.Image != compImg {
-                recreate = true
+            if !standalone {
+                if compImg, ok := composeImages[svc]; ok && c.Image != "" && compImg != "" && c.Image != compImg {
+                    recreate = true
+                }
             }
 
             // Image update check
             hasUpdate := false
-            if serviceUpdates != nil {
+            if serviceUpdates != nil && !standalone {
                 hasUpdate = serviceUpdates[project+"/"+svc]
             }
 
             result = append(result, ContainerSimpleJSON{
                 Name:                  c.Name,
                 ServiceName:           svc,
-                StackName:             project,
+                StackName:             stackName,
                 State:                 strings.ToLower(c.State),
                 Health:                strings.ToLower(c.Health),
                 Image:                 c.Image,

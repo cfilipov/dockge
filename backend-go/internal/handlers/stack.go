@@ -272,12 +272,15 @@ func (app *App) refreshStackCache() {
 
     stacks := stack.GetStackListFromContainers(app.StacksDir, containers, app.buildIgnoreMap())
 
-    // Group containers by project for the container cache
+    // Group containers by project for the container cache.
+    // Standalone containers (no compose project) are grouped under "_standalone".
     byProject := make(map[string][]docker.Container, len(containers))
     for _, c := range containers {
-        if c.Project != "" {
-            byProject[c.Project] = append(byProject[c.Project], c)
+        key := c.Project
+        if key == "" {
+            key = "_standalone"
         }
+        byProject[key] = append(byProject[key], c)
     }
 
     stackCacheMu.Lock()

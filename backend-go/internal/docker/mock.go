@@ -79,6 +79,34 @@ func (m *MockClient) ContainerList(ctx context.Context, all bool, projectFilter 
 			})
 		}
 	}
+
+	// Append standalone containers (no compose project) when not filtering by project
+	if projectFilter == "" {
+		standalones := []struct {
+			name  string
+			image string
+			state string
+		}{
+			{"portainer", "portainer/portainer-ce:latest", "running"},
+			{"watchtower", "containrrr/watchtower:latest", "running"},
+			{"homeassistant", "ghcr.io/home-assistant/home-assistant:stable", "exited"},
+		}
+		for _, s := range standalones {
+			if !all && s.state != "running" {
+				continue
+			}
+			containers = append(containers, Container{
+				ID:      fmt.Sprintf("mock-standalone-%s", s.name),
+				Name:    s.name,
+				Project: "",
+				Service: "",
+				Image:   s.image,
+				State:   s.state,
+				Health:  "",
+			})
+		}
+	}
+
 	return containers, nil
 }
 
@@ -269,6 +297,9 @@ func (m *MockClient) ImageList(_ context.Context) ([]ImageSummary, error) {
 		{"mysql:8", "573.0MiB", "2026-01-12T11:00:00Z"},
 		{"grafana/grafana:latest", "402.5MiB", "2026-01-20T07:00:00Z"},
 		{"alpine:3.19", "7.4MiB", "2025-12-01T06:00:00Z"},
+		{"portainer/portainer-ce:latest", "295.1MiB", "2026-01-25T08:00:00Z"},
+		{"containrrr/watchtower:latest", "15.2MiB", "2026-01-22T10:00:00Z"},
+		{"ghcr.io/home-assistant/home-assistant:stable", "1.8GiB", "2026-01-28T06:00:00Z"},
 	}
 
 	result := make([]ImageSummary, 0, len(images)+2)
@@ -393,6 +424,27 @@ func (m *MockClient) ImageInspectDetail(_ context.Context, imageRef string) (*Im
 			layers: []ImageLayer{
 				{ID: id[:19], Created: "2025-12-01T06:00:00Z", Size: "0B", Command: "CMD [\"/bin/sh\"]"},
 				{ID: "<missing>", Created: "2025-12-01T05:50:00Z", Size: "7.4MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"portainer/portainer-ce:latest": {
+			size: "295.1MiB", created: "2026-01-25T08:00:00Z", workingDir: "/",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2026-01-25T08:00:00Z", Size: "0B", Command: "ENTRYPOINT [\"/portainer\"]"},
+				{ID: "<missing>", Created: "2026-01-25T07:50:00Z", Size: "295.1MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"containrrr/watchtower:latest": {
+			size: "15.2MiB", created: "2026-01-22T10:00:00Z", workingDir: "/",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2026-01-22T10:00:00Z", Size: "0B", Command: "ENTRYPOINT [\"/watchtower\"]"},
+				{ID: "<missing>", Created: "2026-01-22T09:50:00Z", Size: "15.2MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"ghcr.io/home-assistant/home-assistant:stable": {
+			size: "1.8GiB", created: "2026-01-28T06:00:00Z", workingDir: "/config",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2026-01-28T06:00:00Z", Size: "0B", Command: "CMD [\"python3\" \"-m\" \"homeassistant\" \"--config\" \"/config\"]"},
+				{ID: "<missing>", Created: "2026-01-28T05:50:00Z", Size: "1.8GiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
 			},
 		},
 	}

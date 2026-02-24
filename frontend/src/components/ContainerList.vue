@@ -113,7 +113,7 @@ const filteredContainers = computed(() => {
         result = result.filter((c: any) =>
             c.name.toLowerCase().includes(lowered) ||
             c.serviceName.toLowerCase().includes(lowered) ||
-            c.stackName.toLowerCase().includes(lowered)
+            (c.stackName || "").toLowerCase().includes(lowered)
         );
     }
 
