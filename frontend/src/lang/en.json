@@ -42,6 +42,7 @@
     "general": "General",
     "container": "Container | Containers",
     "scanFolder": "Scan Stacks Folder",
+    "resetMockState": "Reset Mock State",
     "dockerImage": "Image",
     "restartPolicyUnlessStopped": "Unless Stopped",
     "restartPolicyAlways": "Always",

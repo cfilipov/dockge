@@ -29,6 +29,7 @@ func RegisterAuthHandlers(app *App) {
             "version":       app.Version,
             "latestVersion": app.Version,
             "isContainer":   true,
+            "mock":          app.Mock,
         })
 
         // If no users exist, tell the client to show the setup page
@@ -322,6 +323,7 @@ func (app *App) afterLogin(c *ws.Conn) {
         "version":       app.Version,
         "latestVersion": app.Version,
         "isContainer":   true,
+        "mock":          app.Mock,
     })
 
     // NOTE: Do NOT send "autoLogin" here. That event is only for when auth is

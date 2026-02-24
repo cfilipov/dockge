@@ -47,6 +47,12 @@
                             </button>
                         </li>
 
+                        <li v-if="info.mock">
+                            <button class="dropdown-item" @click="resetMockState">
+                                <font-awesome-icon icon="undo" /> {{ $t("resetMockState") }}
+                            </button>
+                        </li>
+
                         <li>
                             <router-link to="/settings/general" class="dropdown-item" :class="{ active: $route.path.includes('settings') }">
                                 <font-awesome-icon icon="cog" /> {{ $t("Settings") }}
@@ -235,6 +241,20 @@ function scanFolder() {
     emitAgent(ALL_ENDPOINTS, "requestStackList", (res: any) => {
         toastRes(res);
     });
+}
+
+async function resetMockState() {
+    try {
+        const resp = await fetch("/api/mock/reset", { method: "POST" });
+        if (resp.ok) {
+            toastRes({ ok: true, msg: "Mock state reset" });
+            emitAgent(ALL_ENDPOINTS, "requestStackList", () => {});
+        } else {
+            toastRes({ ok: false, msg: "Failed to reset mock state" });
+        }
+    } catch (e) {
+        toastRes({ ok: false, msg: "Failed to reset mock state" });
+    }
 }
 </script>
 
