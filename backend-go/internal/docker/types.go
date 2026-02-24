@@ -29,3 +29,45 @@ type ContainerEvent struct {
     Service     string // from com.docker.compose.service label
     ContainerID string
 }
+
+// NetworkSummary holds basic info for network list display.
+type NetworkSummary struct {
+    Name       string `json:"name"`
+    ID         string `json:"id"`
+    Driver     string `json:"driver"`
+    Scope      string `json:"scope"`
+    Internal   bool   `json:"internal"`
+    Attachable bool   `json:"attachable"`
+    Ingress    bool   `json:"ingress"`
+    Containers int    `json:"containers"`
+}
+
+// NetworkDetail holds full info for a single network.
+type NetworkDetail struct {
+    Name       string                   `json:"name"`
+    ID         string                   `json:"id"`
+    Driver     string                   `json:"driver"`
+    Scope      string                   `json:"scope"`
+    Internal   bool                     `json:"internal"`
+    Attachable bool                     `json:"attachable"`
+    Ingress    bool                     `json:"ingress"`
+    IPv6       bool                     `json:"ipv6"`
+    Created    string                   `json:"created"`
+    IPAM       []NetworkIPAM            `json:"ipam"`
+    Containers []NetworkContainerDetail `json:"containers"`
+}
+
+// NetworkIPAM holds IPAM configuration for a network.
+type NetworkIPAM struct {
+    Subnet  string `json:"subnet"`
+    Gateway string `json:"gateway"`
+}
+
+// NetworkContainerDetail holds info about a container connected to a network.
+type NetworkContainerDetail struct {
+    Name        string `json:"name"`
+    ContainerID string `json:"containerId"`
+    IPv4        string `json:"ipv4"`
+    IPv6        string `json:"ipv6"`
+    MAC         string `json:"mac"`
+}

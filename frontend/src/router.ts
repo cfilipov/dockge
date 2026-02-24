@@ -106,8 +106,18 @@ const routes = [
                     },
                     {
                         path: "/networks",
-                        component: StubPage,
-                        props: { title: "Networks" },
+                        children: [
+                            {
+                                path: "",
+                                component: () => import("./pages/NetworkInspect.vue"),
+                                name: "networksHome",
+                            },
+                            {
+                                path: ":networkName",
+                                component: () => import("./pages/NetworkInspect.vue"),
+                                name: "networkDetail",
+                            },
+                        ],
                     },
                     {
                         path: "/logs",

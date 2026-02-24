@@ -102,7 +102,9 @@
                     <h4 class="mb-3">{{ $t("containerNetworks") }}</h4>
                     <div v-if="networks.length > 0">
                         <div v-for="net in networks" :key="net.name" class="shadow-box big-padding mb-3">
-                            <h5 class="mb-2">{{ net.name }}</h5>
+                            <h5 class="mb-3">
+                                <router-link :to="{ name: 'networkDetail', params: { networkName: net.name } }" class="stack-link">{{ net.name }}</router-link>
+                            </h5>
                             <div class="inspect-grid">
                                 <div class="inspect-label">{{ $t("networkIPv4") }}</div>
                                 <div class="inspect-value"><code>{{ net.ipv4 || '–' }}</code></div>

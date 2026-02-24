@@ -38,8 +38,11 @@ type Client interface {
     // Returns column titles and a list of rows (each row is a list of values).
     ContainerTop(ctx context.Context, id string) ([]string, [][]string, error)
 
-    // NetworkList returns the names of all Docker networks.
-    NetworkList(ctx context.Context) ([]string, error)
+    // NetworkList returns summary info for all Docker networks.
+    NetworkList(ctx context.Context) ([]NetworkSummary, error)
+
+    // NetworkInspect returns detailed info for a single Docker network.
+    NetworkInspect(ctx context.Context, networkID string) (*NetworkDetail, error)
 
     // ImagePrune removes unused images. Returns human-readable reclaimed space string.
     ImagePrune(ctx context.Context, all bool) (string, error)

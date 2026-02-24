@@ -93,7 +93,8 @@ function loadNetworkList() {
 function loadExternalNetworkList() {
     emitAgent(endpoint.value, "getDockerNetworkList", (res: any) => {
         if (res.ok) {
-            externalNetworkList.value = res.dockerNetworkList.filter((n: string) => {
+            const names: string[] = res.dockerNetworkList.map((n: any) => typeof n === "string" ? n : n.name);
+            externalNetworkList.value = names.filter((n: string) => {
                 // Filter out this stack networks
                 if (n.startsWith(stack.name + "_")) {
                     return false;

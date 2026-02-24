@@ -289,17 +289,66 @@ func (s *SDKClient) ImagePrune(ctx context.Context, all bool) (string, error) {
     return "Total reclaimed space: " + formatBytes(report.SpaceReclaimed), nil
 }
 
-func (s *SDKClient) NetworkList(ctx context.Context) ([]string, error) {
+func (s *SDKClient) NetworkList(ctx context.Context) ([]NetworkSummary, error) {
     networks, err := s.cli.NetworkList(ctx, network.ListOptions{})
     if err != nil {
         return nil, fmt.Errorf("network list: %w", err)
     }
 
-    names := make([]string, 0, len(networks))
+    result := make([]NetworkSummary, 0, len(networks))
     for _, n := range networks {
-        names = append(names, n.Name)
+        result = append(result, NetworkSummary{
+            Name:       n.Name,
+            ID:         n.ID,
+            Driver:     n.Driver,
+            Scope:      n.Scope,
+            Internal:   n.Internal,
+            Attachable: n.Attachable,
+            Ingress:    n.Ingress,
+            Containers: len(n.Containers),
+        })
     }
-    return names, nil
+    return result, nil
+}
+
+func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*NetworkDetail, error) {
+    raw, err := s.cli.NetworkInspect(ctx, networkID, network.InspectOptions{})
+    if err != nil {
+        return nil, fmt.Errorf("network inspect: %w", err)
+    }
+
+    ipam := make([]NetworkIPAM, 0, len(raw.IPAM.Config))
+    for _, cfg := range raw.IPAM.Config {
+        ipam = append(ipam, NetworkIPAM{
+            Subnet:  cfg.Subnet,
+            Gateway: cfg.Gateway,
+        })
+    }
+
+    containers := make([]NetworkContainerDetail, 0, len(raw.Containers))
+    for id, ep := range raw.Containers {
+        containers = append(containers, NetworkContainerDetail{
+            Name:        ep.Name,
+            ContainerID: id,
+            IPv4:        ep.IPv4Address,
+            IPv6:        ep.IPv6Address,
+            MAC:         ep.MacAddress,
+        })
+    }
+
+    return &NetworkDetail{
+        Name:       raw.Name,
+        ID:         raw.ID,
+        Driver:     raw.Driver,
+        Scope:      raw.Scope,
+        Internal:   raw.Internal,
+        Attachable: raw.Attachable,
+        Ingress:    raw.Ingress,
+        IPv6:       raw.EnableIPv6,
+        Created:    raw.Created.Format("2006-01-02T15:04:05Z"),
+        IPAM:       ipam,
+        Containers: containers,
+    }, nil
 }
 
 func (s *SDKClient) Events(ctx context.Context) (<-chan ContainerEvent, <-chan error) {

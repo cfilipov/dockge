@@ -16,6 +16,7 @@ func RegisterDockerHandlers(app *App) {
     app.WS.Handle("containerInspect", app.handleContainerInspect)
     app.WS.Handle("containerTop", app.handleContainerTop)
     app.WS.Handle("getDockerNetworkList", app.handleGetDockerNetworkList)
+    app.WS.Handle("networkInspect", app.handleNetworkInspect)
     app.WS.Handle("requestContainerList", app.handleRequestContainerList)
 }
 
@@ -259,7 +260,7 @@ func (app *App) handleContainerTop(c *ws.Conn, msg *ws.ClientMessage) {
     }
 }
 
-// handleGetDockerNetworkList returns Docker network names via the Docker client.
+// handleGetDockerNetworkList returns Docker network summaries via the Docker client.
 func (app *App) handleGetDockerNetworkList(c *ws.Conn, msg *ws.ClientMessage) {
     if checkLogin(c, msg) == 0 {
         return
@@ -271,16 +272,54 @@ func (app *App) handleGetDockerNetworkList(c *ws.Conn, msg *ws.ClientMessage) {
     networks, err := app.Docker.NetworkList(ctx)
     if err != nil {
         slog.Warn("getDockerNetworkList", "err", err)
-        networks = []string{}
+        networks = []docker.NetworkSummary{}
     }
 
     if msg.ID != nil {
         c.SendAck(*msg.ID, struct {
-            OK                bool     `json:"ok"`
-            DockerNetworkList []string `json:"dockerNetworkList"`
+            OK                bool                   `json:"ok"`
+            DockerNetworkList []docker.NetworkSummary `json:"dockerNetworkList"`
         }{
             OK:                true,
             DockerNetworkList: networks,
+        })
+    }
+}
+
+// handleNetworkInspect returns detailed info for a single Docker network.
+func (app *App) handleNetworkInspect(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    args := parseArgs(msg)
+    networkName := argString(args, 0)
+    if networkName == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Network name required"})
+        }
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    detail, err := app.Docker.NetworkInspect(ctx, networkName)
+    if err != nil {
+        slog.Warn("networkInspect", "err", err, "network", networkName)
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+        }
+        return
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, struct {
+            OK            bool                `json:"ok"`
+            NetworkDetail *docker.NetworkDetail `json:"networkDetail"`
+        }{
+            OK:            true,
+            NetworkDetail: detail,
         })
     }
 }

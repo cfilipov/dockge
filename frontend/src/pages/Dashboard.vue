@@ -7,6 +7,11 @@
                     <h1 class="mb-3">{{ $t("containersNav") }}</h1>
                     <ContainerList :scrollbar="true" />
                 </template>
+                <!-- Network sidebar for /networks routes -->
+                <template v-else-if="showNetworkSidebar">
+                    <h1 class="mb-3">{{ $t("networksNav") }}</h1>
+                    <NetworkList :scrollbar="true" />
+                </template>
                 <!-- Stack sidebar for all other routes (default) -->
                 <template v-else>
                     <div>
@@ -29,6 +34,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import StackList from "../components/StackList.vue";
 import ContainerList from "../components/ContainerList.vue";
+import NetworkList from "../components/NetworkList.vue";
 import { useTheme } from "../composables/useTheme";
 
 const { isMobile } = useTheme();
@@ -41,6 +47,10 @@ const showContainerSidebar = computed(() => {
     return route.path.startsWith("/containers") ||
            route.path.startsWith("/logs") ||
            route.path.startsWith("/shell");
+});
+
+const showNetworkSidebar = computed(() => {
+    return route.path.startsWith("/networks");
 });
 
 onMounted(() => {

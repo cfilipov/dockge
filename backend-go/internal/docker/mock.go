@@ -252,8 +252,71 @@ func (m *MockClient) ImagePrune(_ context.Context, all bool) (string, error) {
 	return "Total reclaimed space: 0B", nil
 }
 
-func (m *MockClient) NetworkList(_ context.Context) ([]string, error) {
-	return []string{"bridge", "host", "none", "proxy", "monitoring_net", "shared-db"}, nil
+func (m *MockClient) NetworkList(_ context.Context) ([]NetworkSummary, error) {
+	return []NetworkSummary{
+		{Name: "bridge", ID: "mock-net-bridge", Driver: "bridge", Scope: "local", Containers: 4},
+		{Name: "host", ID: "mock-net-host", Driver: "host", Scope: "local", Containers: 0},
+		{Name: "none", ID: "mock-net-none", Driver: "null", Scope: "local", Containers: 0},
+		{Name: "proxy", ID: "mock-net-proxy", Driver: "bridge", Scope: "local", Attachable: true, Containers: 2},
+		{Name: "monitoring_net", ID: "mock-net-monitoring", Driver: "bridge", Scope: "local", Internal: true, Containers: 3},
+		{Name: "shared-db", ID: "mock-net-shared-db", Driver: "bridge", Scope: "local", Containers: 1},
+	}, nil
+}
+
+func (m *MockClient) NetworkInspect(_ context.Context, networkID string) (*NetworkDetail, error) {
+	networks := map[string]*NetworkDetail{
+		"bridge": {
+			Name: "bridge", ID: "mock-net-bridge", Driver: "bridge", Scope: "local",
+			Created: "2026-01-01T00:00:00Z",
+			IPAM:    []NetworkIPAM{{Subnet: "172.17.0.0/16", Gateway: "172.17.0.1"}},
+			Containers: []NetworkContainerDetail{
+				{Name: "01-web-app-nginx-1", ContainerID: "mock-01-web-app-nginx-1", IPv4: "172.17.0.2/16", MAC: "02:42:ac:11:00:02"},
+				{Name: "01-web-app-redis-1", ContainerID: "mock-01-web-app-redis-1", IPv4: "172.17.0.3/16", MAC: "02:42:ac:11:00:03"},
+				{Name: "02-blog-wordpress-1", ContainerID: "mock-02-blog-wordpress-1", IPv4: "172.17.0.4/16", MAC: "02:42:ac:11:00:04"},
+				{Name: "02-blog-mysql-1", ContainerID: "mock-02-blog-mysql-1", IPv4: "172.17.0.5/16", MAC: "02:42:ac:11:00:05"},
+			},
+		},
+		"host":  {Name: "host", ID: "mock-net-host", Driver: "host", Scope: "local", Created: "2026-01-01T00:00:00Z", IPAM: []NetworkIPAM{}, Containers: []NetworkContainerDetail{}},
+		"none":  {Name: "none", ID: "mock-net-none", Driver: "null", Scope: "local", Created: "2026-01-01T00:00:00Z", IPAM: []NetworkIPAM{}, Containers: []NetworkContainerDetail{}},
+		"proxy": {
+			Name: "proxy", ID: "mock-net-proxy", Driver: "bridge", Scope: "local", Attachable: true,
+			Created: "2026-01-15T00:00:00Z",
+			IPAM:    []NetworkIPAM{{Subnet: "172.18.0.0/16", Gateway: "172.18.0.1"}},
+			Containers: []NetworkContainerDetail{
+				{Name: "01-web-app-nginx-1", ContainerID: "mock-01-web-app-nginx-1", IPv4: "172.18.0.2/16", MAC: "02:42:ac:12:00:02"},
+				{Name: "04-database-postgres-1", ContainerID: "mock-04-database-postgres-1", IPv4: "172.18.0.3/16", MAC: "02:42:ac:12:00:03"},
+			},
+		},
+		"monitoring_net": {
+			Name: "monitoring_net", ID: "mock-net-monitoring", Driver: "bridge", Scope: "local", Internal: true,
+			Created: "2026-01-10T00:00:00Z",
+			IPAM:    []NetworkIPAM{{Subnet: "172.19.0.0/16", Gateway: "172.19.0.1"}},
+			Containers: []NetworkContainerDetail{
+				{Name: "05-multi-service-app-1", ContainerID: "mock-05-multi-service-app-1", IPv4: "172.19.0.2/16", MAC: "02:42:ac:13:00:02"},
+				{Name: "05-multi-service-api-1", ContainerID: "mock-05-multi-service-api-1", IPv4: "172.19.0.3/16", MAC: "02:42:ac:13:00:03"},
+				{Name: "05-multi-service-db-1", ContainerID: "mock-05-multi-service-db-1", IPv4: "172.19.0.4/16", MAC: "02:42:ac:13:00:04"},
+			},
+		},
+		"shared-db": {
+			Name: "shared-db", ID: "mock-net-shared-db", Driver: "bridge", Scope: "local",
+			Created: "2026-02-01T00:00:00Z",
+			IPAM:    []NetworkIPAM{{Subnet: "172.20.0.0/16", Gateway: "172.20.0.1"}},
+			Containers: []NetworkContainerDetail{
+				{Name: "02-blog-mysql-1", ContainerID: "mock-02-blog-mysql-1", IPv4: "172.20.0.2/16", MAC: "02:42:ac:14:00:02"},
+			},
+		},
+	}
+
+	// Look up by name or ID
+	if detail, ok := networks[networkID]; ok {
+		return detail, nil
+	}
+	for _, detail := range networks {
+		if detail.ID == networkID {
+			return detail, nil
+		}
+	}
+	return nil, fmt.Errorf("network not found: %s", networkID)
 }
 
 // Events synthesizes container events by polling the in-memory state every 60s
