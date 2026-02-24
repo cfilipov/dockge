@@ -12,8 +12,6 @@ import ContainerInspect from "./pages/ContainerInspect.vue";
 import ContainerShell from "./pages/ContainerShell.vue";
 import ContainerLogs from "./pages/ContainerLogs.vue";
 import ComposeYaml from "./pages/ComposeYaml.vue";
-import StubPage from "./pages/StubPage.vue";
-
 const Settings = () => import("./pages/Settings.vue");
 
 // Settings - Sub Pages
@@ -186,8 +184,18 @@ const routes = [
                     },
                     {
                         path: "/volumes",
-                        component: StubPage,
-                        props: { title: "Volumes" },
+                        children: [
+                            {
+                                path: "",
+                                component: () => import("./pages/VolumeInspect.vue"),
+                                name: "volumesHome",
+                            },
+                            {
+                                path: ":volumeName(.*)",
+                                component: () => import("./pages/VolumeInspect.vue"),
+                                name: "volumeDetail",
+                            },
+                        ],
                     },
                     {
                         path: "/settings",

@@ -282,5 +282,15 @@
     "imageUnused": "unused",
     "imageDangling": "dangling",
     "imageLayerMissing": "<missing>",
-    "overviewName": "Name"
+    "overviewName": "Name",
+    "volumeDriver": "Driver",
+    "volumeScope": "Scope",
+    "volumeMountpoint": "Mountpoint",
+    "volumeCreatedAt": "Created",
+    "volumeContainers": "Containers",
+    "noVolumeSelected": "Select a volume from the list.",
+    "noVolumeContainers": "No containers using this volume.",
+    "volumeInUse": "in use",
+    "volumeUnused": "unused",
+    "mountVolume": "Volume"
 }

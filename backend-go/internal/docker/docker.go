@@ -54,6 +54,12 @@ type Client interface {
     // ImagePrune removes unused images. Returns human-readable reclaimed space string.
     ImagePrune(ctx context.Context, all bool) (string, error)
 
+    // VolumeList returns summary info for all Docker volumes.
+    VolumeList(ctx context.Context) ([]VolumeSummary, error)
+
+    // VolumeInspect returns detailed info for a single Docker volume.
+    VolumeInspect(ctx context.Context, volumeName string) (*VolumeDetail, error)
+
     // Events returns a channel of container lifecycle events and an error channel.
     // The channels are closed when the context is cancelled.
     Events(ctx context.Context) (<-chan ContainerEvent, <-chan error)

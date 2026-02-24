@@ -70,6 +70,7 @@ type NetworkContainerDetail struct {
     IPv4        string `json:"ipv4"`
     IPv6        string `json:"ipv6"`
     MAC         string `json:"mac"`
+    State       string `json:"state"`
 }
 
 // ImageSummary holds basic info for image list display.
@@ -105,6 +106,31 @@ type ImageLayer struct {
 
 // ImageContainer holds info about a container using a specific image.
 type ImageContainer struct {
+    Name        string `json:"name"`
+    ContainerID string `json:"containerId"`
+    State       string `json:"state"`
+}
+
+// VolumeSummary holds basic info for volume list display.
+type VolumeSummary struct {
+    Name       string `json:"name"`
+    Driver     string `json:"driver"`
+    Mountpoint string `json:"mountpoint"`
+    Containers int    `json:"containers"`
+}
+
+// VolumeDetail holds full info for a single volume.
+type VolumeDetail struct {
+    Name       string            `json:"name"`
+    Driver     string            `json:"driver"`
+    Mountpoint string            `json:"mountpoint"`
+    Scope      string            `json:"scope"`
+    Created    string            `json:"created"`
+    Containers []VolumeContainer `json:"containers"`
+}
+
+// VolumeContainer holds info about a container using a specific volume.
+type VolumeContainer struct {
     Name        string `json:"name"`
     ContainerID string `json:"containerId"`
     State       string `json:"state"`

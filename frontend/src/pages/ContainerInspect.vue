@@ -141,6 +141,13 @@
                                 <div class="inspect-label">{{ $t("mountType") }}</div>
                                 <div class="inspect-value">{{ mount.Type }}</div>
 
+                                <template v-if="mount.Type === 'volume' && mount.Name">
+                                    <div class="inspect-label">{{ $t("mountVolume") }}</div>
+                                    <div class="inspect-value">
+                                        <router-link :to="{ name: 'volumeDetail', params: { volumeName: mount.Name } }" class="stack-link">{{ mount.Name }}</router-link>
+                                    </div>
+                                </template>
+
                                 <div class="inspect-label">{{ $t("mountSource") }}</div>
                                 <div class="inspect-value"><code>{{ mount.Source || mount.Name || '–' }}</code></div>
 

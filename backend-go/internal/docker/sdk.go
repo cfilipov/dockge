@@ -17,6 +17,7 @@ import (
     "github.com/docker/docker/api/types/filters"
     "github.com/docker/docker/api/types/image"
     "github.com/docker/docker/api/types/network"
+    "github.com/docker/docker/api/types/volume"
     "github.com/docker/docker/client"
     "github.com/docker/docker/pkg/stdcopy"
 )
@@ -449,6 +450,13 @@ func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*Netw
         })
     }
 
+    // Fetch container states to include in the response
+    allContainers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
+    stateByID := make(map[string]string, len(allContainers))
+    for _, c := range allContainers {
+        stateByID[c.ID] = c.State
+    }
+
     containers := make([]NetworkContainerDetail, 0, len(raw.Containers))
     for id, ep := range raw.Containers {
         containers = append(containers, NetworkContainerDetail{
@@ -457,6 +465,7 @@ func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*Netw
             IPv4:        ep.IPv4Address,
             IPv6:        ep.IPv6Address,
             MAC:         ep.MacAddress,
+            State:       stateByID[id],
         })
     }
 
@@ -472,6 +481,74 @@ func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*Netw
         Created:    raw.Created.Format("2006-01-02T15:04:05Z"),
         IPAM:       ipam,
         Containers: containers,
+    }, nil
+}
+
+func (s *SDKClient) VolumeList(ctx context.Context) ([]VolumeSummary, error) {
+    volResp, err := s.cli.VolumeList(ctx, volume.ListOptions{})
+    if err != nil {
+        return nil, fmt.Errorf("volume list: %w", err)
+    }
+
+    // Count containers per volume name
+    containers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
+    countByVol := make(map[string]int)
+    for _, c := range containers {
+        for _, m := range c.Mounts {
+            if m.Type == "volume" {
+                countByVol[m.Name]++
+            }
+        }
+    }
+
+    result := make([]VolumeSummary, 0, len(volResp.Volumes))
+    for _, v := range volResp.Volumes {
+        result = append(result, VolumeSummary{
+            Name:       v.Name,
+            Driver:     v.Driver,
+            Mountpoint: v.Mountpoint,
+            Containers: countByVol[v.Name],
+        })
+    }
+    return result, nil
+}
+
+func (s *SDKClient) VolumeInspect(ctx context.Context, volumeName string) (*VolumeDetail, error) {
+    raw, err := s.cli.VolumeInspect(ctx, volumeName)
+    if err != nil {
+        return nil, fmt.Errorf("volume inspect: %w", err)
+    }
+
+    // Find containers using this volume
+    allContainers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
+    var volContainers []VolumeContainer
+    for _, c := range allContainers {
+        for _, m := range c.Mounts {
+            if m.Type == "volume" && m.Name == volumeName {
+                name := ""
+                if len(c.Names) > 0 {
+                    name = strings.TrimPrefix(c.Names[0], "/")
+                }
+                volContainers = append(volContainers, VolumeContainer{
+                    Name:        name,
+                    ContainerID: c.ID,
+                    State:       c.State,
+                })
+                break
+            }
+        }
+    }
+    if volContainers == nil {
+        volContainers = []VolumeContainer{}
+    }
+
+    return &VolumeDetail{
+        Name:       raw.Name,
+        Driver:     raw.Driver,
+        Mountpoint: raw.Mountpoint,
+        Scope:      raw.Scope,
+        Created:    raw.CreatedAt,
+        Containers: volContainers,
     }, nil
 }
 

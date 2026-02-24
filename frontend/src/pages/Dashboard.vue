@@ -17,6 +17,11 @@
                     <h1 class="mb-3">{{ $t("imagesNav") }}</h1>
                     <ImageList :scrollbar="true" />
                 </template>
+                <!-- Volume sidebar for /volumes routes -->
+                <template v-else-if="showVolumeSidebar">
+                    <h1 class="mb-3">{{ $t("volumesNav") }}</h1>
+                    <VolumeList :scrollbar="true" />
+                </template>
                 <!-- Stack sidebar for all other routes (default) -->
                 <template v-else>
                     <div>
@@ -41,6 +46,7 @@ import StackList from "../components/StackList.vue";
 import ContainerList from "../components/ContainerList.vue";
 import NetworkList from "../components/NetworkList.vue";
 import ImageList from "../components/ImageList.vue";
+import VolumeList from "../components/VolumeList.vue";
 import { useTheme } from "../composables/useTheme";
 
 const { isMobile } = useTheme();
@@ -61,6 +67,10 @@ const showNetworkSidebar = computed(() => {
 
 const showImageSidebar = computed(() => {
     return route.path.startsWith("/images");
+});
+
+const showVolumeSidebar = computed(() => {
+    return route.path.startsWith("/volumes");
 });
 
 onMounted(() => {

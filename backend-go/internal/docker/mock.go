@@ -467,10 +467,10 @@ func (m *MockClient) NetworkInspect(_ context.Context, networkID string) (*Netwo
 			Created: "2026-01-01T00:00:00Z",
 			IPAM:    []NetworkIPAM{{Subnet: "172.17.0.0/16", Gateway: "172.17.0.1"}},
 			Containers: []NetworkContainerDetail{
-				{Name: "01-web-app-nginx-1", ContainerID: "mock-01-web-app-nginx-1", IPv4: "172.17.0.2/16", MAC: "02:42:ac:11:00:02"},
-				{Name: "01-web-app-redis-1", ContainerID: "mock-01-web-app-redis-1", IPv4: "172.17.0.3/16", MAC: "02:42:ac:11:00:03"},
-				{Name: "02-blog-wordpress-1", ContainerID: "mock-02-blog-wordpress-1", IPv4: "172.17.0.4/16", MAC: "02:42:ac:11:00:04"},
-				{Name: "02-blog-mysql-1", ContainerID: "mock-02-blog-mysql-1", IPv4: "172.17.0.5/16", MAC: "02:42:ac:11:00:05"},
+				{Name: "01-web-app-nginx-1", ContainerID: "mock-01-web-app-nginx-1", IPv4: "172.17.0.2/16", MAC: "02:42:ac:11:00:02", State: "running"},
+				{Name: "01-web-app-redis-1", ContainerID: "mock-01-web-app-redis-1", IPv4: "172.17.0.3/16", MAC: "02:42:ac:11:00:03", State: "exited"},
+				{Name: "02-blog-wordpress-1", ContainerID: "mock-02-blog-wordpress-1", IPv4: "172.17.0.4/16", MAC: "02:42:ac:11:00:04", State: "running"},
+				{Name: "02-blog-mysql-1", ContainerID: "mock-02-blog-mysql-1", IPv4: "172.17.0.5/16", MAC: "02:42:ac:11:00:05", State: "running"},
 			},
 		},
 		"host":  {Name: "host", ID: "mock-net-host", Driver: "host", Scope: "local", Created: "2026-01-01T00:00:00Z", IPAM: []NetworkIPAM{}, Containers: []NetworkContainerDetail{}},
@@ -480,8 +480,8 @@ func (m *MockClient) NetworkInspect(_ context.Context, networkID string) (*Netwo
 			Created: "2026-01-15T00:00:00Z",
 			IPAM:    []NetworkIPAM{{Subnet: "172.18.0.0/16", Gateway: "172.18.0.1"}},
 			Containers: []NetworkContainerDetail{
-				{Name: "01-web-app-nginx-1", ContainerID: "mock-01-web-app-nginx-1", IPv4: "172.18.0.2/16", MAC: "02:42:ac:12:00:02"},
-				{Name: "04-database-postgres-1", ContainerID: "mock-04-database-postgres-1", IPv4: "172.18.0.3/16", MAC: "02:42:ac:12:00:03"},
+				{Name: "01-web-app-nginx-1", ContainerID: "mock-01-web-app-nginx-1", IPv4: "172.18.0.2/16", MAC: "02:42:ac:12:00:02", State: "running"},
+				{Name: "04-database-postgres-1", ContainerID: "mock-04-database-postgres-1", IPv4: "172.18.0.3/16", MAC: "02:42:ac:12:00:03", State: "running"},
 			},
 		},
 		"monitoring_net": {
@@ -489,9 +489,9 @@ func (m *MockClient) NetworkInspect(_ context.Context, networkID string) (*Netwo
 			Created: "2026-01-10T00:00:00Z",
 			IPAM:    []NetworkIPAM{{Subnet: "172.19.0.0/16", Gateway: "172.19.0.1"}},
 			Containers: []NetworkContainerDetail{
-				{Name: "05-multi-service-app-1", ContainerID: "mock-05-multi-service-app-1", IPv4: "172.19.0.2/16", MAC: "02:42:ac:13:00:02"},
-				{Name: "05-multi-service-api-1", ContainerID: "mock-05-multi-service-api-1", IPv4: "172.19.0.3/16", MAC: "02:42:ac:13:00:03"},
-				{Name: "05-multi-service-db-1", ContainerID: "mock-05-multi-service-db-1", IPv4: "172.19.0.4/16", MAC: "02:42:ac:13:00:04"},
+				{Name: "05-multi-service-app-1", ContainerID: "mock-05-multi-service-app-1", IPv4: "172.19.0.2/16", MAC: "02:42:ac:13:00:02", State: "running"},
+				{Name: "05-multi-service-api-1", ContainerID: "mock-05-multi-service-api-1", IPv4: "172.19.0.3/16", MAC: "02:42:ac:13:00:03", State: "running"},
+				{Name: "05-multi-service-db-1", ContainerID: "mock-05-multi-service-db-1", IPv4: "172.19.0.4/16", MAC: "02:42:ac:13:00:04", State: "running"},
 			},
 		},
 		"shared-db": {
@@ -499,7 +499,7 @@ func (m *MockClient) NetworkInspect(_ context.Context, networkID string) (*Netwo
 			Created: "2026-02-01T00:00:00Z",
 			IPAM:    []NetworkIPAM{{Subnet: "172.20.0.0/16", Gateway: "172.20.0.1"}},
 			Containers: []NetworkContainerDetail{
-				{Name: "02-blog-mysql-1", ContainerID: "mock-02-blog-mysql-1", IPv4: "172.20.0.2/16", MAC: "02:42:ac:14:00:02"},
+				{Name: "02-blog-mysql-1", ContainerID: "mock-02-blog-mysql-1", IPv4: "172.20.0.2/16", MAC: "02:42:ac:14:00:02", State: "running"},
 			},
 		},
 	}
@@ -514,6 +514,74 @@ func (m *MockClient) NetworkInspect(_ context.Context, networkID string) (*Netwo
 		}
 	}
 	return nil, fmt.Errorf("network not found: %s", networkID)
+}
+
+func (m *MockClient) VolumeList(_ context.Context) ([]VolumeSummary, error) {
+	return []VolumeSummary{
+		{Name: "web-app_redis-data", Driver: "local", Mountpoint: "/var/lib/docker/volumes/web-app_redis-data/_data", Containers: 1},
+		{Name: "blog_mysql-data", Driver: "local", Mountpoint: "/var/lib/docker/volumes/blog_mysql-data/_data", Containers: 1},
+		{Name: "monitoring_grafana-data", Driver: "local", Mountpoint: "/var/lib/docker/volumes/monitoring_grafana-data/_data", Containers: 1},
+		{Name: "database_pg-data", Driver: "local", Mountpoint: "/var/lib/docker/volumes/database_pg-data/_data", Containers: 1},
+		{Name: "shared-assets", Driver: "local", Mountpoint: "/var/lib/docker/volumes/shared-assets/_data", Containers: 2},
+		{Name: "backup-storage", Driver: "local", Mountpoint: "/var/lib/docker/volumes/backup-storage/_data", Containers: 0},
+	}, nil
+}
+
+func (m *MockClient) VolumeInspect(_ context.Context, volumeName string) (*VolumeDetail, error) {
+	volumes := map[string]*VolumeDetail{
+		"web-app_redis-data": {
+			Name: "web-app_redis-data", Driver: "local", Scope: "local",
+			Mountpoint: "/var/lib/docker/volumes/web-app_redis-data/_data",
+			Created:    "2026-01-15T10:00:00Z",
+			Containers: []VolumeContainer{
+				{Name: "01-web-app-redis-1", ContainerID: "mock-01-web-app-redis-1", State: "running"},
+			},
+		},
+		"blog_mysql-data": {
+			Name: "blog_mysql-data", Driver: "local", Scope: "local",
+			Mountpoint: "/var/lib/docker/volumes/blog_mysql-data/_data",
+			Created:    "2026-01-12T11:00:00Z",
+			Containers: []VolumeContainer{
+				{Name: "02-blog-mysql-1", ContainerID: "mock-02-blog-mysql-1", State: "running"},
+			},
+		},
+		"monitoring_grafana-data": {
+			Name: "monitoring_grafana-data", Driver: "local", Scope: "local",
+			Mountpoint: "/var/lib/docker/volumes/monitoring_grafana-data/_data",
+			Created:    "2026-01-20T07:00:00Z",
+			Containers: []VolumeContainer{
+				{Name: "03-monitoring-grafana-1", ContainerID: "mock-03-monitoring-grafana-1", State: "running"},
+			},
+		},
+		"database_pg-data": {
+			Name: "database_pg-data", Driver: "local", Scope: "local",
+			Mountpoint: "/var/lib/docker/volumes/database_pg-data/_data",
+			Created:    "2026-02-01T00:00:00Z",
+			Containers: []VolumeContainer{
+				{Name: "04-database-postgres-1", ContainerID: "mock-04-database-postgres-1", State: "running"},
+			},
+		},
+		"shared-assets": {
+			Name: "shared-assets", Driver: "local", Scope: "local",
+			Mountpoint: "/var/lib/docker/volumes/shared-assets/_data",
+			Created:    "2026-01-10T00:00:00Z",
+			Containers: []VolumeContainer{
+				{Name: "05-multi-service-app-1", ContainerID: "mock-05-multi-service-app-1", State: "running"},
+				{Name: "05-multi-service-api-1", ContainerID: "mock-05-multi-service-api-1", State: "running"},
+			},
+		},
+		"backup-storage": {
+			Name: "backup-storage", Driver: "local", Scope: "local",
+			Mountpoint: "/var/lib/docker/volumes/backup-storage/_data",
+			Created:    "2025-12-01T00:00:00Z",
+			Containers: []VolumeContainer{},
+		},
+	}
+
+	if detail, ok := volumes[volumeName]; ok {
+		return detail, nil
+	}
+	return nil, fmt.Errorf("volume not found: %s", volumeName)
 }
 
 // Events synthesizes container events by polling the in-memory state every 60s

@@ -24,6 +24,11 @@
 
                                 <div class="inspect-label">{{ $t("networkMAC") }}</div>
                                 <div class="inspect-value"><code>{{ c.mac || '–' }}</code></div>
+
+                                <div class="inspect-label">{{ $t("status") }}</div>
+                                <div class="inspect-value">
+                                    <span class="badge rounded-pill" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -118,6 +123,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
+import { StackStatusInfo } from "../../../common/util-common";
 
 const route = useRoute();
 const { t } = useI18n();
@@ -148,6 +154,21 @@ const primaryGateway = computed(() => {
     if (!networkDetail.value?.ipam?.length) return "";
     return networkDetail.value.ipam[0].gateway || "";
 });
+
+function containerStatusLabel(c: Record<string, any>): string {
+    if (c.state === "running" && c.health === "unhealthy") return "unhealthy";
+    if (c.state === "running") return "active";
+    if (c.state === "exited" || c.state === "dead") return "exited";
+    if (c.state === "paused") return "active";
+    if (c.state === "created") return "down";
+    return "down";
+}
+
+function containerBadgeColor(c: Record<string, any>): string {
+    const label = containerStatusLabel(c);
+    const info = StackStatusInfo.ALL.find(i => i.label === label);
+    return info ? info.badgeColor : "secondary";
+}
 
 function formatDate(dateStr: string): string {
     if (!dateStr) return "";

@@ -20,6 +20,8 @@ func RegisterDockerHandlers(app *App) {
     app.WS.Handle("requestContainerList", app.handleRequestContainerList)
     app.WS.Handle("getDockerImageList", app.handleGetDockerImageList)
     app.WS.Handle("imageInspect", app.handleImageInspect)
+    app.WS.Handle("getDockerVolumeList", app.handleGetDockerVolumeList)
+    app.WS.Handle("volumeInspect", app.handleVolumeInspect)
 }
 
 // ServiceEntry represents a single container's status within a service.
@@ -386,6 +388,70 @@ func (app *App) handleImageInspect(c *ws.Conn, msg *ws.ClientMessage) {
         }{
             OK:          true,
             ImageDetail: detail,
+        })
+    }
+}
+
+// handleGetDockerVolumeList returns Docker volume summaries via the Docker client.
+func (app *App) handleGetDockerVolumeList(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    volumes, err := app.Docker.VolumeList(ctx)
+    if err != nil {
+        slog.Warn("getDockerVolumeList", "err", err)
+        volumes = []docker.VolumeSummary{}
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, struct {
+            OK               bool                    `json:"ok"`
+            DockerVolumeList []docker.VolumeSummary   `json:"dockerVolumeList"`
+        }{
+            OK:               true,
+            DockerVolumeList: volumes,
+        })
+    }
+}
+
+// handleVolumeInspect returns detailed info for a single Docker volume.
+func (app *App) handleVolumeInspect(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    args := parseArgs(msg)
+    volumeName := argString(args, 0)
+    if volumeName == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Volume name required"})
+        }
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    detail, err := app.Docker.VolumeInspect(ctx, volumeName)
+    if err != nil {
+        slog.Warn("volumeInspect", "err", err, "volume", volumeName)
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+        }
+        return
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, struct {
+            OK           bool                  `json:"ok"`
+            VolumeDetail *docker.VolumeDetail  `json:"volumeDetail"`
+        }{
+            OK:           true,
+            VolumeDetail: detail,
         })
     }
 }
