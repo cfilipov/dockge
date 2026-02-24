@@ -28,7 +28,7 @@
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-2">
-                    <router-link to="/containers" class="nav-link">
+                    <router-link :to="containersTabLink" class="nav-link">
                         <font-awesome-icon icon="cubes" /> {{ $t("containersNav") }}
                     </router-link>
                 </li>
@@ -40,13 +40,13 @@
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-2">
-                    <router-link to="/logs" class="nav-link">
+                    <router-link :to="logsTabLink" class="nav-link">
                         <font-awesome-icon icon="file-lines" /> {{ $t("logs") }}
                     </router-link>
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-2">
-                    <router-link to="/shell" class="nav-link">
+                    <router-link :to="shellTabLink" class="nav-link">
                         <font-awesome-icon icon="code" /> {{ $t("shell") }}
                     </router-link>
                 </li>
@@ -156,6 +156,36 @@ const {
 
 const { theme, isMobile } = useTheme();
 const { toastRes } = useAppToast();
+
+// Which container-centric tab we're currently on (if any)
+const currentTab = computed(() => {
+    if (route.path.startsWith("/containers")) return "containers";
+    if (route.path.startsWith("/logs")) return "logs";
+    if (route.path.startsWith("/shell")) return "shell";
+    return "";
+});
+
+// The currently selected container name (shared across containers/logs/shell tabs)
+const selectedContainer = computed(() => (route.params.containerName as string) || "");
+
+// Tab links: carry the selected container to the other tab, or go home if clicking the same tab
+const containersTabLink = computed(() => {
+    if (currentTab.value === "containers") return "/containers";
+    if (selectedContainer.value) return { name: "containerDetail", params: { containerName: selectedContainer.value } };
+    return "/containers";
+});
+
+const logsTabLink = computed(() => {
+    if (currentTab.value === "logs") return "/logs";
+    if (selectedContainer.value) return { name: "containerLogs", params: { containerName: selectedContainer.value } };
+    return "/logs";
+});
+
+const shellTabLink = computed(() => {
+    if (currentTab.value === "shell") return "/shell";
+    if (selectedContainer.value) return { name: "containerShell", params: { containerName: selectedContainer.value, type: "bash" } };
+    return "/shell";
+});
 
 const classes = computed(() => {
     const cls: Record<string, boolean> = {};
