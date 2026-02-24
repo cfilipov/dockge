@@ -185,9 +185,9 @@ func TestGetDockerNetworkList(t *testing.T) {
         t.Fatalf("getDockerNetworkList failed: %v", resp)
     }
 
-    networks, _ := resp["networkList"].([]interface{})
+    networks, _ := resp["dockerNetworkList"].([]interface{})
     if networks == nil {
-        t.Fatal("expected networkList in response")
+        t.Fatal("expected dockerNetworkList in response")
     }
 }
 

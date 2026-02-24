@@ -235,11 +235,11 @@ func (app *App) handleGetDockerNetworkList(c *ws.Conn, msg *ws.ClientMessage) {
 
     if msg.ID != nil {
         c.SendAck(*msg.ID, struct {
-            OK          bool     `json:"ok"`
-            NetworkList []string `json:"networkList"`
+            OK                bool     `json:"ok"`
+            DockerNetworkList []string `json:"dockerNetworkList"`
         }{
-            OK:          true,
-            NetworkList: networks,
+            OK:                true,
+            DockerNetworkList: networks,
         })
     }
 }
