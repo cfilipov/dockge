@@ -280,6 +280,7 @@
     "noImageContainers": "No containers using this image.",
     "imageInUse": "in use",
     "imageUnused": "unused",
+    "imageDangling": "dangling",
     "imageLayerMissing": "<missing>",
     "overviewName": "Name"
 }

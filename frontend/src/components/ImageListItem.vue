@@ -1,8 +1,8 @@
 <template>
-    <router-link :to="{ name: 'imageDetail', params: { imageRef: displayTag } }" class="item" :title="displayTag">
+    <router-link :to="{ name: 'imageDetail', params: { imageRef: routeRef } }" class="item" :title="displayName">
         <span class="badge rounded-pill me-2" :class="badgeClass">{{ badgeLabel }}</span>
         <div class="title">
-            <span class="me-2">{{ displayTag }}</span>
+            <span class="me-2">{{ displayName }}</span>
         </div>
     </router-link>
 </template>
@@ -17,17 +17,41 @@ const props = defineProps<{
     image: Record<string, any>;
 }>();
 
-const displayTag = computed(() => {
+const isDangling = computed(() => props.image.dangling === true);
+
+const displayName = computed(() => {
     if (props.image.repoTags && props.image.repoTags.length > 0) {
         return props.image.repoTags[0];
     }
-    return "<none>";
+    // Show truncated sha256 ID for dangling images
+    const id = props.image.id || "";
+    if (id.startsWith("sha256:")) {
+        return id.substring(0, 19);
+    }
+    return id.substring(0, 12) || "<none>";
+});
+
+// Use image ID for dangling images (no tag to route with)
+const routeRef = computed(() => {
+    if (isDangling.value) {
+        return props.image.id || "";
+    }
+    if (props.image.repoTags && props.image.repoTags.length > 0) {
+        return props.image.repoTags[0];
+    }
+    return props.image.id || "";
 });
 
 const inUse = computed(() => (props.image.containers ?? 0) > 0);
 
-const badgeClass = computed(() => inUse.value ? "bg-success" : "bg-warning");
-const badgeLabel = computed(() => inUse.value ? t("imageInUse") : t("imageUnused"));
+const badgeClass = computed(() => {
+    if (isDangling.value) return "bg-secondary";
+    return inUse.value ? "bg-success" : "bg-warning";
+});
+const badgeLabel = computed(() => {
+    if (isDangling.value) return t("imageDangling");
+    return inUse.value ? t("imageInUse") : t("imageUnused");
+});
 </script>
 
 <style lang="scss" scoped>

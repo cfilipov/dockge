@@ -271,7 +271,7 @@ func (m *MockClient) ImageList(_ context.Context) ([]ImageSummary, error) {
 		{"alpine:3.19", "7.4MiB", "2025-12-01T06:00:00Z"},
 	}
 
-	result := make([]ImageSummary, 0, len(images))
+	result := make([]ImageSummary, 0, len(images)+2)
 	for _, img := range images {
 		hash := mockHash(img.tag)
 		id := fmt.Sprintf("sha256:%s%s", hash, hash)
@@ -283,6 +283,23 @@ func (m *MockClient) ImageList(_ context.Context) ([]ImageSummary, error) {
 			Containers: countByImage[img.tag],
 		})
 	}
+
+	// Dangling images (untagged)
+	result = append(result, ImageSummary{
+		ID:       "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+		RepoTags: []string{},
+		Size:     "245.3MiB",
+		Created:  "2025-11-15T04:00:00Z",
+		Dangling: true,
+	})
+	result = append(result, ImageSummary{
+		ID:       "sha256:f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
+		RepoTags: []string{},
+		Size:     "89.7MiB",
+		Created:  "2025-10-20T02:00:00Z",
+		Dangling: true,
+	})
+
 	return result, nil
 }
 
@@ -382,6 +399,36 @@ func (m *MockClient) ImageInspectDetail(_ context.Context, imageRef string) (*Im
 
 	info, ok := layerSets[imageRef]
 	if !ok {
+		// Handle dangling images looked up by ID
+		danglingImages := map[string]imageInfo{
+			"sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2": {
+				size: "245.3MiB", created: "2025-11-15T04:00:00Z", workingDir: "/app",
+				layers: []ImageLayer{
+					{ID: "a1b2c3d4e5f6", Created: "2025-11-15T04:00:00Z", Size: "0B", Command: "CMD [\"/bin/sh\"]"},
+					{ID: "<missing>", Created: "2025-11-15T03:50:00Z", Size: "245.3MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+				},
+			},
+			"sha256:f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5": {
+				size: "89.7MiB", created: "2025-10-20T02:00:00Z", workingDir: "",
+				layers: []ImageLayer{
+					{ID: "f6e5d4c3b2a1", Created: "2025-10-20T02:00:00Z", Size: "0B", Command: "ENTRYPOINT [\"/entrypoint.sh\"]"},
+					{ID: "<missing>", Created: "2025-10-20T01:50:00Z", Size: "89.7MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+				},
+			},
+		}
+		if dInfo, found := danglingImages[imageRef]; found {
+			return &ImageDetail{
+				ID:           imageRef,
+				RepoTags:     []string{},
+				Size:         dInfo.size,
+				Created:      dInfo.created,
+				Architecture: "amd64",
+				OS:           "linux",
+				WorkingDir:   dInfo.workingDir,
+				Layers:       dInfo.layers,
+				Containers:   imgContainers,
+			}, nil
+		}
 		return nil, fmt.Errorf("image not found: %s", imageRef)
 	}
 

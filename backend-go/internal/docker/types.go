@@ -79,6 +79,7 @@ type ImageSummary struct {
     Size       string   `json:"size"`
     Created    string   `json:"created"`
     Containers int      `json:"containers"`
+    Dangling   bool     `json:"dangling"`
 }
 
 // ImageDetail holds full info for a single image.

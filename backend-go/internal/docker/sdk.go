@@ -301,10 +301,6 @@ func (s *SDKClient) ImageList(ctx context.Context) ([]ImageSummary, error) {
                 tags = append(tags, t)
             }
         }
-        // Skip untagged/dangling images — not useful in the UI
-        if len(tags) == 0 {
-            continue
-        }
 
         result = append(result, ImageSummary{
             ID:         img.ID,
@@ -312,6 +308,7 @@ func (s *SDKClient) ImageList(ctx context.Context) ([]ImageSummary, error) {
             Size:       formatBytes(uint64(img.Size)),
             Created:    time.Unix(img.Created, 0).UTC().Format(time.RFC3339),
             Containers: countByID[img.ID],
+            Dangling:   len(tags) == 0,
         })
     }
     return result, nil

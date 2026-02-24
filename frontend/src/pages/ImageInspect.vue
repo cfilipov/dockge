@@ -1,7 +1,7 @@
 <template>
     <transition name="slide-fade" appear>
         <div v-if="imageRef">
-            <h1 class="mb-3"><span v-if="badgeLabel" :class="badgeClass">{{ badgeLabel }}</span> {{ imageRef }}</h1>
+            <h1 class="mb-3"><span v-if="badgeLabel" :class="badgeClass">{{ badgeLabel }}</span> {{ displayName }}</h1>
 
             <div class="row">
                 <div class="col-lg-8">
@@ -67,7 +67,7 @@
                         <div class="overview-list">
                             <div class="overview-item">
                                 <div class="overview-label">{{ $t("overviewName") }}</div>
-                                <div class="overview-value">{{ imageDetail.repoTags?.[0] || imageRef }}</div>
+                                <div class="overview-value">{{ displayName }}</div>
                             </div>
 
                             <div class="overview-item">
@@ -134,16 +134,37 @@ const loading = ref(false);
 
 const imageRef = computed(() => route.params.imageRef as string || "");
 
+const isDangling = computed(() => {
+    if (!imageDetail.value) return false;
+    const tags = imageDetail.value.repoTags || [];
+    return tags.length === 0;
+});
+
+const displayName = computed(() => {
+    if (imageDetail.value) {
+        const tags = imageDetail.value.repoTags || [];
+        if (tags.length > 0) return tags[0];
+        const id = imageDetail.value.id || "";
+        if (id.startsWith("sha256:")) return id.substring(0, 19);
+        return id.substring(0, 12) || imageRef.value;
+    }
+    return imageRef.value;
+});
+
 const inUse = computed(() => {
     if (!imageDetail.value) return false;
     return (imageDetail.value.containers?.length ?? 0) > 0;
 });
-const badgeClass = computed(() =>
-    imageDetail.value ? `badge rounded-pill ${inUse.value ? "bg-success" : "bg-warning"}` : ""
-);
-const badgeLabel = computed(() =>
-    imageDetail.value ? (inUse.value ? t("imageInUse") : t("imageUnused")) : ""
-);
+const badgeClass = computed(() => {
+    if (!imageDetail.value) return "";
+    if (isDangling.value) return "badge rounded-pill bg-secondary";
+    return `badge rounded-pill ${inUse.value ? "bg-success" : "bg-warning"}`;
+});
+const badgeLabel = computed(() => {
+    if (!imageDetail.value) return "";
+    if (isDangling.value) return t("imageDangling");
+    return inUse.value ? t("imageInUse") : t("imageUnused");
+});
 
 function formatDate(dateStr: string): string {
     if (!dateStr) return "";

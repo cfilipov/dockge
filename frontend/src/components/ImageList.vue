@@ -98,6 +98,7 @@ function updateFilterOptions() {
     imageFilter.status.options = {
         imageInUse: "imageInUse",
         imageUnused: "imageUnused",
+        imageDangling: "imageDangling",
     };
 }
 
@@ -106,30 +107,37 @@ const filteredImages = computed(() => {
 
     updateFilterOptions();
 
-    // Search filter
+    // Search filter — also match truncated sha256 for dangling images
     if (searchText.value !== "") {
         const lowered = searchText.value.toLowerCase();
         result = result.filter((img: any) => {
             const tags = img.repoTags || [];
-            return tags.some((t: string) => t.toLowerCase().includes(lowered));
-        });
-    }
-
-    // Status filter (In Use / Unused)
-    if (imageFilter.status.isFilterSelected()) {
-        result = result.filter((img: any) => {
-            const inUse = (img.containers ?? 0) > 0;
-            if (imageFilter.status.selected.has("imageInUse") && inUse) return true;
-            if (imageFilter.status.selected.has("imageUnused") && !inUse) return true;
+            if (tags.some((t: string) => t.toLowerCase().includes(lowered))) return true;
+            if (img.id && img.id.toLowerCase().includes(lowered)) return true;
             return false;
         });
     }
 
-    // Sort alphabetically by first tag
+    // Status filter (In Use / Unused / Dangling)
+    if (imageFilter.status.isFilterSelected()) {
+        result = result.filter((img: any) => {
+            const dangling = img.dangling === true;
+            const inUse = (img.containers ?? 0) > 0;
+            if (imageFilter.status.selected.has("imageDangling") && dangling) return true;
+            if (imageFilter.status.selected.has("imageInUse") && !dangling && inUse) return true;
+            if (imageFilter.status.selected.has("imageUnused") && !dangling && !inUse) return true;
+            return false;
+        });
+    }
+
+    // Sort: tagged images alphabetically by first tag, dangling at end by ID
     result.sort((a: any, b: any) => {
-        const tagA = a.repoTags?.[0] || "";
-        const tagB = b.repoTags?.[0] || "";
-        return tagA.localeCompare(tagB);
+        const aDangling = a.dangling === true;
+        const bDangling = b.dangling === true;
+        if (aDangling !== bDangling) return aDangling ? 1 : -1;
+        const nameA = a.repoTags?.[0] || a.id || "";
+        const nameB = b.repoTags?.[0] || b.id || "";
+        return nameA.localeCompare(nameB);
     });
 
     return result;
