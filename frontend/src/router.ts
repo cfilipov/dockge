@@ -228,14 +228,6 @@ const routes = [
         path: "/",
         redirect: "/stacks",
     },
-    {
-        path: "/yaml",
-        redirect: "/compose",
-    },
-    {
-        path: "/yaml/:pathMatch(.*)",
-        redirect: (to: any) => `/compose/${to.params.pathMatch}`,
-    },
 ];
 
 export const router = createRouter({
