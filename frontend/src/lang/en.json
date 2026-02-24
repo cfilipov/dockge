@@ -214,5 +214,6 @@
     "noContainers": "No containers found.",
     "selectContainer": "Select a container from the list.",
     "tooltipContainerShell": "docker exec {0} bash",
-    "tooltipContainerLogs": "docker logs {0}"
+    "tooltipContainerLogs": "docker logs {0}",
+    "tooltipContainerInspect": "docker inspect {0}"
 }

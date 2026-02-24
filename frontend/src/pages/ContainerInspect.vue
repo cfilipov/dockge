@@ -1,6 +1,6 @@
 <template>
     <transition name="slide-fade" appear>
-        <div>
+        <div v-if="containerName">
             <h1 class="mb-3">{{ $t("inspect") }} - {{ containerName }}</h1>
 
             <div class="shadow-box mb-3 editor-box">
@@ -13,6 +13,12 @@
                     :tab="true"
                     :disabled="true"
                 />
+            </div>
+        </div>
+        <div v-else>
+            <h1 class="mb-3">{{ $t("containersNav") }}</h1>
+            <div class="shadow-box big-padding">
+                <p class="text-muted mb-0">{{ $t("selectContainer") }}</p>
             </div>
         </div>
     </transition>
@@ -39,19 +45,20 @@ const extensionsYAML = [
     lineNumbers(),
 ];
 
-const stackName = computed(() => route.params.stackName as string);
 const endpoint = computed(() => (route.params.endpoint as string) || "");
-const containerName = computed(() => route.params.containerName as string);
+const containerName = computed(() => route.params.containerName as string || "");
 
 onMounted(() => {
-    emitAgent(endpoint.value, "containerInspect", containerName.value, (res: any) => {
-        if (res.ok) {
-            const inspectObj = JSON.parse(res.inspectData);
-            if (inspectObj) {
-                inspectData.value = yaml.stringify(inspectObj, { lineWidth: 0 });
+    if (containerName.value) {
+        emitAgent(endpoint.value, "containerInspect", containerName.value, (res: any) => {
+            if (res.ok) {
+                const inspectObj = JSON.parse(res.inspectData);
+                if (inspectObj) {
+                    inspectData.value = yaml.stringify(inspectObj, { lineWidth: 0 });
+                }
             }
-        }
-    });
+        });
+    }
 });
 </script>
 

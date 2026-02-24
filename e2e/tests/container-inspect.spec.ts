@@ -3,7 +3,7 @@ import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Container Inspect", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/inspect/01-web-app-nginx-1");
+        await page.goto("/containers/01-web-app-nginx-1");
         await waitForApp(page);
     });
 

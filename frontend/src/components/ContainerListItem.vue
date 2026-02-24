@@ -21,26 +21,28 @@ const props = defineProps<{
     container: Record<string, any>;
 }>();
 
-const isLogsTab = computed(() => route.path.startsWith("/logs"));
+const currentTab = computed(() => {
+    if (route.path.startsWith("/logs")) return "logs";
+    if (route.path.startsWith("/containers")) return "containers";
+    return "shell";
+});
 
 const itemLink = computed(() => {
-    if (isLogsTab.value) {
-        return {
-            name: "containerLogs",
-            params: { containerName: props.container.name },
-        };
+    const name = props.container.name;
+    if (currentTab.value === "logs") {
+        return { name: "containerLogs", params: { containerName: name } };
     }
-    return {
-        name: "containerShell",
-        params: { containerName: props.container.name, type: "bash" },
-    };
+    if (currentTab.value === "containers") {
+        return { name: "containerDetail", params: { containerName: name } };
+    }
+    return { name: "containerShell", params: { containerName: name, type: "bash" } };
 });
 
 const tooltip = computed(() => {
-    if (isLogsTab.value) {
-        return t("tooltipContainerLogs", [props.container.name]);
-    }
-    return t("tooltipContainerShell", [props.container.name]);
+    const name = props.container.name;
+    if (currentTab.value === "logs") return t("tooltipContainerLogs", [name]);
+    if (currentTab.value === "containers") return t("tooltipContainerInspect", [name]);
+    return t("tooltipContainerShell", [name]);
 });
 
 const badgeClass = computed(() => {

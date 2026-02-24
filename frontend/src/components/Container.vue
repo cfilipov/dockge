@@ -426,17 +426,8 @@ const containerName = computed(() => {
 });
 
 const inspectRouteLink = computed(() => {
-    if (endpoint.value) {
-        return {
-            name: "containerInspectEndpoint",
-            params: {
-                endpoint: endpoint.value,
-                containerName: containerName.value,
-            },
-        };
-    }
     return {
-        name: "containerInspect",
+        name: "containerDetail",
         params: {
             containerName: containerName.value,
         },

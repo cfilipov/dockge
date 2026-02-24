@@ -90,8 +90,18 @@ const routes = [
                     },
                     {
                         path: "/containers",
-                        component: StubPage,
-                        props: { title: "Containers" },
+                        children: [
+                            {
+                                path: "",
+                                component: ContainerInspect,
+                                name: "containersHome",
+                            },
+                            {
+                                path: ":containerName",
+                                component: ContainerInspect,
+                                name: "containerDetail",
+                            },
+                        ],
                     },
                     {
                         path: "/networks",
