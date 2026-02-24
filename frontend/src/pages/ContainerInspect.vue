@@ -236,7 +236,6 @@ onMounted(() => {
 .editor-box {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
-    height: 500px;
 }
 
 :deep(.overflow-dropdown) {
