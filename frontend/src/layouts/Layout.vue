@@ -152,6 +152,7 @@ const {
     info,
     emitAgent,
     logout,
+    containerList,
 } = useSocket();
 
 const { theme, isMobile } = useTheme();
@@ -172,18 +173,30 @@ const selectedContainer = computed(() => (route.params.containerName as string) 
 const containersTabLink = computed(() => {
     if (currentTab.value === "containers") return "/containers";
     if (selectedContainer.value) return { name: "containerDetail", params: { containerName: selectedContainer.value } };
+    if (selectedStack.value) {
+        const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
+        if (c) return { name: "containerDetail", params: { containerName: c.name } };
+    }
     return "/containers";
 });
 
 const logsTabLink = computed(() => {
     if (currentTab.value === "logs") return "/logs";
     if (selectedContainer.value) return { name: "containerLogs", params: { containerName: selectedContainer.value } };
+    if (selectedStack.value) {
+        const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
+        if (c) return { name: "containerLogs", params: { containerName: c.name } };
+    }
     return "/logs";
 });
 
 const shellTabLink = computed(() => {
     if (currentTab.value === "shell") return "/shell";
     if (selectedContainer.value) return { name: "containerShell", params: { containerName: selectedContainer.value, type: "bash" } };
+    if (selectedStack.value) {
+        const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
+        if (c) return { name: "containerShell", params: { containerName: c.name, type: "bash" } };
+    }
     return "/shell";
 });
 
@@ -201,12 +214,20 @@ const selectedStack = computed(() => (route.params.stackName as string) || "");
 const stacksTabLink = computed(() => {
     if (currentStackTab.value === "stacks") return "/stacks";
     if (selectedStack.value) return `/stacks/${selectedStack.value}`;
+    if (selectedContainer.value) {
+        const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
+        if (c?.stackName) return `/stacks/${c.stackName}`;
+    }
     return "/stacks";
 });
 
 const yamlTabLink = computed(() => {
     if (currentStackTab.value === "yaml") return "/yaml";
     if (selectedStack.value) return `/yaml/${selectedStack.value}`;
+    if (selectedContainer.value) {
+        const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
+        if (c?.stackName) return `/yaml/${c.stackName}`;
+    }
     return "/yaml";
 });
 
