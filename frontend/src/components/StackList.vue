@@ -306,16 +306,53 @@ watch(selectMode, () => {
     }
 });
 
+// Auto-scroll: track whether the active item is visible in the scroll container
+const isActiveVisible = ref(false);
+let activeObserver: IntersectionObserver | null = null;
+
+function scrollToActive() {
+    const el = stackListRef.value?.querySelector(".item.active");
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function observeActive() {
+    activeObserver?.disconnect();
+    const container = stackListRef.value;
+    const active = container?.querySelector(".item.active");
+    if (!active || !container) { isActiveVisible.value = false; return; }
+    // Synchronous initial check — the IntersectionObserver callback is async
+    // and won't fire before the first list reorder
+    const cr = container.getBoundingClientRect();
+    const ar = active.getBoundingClientRect();
+    isActiveVisible.value = ar.bottom > cr.top && ar.top < cr.bottom;
+    activeObserver = new IntersectionObserver(([entry]) => {
+        isActiveVisible.value = entry.isIntersecting;
+    }, { root: container, threshold: 0.1 });
+    activeObserver.observe(active as Element);
+}
+
+watch(flatStackList, () => {
+    const wasVisible = isActiveVisible.value;
+    nextTick(() => {
+        if (wasVisible) scrollToActive();
+        observeActive();
+    });
+});
+
+defineExpose({ scrollToActive });
+
 onMounted(() => {
     window.addEventListener("scroll", onScroll);
     nextTick(() => {
         const active = stackListRef.value?.querySelector(".item.active");
         active?.scrollIntoView({ block: "center" });
+        observeActive();
     });
 });
 
 onBeforeUnmount(() => {
     window.removeEventListener("scroll", onScroll);
+    activeObserver?.disconnect();
 });
 </script>
 

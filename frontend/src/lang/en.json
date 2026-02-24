@@ -293,5 +293,6 @@
     "noVolumeContainers": "No containers using this volume.",
     "volumeInUse": "in use",
     "volumeUnused": "unused",
-    "mountVolume": "Volume"
+    "mountVolume": "Volume",
+    "scrollToSelected": "Scroll to selected item"
 }

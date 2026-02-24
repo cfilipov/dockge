@@ -69,6 +69,7 @@ import {
     faFileCode,
     faBoxArchive,
     faHardDrive,
+    faCrosshairs,
 } from "@fortawesome/free-solid-svg-icons";
 
 library.add(
@@ -139,6 +140,7 @@ library.add(
     faFileCode,
     faBoxArchive,
     faHardDrive,
+    faCrosshairs,
 );
 
 export { FontAwesomeIcon };

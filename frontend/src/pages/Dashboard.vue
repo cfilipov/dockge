@@ -4,30 +4,53 @@
             <div v-if="!isMobile" class="col-12 col-md-4 col-xl-3">
                 <!-- Container sidebar for containers/logs/shell routes -->
                 <template v-if="showContainerSidebar">
-                    <h1 class="mb-3">{{ $t("containersNav") }}</h1>
-                    <ContainerList :scrollbar="true" />
+                    <div class="d-flex align-items-center mb-3">
+                        <h1 class="mb-0">{{ $t("containersNav") }}</h1>
+                        <button class="btn btn-link ms-auto locate-btn" :title="$t('scrollToSelected')" @click="containerListRef?.scrollToActive()">
+                            <font-awesome-icon icon="crosshairs" />
+                        </button>
+                    </div>
+                    <ContainerList ref="containerListRef" :scrollbar="true" />
                 </template>
                 <!-- Network sidebar for /networks routes -->
                 <template v-else-if="showNetworkSidebar">
-                    <h1 class="mb-3">{{ $t("networksNav") }}</h1>
-                    <NetworkList :scrollbar="true" />
+                    <div class="d-flex align-items-center mb-3">
+                        <h1 class="mb-0">{{ $t("networksNav") }}</h1>
+                        <button class="btn btn-link ms-auto locate-btn" :title="$t('scrollToSelected')" @click="networkListRef?.scrollToActive()">
+                            <font-awesome-icon icon="crosshairs" />
+                        </button>
+                    </div>
+                    <NetworkList ref="networkListRef" :scrollbar="true" />
                 </template>
                 <!-- Image sidebar for /images routes -->
                 <template v-else-if="showImageSidebar">
-                    <h1 class="mb-3">{{ $t("imagesNav") }}</h1>
-                    <ImageList :scrollbar="true" />
+                    <div class="d-flex align-items-center mb-3">
+                        <h1 class="mb-0">{{ $t("imagesNav") }}</h1>
+                        <button class="btn btn-link ms-auto locate-btn" :title="$t('scrollToSelected')" @click="imageListRef?.scrollToActive()">
+                            <font-awesome-icon icon="crosshairs" />
+                        </button>
+                    </div>
+                    <ImageList ref="imageListRef" :scrollbar="true" />
                 </template>
                 <!-- Volume sidebar for /volumes routes -->
                 <template v-else-if="showVolumeSidebar">
-                    <h1 class="mb-3">{{ $t("volumesNav") }}</h1>
-                    <VolumeList :scrollbar="true" />
+                    <div class="d-flex align-items-center mb-3">
+                        <h1 class="mb-0">{{ $t("volumesNav") }}</h1>
+                        <button class="btn btn-link ms-auto locate-btn" :title="$t('scrollToSelected')" @click="volumeListRef?.scrollToActive()">
+                            <font-awesome-icon icon="crosshairs" />
+                        </button>
+                    </div>
+                    <VolumeList ref="volumeListRef" :scrollbar="true" />
                 </template>
                 <!-- Stack sidebar for all other routes (default) -->
                 <template v-else>
-                    <div>
-                        <router-link to="/stacks/new" class="btn btn-primary mb-3"><font-awesome-icon icon="plus" /> {{ $t("compose") }}</router-link>
+                    <div class="d-flex align-items-center mb-3">
+                        <router-link to="/stacks/new" class="btn btn-primary"><font-awesome-icon icon="plus" /> {{ $t("compose") }}</router-link>
+                        <button class="btn btn-link ms-auto locate-btn" :title="$t('scrollToSelected')" @click="stackListRef?.scrollToActive()">
+                            <font-awesome-icon icon="crosshairs" />
+                        </button>
                     </div>
-                    <StackList :scrollbar="true" />
+                    <StackList ref="stackListRef" :scrollbar="true" />
                 </template>
             </div>
 
@@ -54,6 +77,12 @@ const route = useRoute();
 
 const containerRef = ref<HTMLElement>();
 const height = ref(0);
+
+const stackListRef = ref<InstanceType<typeof StackList>>();
+const containerListRef = ref<InstanceType<typeof ContainerList>>();
+const networkListRef = ref<InstanceType<typeof NetworkList>>();
+const imageListRef = ref<InstanceType<typeof ImageList>>();
+const volumeListRef = ref<InstanceType<typeof VolumeList>>();
 
 const showContainerSidebar = computed(() => {
     return route.path.startsWith("/containers") ||
@@ -91,5 +120,13 @@ onMounted(() => {
 .col-12.col-md-4 {
     position: relative;
     z-index: 1;
+}
+
+.locate-btn {
+    color: #c0c0c0;
+    padding: 0.25rem 0.5rem;
+    &:hover {
+        color: inherit;
+    }
 }
 </style>
