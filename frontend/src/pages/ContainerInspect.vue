@@ -188,7 +188,7 @@
                             <div v-if="stackName" class="overview-item">
                                 <div class="overview-label">{{ $t("containerStack") }}</div>
                                 <div class="overview-value">
-                                    <router-link :to="stackLink">{{ stackName }}</router-link>
+                                    <router-link :to="stackLink" class="stack-link">{{ stackName }}</router-link>
                                 </div>
                             </div>
 
@@ -629,6 +629,16 @@ onUnmounted(() => {
     code {
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.9em;
+    }
+}
+
+.stack-link {
+    font-weight: 600;
+    text-decoration: none;
+    color: $primary;
+
+    &:hover {
+        color: lighten($primary, 10%);
     }
 }
 
