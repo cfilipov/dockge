@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
 import { useSocket } from "../composables/useSocket";
@@ -308,6 +308,10 @@ watch(selectMode, () => {
 
 onMounted(() => {
     window.addEventListener("scroll", onScroll);
+    nextTick(() => {
+        const active = stackListRef.value?.querySelector(".item.active");
+        active?.scrollIntoView({ block: "center" });
+    });
 });
 
 onBeforeUnmount(() => {

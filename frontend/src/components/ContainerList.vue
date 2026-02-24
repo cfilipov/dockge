@@ -34,7 +34,7 @@
             </div>
         </div>
 
-        <div class="stack-list" :class="{ scrollbar: scrollbar }" :style="listStyle">
+        <div ref="listRef" class="stack-list" :class="{ scrollbar: scrollbar }" :style="listStyle">
             <div v-if="filteredContainers.length === 0" class="text-center mt-3">
                 {{ $t("noContainers") }}
             </div>
@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import ContainerListItem from "./ContainerListItem.vue";
 import { useSocket } from "../composables/useSocket";
 import { StackFilter, StackStatusInfo } from "../../../common/util-common";
@@ -63,6 +63,7 @@ const { containerList } = useSocket();
 const searchText = ref("");
 const windowTop = ref(0);
 const containerFilter = reactive(new StackFilter());
+const listRef = ref<HTMLElement>();
 
 const boxStyle = computed(() => {
     if (window.innerWidth > 550) {
@@ -170,6 +171,10 @@ function onScroll() {
 
 onMounted(() => {
     window.addEventListener("scroll", onScroll);
+    nextTick(() => {
+        const active = listRef.value?.querySelector(".item.active");
+        active?.scrollIntoView({ block: "center" });
+    });
 });
 
 onBeforeUnmount(() => {

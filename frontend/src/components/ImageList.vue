@@ -34,7 +34,7 @@
             </div>
         </div>
 
-        <div class="stack-list" :class="{ scrollbar: scrollbar }" :style="listStyle">
+        <div ref="listRef" class="stack-list" :class="{ scrollbar: scrollbar }" :style="listStyle">
             <div v-if="filteredImages.length === 0" class="text-center mt-3">
                 {{ $t("noContainers") }}
             </div>
@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import ImageListItem from "./ImageListItem.vue";
 import { useSocket } from "../composables/useSocket";
 import { StackFilterCategory } from "../../../common/util-common";
@@ -63,6 +63,7 @@ const { emitAgent } = useSocket();
 const searchText = ref("");
 const windowTop = ref(0);
 const imageList = ref<Record<string, any>[]>([]);
+const listRef = ref<HTMLElement>();
 
 class ImageFilter {
     status = new StackFilterCategory("status");
@@ -166,6 +167,10 @@ function onScroll() {
 onMounted(() => {
     fetchImages();
     window.addEventListener("scroll", onScroll);
+    nextTick(() => {
+        const active = listRef.value?.querySelector(".item.active");
+        active?.scrollIntoView({ block: "center" });
+    });
 });
 
 onBeforeUnmount(() => {

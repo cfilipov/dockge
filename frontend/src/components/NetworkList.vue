@@ -34,7 +34,7 @@
             </div>
         </div>
 
-        <div class="stack-list" :class="{ scrollbar: scrollbar }" :style="listStyle">
+        <div ref="listRef" class="stack-list" :class="{ scrollbar: scrollbar }" :style="listStyle">
             <div v-if="filteredNetworks.length === 0" class="text-center mt-3">
                 {{ $t("noNetworks") }}
             </div>
@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import NetworkListItem from "./NetworkListItem.vue";
 import { useSocket } from "../composables/useSocket";
 import { StackFilterCategory } from "../../../common/util-common";
@@ -63,6 +63,7 @@ const { emitAgent } = useSocket();
 const searchText = ref("");
 const windowTop = ref(0);
 const networkList = ref<Record<string, any>[]>([]);
+const listRef = ref<HTMLElement>();
 
 // Two filter categories: Driver and Status (In Use / Unused)
 class NetworkFilter {
@@ -178,6 +179,10 @@ function onScroll() {
 onMounted(() => {
     fetchNetworks();
     window.addEventListener("scroll", onScroll);
+    nextTick(() => {
+        const active = listRef.value?.querySelector(".item.active");
+        active?.scrollIntoView({ block: "center" });
+    });
 });
 
 onBeforeUnmount(() => {
