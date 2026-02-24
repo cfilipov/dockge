@@ -10,6 +10,7 @@ import ContainerTerminal from "./pages/ContainerTerminal.vue";
 import ContainerLog from "./pages/ContainerLog.vue";
 import ContainerInspect from "./pages/ContainerInspect.vue";
 import ContainerShell from "./pages/ContainerShell.vue";
+import ContainerLogs from "./pages/ContainerLogs.vue";
 import StubPage from "./pages/StubPage.vue";
 
 const Settings = () => import("./pages/Settings.vue");
@@ -99,8 +100,18 @@ const routes = [
                     },
                     {
                         path: "/logs",
-                        component: StubPage,
-                        props: { title: "Logs" },
+                        children: [
+                            {
+                                path: "",
+                                component: ContainerLogs,
+                                name: "logsHome",
+                            },
+                            {
+                                path: ":containerName",
+                                component: ContainerLogs,
+                                name: "containerLogs",
+                            },
+                        ],
                     },
                     {
                         path: "/shell",

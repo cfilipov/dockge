@@ -9,11 +9,11 @@ test.describe("Container Log", () => {
         const logLink = page.locator("a[title='docker compose logs nginx']");
         await expect(logLink).toBeVisible({ timeout: 10000 });
         await logLink.click();
-        await expect(page).toHaveURL("/log/01-web-app/nginx");
+        await expect(page).toHaveURL("/logs/01-web-app-nginx-1");
     });
 
-    test("displays log heading with service and stack name", async ({ page }) => {
-        await expect(page.getByRole("heading", { name: /Log.*nginx.*01-web-app/i })).toBeVisible({ timeout: 10000 });
+    test("displays log heading with container name", async ({ page }) => {
+        await expect(page.getByRole("heading", { name: /Logs.*01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
     });
 
     test("terminal element is visible", async ({ page }) => {

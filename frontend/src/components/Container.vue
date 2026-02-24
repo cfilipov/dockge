@@ -410,21 +410,10 @@ const bgStyle = computed(() => {
 });
 
 const logRouteLink = computed(() => {
-    if (endpoint.value) {
-        return {
-            name: "containerLogEndpoint",
-            params: {
-                endpoint: endpoint.value,
-                stackName: stackName.value,
-                serviceName: props.name,
-            },
-        };
-    }
     return {
-        name: "containerLog",
+        name: "containerLogs",
         params: {
-            stackName: stackName.value,
-            serviceName: props.name,
+            containerName: containerName.value,
         },
     };
 });

@@ -51,6 +51,7 @@ func RegisterTerminalHandlers(app *App) {
     app.WS.Handle("interactiveTerminal", app.handleInteractiveTerminal)
     app.WS.Handle("containerExec", app.handleContainerExec)
     app.WS.Handle("joinContainerLog", app.handleJoinContainerLog)
+    app.WS.Handle("joinContainerLogByName", app.handleJoinContainerLogByName)
     app.WS.Handle("leaveCombinedTerminal", app.handleLeaveCombinedTerminal)
 }
 
@@ -430,6 +431,69 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
     }()
 
     // Register client for live updates (may already be carried over from Recreate)
+    term.AddWriter(c.ID(), makeTermWriter(c, termName))
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, struct {
+            OK     bool   `json:"ok"`
+            Buffer string `json:"buffer"`
+        }{
+            OK:     true,
+            Buffer: term.Buffer(),
+        })
+    }
+}
+
+// handleJoinContainerLogByName streams logs for a container identified by its
+// Docker container name (e.g. "web-app-nginx-1") rather than stack+service.
+func (app *App) handleJoinContainerLogByName(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    args := parseArgs(msg)
+    containerName := argString(args, 0)
+
+    if containerName == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+        }
+        return
+    }
+
+    termName := "container-log-by-name--" + containerName
+
+    // Always recreate: the frontend's Terminal component mounts before the
+    // parent page, so terminalJoin has already created an empty terminal.
+    // Recreate carries over the registered writer while starting a fresh
+    // log stream.
+    term := app.Terms.Recreate(termName, terminal.TypePipe)
+
+    ctx, cancel := context.WithCancel(context.Background())
+    term.SetCancel(cancel)
+
+    go func() {
+        defer app.Terms.RemoveAfter(termName, 30*time.Second)
+
+        // Docker accepts container name directly — no need to resolve an ID
+        stream, _, err := app.Docker.ContainerLogs(ctx, containerName, "100", true)
+        if err != nil {
+            if ctx.Err() == nil {
+                slog.Warn("container log by name", "err", err, "container", containerName)
+                term.Write([]byte("[Error] " + err.Error() + "\r\n"))
+            }
+            return
+        }
+        defer stream.Close()
+
+        scanner := bufio.NewScanner(stream)
+        scanner.Buffer(make([]byte, 64*1024), 64*1024)
+        for scanner.Scan() {
+            line := scanner.Text() + "\n"
+            term.Write([]byte(line))
+        }
+    }()
+
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
     if msg.ID != nil {

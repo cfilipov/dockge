@@ -1,5 +1,5 @@
 <template>
-    <router-link :to="shellLink" :class="{ 'dim' : !container.isManagedByDockge }" class="item" :title="tooltip">
+    <router-link :to="itemLink" :class="{ 'dim' : !container.isManagedByDockge }" class="item" :title="tooltip">
         <span :class="badgeClass" class="badge rounded-pill me-2">{{ statusLabel }}</span>
         <div class="title">
             <span class="me-2">{{ container.name }}</span>
@@ -12,19 +12,36 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
 
 const { t } = useI18n();
+const route = useRoute();
 
 const props = defineProps<{
     container: Record<string, any>;
 }>();
 
-const shellLink = computed(() => ({
-    name: "containerShell",
-    params: { containerName: props.container.name, type: "bash" },
-}));
+const isLogsTab = computed(() => route.path.startsWith("/logs"));
 
-const tooltip = computed(() => t("tooltipContainerShell", [props.container.name]));
+const itemLink = computed(() => {
+    if (isLogsTab.value) {
+        return {
+            name: "containerLogs",
+            params: { containerName: props.container.name },
+        };
+    }
+    return {
+        name: "containerShell",
+        params: { containerName: props.container.name, type: "bash" },
+    };
+});
+
+const tooltip = computed(() => {
+    if (isLogsTab.value) {
+        return t("tooltipContainerLogs", [props.container.name]);
+    }
+    return t("tooltipContainerShell", [props.container.name]);
+});
 
 const badgeClass = computed(() => {
     const state = props.container.state;
