@@ -215,5 +215,6 @@
     "selectContainer": "Select a container from the list.",
     "tooltipContainerShell": "docker exec {0} bash",
     "tooltipContainerLogs": "docker logs {0}",
-    "tooltipContainerInspect": "docker inspect {0}"
+    "tooltipContainerInspect": "docker inspect {0}",
+    "selectStack": "Select a stack from the list."
 }

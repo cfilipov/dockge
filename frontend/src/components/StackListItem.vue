@@ -12,8 +12,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useRoute } from "vue-router";
 import { useSocket } from "../composables/useSocket";
 
+const route = useRoute();
 const { agentCount, endpointDisplayFunction } = useSocket();
 
 const props = withDefaults(defineProps<{
@@ -35,11 +37,17 @@ const isCollapsed = ref(true);
 
 const endpointDisplay = computed(() => endpointDisplayFunction(props.stack.endpoint));
 
+const currentTab = computed(() => {
+    if (route.path.startsWith("/yaml")) return "yaml";
+    return "stacks";
+});
+
 const url = computed(() => {
+    const base = currentTab.value === "yaml" ? "/yaml" : "/stacks";
     if (props.stack.endpoint) {
-        return `/stacks/${props.stack.name}/${props.stack.endpoint}`;
+        return `${base}/${props.stack.name}/${props.stack.endpoint}`;
     }
-    return `/stacks/${props.stack.name}`;
+    return `${base}/${props.stack.name}`;
 });
 
 const depthMargin = computed(() => ({

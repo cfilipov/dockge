@@ -11,6 +11,7 @@ import ContainerLog from "./pages/ContainerLog.vue";
 import ContainerInspect from "./pages/ContainerInspect.vue";
 import ContainerShell from "./pages/ContainerShell.vue";
 import ContainerLogs from "./pages/ContainerLogs.vue";
+import ComposeYaml from "./pages/ComposeYaml.vue";
 import StubPage from "./pages/StubPage.vue";
 
 const Settings = () => import("./pages/Settings.vue");
@@ -140,8 +141,23 @@ const routes = [
                     },
                     {
                         path: "/yaml",
-                        component: StubPage,
-                        props: { title: "YAML" },
+                        children: [
+                            {
+                                path: "",
+                                component: ComposeYaml,
+                                name: "yamlHome",
+                            },
+                            {
+                                path: ":stackName",
+                                component: ComposeYaml,
+                                name: "yamlStack",
+                            },
+                            {
+                                path: ":stackName/:endpoint",
+                                component: ComposeYaml,
+                                name: "yamlStackEndpoint",
+                            },
+                        ],
                     },
                     {
                         path: "/images",

@@ -22,8 +22,14 @@
 
             <ul class="nav nav-pills">
                 <li v-if="loggedIn" class="nav-item me-2">
-                    <router-link to="/stacks" class="nav-link">
+                    <router-link :to="stacksTabLink" class="nav-link">
                         <font-awesome-icon icon="layer-group" /> {{ $t("stacks") }}
+                    </router-link>
+                </li>
+
+                <li v-if="loggedIn" class="nav-item me-2">
+                    <router-link :to="yamlTabLink" class="nav-link">
+                        <font-awesome-icon icon="file-code" /> {{ $t("yaml") }}
                     </router-link>
                 </li>
 
@@ -48,12 +54,6 @@
                 <li v-if="loggedIn" class="nav-item me-2">
                     <router-link :to="shellTabLink" class="nav-link">
                         <font-awesome-icon icon="code" /> {{ $t("shell") }}
-                    </router-link>
-                </li>
-
-                <li v-if="loggedIn" class="nav-item me-2">
-                    <router-link to="/yaml" class="nav-link">
-                        <font-awesome-icon icon="file-code" /> {{ $t("yaml") }}
                     </router-link>
                 </li>
 
@@ -185,6 +185,29 @@ const shellTabLink = computed(() => {
     if (currentTab.value === "shell") return "/shell";
     if (selectedContainer.value) return { name: "containerShell", params: { containerName: selectedContainer.value, type: "bash" } };
     return "/shell";
+});
+
+// Which stack-centric tab we're currently on (if any)
+const currentStackTab = computed(() => {
+    if (route.path.startsWith("/yaml")) return "yaml";
+    if (route.path.startsWith("/stacks")) return "stacks";
+    return "";
+});
+
+// The currently selected stack name (shared across stacks/yaml tabs)
+const selectedStack = computed(() => (route.params.stackName as string) || "");
+
+// Stack/YAML tab links: carry the selected stack to the other tab, or go home if clicking the same tab
+const stacksTabLink = computed(() => {
+    if (currentStackTab.value === "stacks") return "/stacks";
+    if (selectedStack.value) return `/stacks/${selectedStack.value}`;
+    return "/stacks";
+});
+
+const yamlTabLink = computed(() => {
+    if (currentStackTab.value === "yaml") return "/yaml";
+    if (selectedStack.value) return `/yaml/${selectedStack.value}`;
+    return "/yaml";
 });
 
 const classes = computed(() => {
