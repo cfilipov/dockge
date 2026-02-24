@@ -21,55 +21,55 @@
             </a>
 
             <ul class="nav nav-pills">
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link :to="stacksTabLink" class="nav-link">
                         <font-awesome-icon icon="layer-group" class="me-2" /> {{ $t("stacks") }}
                     </router-link>
                 </li>
 
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link :to="composeTabLink" class="nav-link">
                         <font-awesome-icon icon="file-code" class="me-2" /> {{ $t("compose") }}
                     </router-link>
                 </li>
 
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link :to="containersTabLink" class="nav-link">
                         <font-awesome-icon icon="cubes" class="me-2" /> {{ $t("containersNav") }}
                     </router-link>
                 </li>
 
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link to="/networks" class="nav-link">
                         <font-awesome-icon icon="network-wired" class="me-2" /> {{ $t("networksNav") }}
                     </router-link>
                 </li>
 
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link :to="logsTabLink" class="nav-link">
                         <font-awesome-icon icon="file-lines" class="me-2" /> {{ $t("logs") }}
                     </router-link>
                 </li>
 
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link :to="shellTabLink" class="nav-link">
                         <font-awesome-icon icon="code" class="me-2" /> {{ $t("shell") }}
                     </router-link>
                 </li>
 
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link to="/images" class="nav-link">
                         <font-awesome-icon icon="box-archive" class="me-2" /> {{ $t("imagesNav") }}
                     </router-link>
                 </li>
 
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link to="/volumes" class="nav-link">
                         <font-awesome-icon icon="hard-drive" class="me-2" /> {{ $t("volumesNav") }}
                     </router-link>
                 </li>
 
-                <li v-if="loggedIn" class="nav-item me-2">
+                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link to="/console" class="nav-link">
                         <font-awesome-icon icon="terminal" class="me-2" /> {{ $t("console") }}
                     </router-link>
