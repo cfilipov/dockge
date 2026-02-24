@@ -97,7 +97,7 @@
 
             <!-- Parsed View: two-column layout -->
             <div v-if="viewMode === 'parsed'" class="row">
-                <div class="col-lg-6">
+                <div class="col-lg-8">
                     <!-- Networks Card -->
                     <h4 class="mb-3">{{ $t("containerNetworks") }}</h4>
                     <div v-if="networks.length > 0">
@@ -118,7 +118,11 @@
 
                                 <template v-if="net.aliases && net.aliases.length > 0">
                                     <div class="inspect-label">{{ $t("networkAliases") }}</div>
-                                    <div class="inspect-value"><code>{{ net.aliases.join(', ') }}</code></div>
+                                    <div class="inspect-value">
+                                        <template v-for="(alias, i) in net.aliases" :key="i">
+                                            <code>{{ alias }}</code><template v-if="i < net.aliases.length - 1">, </template>
+                                        </template>
+                                    </div>
                                 </template>
                             </div>
                         </div>
@@ -175,86 +179,86 @@
                     </div>
                 </div>
 
-                <div class="col-lg-6">
+                <div class="col-lg-4">
                     <!-- Overview Card -->
                     <h4 class="mb-3">{{ $t("containerOverview") }}</h4>
                     <div v-if="parsed" class="shadow-box big-padding mb-3">
-                        <div class="inspect-grid">
+                        <div class="overview-list">
                             <!-- Stack -->
-                            <template v-if="stackName">
-                                <div class="inspect-label">{{ $t("containerStack") }}</div>
-                                <div class="inspect-value">
+                            <div v-if="stackName" class="overview-item">
+                                <div class="overview-label">{{ $t("containerStack") }}</div>
+                                <div class="overview-value">
                                     <router-link :to="stackLink">{{ stackName }}</router-link>
                                 </div>
-                            </template>
+                            </div>
 
                             <!-- Image -->
-                            <template v-if="parsed.Config?.Image">
-                                <div class="inspect-label">{{ $t("containerImage") }}</div>
-                                <div class="inspect-value"><code>{{ parsed.Config.Image }}</code></div>
-                            </template>
+                            <div v-if="parsed.Config?.Image" class="overview-item">
+                                <div class="overview-label">{{ $t("containerImage") }}</div>
+                                <div class="overview-value"><code>{{ parsed.Config.Image }}</code></div>
+                            </div>
 
                             <!-- Command -->
-                            <template v-if="commandStr">
-                                <div class="inspect-label">{{ $t("containerCommand") }}</div>
-                                <div class="inspect-value"><code>{{ commandStr }}</code></div>
-                            </template>
+                            <div v-if="commandStr" class="overview-item">
+                                <div class="overview-label">{{ $t("containerCommand") }}</div>
+                                <div class="overview-value"><code>{{ commandStr }}</code></div>
+                            </div>
 
                             <!-- Restart Policy -->
-                            <template v-if="restartPolicyStr">
-                                <div class="inspect-label">{{ $t("containerRestartPolicy") }}</div>
-                                <div class="inspect-value">{{ restartPolicyStr }}</div>
-                            </template>
+                            <div v-if="restartPolicyStr" class="overview-item">
+                                <div class="overview-label">{{ $t("containerRestartPolicy") }}</div>
+                                <div class="overview-value">{{ restartPolicyStr }}</div>
+                            </div>
 
                             <!-- Restart Count -->
-                            <template v-if="parsed.RestartCount != null">
-                                <div class="inspect-label">{{ $t("containerRestartCount") }}</div>
-                                <div class="inspect-value">{{ parsed.RestartCount }}</div>
-                            </template>
+                            <div v-if="parsed.RestartCount != null" class="overview-item">
+                                <div class="overview-label">{{ $t("containerRestartCount") }}</div>
+                                <div class="overview-value">{{ parsed.RestartCount }}</div>
+                            </div>
 
                             <!-- Container ID -->
-                            <template v-if="parsed.Id">
-                                <div class="inspect-label">{{ $t("containerID") }}</div>
-                                <div class="inspect-value">
+                            <div v-if="parsed.Id" class="overview-item">
+                                <div class="overview-label">{{ $t("containerID") }}</div>
+                                <div class="overview-value">
                                     <code :title="parsed.Id">{{ parsed.Id.substring(0, 12) }}</code>
                                 </div>
-                            </template>
+                            </div>
 
                             <!-- Created -->
-                            <template v-if="parsed.Created">
-                                <div class="inspect-label">{{ $t("containerCreated") }}</div>
-                                <div class="inspect-value">{{ formatDate(parsed.Created) }}</div>
-                            </template>
+                            <div v-if="parsed.Created" class="overview-item">
+                                <div class="overview-label">{{ $t("containerCreated") }}</div>
+                                <div class="overview-value">{{ formatDate(parsed.Created) }}</div>
+                            </div>
 
                             <!-- Started -->
-                            <template v-if="parsed.State?.StartedAt && isValidDate(parsed.State.StartedAt)">
-                                <div class="inspect-label">{{ $t("containerStarted") }}</div>
-                                <div class="inspect-value">{{ formatDate(parsed.State.StartedAt) }}</div>
-                            </template>
+                            <div v-if="parsed.State?.StartedAt && isValidDate(parsed.State.StartedAt)" class="overview-item">
+                                <div class="overview-label">{{ $t("containerStarted") }}</div>
+                                <div class="overview-value">{{ formatDate(parsed.State.StartedAt) }}</div>
+                            </div>
 
                             <!-- Uptime -->
-                            <template v-if="uptimeStr">
-                                <div class="inspect-label">{{ $t("containerUptime") }}</div>
-                                <div class="inspect-value">{{ uptimeStr }}</div>
-                            </template>
+                            <div v-if="uptimeStr" class="overview-item">
+                                <div class="overview-label">{{ $t("containerUptime") }}</div>
+                                <div class="overview-value">{{ uptimeStr }}</div>
+                            </div>
 
                             <!-- Working Dir -->
-                            <template v-if="parsed.Config?.WorkingDir !== undefined">
-                                <div class="inspect-label">{{ $t("containerWorkingDir") }}</div>
-                                <div class="inspect-value">
+                            <div v-if="parsed.Config?.WorkingDir !== undefined" class="overview-item">
+                                <div class="overview-label">{{ $t("containerWorkingDir") }}</div>
+                                <div class="overview-value">
                                     <code v-if="parsed.Config.WorkingDir">{{ parsed.Config.WorkingDir }}</code>
                                     <span v-else class="text-muted">&ndash;</span>
                                 </div>
-                            </template>
+                            </div>
 
                             <!-- User -->
-                            <template v-if="parsed.Config?.User !== undefined">
-                                <div class="inspect-label">{{ $t("containerUserGroup") }}</div>
-                                <div class="inspect-value">
+                            <div v-if="parsed.Config?.User !== undefined" class="overview-item">
+                                <div class="overview-label">{{ $t("containerUserGroup") }}</div>
+                                <div class="overview-value">
                                     <span v-if="parsed.Config.User">{{ parsed.Config.User }}</span>
                                     <span v-else class="text-muted">&ndash;</span>
                                 </div>
-                            </template>
+                            </div>
                         </div>
                     </div>
                     <div v-else class="shadow-box big-padding mb-3">
@@ -595,8 +599,45 @@ onUnmounted(() => {
     }
 }
 
+.overview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.overview-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.overview-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $dark-font-color3;
+    margin-bottom: 0.15rem;
+
+    .dark & {
+        color: $dark-font-color3;
+    }
+}
+
+.overview-value {
+    word-break: break-all;
+
+    code {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9em;
+    }
+}
+
 .process-table {
     font-size: 0.9em;
+
+    th, td {
+        padding: 0.55rem 0.75rem;
+    }
 
     th {
         font-weight: 600;
