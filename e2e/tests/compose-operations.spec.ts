@@ -2,10 +2,10 @@ import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
 
 // The Compose page has two terminals: the progress terminal (compose commands)
-// and the combined log terminal. Use :has(.progress-terminal-header) to scope
-// to the ProgressTerminal's shadow-box, then find .xterm-rows inside it.
+// and the combined log terminal. Use .progress-terminal to scope to the
+// ProgressTerminal wrapper, then find .xterm-rows inside it.
 const terminal = (page: import("@playwright/test").Page) =>
-    page.locator(".shadow-box:has(.progress-terminal-header) .xterm-rows");
+    page.locator(".progress-terminal .xterm-rows");
 
 test.describe("Compose Operations", () => {
 

@@ -549,7 +549,6 @@ function startComposeAction() {
 
 function stopComposeAction() {
     processing.value = false;
-    progressTerminalRef.value?.hideWithTimeout();
 }
 
 function loadStack() {

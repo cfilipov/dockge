@@ -1,20 +1,18 @@
 <template>
-    <div class="shadow-box">
-        <div class="progress-terminal-header mb-1" @click="showProgressTerminal = !showProgressTerminal">
-            <font-awesome-icon :icon="showProgressTerminal ? 'chevron-down' : 'chevron-right'" class="me-2" />
-            {{ $t("terminal") }}
-        </div>
-        <transition name="slide-fade" appear>
+    <transition name="slide-fade" appear>
+        <div v-show="visible" class="progress-terminal position-relative">
+            <button class="dismiss-button" :title="$t('Close')" @click="hide">
+                <font-awesome-icon icon="times" />
+            </button>
             <Terminal
-                v-show="showProgressTerminal"
                 ref="progressTerminal"
                 class="terminal"
                 :name="name"
                 :endpoint="endpoint"
                 :rows="rows"
             ></Terminal>
-        </transition>
-    </div>
+        </div>
+    </transition>
 </template>
 
 <script setup lang="ts">
@@ -25,14 +23,11 @@ const props = withDefaults(defineProps<{
     name: string;
     endpoint: string;
     rows?: number;
-    autoHideTimeout?: number;
 }>(), {
     rows: PROGRESS_TERMINAL_ROWS,
-    autoHideTimeout: 10000,
 });
 
-const showProgressTerminal = ref(false);
-let autoHideTimer: ReturnType<typeof setTimeout> | null = null;
+const visible = ref(false);
 const progressTerminal = ref<InstanceType<any>>();
 
 function show() {
@@ -43,26 +38,32 @@ function show() {
             term.terminal.clear();
         }
     }
-    showProgressTerminal.value = true;
-    if (autoHideTimer) {
-        clearTimeout(autoHideTimer);
-    }
+    visible.value = true;
 }
 
-function hideWithTimeout() {
-    if (props.autoHideTimeout > 0) {
-        autoHideTimer = setTimeout(() => {
-            showProgressTerminal.value = false;
-        }, props.autoHideTimeout);
-    }
+function hide() {
+    visible.value = false;
 }
 
-defineExpose({ show, hideWithTimeout });
+defineExpose({ show, hide });
 </script>
 
 <style lang="scss" scoped>
-.progress-terminal-header {
+.dismiss-button {
+    all: unset;
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    z-index: 10;
     cursor: pointer;
-    user-select: none;
+
+    svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    &:hover {
+        color: white;
+    }
 }
 </style>
