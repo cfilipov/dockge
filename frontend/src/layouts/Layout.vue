@@ -58,7 +58,7 @@
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-1">
-                    <router-link to="/images" class="nav-link">
+                    <router-link :to="imagesTabLink" class="nav-link">
                         <font-awesome-icon icon="box-archive" class="me-1" /> {{ $t("imagesNav") }}
                     </router-link>
                 </li>
@@ -229,6 +229,15 @@ const composeTabLink = computed(() => {
         if (c?.stackName) return `/compose/${c.stackName}`;
     }
     return "/compose";
+});
+
+const imagesTabLink = computed(() => {
+    if (route.path.startsWith("/images")) return "/images";
+    if (selectedContainer.value) {
+        const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
+        if (c?.image) return { name: "imageDetail", params: { imageRef: c.image } };
+    }
+    return "/images";
 });
 
 const classes = computed(() => {
