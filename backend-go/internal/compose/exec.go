@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,23 @@ type Exec struct {
 
 // Ensure Exec implements Composer at compile time.
 var _ Composer = (*Exec)(nil)
+
+// GlobalEnvArgs returns --env-file flags to prepend to compose args
+// when global.env exists in the stacks directory. If the stack also has
+// a local .env, it is re-added explicitly (--env-file overrides the
+// default .env loading). Returns nil when no global.env exists.
+func GlobalEnvArgs(stacksDir, stackName string) []string {
+	globalPath := filepath.Join(stacksDir, "global.env")
+	if _, err := os.Stat(globalPath); err != nil {
+		return nil
+	}
+	args := []string{"--env-file", "../global.env"}
+	localEnv := filepath.Join(stacksDir, stackName, ".env")
+	if _, err := os.Stat(localEnv); err == nil {
+		args = append(args, "--env-file", "./.env")
+	}
+	return args
+}
 
 func (e *Exec) RunCompose(ctx context.Context, stackName string, w io.Writer, args ...string) error {
 	return e.run(ctx, stackName, w, args...)
@@ -40,7 +58,11 @@ func (e *Exec) RunDocker(ctx context.Context, stackName string, w io.Writer, arg
 
 func (e *Exec) Config(ctx context.Context, stackName string, w io.Writer) error {
 	dir := filepath.Join(e.StacksDir, stackName)
-	cmd := exec.CommandContext(ctx, "docker", "compose", "config", "--dry-run")
+	envArgs := GlobalEnvArgs(e.StacksDir, stackName)
+	args := []string{"compose"}
+	args = append(args, envArgs...)
+	args = append(args, "config", "--dry-run")
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = dir
 	var stderr bytes.Buffer
 	cmd.Stdout = w
@@ -74,7 +96,11 @@ func (e *Exec) ServiceRestart(ctx context.Context, stackName, serviceName string
 
 func (e *Exec) ServicePullAndUp(ctx context.Context, stackName, serviceName string, w io.Writer) error {
 	dir := filepath.Join(e.StacksDir, stackName)
-	pullCmd := exec.CommandContext(ctx, "docker", "compose", "pull", serviceName)
+	envArgs := GlobalEnvArgs(e.StacksDir, stackName)
+	pullArgs := []string{"compose"}
+	pullArgs = append(pullArgs, envArgs...)
+	pullArgs = append(pullArgs, "pull", serviceName)
+	pullCmd := exec.CommandContext(ctx, "docker", pullArgs...)
 	pullCmd.Dir = dir
 	pullCmd.Stdout = w
 	pullCmd.Stderr = w
@@ -87,7 +113,10 @@ func (e *Exec) ServicePullAndUp(ctx context.Context, stackName, serviceName stri
 // run executes a docker compose command with output streaming.
 func (e *Exec) run(ctx context.Context, stackName string, w io.Writer, composeArgs ...string) error {
 	dir := filepath.Join(e.StacksDir, stackName)
-	args := append([]string{"compose"}, composeArgs...)
+	envArgs := GlobalEnvArgs(e.StacksDir, stackName)
+	args := []string{"compose"}
+	args = append(args, envArgs...)
+	args = append(args, composeArgs...)
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = dir
 	cmd.Stdout = w

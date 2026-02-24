@@ -10,6 +10,7 @@ import (
     "sync"
     "time"
 
+    "github.com/cfilipov/dockge/backend-go/internal/compose"
     "github.com/cfilipov/dockge/backend-go/internal/terminal"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
 )
@@ -125,7 +126,9 @@ type serviceActionFunc func(ctx context.Context, stackName, serviceName string, 
 // stack's compose terminal (same terminal used by stack-level actions).
 func (app *App) runServiceAction(stackName, serviceName, action string, fn serviceActionFunc) {
     termName := "compose--" + stackName
-    cmdDisplay := fmt.Sprintf("$ docker compose %s %s\r\n", action, serviceName)
+    envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
+    displayParts := append(envArgs, action, serviceName)
+    cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(displayParts, " "))
 
     ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
     defer cancel()

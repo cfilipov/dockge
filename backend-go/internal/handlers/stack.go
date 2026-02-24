@@ -878,7 +878,9 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
 // In real mode: uses PTY terminal + exec.Command (for rich terminal output).
 func (app *App) runComposeAction(stackName, action string, composeArgs ...string) {
     termName := "compose--" + stackName
-    cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(composeArgs, " "))
+    envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
+    displayParts := append(envArgs, composeArgs...)
+    cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(displayParts, " "))
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()
@@ -901,7 +903,9 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
         term.Write([]byte(cmdDisplay))
 
         dir := filepath.Join(app.StacksDir, stackName)
-        args := append([]string{"compose"}, composeArgs...)
+        args := []string{"compose"}
+        args = append(args, envArgs...)
+        args = append(args, composeArgs...)
         cmd := exec.CommandContext(ctx, "docker", args...)
         cmd.Dir = dir
 
@@ -926,6 +930,11 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 // and then runs `docker compose up -d --remove-orphans`.
 func (app *App) runDeployWithValidation(stackName string) {
     termName := "compose--" + stackName
+    envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
+    envDisplay := ""
+    if len(envArgs) > 0 {
+        envDisplay = strings.Join(envArgs, " ") + " "
+    }
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()
@@ -934,7 +943,7 @@ func (app *App) runDeployWithValidation(stackName string) {
         term := app.Terms.Recreate(termName, terminal.TypePipe)
 
         // Step 1: Validate
-        term.Write([]byte("$ docker compose config --dry-run\r\n"))
+        term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
         if err := app.Compose.Config(ctx, stackName, term); err != nil {
             if ctx.Err() == nil {
                 errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
@@ -945,7 +954,7 @@ func (app *App) runDeployWithValidation(stackName string) {
         }
 
         // Step 2: Deploy
-        term.Write([]byte("$ docker compose up -d --remove-orphans\r\n"))
+        term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
         if err := app.Compose.RunCompose(ctx, stackName, term, "up", "-d", "--remove-orphans"); err != nil {
             if ctx.Err() == nil {
                 errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
@@ -960,8 +969,11 @@ func (app *App) runDeployWithValidation(stackName string) {
         dir := filepath.Join(app.StacksDir, stackName)
 
         // Step 1: Validate
-        term.Write([]byte("$ docker compose config --dry-run\r\n"))
-        validateCmd := exec.CommandContext(ctx, "docker", "compose", "config", "--dry-run")
+        term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
+        validateArgs := []string{"compose"}
+        validateArgs = append(validateArgs, envArgs...)
+        validateArgs = append(validateArgs, "config", "--dry-run")
+        validateCmd := exec.CommandContext(ctx, "docker", validateArgs...)
         validateCmd.Dir = dir
         if err := term.RunPTY(validateCmd); err != nil {
             if ctx.Err() == nil {
@@ -973,8 +985,11 @@ func (app *App) runDeployWithValidation(stackName string) {
         }
 
         // Step 2: Deploy
-        term.Write([]byte("$ docker compose up -d --remove-orphans\r\n"))
-        upCmd := exec.CommandContext(ctx, "docker", "compose", "up", "-d", "--remove-orphans")
+        term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
+        upArgs := []string{"compose"}
+        upArgs = append(upArgs, envArgs...)
+        upArgs = append(upArgs, "up", "-d", "--remove-orphans")
+        upCmd := exec.CommandContext(ctx, "docker", upArgs...)
         upCmd.Dir = dir
         if err := term.RunPTY(upCmd); err != nil {
             if ctx.Err() == nil {
@@ -996,6 +1011,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 // runDockerCommands runs multiple docker commands sequentially on the same terminal.
 func (app *App) runDockerCommands(stackName, action string, argSets [][]string) {
     termName := "compose--" + stackName
+    envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()
@@ -1004,7 +1020,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
         term := app.Terms.Recreate(termName, terminal.TypePipe)
 
         for _, dockerArgs := range argSets {
-            cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(dockerArgs, " "))
+            cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
             term.Write([]byte(cmdDisplay))
 
             var err error
@@ -1031,10 +1047,18 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
         dir := filepath.Join(app.StacksDir, stackName)
 
         for _, dockerArgs := range argSets {
-            cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(dockerArgs, " "))
+            cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
             term.Write([]byte(cmdDisplay))
 
-            cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
+            var cmd *exec.Cmd
+            if len(dockerArgs) > 0 && dockerArgs[0] == "compose" && len(envArgs) > 0 {
+                args := []string{"compose"}
+                args = append(args, envArgs...)
+                args = append(args, dockerArgs[1:]...)
+                cmd = exec.CommandContext(ctx, "docker", args...)
+            } else {
+                cmd = exec.CommandContext(ctx, "docker", dockerArgs...)
+            }
             cmd.Dir = dir
 
             if err := term.RunPTY(cmd); err != nil {
@@ -1104,6 +1128,20 @@ func (app *App) buildIgnoreMap() stack.IgnoreMap {
         }
     }
     return ignore
+}
+
+// composeEnvDisplay injects env-file args into a docker command display string.
+// If dockerArgs starts with "compose" and envArgs is non-empty, the env args
+// are spliced in after "compose". Otherwise returns dockerArgs unchanged.
+func composeEnvDisplay(dockerArgs, envArgs []string) []string {
+    if len(dockerArgs) == 0 || dockerArgs[0] != "compose" || len(envArgs) == 0 {
+        return dockerArgs
+    }
+    out := make([]string, 0, len(dockerArgs)+len(envArgs))
+    out = append(out, "compose")
+    out = append(out, envArgs...)
+    out = append(out, dockerArgs[1:]...)
+    return out
 }
 
 // discardWriter silently discards all output.

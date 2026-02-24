@@ -3,6 +3,8 @@ package handlers
 import (
     "fmt"
     "log/slog"
+    "os"
+    "path/filepath"
 
     "github.com/cfilipov/dockge/backend-go/internal/ws"
 )
@@ -35,6 +37,14 @@ func (app *App) handleGetSettings(c *ws.Conn, msg *ws.ClientMessage) {
     // Filter out sensitive settings
     delete(settings, "jwtSecret")
 
+    // globalENV is file-based, not stored in BoltDB
+    globalEnvPath := filepath.Join(app.StacksDir, "global.env")
+    if data, err := os.ReadFile(globalEnvPath); err == nil {
+        settings["globalENV"] = string(data)
+    } else {
+        settings["globalENV"] = "# VARIABLE=value #comment"
+    }
+
     if msg.ID != nil {
         c.SendAck(*msg.ID, map[string]interface{}{
             "ok":   true,
@@ -60,6 +70,21 @@ func (app *App) handleSetSettings(c *ws.Conn, msg *ws.ClientMessage) {
     // currentPassword is args[1] but we skip validation for now
     // (settings changes don't require password re-entry in the Node.js backend either,
     //  except for disableAuth)
+
+    // globalENV is file-based — write to disk, not BoltDB
+    if raw, ok := data["globalENV"]; ok {
+        content, _ := raw.(string)
+        globalEnvPath := filepath.Join(app.StacksDir, "global.env")
+        defaultContent := "# VARIABLE=value #comment"
+        if content != "" && content != defaultContent {
+            if err := os.WriteFile(globalEnvPath, []byte(content), 0644); err != nil {
+                slog.Error("write global.env", "err", err)
+            }
+        } else {
+            os.Remove(globalEnvPath)
+        }
+        delete(data, "globalENV")
+    }
 
     for key, val := range data {
         // Don't allow overwriting jwtSecret via settings

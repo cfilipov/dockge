@@ -12,6 +12,7 @@ import (
     "sync"
     "time"
 
+    "github.com/cfilipov/dockge/backend-go/internal/compose"
     "github.com/cfilipov/dockge/backend-go/internal/terminal"
     "github.com/cfilipov/dockge/backend-go/internal/ws"
 )
@@ -280,7 +281,10 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
     dir := filepath.Join(app.StacksDir, stackName)
-    cmd := exec.Command("docker", "compose", "exec", serviceName, shell)
+    execArgs := []string{"compose"}
+    execArgs = append(execArgs, compose.GlobalEnvArgs(app.StacksDir, stackName)...)
+    execArgs = append(execArgs, "exec", serviceName, shell)
+    cmd := exec.Command("docker", execArgs...)
     cmd.Dir = dir
     cmd.Env = os.Environ()
 

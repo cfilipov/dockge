@@ -739,3 +739,151 @@ func TestContainerInspect(t *testing.T) {
         t.Fatalf("containerInspect failed: %v", resp)
     }
 }
+
+// --- Global .env settings ---
+
+func TestGlobalENVRoundTrip(t *testing.T) {
+    env := testutil.Setup(t)
+    env.SeedAdmin(t)
+
+    conn := env.DialWS(t)
+    env.Login(t, conn)
+
+    // Set globalENV
+    settings := map[string]interface{}{
+        "globalENV": "MY_VAR=hello\nOTHER_VAR=world",
+    }
+    resp := env.SendAndReceive(t, conn, "setSettings", settings, "")
+    ok, _ := resp["ok"].(bool)
+    if !ok {
+        t.Fatalf("setSettings failed: %v", resp)
+    }
+
+    // Verify file on disk
+    globalEnvPath := filepath.Join(env.StacksDir, "global.env")
+    data, err := os.ReadFile(globalEnvPath)
+    if err != nil {
+        t.Fatal("expected global.env on disk:", err)
+    }
+    if string(data) != "MY_VAR=hello\nOTHER_VAR=world" {
+        t.Errorf("global.env content = %q, want %q", string(data), "MY_VAR=hello\nOTHER_VAR=world")
+    }
+
+    // Get settings and verify globalENV is returned
+    resp = env.SendAndReceive(t, conn, "getSettings")
+    respData, _ := resp["data"].(map[string]interface{})
+    globalENV, _ := respData["globalENV"].(string)
+    if globalENV != "MY_VAR=hello\nOTHER_VAR=world" {
+        t.Errorf("globalENV = %q, want %q", globalENV, "MY_VAR=hello\nOTHER_VAR=world")
+    }
+}
+
+func TestGlobalENVDefaultDeletes(t *testing.T) {
+    env := testutil.Setup(t)
+    env.SeedAdmin(t)
+
+    conn := env.DialWS(t)
+    env.Login(t, conn)
+
+    // First set a real value
+    settings := map[string]interface{}{
+        "globalENV": "MY_VAR=hello",
+    }
+    env.SendAndReceive(t, conn, "setSettings", settings, "")
+
+    // Verify file exists
+    globalEnvPath := filepath.Join(env.StacksDir, "global.env")
+    if _, err := os.Stat(globalEnvPath); err != nil {
+        t.Fatal("expected global.env to exist after set")
+    }
+
+    // Set to default content — should delete file
+    settings = map[string]interface{}{
+        "globalENV": "# VARIABLE=value #comment",
+    }
+    resp := env.SendAndReceive(t, conn, "setSettings", settings, "")
+    ok, _ := resp["ok"].(bool)
+    if !ok {
+        t.Fatalf("setSettings failed: %v", resp)
+    }
+
+    // File should be deleted
+    if _, err := os.Stat(globalEnvPath); !os.IsNotExist(err) {
+        t.Error("expected global.env to be deleted when set to default content")
+    }
+}
+
+func TestGlobalENVNotInBoltDB(t *testing.T) {
+    env := testutil.Setup(t)
+    env.SeedAdmin(t)
+
+    conn := env.DialWS(t)
+    env.Login(t, conn)
+
+    settings := map[string]interface{}{
+        "globalENV":       "MY_VAR=hello",
+        "primaryHostname": "test.example.com",
+    }
+    resp := env.SendAndReceive(t, conn, "setSettings", settings, "")
+    ok, _ := resp["ok"].(bool)
+    if !ok {
+        t.Fatalf("setSettings failed: %v", resp)
+    }
+
+    // globalENV should NOT be stored in BoltDB
+    val, err := env.App.Settings.Get("globalENV")
+    if err == nil && val != "" {
+        t.Errorf("globalENV should NOT be in BoltDB, but got %q", val)
+    }
+
+    // primaryHostname SHOULD be in BoltDB
+    val, err = env.App.Settings.Get("primaryHostname")
+    if err != nil || val != "test.example.com" {
+        t.Errorf("primaryHostname should be in BoltDB, got %q, err=%v", val, err)
+    }
+}
+
+func TestGlobalENVEmptyDeletes(t *testing.T) {
+    env := testutil.Setup(t)
+    env.SeedAdmin(t)
+
+    conn := env.DialWS(t)
+    env.Login(t, conn)
+
+    // Set a value first
+    settings := map[string]interface{}{
+        "globalENV": "MY_VAR=hello",
+    }
+    env.SendAndReceive(t, conn, "setSettings", settings, "")
+
+    // Set to empty — should delete file
+    settings = map[string]interface{}{
+        "globalENV": "",
+    }
+    resp := env.SendAndReceive(t, conn, "setSettings", settings, "")
+    ok, _ := resp["ok"].(bool)
+    if !ok {
+        t.Fatalf("setSettings failed: %v", resp)
+    }
+
+    globalEnvPath := filepath.Join(env.StacksDir, "global.env")
+    if _, err := os.Stat(globalEnvPath); !os.IsNotExist(err) {
+        t.Error("expected global.env to be deleted when set to empty string")
+    }
+}
+
+func TestGlobalENVDefaultOnMissing(t *testing.T) {
+    env := testutil.Setup(t)
+    env.SeedAdmin(t)
+
+    conn := env.DialWS(t)
+    env.Login(t, conn)
+
+    // getSettings without any global.env file should return the default placeholder
+    resp := env.SendAndReceive(t, conn, "getSettings")
+    respData, _ := resp["data"].(map[string]interface{})
+    globalENV, _ := respData["globalENV"].(string)
+    if globalENV != "# VARIABLE=value #comment" {
+        t.Errorf("expected default globalENV placeholder, got %q", globalENV)
+    }
+}
