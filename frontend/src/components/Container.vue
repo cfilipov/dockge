@@ -69,7 +69,9 @@
         <div v-if="!isEditMode" class="row">
             <div class="d-flex flex-wrap justify-content-between gap-3 mb-2">
                 <div class="image">
-                    <span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
+                    <router-link :to="{ name: 'imageDetail', params: { imageRef: envsubstService.image } }" class="image-link">
+                        <span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
+                    </router-link>
                 </div>
             </div>
             <div class="col">
@@ -563,6 +565,19 @@ function updateUrl(key: string, value: string) {
         color: #6c757d;
         .tag {
             color: #33383b;
+        }
+
+        .image-link {
+            text-decoration: none;
+            color: inherit;
+
+            &:hover {
+                text-decoration: underline;
+            }
+
+            .dark & .tag {
+                color: $dark-font-color;
+            }
         }
     }
 
