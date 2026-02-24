@@ -10,8 +10,8 @@
         </div>
 
         <!-- Desktop header -->
-        <header v-if="! isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
-            <router-link to="/stacks" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
+        <header v-if="! isMobile" class="d-flex align-items-center py-3 mb-3 border-bottom">
+            <router-link to="/stacks" class="d-flex align-items-center me-auto text-dark text-decoration-none">
                 <object class="bi me-2 ms-4" width="40" height="40" data="/icon.svg" />
                 <span class="fs-4 title">Dockge</span>
             </router-link>
@@ -19,6 +19,49 @@
             <a v-if="hasNewVersion" target="_blank" href="https://github.com/louislam/dockge/releases" class="btn btn-warning me-3">
                 <font-awesome-icon icon="arrow-alt-circle-up" /> {{ $t("newUpdate") }}
             </a>
+
+            <div v-if="loggedIn" class="header-profile">
+                <div class="dropdown dropdown-profile-pic">
+                    <div class="nav-link" data-bs-toggle="dropdown">
+                        <div class="profile-pic">{{ usernameFirstChar }}</div>
+                        <font-awesome-icon icon="angle-down" />
+                    </div>
+
+                    <!-- Header's Dropdown Menu -->
+                    <ul class="dropdown-menu">
+                        <!-- Username -->
+                        <li>
+                            <i18n-t v-if="username != null" tag="span" keypath="signedInDisp" class="dropdown-item-text">
+                                <strong>{{ username }}</strong>
+                            </i18n-t>
+                            <span v-if="username == null" class="dropdown-item-text">{{ $t("signedInDispDisabled") }}</span>
+                        </li>
+
+                        <li><hr class="dropdown-divider"></li>
+
+                        <!-- Functions -->
+
+                        <li>
+                            <button class="dropdown-item" @click="scanFolder">
+                                <font-awesome-icon icon="arrows-rotate" /> {{ $t("scanFolder") }}
+                            </button>
+                        </li>
+
+                        <li>
+                            <router-link to="/settings/general" class="dropdown-item" :class="{ active: $route.path.includes('settings') }">
+                                <font-awesome-icon icon="cog" /> {{ $t("Settings") }}
+                            </router-link>
+                        </li>
+
+                        <li>
+                            <button class="dropdown-item" @click="logout">
+                                <font-awesome-icon icon="sign-out-alt" />
+                                {{ $t("Logout") }}
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
 
             <ul class="nav nav-pills">
                 <li v-if="loggedIn" class="nav-item me-1">
@@ -67,49 +110,6 @@
                     <router-link to="/console" class="nav-link">
                         <font-awesome-icon icon="terminal" class="me-1" /> {{ $t("console") }}
                     </router-link>
-                </li>
-
-                <li v-if="loggedIn" class="nav-item">
-                    <div class="dropdown dropdown-profile-pic">
-                        <div class="nav-link" data-bs-toggle="dropdown">
-                            <div class="profile-pic">{{ usernameFirstChar }}</div>
-                            <font-awesome-icon icon="angle-down" />
-                        </div>
-
-                        <!-- Header's Dropdown Menu -->
-                        <ul class="dropdown-menu">
-                            <!-- Username -->
-                            <li>
-                                <i18n-t v-if="username != null" tag="span" keypath="signedInDisp" class="dropdown-item-text">
-                                    <strong>{{ username }}</strong>
-                                </i18n-t>
-                                <span v-if="username == null" class="dropdown-item-text">{{ $t("signedInDispDisabled") }}</span>
-                            </li>
-
-                            <li><hr class="dropdown-divider"></li>
-
-                            <!-- Functions -->
-
-                            <li>
-                                <button class="dropdown-item" @click="scanFolder">
-                                    <font-awesome-icon icon="arrows-rotate" /> {{ $t("scanFolder") }}
-                                </button>
-                            </li>
-
-                            <li>
-                                <router-link to="/settings/general" class="dropdown-item" :class="{ active: $route.path.includes('settings') }">
-                                    <font-awesome-icon icon="cog" /> {{ $t("Settings") }}
-                                </router-link>
-                            </li>
-
-                            <li>
-                                <button class="dropdown-item" @click="logout">
-                                    <font-awesome-icon icon="sign-out-alt" />
-                                    {{ $t("Logout") }}
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
                 </li>
             </ul>
         </header>
@@ -290,8 +290,44 @@ main {
     font-weight: bold;
 }
 
-.nav {
+// Profile wrapper
+.header-profile {
     margin-right: 25px;
+    flex-shrink: 0;
+}
+
+// Default (narrow): tabs wrap to centered second row
+header {
+    flex-wrap: wrap;
+}
+
+.nav {
+    order: 1;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0.5rem 1.5rem 0;
+}
+
+// Wide: single row, no wrapping — nav shrinks to fit
+@media (min-width: 1250px) {
+    header {
+        flex-wrap: nowrap;
+    }
+
+    .nav {
+        order: 0;
+        width: auto;
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
+        padding: 0;
+        margin-right: 0;
+    }
+
+    .header-profile {
+        order: 1;
+    }
 }
 
 .lost-connection {
@@ -314,6 +350,7 @@ main {
         align-items: center;
         background-color: rgba(200, 200, 200, 0.2);
         padding: 0.5rem 0.8rem;
+        border-radius: 50rem;
 
         &:hover {
             background-color: rgba(255, 255, 255, 0.2);
