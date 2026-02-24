@@ -69,7 +69,7 @@
         <div v-if="!isEditMode" class="row">
             <div class="d-flex flex-wrap justify-content-between gap-3 mb-2">
                 <div class="image">
-                    <router-link :to="{ name: 'imageDetail', params: { imageRef: envsubstService.image } }" class="image-link">
+                    <router-link :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="image-link">
                         <span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
                     </router-link>
                 </div>
