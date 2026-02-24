@@ -34,6 +34,10 @@ type Client interface {
     // without pulling it. Returns "" if unavailable.
     DistributionInspect(ctx context.Context, imageRef string) (string, error)
 
+    // ContainerTop returns the running processes inside a container.
+    // Returns column titles and a list of rows (each row is a list of values).
+    ContainerTop(ctx context.Context, id string) ([]string, [][]string, error)
+
     // NetworkList returns the names of all Docker networks.
     NetworkList(ctx context.Context) ([]string, error)
 

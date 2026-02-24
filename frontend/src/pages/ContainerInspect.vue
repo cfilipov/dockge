@@ -95,90 +95,172 @@
                 :endpoint="endpoint"
             />
 
-            <!-- Parsed View -->
-            <div v-if="viewMode === 'parsed' && parsed" class="shadow-box big-padding mb-3">
-                <div class="inspect-grid">
-                    <!-- Stack -->
-                    <template v-if="stackName">
-                        <div class="inspect-label">{{ $t("containerStack") }}</div>
-                        <div class="inspect-value">
-                            <router-link :to="stackLink">{{ stackName }}</router-link>
+            <!-- Parsed View: two-column layout -->
+            <div v-if="viewMode === 'parsed'" class="row">
+                <div class="col-lg-6">
+                    <!-- Networks Card -->
+                    <h4 class="mb-3">{{ $t("containerNetworks") }}</h4>
+                    <div v-if="networks.length > 0">
+                        <div v-for="net in networks" :key="net.name" class="shadow-box big-padding mb-3">
+                            <h5 class="mb-2">{{ net.name }}</h5>
+                            <div class="inspect-grid">
+                                <div class="inspect-label">{{ $t("networkIPv4") }}</div>
+                                <div class="inspect-value"><code>{{ net.ipv4 || '–' }}</code></div>
+
+                                <div class="inspect-label">{{ $t("networkIPv6") }}</div>
+                                <div class="inspect-value"><code>{{ net.ipv6 || '–' }}</code></div>
+
+                                <div class="inspect-label">{{ $t("networkMAC") }}</div>
+                                <div class="inspect-value"><code>{{ net.mac || '–' }}</code></div>
+
+                                <div class="inspect-label">{{ $t("networkGateway") }}</div>
+                                <div class="inspect-value"><code>{{ net.gateway || '–' }}</code></div>
+
+                                <template v-if="net.aliases && net.aliases.length > 0">
+                                    <div class="inspect-label">{{ $t("networkAliases") }}</div>
+                                    <div class="inspect-value"><code>{{ net.aliases.join(', ') }}</code></div>
+                                </template>
+                            </div>
                         </div>
-                    </template>
+                    </div>
+                    <div v-else class="shadow-box big-padding mb-3">
+                        <p class="text-muted mb-0">{{ $t("noNetworks") }}</p>
+                    </div>
 
-                    <!-- Image -->
-                    <template v-if="parsed.Config?.Image">
-                        <div class="inspect-label">{{ $t("containerImage") }}</div>
-                        <div class="inspect-value"><code>{{ parsed.Config.Image }}</code></div>
-                    </template>
+                    <!-- Mounts Card -->
+                    <h4 class="mb-3">{{ $t("containerMounts") }}</h4>
+                    <div v-if="mounts.length > 0">
+                        <div v-for="(mount, idx) in mounts" :key="idx" class="shadow-box big-padding mb-3">
+                            <div class="inspect-grid">
+                                <div class="inspect-label">{{ $t("mountType") }}</div>
+                                <div class="inspect-value">{{ mount.Type }}</div>
 
-                    <!-- Command -->
-                    <template v-if="commandStr">
-                        <div class="inspect-label">{{ $t("containerCommand") }}</div>
-                        <div class="inspect-value"><code>{{ commandStr }}</code></div>
-                    </template>
+                                <div class="inspect-label">{{ $t("mountSource") }}</div>
+                                <div class="inspect-value"><code>{{ mount.Source || mount.Name || '–' }}</code></div>
 
-                    <!-- Restart Policy -->
-                    <template v-if="restartPolicyStr">
-                        <div class="inspect-label">{{ $t("containerRestartPolicy") }}</div>
-                        <div class="inspect-value">{{ restartPolicyStr }}</div>
-                    </template>
+                                <div class="inspect-label">{{ $t("mountDestination") }}</div>
+                                <div class="inspect-value"><code>{{ mount.Destination }}</code></div>
 
-                    <!-- Restart Count -->
-                    <template v-if="parsed.RestartCount != null">
-                        <div class="inspect-label">{{ $t("containerRestartCount") }}</div>
-                        <div class="inspect-value">{{ parsed.RestartCount }}</div>
-                    </template>
-
-                    <!-- Container ID -->
-                    <template v-if="parsed.Id">
-                        <div class="inspect-label">{{ $t("containerID") }}</div>
-                        <div class="inspect-value">
-                            <code :title="parsed.Id">{{ parsed.Id.substring(0, 12) }}</code>
+                                <div class="inspect-label">{{ $t("mountReadWrite") }}</div>
+                                <div class="inspect-value">{{ mount.RW ? 'rw' : 'ro' }}</div>
+                            </div>
                         </div>
-                    </template>
+                    </div>
+                    <div v-else class="shadow-box big-padding mb-3">
+                        <p class="text-muted mb-0">{{ $t("noMounts") }}</p>
+                    </div>
 
-                    <!-- Created -->
-                    <template v-if="parsed.Created">
-                        <div class="inspect-label">{{ $t("containerCreated") }}</div>
-                        <div class="inspect-value">{{ formatDate(parsed.Created) }}</div>
-                    </template>
-
-                    <!-- Started -->
-                    <template v-if="parsed.State?.StartedAt && isValidDate(parsed.State.StartedAt)">
-                        <div class="inspect-label">{{ $t("containerStarted") }}</div>
-                        <div class="inspect-value">{{ formatDate(parsed.State.StartedAt) }}</div>
-                    </template>
-
-                    <!-- Uptime -->
-                    <template v-if="uptimeStr">
-                        <div class="inspect-label">{{ $t("containerUptime") }}</div>
-                        <div class="inspect-value">{{ uptimeStr }}</div>
-                    </template>
-
-                    <!-- Working Dir -->
-                    <template v-if="parsed.Config?.WorkingDir !== undefined">
-                        <div class="inspect-label">{{ $t("containerWorkingDir") }}</div>
-                        <div class="inspect-value">
-                            <code v-if="parsed.Config.WorkingDir">{{ parsed.Config.WorkingDir }}</code>
-                            <span v-else class="text-muted">&ndash;</span>
+                    <!-- Processes Card -->
+                    <h4 class="mb-3">{{ $t("containerProcesses") }}</h4>
+                    <div class="shadow-box big-padding mb-3">
+                        <div v-if="processList.length > 0" class="table-responsive">
+                            <table class="table table-sm mb-0 process-table">
+                                <thead>
+                                    <tr>
+                                        <th>{{ $t("processPID") }}</th>
+                                        <th>{{ $t("processUser") }}</th>
+                                        <th>{{ $t("processCommand") }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(proc, idx) in processList" :key="idx">
+                                        <td>{{ proc.pid }}</td>
+                                        <td>{{ proc.user }}</td>
+                                        <td><code>{{ proc.command }}</code></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
-                    </template>
-
-                    <!-- User -->
-                    <template v-if="parsed.Config?.User !== undefined">
-                        <div class="inspect-label">{{ $t("containerUserGroup") }}</div>
-                        <div class="inspect-value">
-                            <span v-if="parsed.Config.User">{{ parsed.Config.User }}</span>
-                            <span v-else class="text-muted">&ndash;</span>
-                        </div>
-                    </template>
+                        <p v-else class="text-muted mb-0">{{ $t("noProcesses") }}</p>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Parsed view loading state -->
-            <div v-else-if="viewMode === 'parsed' && !parsed" class="shadow-box big-padding mb-3">
-                <p class="text-muted mb-0">{{ inspectData }}</p>
+                <div class="col-lg-6">
+                    <!-- Overview Card -->
+                    <h4 class="mb-3">{{ $t("containerOverview") }}</h4>
+                    <div v-if="parsed" class="shadow-box big-padding mb-3">
+                        <div class="inspect-grid">
+                            <!-- Stack -->
+                            <template v-if="stackName">
+                                <div class="inspect-label">{{ $t("containerStack") }}</div>
+                                <div class="inspect-value">
+                                    <router-link :to="stackLink">{{ stackName }}</router-link>
+                                </div>
+                            </template>
+
+                            <!-- Image -->
+                            <template v-if="parsed.Config?.Image">
+                                <div class="inspect-label">{{ $t("containerImage") }}</div>
+                                <div class="inspect-value"><code>{{ parsed.Config.Image }}</code></div>
+                            </template>
+
+                            <!-- Command -->
+                            <template v-if="commandStr">
+                                <div class="inspect-label">{{ $t("containerCommand") }}</div>
+                                <div class="inspect-value"><code>{{ commandStr }}</code></div>
+                            </template>
+
+                            <!-- Restart Policy -->
+                            <template v-if="restartPolicyStr">
+                                <div class="inspect-label">{{ $t("containerRestartPolicy") }}</div>
+                                <div class="inspect-value">{{ restartPolicyStr }}</div>
+                            </template>
+
+                            <!-- Restart Count -->
+                            <template v-if="parsed.RestartCount != null">
+                                <div class="inspect-label">{{ $t("containerRestartCount") }}</div>
+                                <div class="inspect-value">{{ parsed.RestartCount }}</div>
+                            </template>
+
+                            <!-- Container ID -->
+                            <template v-if="parsed.Id">
+                                <div class="inspect-label">{{ $t("containerID") }}</div>
+                                <div class="inspect-value">
+                                    <code :title="parsed.Id">{{ parsed.Id.substring(0, 12) }}</code>
+                                </div>
+                            </template>
+
+                            <!-- Created -->
+                            <template v-if="parsed.Created">
+                                <div class="inspect-label">{{ $t("containerCreated") }}</div>
+                                <div class="inspect-value">{{ formatDate(parsed.Created) }}</div>
+                            </template>
+
+                            <!-- Started -->
+                            <template v-if="parsed.State?.StartedAt && isValidDate(parsed.State.StartedAt)">
+                                <div class="inspect-label">{{ $t("containerStarted") }}</div>
+                                <div class="inspect-value">{{ formatDate(parsed.State.StartedAt) }}</div>
+                            </template>
+
+                            <!-- Uptime -->
+                            <template v-if="uptimeStr">
+                                <div class="inspect-label">{{ $t("containerUptime") }}</div>
+                                <div class="inspect-value">{{ uptimeStr }}</div>
+                            </template>
+
+                            <!-- Working Dir -->
+                            <template v-if="parsed.Config?.WorkingDir !== undefined">
+                                <div class="inspect-label">{{ $t("containerWorkingDir") }}</div>
+                                <div class="inspect-value">
+                                    <code v-if="parsed.Config.WorkingDir">{{ parsed.Config.WorkingDir }}</code>
+                                    <span v-else class="text-muted">&ndash;</span>
+                                </div>
+                            </template>
+
+                            <!-- User -->
+                            <template v-if="parsed.Config?.User !== undefined">
+                                <div class="inspect-label">{{ $t("containerUserGroup") }}</div>
+                                <div class="inspect-value">
+                                    <span v-if="parsed.Config.User">{{ parsed.Config.User }}</span>
+                                    <span v-else class="text-muted">&ndash;</span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <div v-else class="shadow-box big-padding mb-3">
+                        <p class="text-muted mb-0">{{ inspectData }}</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Raw View -->
@@ -262,6 +344,9 @@ const progressTerminalRef = ref<InstanceType<typeof ProgressTerminal>>();
 const now = ref(Date.now());
 let uptimeTimer: ReturnType<typeof setInterval> | null = null;
 
+// Process list from containerTop
+const processList = ref<Array<{ pid: string; user: string; command: string }>>([]);
+
 const extensionsYAML = [
     editorTheme,
     yamlLang(),
@@ -308,6 +393,26 @@ const restartPolicyStr = computed(() => {
         return `${rp.Name}:${rp.MaximumRetryCount}`;
     }
     return rp.Name;
+});
+
+// Networks extracted from inspect data
+const networks = computed(() => {
+    if (!parsed.value?.NetworkSettings?.Networks) return [];
+    const nets = parsed.value.NetworkSettings.Networks;
+    return Object.entries(nets).map(([name, cfg]: [string, any]) => ({
+        name,
+        ipv4: cfg.IPAddress || "",
+        ipv6: cfg.GlobalIPv6Address || "",
+        mac: cfg.MacAddress || "",
+        gateway: cfg.Gateway || "",
+        aliases: cfg.Aliases || [],
+    }));
+});
+
+// Mounts extracted from inspect data
+const mounts = computed(() => {
+    if (!parsed.value?.Mounts) return [];
+    return parsed.value.Mounts;
 });
 
 function isValidDate(dateStr: string): boolean {
@@ -406,6 +511,25 @@ function checkImageUpdates() {
     });
 }
 
+function fetchProcesses() {
+    if (!containerName.value) return;
+    emitAgent(endpoint.value, "containerTop", containerName.value, (res: any) => {
+        if (res.ok && res.processes) {
+            // Map columns by title position (PID, USER, COMMAND)
+            const titles: string[] = res.titles || [];
+            const pidIdx = titles.findIndex((t: string) => t === "PID");
+            const userIdx = titles.findIndex((t: string) => t === "USER");
+            const cmdIdx = titles.findIndex((t: string) => t === "COMMAND" || t === "CMD" || t === "ARGS");
+
+            processList.value = res.processes.map((row: string[]) => ({
+                pid: pidIdx >= 0 ? row[pidIdx] : row[0] || "",
+                user: userIdx >= 0 ? row[userIdx] : row[1] || "",
+                command: cmdIdx >= 0 ? row[cmdIdx] : row[row.length - 1] || "",
+            }));
+        }
+    });
+}
+
 onMounted(() => {
     if (containerName.value) {
         emitAgent(endpoint.value, "containerInspect", containerName.value, (res: any) => {
@@ -421,6 +545,8 @@ onMounted(() => {
                 }
             }
         });
+
+        fetchProcesses();
     }
 
     uptimeTimer = setInterval(() => {
@@ -466,6 +592,36 @@ onUnmounted(() => {
     code {
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.9em;
+    }
+}
+
+.process-table {
+    font-size: 0.9em;
+
+    th {
+        font-weight: 600;
+        color: $dark-font-color3;
+        border-bottom-width: 1px;
+
+        .dark & {
+            color: $dark-font-color3;
+        }
+    }
+
+    td {
+        .dark & {
+            color: $dark-font-color;
+            border-color: $dark-border-color;
+        }
+    }
+
+    code {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9em;
+    }
+
+    .dark & {
+        --bs-table-bg: transparent;
     }
 }
 

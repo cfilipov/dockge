@@ -211,6 +211,14 @@ func (s *SDKClient) ContainerStats(ctx context.Context, projectFilter string) (m
     return result, nil
 }
 
+func (s *SDKClient) ContainerTop(ctx context.Context, id string) ([]string, [][]string, error) {
+    resp, err := s.cli.ContainerTop(ctx, id, []string{"-eo", "pid,user,args"})
+    if err != nil {
+        return nil, nil, fmt.Errorf("container top: %w", err)
+    }
+    return resp.Titles, resp.Processes, nil
+}
+
 func (s *SDKClient) ContainerLogs(ctx context.Context, containerID string, tail string, follow bool) (io.ReadCloser, bool, error) {
     // Check if container uses TTY
     inspect, err := s.cli.ContainerInspect(ctx, containerID)

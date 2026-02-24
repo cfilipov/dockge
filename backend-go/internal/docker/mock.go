@@ -118,15 +118,48 @@ func (m *MockClient) ContainerInspect(_ context.Context, id string) (string, err
             "MaximumRetryCount": 0
         }
     },
+    "Mounts": [
+        {
+            "Type": "bind",
+            "Source": "/opt/stacks/data",
+            "Destination": "/usr/share/nginx/html",
+            "Mode": "rw",
+            "RW": true
+        },
+        {
+            "Type": "volume",
+            "Name": "config-vol",
+            "Source": "/var/lib/docker/volumes/config-vol/_data",
+            "Destination": "/etc/nginx/conf.d",
+            "Mode": "ro",
+            "RW": false
+        }
+    ],
     "NetworkSettings": {
         "Networks": {
             "bridge": {
                 "IPAddress": "172.17.0.2",
-                "Gateway": "172.17.0.1"
+                "IPPrefixLen": 16,
+                "IPv6Gateway": "",
+                "GlobalIPv6Address": "",
+                "GlobalIPv6PrefixLen": 0,
+                "Gateway": "172.17.0.1",
+                "MacAddress": "02:42:ac:11:00:02",
+                "Aliases": ["nginx", "%s"]
             }
         }
     }
-}]`, id, cleanID, cleanID), nil
+}]`, id, cleanID, cleanID, cleanID), nil
+}
+
+func (m *MockClient) ContainerTop(_ context.Context, id string) ([]string, [][]string, error) {
+	titles := []string{"PID", "USER", "COMMAND"}
+	processes := [][]string{
+		{"1", "root", "nginx: master process nginx -g daemon off;"},
+		{"29", "nginx", "nginx: worker process"},
+		{"30", "nginx", "nginx: worker process"},
+	}
+	return titles, processes, nil
 }
 
 func (m *MockClient) ContainerStats(_ context.Context, projectFilter string) (map[string]ContainerStat, error) {

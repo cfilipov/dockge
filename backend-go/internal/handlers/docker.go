@@ -14,6 +14,7 @@ func RegisterDockerHandlers(app *App) {
     app.WS.Handle("serviceStatusList", app.handleServiceStatusList)
     app.WS.Handle("dockerStats", app.handleDockerStats)
     app.WS.Handle("containerInspect", app.handleContainerInspect)
+    app.WS.Handle("containerTop", app.handleContainerTop)
     app.WS.Handle("getDockerNetworkList", app.handleGetDockerNetworkList)
     app.WS.Handle("requestContainerList", app.handleRequestContainerList)
 }
@@ -214,6 +215,46 @@ func (app *App) handleContainerInspect(c *ws.Conn, msg *ws.ClientMessage) {
         }{
             OK:          true,
             InspectData: inspectData,
+        })
+    }
+}
+
+// handleContainerTop returns running processes inside a container.
+func (app *App) handleContainerTop(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    args := parseArgs(msg)
+    containerName := argString(args, 0)
+    if containerName == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+        }
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    titles, processes, err := app.Docker.ContainerTop(ctx, containerName)
+    if err != nil {
+        slog.Warn("containerTop", "err", err, "container", containerName)
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+        }
+        return
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, struct {
+            OK        bool       `json:"ok"`
+            Titles    []string   `json:"titles"`
+            Processes [][]string `json:"processes"`
+        }{
+            OK:        true,
+            Titles:    titles,
+            Processes: processes,
         })
     }
 }
