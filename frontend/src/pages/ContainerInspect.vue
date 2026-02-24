@@ -197,7 +197,11 @@
                             <!-- Image -->
                             <div v-if="parsed.Config?.Image" class="overview-item">
                                 <div class="overview-label">{{ $t("containerImage") }}</div>
-                                <div class="overview-value"><code>{{ parsed.Config.Image }}</code></div>
+                                <div class="overview-value">
+                                    <router-link :to="{ name: 'imageDetail', params: { imageRef: parsed.Config.Image } }" class="stack-link">
+                                        {{ parsed.Config.Image }}
+                                    </router-link>
+                                </div>
                             </div>
 
                             <!-- Command -->

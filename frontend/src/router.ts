@@ -171,8 +171,18 @@ const routes = [
                     },
                     {
                         path: "/images",
-                        component: StubPage,
-                        props: { title: "Images" },
+                        children: [
+                            {
+                                path: "",
+                                component: () => import("./pages/ImageInspect.vue"),
+                                name: "imagesHome",
+                            },
+                            {
+                                path: ":imageRef(.*)",
+                                component: () => import("./pages/ImageInspect.vue"),
+                                name: "imageDetail",
+                            },
+                        ],
                     },
                     {
                         path: "/volumes",

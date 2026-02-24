@@ -71,3 +71,40 @@ type NetworkContainerDetail struct {
     IPv6        string `json:"ipv6"`
     MAC         string `json:"mac"`
 }
+
+// ImageSummary holds basic info for image list display.
+type ImageSummary struct {
+    ID         string   `json:"id"`
+    RepoTags   []string `json:"repoTags"`
+    Size       string   `json:"size"`
+    Created    string   `json:"created"`
+    Containers int      `json:"containers"`
+}
+
+// ImageDetail holds full info for a single image.
+type ImageDetail struct {
+    ID           string           `json:"id"`
+    RepoTags     []string         `json:"repoTags"`
+    Size         string           `json:"size"`
+    Created      string           `json:"created"`
+    Architecture string           `json:"architecture"`
+    OS           string           `json:"os"`
+    WorkingDir   string           `json:"workingDir"`
+    Layers       []ImageLayer     `json:"layers"`
+    Containers   []ImageContainer `json:"containers"`
+}
+
+// ImageLayer holds info about a single layer in an image's history.
+type ImageLayer struct {
+    ID      string `json:"id"`
+    Created string `json:"created"`
+    Size    string `json:"size"`
+    Command string `json:"command"`
+}
+
+// ImageContainer holds info about a container using a specific image.
+type ImageContainer struct {
+    Name        string `json:"name"`
+    ContainerID string `json:"containerId"`
+    State       string `json:"state"`
+}

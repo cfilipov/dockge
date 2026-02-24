@@ -18,6 +18,8 @@ func RegisterDockerHandlers(app *App) {
     app.WS.Handle("getDockerNetworkList", app.handleGetDockerNetworkList)
     app.WS.Handle("networkInspect", app.handleNetworkInspect)
     app.WS.Handle("requestContainerList", app.handleRequestContainerList)
+    app.WS.Handle("getDockerImageList", app.handleGetDockerImageList)
+    app.WS.Handle("imageInspect", app.handleImageInspect)
 }
 
 // ServiceEntry represents a single container's status within a service.
@@ -320,6 +322,70 @@ func (app *App) handleNetworkInspect(c *ws.Conn, msg *ws.ClientMessage) {
         }{
             OK:            true,
             NetworkDetail: detail,
+        })
+    }
+}
+
+// handleGetDockerImageList returns Docker image summaries via the Docker client.
+func (app *App) handleGetDockerImageList(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    images, err := app.Docker.ImageList(ctx)
+    if err != nil {
+        slog.Warn("getDockerImageList", "err", err)
+        images = []docker.ImageSummary{}
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, struct {
+            OK              bool                  `json:"ok"`
+            DockerImageList []docker.ImageSummary  `json:"dockerImageList"`
+        }{
+            OK:              true,
+            DockerImageList: images,
+        })
+    }
+}
+
+// handleImageInspect returns detailed info for a single Docker image.
+func (app *App) handleImageInspect(c *ws.Conn, msg *ws.ClientMessage) {
+    if checkLogin(c, msg) == 0 {
+        return
+    }
+
+    args := parseArgs(msg)
+    imageRef := argString(args, 0)
+    if imageRef == "" {
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Image reference required"})
+        }
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    detail, err := app.Docker.ImageInspectDetail(ctx, imageRef)
+    if err != nil {
+        slog.Warn("imageInspect", "err", err, "image", imageRef)
+        if msg.ID != nil {
+            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+        }
+        return
+    }
+
+    if msg.ID != nil {
+        c.SendAck(*msg.ID, struct {
+            OK          bool                `json:"ok"`
+            ImageDetail *docker.ImageDetail `json:"imageDetail"`
+        }{
+            OK:          true,
+            ImageDetail: detail,
         })
     }
 }

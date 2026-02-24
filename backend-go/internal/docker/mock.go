@@ -248,6 +248,156 @@ func (m *MockClient) DistributionInspect(_ context.Context, imageRef string) (st
 	return fmt.Sprintf("sha256:%s%s", hash, hash), nil
 }
 
+func (m *MockClient) ImageList(_ context.Context) ([]ImageSummary, error) {
+	// Build container count from current state
+	containers, _ := m.ContainerList(context.Background(), true, "")
+	countByImage := make(map[string]int)
+	for _, c := range containers {
+		countByImage[c.Image]++
+	}
+
+	images := []struct {
+		tag     string
+		size    string
+		created string
+	}{
+		{"nginx:latest", "187.8MiB", "2026-01-15T10:00:00Z"},
+		{"nginx:1.24", "142.3MiB", "2025-09-20T08:00:00Z"},
+		{"redis:7-alpine", "30.2MiB", "2026-01-10T12:00:00Z"},
+		{"wordpress:6", "615.4MiB", "2026-01-18T09:00:00Z"},
+		{"wordpress:6.3", "609.1MiB", "2025-08-10T14:00:00Z"},
+		{"mysql:8", "573.0MiB", "2026-01-12T11:00:00Z"},
+		{"grafana/grafana:latest", "402.5MiB", "2026-01-20T07:00:00Z"},
+		{"alpine:3.19", "7.4MiB", "2025-12-01T06:00:00Z"},
+	}
+
+	result := make([]ImageSummary, 0, len(images))
+	for _, img := range images {
+		hash := mockHash(img.tag)
+		id := fmt.Sprintf("sha256:%s%s", hash, hash)
+		result = append(result, ImageSummary{
+			ID:         id,
+			RepoTags:   []string{img.tag},
+			Size:       img.size,
+			Created:    img.created,
+			Containers: countByImage[img.tag],
+		})
+	}
+	return result, nil
+}
+
+func (m *MockClient) ImageInspectDetail(_ context.Context, imageRef string) (*ImageDetail, error) {
+	// Find containers using this image
+	containers, _ := m.ContainerList(context.Background(), true, "")
+	var imgContainers []ImageContainer
+	for _, c := range containers {
+		if c.Image == imageRef {
+			imgContainers = append(imgContainers, ImageContainer{
+				Name:        c.Name,
+				ContainerID: c.ID,
+				State:       c.State,
+			})
+		}
+	}
+	if imgContainers == nil {
+		imgContainers = []ImageContainer{}
+	}
+
+	hash := mockHash(imageRef)
+	id := fmt.Sprintf("sha256:%s%s", hash, hash)
+
+	type imageInfo struct {
+		size       string
+		created    string
+		workingDir string
+		layers     []ImageLayer
+	}
+
+	layerSets := map[string]imageInfo{
+		"nginx:latest": {
+			size: "187.8MiB", created: "2026-01-15T10:00:00Z", workingDir: "/usr/share/nginx/html",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2026-01-15T10:00:00Z", Size: "0B", Command: "CMD [\"nginx\" \"-g\" \"daemon off;\"]"},
+				{ID: "<missing>", Created: "2026-01-15T09:59:00Z", Size: "1.4KiB", Command: "COPY docker-entrypoint.sh / # buildkit"},
+				{ID: "<missing>", Created: "2026-01-15T09:58:00Z", Size: "41.2MiB", Command: "RUN /bin/sh -c set -x && apt-get update # buildkit"},
+				{ID: "<missing>", Created: "2026-01-15T09:50:00Z", Size: "146.6MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"nginx:1.24": {
+			size: "142.3MiB", created: "2025-09-20T08:00:00Z", workingDir: "/usr/share/nginx/html",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2025-09-20T08:00:00Z", Size: "0B", Command: "CMD [\"nginx\" \"-g\" \"daemon off;\"]"},
+				{ID: "<missing>", Created: "2025-09-20T07:59:00Z", Size: "1.4KiB", Command: "COPY docker-entrypoint.sh / # buildkit"},
+				{ID: "<missing>", Created: "2025-09-20T07:50:00Z", Size: "140.9MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"redis:7-alpine": {
+			size: "30.2MiB", created: "2026-01-10T12:00:00Z", workingDir: "/data",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2026-01-10T12:00:00Z", Size: "0B", Command: "CMD [\"redis-server\"]"},
+				{ID: "<missing>", Created: "2026-01-10T11:58:00Z", Size: "2.1MiB", Command: "RUN /bin/sh -c addgroup -S redis # buildkit"},
+				{ID: "<missing>", Created: "2026-01-10T11:50:00Z", Size: "7.8MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"wordpress:6": {
+			size: "615.4MiB", created: "2026-01-18T09:00:00Z", workingDir: "/var/www/html",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2026-01-18T09:00:00Z", Size: "0B", Command: "CMD [\"apache2-foreground\"]"},
+				{ID: "<missing>", Created: "2026-01-18T08:55:00Z", Size: "62.3MiB", Command: "RUN /bin/sh -c curl -o wordpress.tar.gz # buildkit"},
+				{ID: "<missing>", Created: "2026-01-18T08:50:00Z", Size: "553.1MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"wordpress:6.3": {
+			size: "609.1MiB", created: "2025-08-10T14:00:00Z", workingDir: "/var/www/html",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2025-08-10T14:00:00Z", Size: "0B", Command: "CMD [\"apache2-foreground\"]"},
+				{ID: "<missing>", Created: "2025-08-10T13:55:00Z", Size: "60.1MiB", Command: "RUN /bin/sh -c curl -o wordpress.tar.gz # buildkit"},
+				{ID: "<missing>", Created: "2025-08-10T13:50:00Z", Size: "549.0MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"mysql:8": {
+			size: "573.0MiB", created: "2026-01-12T11:00:00Z", workingDir: "",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2026-01-12T11:00:00Z", Size: "0B", Command: "CMD [\"mysqld\"]"},
+				{ID: "<missing>", Created: "2026-01-12T10:55:00Z", Size: "340.2MiB", Command: "RUN /bin/sh -c { echo mysql-community-server # buildkit"},
+				{ID: "<missing>", Created: "2026-01-12T10:50:00Z", Size: "232.8MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"grafana/grafana:latest": {
+			size: "402.5MiB", created: "2026-01-20T07:00:00Z", workingDir: "/usr/share/grafana",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2026-01-20T07:00:00Z", Size: "0B", Command: "ENTRYPOINT [\"/run.sh\"]"},
+				{ID: "<missing>", Created: "2026-01-20T06:55:00Z", Size: "395.1MiB", Command: "COPY --from=build /grafana /usr/share/grafana # buildkit"},
+				{ID: "<missing>", Created: "2026-01-20T06:50:00Z", Size: "7.4MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+		"alpine:3.19": {
+			size: "7.4MiB", created: "2025-12-01T06:00:00Z", workingDir: "",
+			layers: []ImageLayer{
+				{ID: id[:19], Created: "2025-12-01T06:00:00Z", Size: "0B", Command: "CMD [\"/bin/sh\"]"},
+				{ID: "<missing>", Created: "2025-12-01T05:50:00Z", Size: "7.4MiB", Command: "/bin/sh -c #(nop) ADD file:... in /"},
+			},
+		},
+	}
+
+	info, ok := layerSets[imageRef]
+	if !ok {
+		return nil, fmt.Errorf("image not found: %s", imageRef)
+	}
+
+	return &ImageDetail{
+		ID:           id,
+		RepoTags:     []string{imageRef},
+		Size:         info.size,
+		Created:      info.created,
+		Architecture: "amd64",
+		OS:           "linux",
+		WorkingDir:   info.workingDir,
+		Layers:       info.layers,
+		Containers:   imgContainers,
+	}, nil
+}
+
 func (m *MockClient) ImagePrune(_ context.Context, all bool) (string, error) {
 	return "Total reclaimed space: 0B", nil
 }

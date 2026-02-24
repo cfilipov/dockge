@@ -10,9 +10,12 @@ import (
     "strings"
     "sync"
 
+    "time"
+
     "github.com/docker/docker/api/types/container"
     "github.com/docker/docker/api/types/events"
     "github.com/docker/docker/api/types/filters"
+    "github.com/docker/docker/api/types/image"
     "github.com/docker/docker/api/types/network"
     "github.com/docker/docker/client"
     "github.com/docker/docker/pkg/stdcopy"
@@ -275,6 +278,113 @@ func (s *SDKClient) DistributionInspect(ctx context.Context, imageRef string) (s
         return "", nil
     }
     return string(resp.Descriptor.Digest), nil
+}
+
+func (s *SDKClient) ImageList(ctx context.Context) ([]ImageSummary, error) {
+    imgs, err := s.cli.ImageList(ctx, image.ListOptions{})
+    if err != nil {
+        return nil, fmt.Errorf("image list: %w", err)
+    }
+
+    // Count containers per image ID
+    containers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
+    countByID := make(map[string]int, len(containers))
+    for _, c := range containers {
+        countByID[c.ImageID]++
+    }
+
+    result := make([]ImageSummary, 0, len(imgs))
+    for _, img := range imgs {
+        tags := make([]string, 0, len(img.RepoTags))
+        for _, t := range img.RepoTags {
+            if t != "<none>:<none>" {
+                tags = append(tags, t)
+            }
+        }
+
+        result = append(result, ImageSummary{
+            ID:         img.ID,
+            RepoTags:   tags,
+            Size:       formatBytes(uint64(img.Size)),
+            Created:    time.Unix(img.Created, 0).UTC().Format(time.RFC3339),
+            Containers: countByID[img.ID],
+        })
+    }
+    return result, nil
+}
+
+func (s *SDKClient) ImageInspectDetail(ctx context.Context, imageRef string) (*ImageDetail, error) {
+    resp, _, err := s.cli.ImageInspectWithRaw(ctx, imageRef)
+    if err != nil {
+        return nil, fmt.Errorf("image inspect detail: %w", err)
+    }
+
+    history, err := s.cli.ImageHistory(ctx, imageRef)
+    if err != nil {
+        return nil, fmt.Errorf("image history: %w", err)
+    }
+
+    layers := make([]ImageLayer, 0, len(history))
+    for _, h := range history {
+        id := "<missing>"
+        if h.ID != "<missing>" && h.ID != "" {
+            if len(h.ID) > 12 {
+                id = h.ID[:12]
+            } else {
+                id = h.ID
+            }
+        }
+        layers = append(layers, ImageLayer{
+            ID:      id,
+            Created: time.Unix(h.Created, 0).UTC().Format(time.RFC3339),
+            Size:    formatBytes(uint64(h.Size)),
+            Command: h.CreatedBy,
+        })
+    }
+
+    // Find containers using this image
+    allContainers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
+    var imgContainers []ImageContainer
+    for _, c := range allContainers {
+        if c.ImageID == resp.ID || c.Image == imageRef {
+            name := ""
+            if len(c.Names) > 0 {
+                name = strings.TrimPrefix(c.Names[0], "/")
+            }
+            imgContainers = append(imgContainers, ImageContainer{
+                Name:        name,
+                ContainerID: c.ID,
+                State:       c.State,
+            })
+        }
+    }
+    if imgContainers == nil {
+        imgContainers = []ImageContainer{}
+    }
+
+    tags := make([]string, 0, len(resp.RepoTags))
+    for _, t := range resp.RepoTags {
+        if t != "<none>:<none>" {
+            tags = append(tags, t)
+        }
+    }
+
+    workingDir := ""
+    if resp.Config != nil {
+        workingDir = resp.Config.WorkingDir
+    }
+
+    return &ImageDetail{
+        ID:           resp.ID,
+        RepoTags:     tags,
+        Size:         formatBytes(uint64(resp.Size)),
+        Created:      resp.Created,
+        Architecture: resp.Architecture,
+        OS:           resp.Os,
+        WorkingDir:   workingDir,
+        Layers:       layers,
+        Containers:   imgContainers,
+    }, nil
 }
 
 func (s *SDKClient) ImagePrune(ctx context.Context, all bool) (string, error) {

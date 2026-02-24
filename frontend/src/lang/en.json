@@ -267,5 +267,18 @@
     "networkDriverNone": "none",
     "networksNav": "Networks",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "imageID": "Image ID",
+    "imageSize": "Size",
+    "imageCreatedAt": "Created",
+    "imageArchitecture": "Architecture",
+    "imageOS": "OS",
+    "imageWorkingDir": "Working Dir",
+    "imageLayers": "Layers",
+    "imageContainers": "Containers",
+    "noImageSelected": "Select an image from the list.",
+    "noImageContainers": "No containers using this image.",
+    "imageInUse": "in use",
+    "imageUnused": "unused",
+    "imageLayerMissing": "<missing>"
 }

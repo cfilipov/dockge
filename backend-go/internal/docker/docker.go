@@ -44,6 +44,13 @@ type Client interface {
     // NetworkInspect returns detailed info for a single Docker network.
     NetworkInspect(ctx context.Context, networkID string) (*NetworkDetail, error)
 
+    // ImageList returns summary info for all Docker images.
+    ImageList(ctx context.Context) ([]ImageSummary, error)
+
+    // ImageInspectDetail returns detailed info for a single Docker image,
+    // including layers and containers using it.
+    ImageInspectDetail(ctx context.Context, imageRef string) (*ImageDetail, error)
+
     // ImagePrune removes unused images. Returns human-readable reclaimed space string.
     ImagePrune(ctx context.Context, all bool) (string, error)
 
