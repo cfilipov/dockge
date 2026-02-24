@@ -103,7 +103,7 @@
                     <div v-if="networks.length > 0">
                         <div v-for="net in networks" :key="net.name" class="shadow-box big-padding mb-3">
                             <h5 class="mb-3">
-                                <router-link :to="{ name: 'networkDetail', params: { networkName: net.name } }" class="stack-link">{{ net.name }}</router-link>
+                                <router-link :to="{ name: 'networkDetail', params: { networkName: net.name } }" class="stack-link"><font-awesome-icon icon="network-wired" class="me-2" />{{ net.name }}</router-link>
                             </h5>
                             <div class="inspect-grid">
                                 <div class="inspect-label">{{ $t("networkIPv4") }}</div>
@@ -144,7 +144,7 @@
                                 <template v-if="mount.Type === 'volume' && mount.Name">
                                     <div class="inspect-label">{{ $t("mountVolume") }}</div>
                                     <div class="inspect-value">
-                                        <router-link :to="{ name: 'volumeDetail', params: { volumeName: mount.Name } }" class="stack-link">{{ mount.Name }}</router-link>
+                                        <router-link :to="{ name: 'volumeDetail', params: { volumeName: mount.Name } }" class="stack-link"><font-awesome-icon icon="hard-drive" class="me-2" />{{ mount.Name }}</router-link>
                                     </div>
                                 </template>
 
@@ -197,7 +197,7 @@
                             <div v-if="stackName" class="overview-item">
                                 <div class="overview-label">{{ $t("containerStack") }}</div>
                                 <div class="overview-value">
-                                    <router-link :to="stackLink" class="stack-link">{{ stackName }}</router-link>
+                                    <router-link :to="stackLink" class="stack-link"><font-awesome-icon icon="layer-group" class="me-2" />{{ stackName }}</router-link>
                                 </div>
                             </div>
 
@@ -206,7 +206,7 @@
                                 <div class="overview-label">{{ $t("containerImage") }}</div>
                                 <div class="overview-value">
                                     <router-link :to="{ name: 'imageDetail', params: { imageRef: fullImageRef } }" class="stack-link">
-                                        {{ fullImageRef }}
+                                        <font-awesome-icon icon="box-archive" class="me-2" />{{ fullImageRef }}
                                     </router-link>
                                 </div>
                             </div>
