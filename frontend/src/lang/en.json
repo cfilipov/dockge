@@ -216,5 +216,18 @@
     "tooltipContainerShell": "docker exec {0} bash",
     "tooltipContainerLogs": "docker logs {0}",
     "tooltipContainerInspect": "docker inspect {0}",
-    "selectStack": "Select a stack from the list."
+    "selectStack": "Select a stack from the list.",
+    "raw": "Raw",
+    "parsed": "Parsed",
+    "containerStack": "Stack",
+    "containerImage": "Image",
+    "containerCommand": "Command",
+    "containerRestartPolicy": "Restart Policy",
+    "containerRestartCount": "Restart Count",
+    "containerID": "Container ID",
+    "containerCreated": "Created",
+    "containerStarted": "Started",
+    "containerUptime": "Uptime",
+    "containerWorkingDir": "Working Dir",
+    "containerUserGroup": "User"
 }

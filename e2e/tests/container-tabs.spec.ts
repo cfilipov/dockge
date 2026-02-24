@@ -61,8 +61,8 @@ test.describe("Container Tabs — Stacks to Containers", () => {
         const containersNav = page.getByRole("link", { name: "Containers" }).first();
         await expect(containersNav).toHaveClass(/active/);
 
-        // CodeMirror editor shows inspect YAML
-        await expect(page.locator(".cm-editor").first()).toBeVisible({ timeout: 10000 });
+        // Parsed inspect view is visible
+        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
 
         // Container sidebar is visible with an item highlighted
         await expect(page.locator(".item.active")).toBeVisible();
@@ -72,7 +72,7 @@ test.describe("Container Tabs — Stacks to Containers", () => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         await page.locator("a[title='docker inspect']").first().click();
-        await expect(page.locator(".cm-editor").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-stacks-to-containers.png");
     });
 });
@@ -138,7 +138,7 @@ test.describe("Container Tabs — Sidebar switching", () => {
     test("clicking a different container on containers tab switches inspect view", async ({ page }) => {
         await page.goto("/containers/01-web-app-nginx-1");
         await waitForApp(page);
-        await expect(page.locator(".cm-editor").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
 
         // Click redis
         const redisItem = page.locator(".item", { hasText: "01-web-app-redis-1" });
@@ -220,7 +220,7 @@ test.describe("Container Tabs — Tab switching preserves selection", () => {
         // Start on Containers tab with a container selected
         await page.goto("/containers/02-blog-mysql-1");
         await waitForApp(page);
-        await expect(page.locator(".cm-editor").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
 
         // Switch to Logs tab
         await page.getByRole("link", { name: "Logs" }).first().click();

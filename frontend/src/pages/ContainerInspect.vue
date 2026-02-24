@@ -3,55 +3,87 @@
         <div v-if="containerName">
             <h1 class="mb-3"><span v-if="badgeLabel" :class="badgeClass">{{ badgeLabel }}</span> {{ containerName }}</h1>
 
-            <div v-if="stackName && stackManaged" class="mb-3">
-                <div class="btn-group me-2" role="group">
-                    <button v-if="!stackActive" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackStart')" @click="startStack">
-                        <font-awesome-icon icon="play" class="me-1" />
-                        {{ $t("startStack") }}
-                    </button>
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div v-if="stackName && stackManaged" class="d-flex align-items-center">
+                    <div class="btn-group me-2" role="group">
+                        <button v-if="!stackActive" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackStart')" @click="startStack">
+                            <font-awesome-icon icon="play" class="me-1" />
+                            {{ $t("startStack") }}
+                        </button>
 
-                    <button v-if="stackActive" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackRestart')" @click="restartStack">
-                        <font-awesome-icon icon="rotate" class="me-1" />
-                        {{ $t("restartStack") }}
-                    </button>
+                        <button v-if="stackActive" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackRestart')" @click="restartStack">
+                            <font-awesome-icon icon="rotate" class="me-1" />
+                            {{ $t("restartStack") }}
+                        </button>
 
-                    <button class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
-                        <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
-                        <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
-                    </button>
+                        <button class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
+                            <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
+                            <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
+                        </button>
 
-                    <BModal v-model="showUpdateDialog" :title="$t('updateStack')" :close-on-esc="true" @show="resetUpdateDialog" @hidden="resetUpdateDialog">
-                        <p class="mb-3" v-html="$t('updateStackMsg')"></p>
+                        <BModal v-model="showUpdateDialog" :title="$t('updateStack')" :close-on-esc="true" @show="resetUpdateDialog" @hidden="resetUpdateDialog">
+                            <p class="mb-3" v-html="$t('updateStackMsg')"></p>
 
-                        <BForm>
-                            <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
-                            <div style="margin-left: 2.5rem;">
-                                <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
-                            </div>
-                        </BForm>
+                            <BForm>
+                                <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
+                                <div style="margin-left: 2.5rem;">
+                                    <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
+                                </div>
+                            </BForm>
 
-                        <template #footer>
-                            <button class="btn btn-primary" @click="updateStack">
-                                <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
-                            </button>
-                        </template>
-                    </BModal>
+                            <template #footer>
+                                <button class="btn btn-primary" @click="updateStack">
+                                    <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
+                                </button>
+                            </template>
+                        </BModal>
 
-                    <button v-if="stackActive" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackStop')" @click="stopStack">
-                        <font-awesome-icon icon="stop" class="me-1" />
-                        {{ $t("stopStack") }}
-                    </button>
-
-                    <BDropdown right text="" variant="normal" menu-class="overflow-dropdown">
-                        <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
-                            <font-awesome-icon icon="search" class="me-1" />
-                            {{ $t("checkUpdates") }}
-                        </BDropdownItem>
-                        <BDropdownItem :title="$t('tooltipStackDown')" @click="downStack">
+                        <button v-if="stackActive" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackStop')" @click="stopStack">
                             <font-awesome-icon icon="stop" class="me-1" />
-                            {{ $t("downStack") }}
-                        </BDropdownItem>
-                    </BDropdown>
+                            {{ $t("stopStack") }}
+                        </button>
+
+                        <BDropdown right text="" variant="normal" menu-class="overflow-dropdown">
+                            <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
+                                <font-awesome-icon icon="search" class="me-1" />
+                                {{ $t("checkUpdates") }}
+                            </BDropdownItem>
+                            <BDropdownItem :title="$t('tooltipStackDown')" @click="downStack">
+                                <font-awesome-icon icon="stop" class="me-1" />
+                                {{ $t("downStack") }}
+                            </BDropdownItem>
+                        </BDropdown>
+                    </div>
+                </div>
+                <div v-else></div>
+
+                <!-- Parsed / Raw toggle -->
+                <div class="btn-group" role="group">
+                    <input
+                        id="view-parsed"
+                        v-model="viewMode"
+                        type="radio"
+                        class="btn-check"
+                        name="viewMode"
+                        autocomplete="off"
+                        value="parsed"
+                    />
+                    <label class="btn btn-outline-primary" for="view-parsed">
+                        {{ $t("parsed") }}
+                    </label>
+
+                    <input
+                        id="view-raw"
+                        v-model="viewMode"
+                        type="radio"
+                        class="btn-check"
+                        name="viewMode"
+                        autocomplete="off"
+                        value="raw"
+                    />
+                    <label class="btn btn-outline-primary" for="view-raw">
+                        {{ $t("raw") }}
+                    </label>
                 </div>
             </div>
 
@@ -63,7 +95,94 @@
                 :endpoint="endpoint"
             />
 
-            <div class="shadow-box mb-3 editor-box">
+            <!-- Parsed View -->
+            <div v-if="viewMode === 'parsed' && parsed" class="shadow-box big-padding mb-3">
+                <div class="inspect-grid">
+                    <!-- Stack -->
+                    <template v-if="stackName">
+                        <div class="inspect-label">{{ $t("containerStack") }}</div>
+                        <div class="inspect-value">
+                            <router-link :to="stackLink">{{ stackName }}</router-link>
+                        </div>
+                    </template>
+
+                    <!-- Image -->
+                    <template v-if="parsed.Config?.Image">
+                        <div class="inspect-label">{{ $t("containerImage") }}</div>
+                        <div class="inspect-value"><code>{{ parsed.Config.Image }}</code></div>
+                    </template>
+
+                    <!-- Command -->
+                    <template v-if="commandStr">
+                        <div class="inspect-label">{{ $t("containerCommand") }}</div>
+                        <div class="inspect-value"><code>{{ commandStr }}</code></div>
+                    </template>
+
+                    <!-- Restart Policy -->
+                    <template v-if="restartPolicyStr">
+                        <div class="inspect-label">{{ $t("containerRestartPolicy") }}</div>
+                        <div class="inspect-value">{{ restartPolicyStr }}</div>
+                    </template>
+
+                    <!-- Restart Count -->
+                    <template v-if="parsed.RestartCount != null">
+                        <div class="inspect-label">{{ $t("containerRestartCount") }}</div>
+                        <div class="inspect-value">{{ parsed.RestartCount }}</div>
+                    </template>
+
+                    <!-- Container ID -->
+                    <template v-if="parsed.Id">
+                        <div class="inspect-label">{{ $t("containerID") }}</div>
+                        <div class="inspect-value">
+                            <code :title="parsed.Id">{{ parsed.Id.substring(0, 12) }}</code>
+                        </div>
+                    </template>
+
+                    <!-- Created -->
+                    <template v-if="parsed.Created">
+                        <div class="inspect-label">{{ $t("containerCreated") }}</div>
+                        <div class="inspect-value">{{ formatDate(parsed.Created) }}</div>
+                    </template>
+
+                    <!-- Started -->
+                    <template v-if="parsed.State?.StartedAt && isValidDate(parsed.State.StartedAt)">
+                        <div class="inspect-label">{{ $t("containerStarted") }}</div>
+                        <div class="inspect-value">{{ formatDate(parsed.State.StartedAt) }}</div>
+                    </template>
+
+                    <!-- Uptime -->
+                    <template v-if="uptimeStr">
+                        <div class="inspect-label">{{ $t("containerUptime") }}</div>
+                        <div class="inspect-value">{{ uptimeStr }}</div>
+                    </template>
+
+                    <!-- Working Dir -->
+                    <template v-if="parsed.Config?.WorkingDir !== undefined">
+                        <div class="inspect-label">{{ $t("containerWorkingDir") }}</div>
+                        <div class="inspect-value">
+                            <code v-if="parsed.Config.WorkingDir">{{ parsed.Config.WorkingDir }}</code>
+                            <span v-else class="text-muted">&ndash;</span>
+                        </div>
+                    </template>
+
+                    <!-- User -->
+                    <template v-if="parsed.Config?.User !== undefined">
+                        <div class="inspect-label">{{ $t("containerUserGroup") }}</div>
+                        <div class="inspect-value">
+                            <span v-if="parsed.Config.User">{{ parsed.Config.User }}</span>
+                            <span v-else class="text-muted">&ndash;</span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Parsed view loading state -->
+            <div v-else-if="viewMode === 'parsed' && !parsed" class="shadow-box big-padding mb-3">
+                <p class="text-muted mb-0">{{ inspectData }}</p>
+            </div>
+
+            <!-- Raw View -->
+            <div v-if="viewMode === 'raw'" class="shadow-box mb-3 editor-box">
                 <code-mirror
                     v-model="inspectData"
                     :extensions="extensionsYAML"
@@ -85,14 +204,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import CodeMirror from "vue-codemirror6";
 import { yaml as yamlLang } from "@codemirror/lang-yaml";
 import { dracula as editorTheme } from "thememirror";
 import { lineNumbers } from "@codemirror/view";
-import yaml from "yaml";
+import yamlLib from "yaml";
+import dayjs from "dayjs";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BModal } from "bootstrap-vue-next";
 import { useSocket } from "../composables/useSocket";
@@ -129,7 +249,9 @@ const badgeLabel = computed(() =>
     statusInfo.value ? t(statusInfo.value.label) : ""
 );
 
+const viewMode = ref<"parsed" | "raw">("parsed");
 const inspectData = ref("fetching ...");
+const inspectObj = ref<any>(null);
 const processing = ref(false);
 const showUpdateDialog = ref(false);
 const updateDialogData = reactive({
@@ -137,6 +259,8 @@ const updateDialogData = reactive({
     pruneAllAfterUpdate: false,
 });
 const progressTerminalRef = ref<InstanceType<typeof ProgressTerminal>>();
+const now = ref(Date.now());
+let uptimeTimer: ReturnType<typeof setInterval> | null = null;
 
 const extensionsYAML = [
     editorTheme,
@@ -152,6 +276,72 @@ const stackActive = computed(() => globalStack.value?.status === RUNNING);
 const stackManaged = computed(() => globalStack.value?.isManagedByDockge ?? false);
 const imageUpdatesAvailable = computed(() => globalStack.value?.imageUpdatesAvailable ?? false);
 const terminalName = computed(() => stackName.value ? getComposeTerminalName(endpoint.value, stackName.value) : "");
+
+const parsed = computed(() => inspectObj.value);
+
+const stackLink = computed(() => {
+    if (endpoint.value) {
+        return `/stacks/${stackName.value}/${endpoint.value}`;
+    }
+    return `/stacks/${stackName.value}`;
+});
+
+const commandStr = computed(() => {
+    if (!parsed.value) return "";
+    const cmd = parsed.value.Config?.Cmd;
+    if (cmd && Array.isArray(cmd) && cmd.length > 0) {
+        return cmd.join(" ");
+    }
+    const path = parsed.value.Path;
+    const args = parsed.value.Args;
+    if (path) {
+        return args && args.length > 0 ? `${path} ${args.join(" ")}` : path;
+    }
+    return "";
+});
+
+const restartPolicyStr = computed(() => {
+    if (!parsed.value) return "";
+    const rp = parsed.value.HostConfig?.RestartPolicy;
+    if (!rp?.Name) return "";
+    if (rp.Name === "on-failure" && rp.MaximumRetryCount > 0) {
+        return `${rp.Name}:${rp.MaximumRetryCount}`;
+    }
+    return rp.Name;
+});
+
+function isValidDate(dateStr: string): boolean {
+    if (!dateStr || dateStr.startsWith("0001-")) return false;
+    return dayjs(dateStr).isValid();
+}
+
+function formatDate(dateStr: string): string {
+    if (!dateStr) return "";
+    const d = dayjs(dateStr);
+    if (!d.isValid()) return dateStr;
+    return d.format("YYYY-MM-DD HH:mm:ss");
+}
+
+const uptimeStr = computed(() => {
+    if (!parsed.value?.State?.Running) return "";
+    const startedAt = parsed.value.State?.StartedAt;
+    if (!startedAt || !isValidDate(startedAt)) return "";
+
+    const startMs = dayjs(startedAt).valueOf();
+    const diffMs = now.value - startMs;
+    if (diffMs < 0) return "";
+
+    const totalMin = Math.floor(diffMs / 60000);
+    const days = Math.floor(totalMin / 1440);
+    const hours = Math.floor((totalMin % 1440) / 60);
+    const minutes = totalMin % 60;
+
+    const parts: string[] = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    parts.push(`${minutes}m`);
+    return parts.join(" ");
+});
 
 function startComposeAction() {
     processing.value = true;
@@ -220,12 +410,27 @@ onMounted(() => {
     if (containerName.value) {
         emitAgent(endpoint.value, "containerInspect", containerName.value, (res: any) => {
             if (res.ok) {
-                const inspectObj = JSON.parse(res.inspectData);
-                if (inspectObj) {
-                    inspectData.value = yaml.stringify(inspectObj, { lineWidth: 0 });
+                const data = JSON.parse(res.inspectData);
+                if (Array.isArray(data) && data.length > 0) {
+                    inspectObj.value = data[0];
+                } else if (data) {
+                    inspectObj.value = data;
+                }
+                if (data) {
+                    inspectData.value = yamlLib.stringify(data, { lineWidth: 0 });
                 }
             }
         });
+    }
+
+    uptimeTimer = setInterval(() => {
+        now.value = Date.now();
+    }, 60000);
+});
+
+onUnmounted(() => {
+    if (uptimeTimer) {
+        clearInterval(uptimeTimer);
     }
 });
 </script>
@@ -236,6 +441,41 @@ onMounted(() => {
 .editor-box {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
+}
+
+.inspect-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.6rem 1.5rem;
+    align-items: baseline;
+}
+
+.inspect-label {
+    font-weight: 600;
+    white-space: nowrap;
+    color: $dark-font-color3;
+
+    .dark & {
+        color: $dark-font-color3;
+    }
+}
+
+.inspect-value {
+    word-break: break-all;
+
+    code {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9em;
+    }
+}
+
+.btn-check:active + .btn-outline-primary,
+.btn-check:checked + .btn-outline-primary {
+    color: #fff;
+
+    .dark & {
+        color: #000;
+    }
 }
 
 :deep(.overflow-dropdown) {

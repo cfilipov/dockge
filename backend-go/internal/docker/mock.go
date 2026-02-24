@@ -83,12 +83,13 @@ func (m *MockClient) ContainerList(ctx context.Context, all bool, projectFilter 
 }
 
 func (m *MockClient) ContainerInspect(_ context.Context, id string) (string, error) {
-	// Return a minimal mock inspect response
 	cleanID := strings.TrimPrefix(id, "mock-")
 	return fmt.Sprintf(`[{
     "Id": "%s",
     "Created": "2026-02-18T00:00:00.000000000Z",
     "Name": "/%s",
+    "Path": "/docker-entrypoint.sh",
+    "Args": ["-g", "daemon off;"],
     "State": {
         "Status": "running",
         "Running": true,
@@ -98,13 +99,24 @@ func (m *MockClient) ContainerInspect(_ context.Context, id string) (string, err
         "Dead": false,
         "Pid": 12345,
         "ExitCode": 0,
-        "StartedAt": "2026-02-18T00:00:00.000000000Z"
+        "StartedAt": "2026-02-18T00:00:00.000000000Z",
+        "FinishedAt": "0001-01-01T00:00:00Z"
     },
+    "RestartCount": 0,
     "Image": "sha256:mock-image-hash",
     "Config": {
         "Hostname": "%s",
         "Image": "mock-image:latest",
+        "Cmd": ["nginx", "-g", "daemon off;"],
+        "WorkingDir": "/usr/share/nginx/html",
+        "User": "",
         "Env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"]
+    },
+    "HostConfig": {
+        "RestartPolicy": {
+            "Name": "unless-stopped",
+            "MaximumRetryCount": 0
+        }
     },
     "NetworkSettings": {
         "Networks": {
