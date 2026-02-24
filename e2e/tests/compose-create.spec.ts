@@ -3,7 +3,7 @@ import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Compose Create — New Stack", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/stacks/compose");
+        await page.goto("/stacks/new");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: "Compose" })).toBeVisible({ timeout: 15000 });
     });

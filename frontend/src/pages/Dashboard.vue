@@ -25,7 +25,7 @@
                 <!-- Stack sidebar for all other routes (default) -->
                 <template v-else>
                     <div>
-                        <router-link to="/stacks/compose" class="btn btn-primary mb-3"><font-awesome-icon icon="plus" /> {{ $t("compose") }}</router-link>
+                        <router-link to="/stacks/new" class="btn btn-primary mb-3"><font-awesome-icon icon="plus" /> {{ $t("compose") }}</router-link>
                     </div>
                     <StackList :scrollbar="true" />
                 </template>

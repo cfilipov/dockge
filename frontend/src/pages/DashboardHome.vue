@@ -239,7 +239,7 @@ function convertDockerRun() {
     getSocket().emit("composerize", dockerRunCommand.value, (res: any) => {
         if (res.ok) {
             composeTemplate.value = res.composeTemplate;
-            router.push("/stacks/compose");
+            router.push("/stacks/new");
         } else {
             toastRes(res);
         }

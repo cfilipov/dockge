@@ -28,12 +28,6 @@
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-1">
-                    <router-link :to="composeTabLink" class="nav-link">
-                        <font-awesome-icon icon="file-code" class="me-1" /> {{ $t("compose") }}
-                    </router-link>
-                </li>
-
-                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link :to="containersTabLink" class="nav-link">
                         <font-awesome-icon icon="cubes" class="me-1" /> {{ $t("containersNav") }}
                     </router-link>
@@ -200,35 +194,17 @@ const shellTabLink = computed(() => {
     return "/shell";
 });
 
-// Which stack-centric tab we're currently on (if any)
-const currentStackTab = computed(() => {
-    if (route.path.startsWith("/compose")) return "compose";
-    if (route.path.startsWith("/stacks")) return "stacks";
-    return "";
-});
-
-// The currently selected stack name (shared across stacks/yaml tabs)
+// The currently selected stack name (shared across stacks tabs)
 const selectedStack = computed(() => (route.params.stackName as string) || "");
 
-// Stack/Compose tab links: carry the selected stack to the other tab, or go home if clicking the same tab
+// Stack tab link: carry the selected stack, or go home if clicking the same tab
 const stacksTabLink = computed(() => {
-    if (currentStackTab.value === "stacks") return "/stacks";
-    if (selectedStack.value) return `/stacks/${selectedStack.value}`;
+    if (route.path.startsWith("/stacks")) return "/stacks";
     if (selectedContainer.value) {
         const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
         if (c?.stackName) return `/stacks/${c.stackName}`;
     }
     return "/stacks";
-});
-
-const composeTabLink = computed(() => {
-    if (currentStackTab.value === "compose") return "/compose";
-    if (selectedStack.value) return `/compose/${selectedStack.value}`;
-    if (selectedContainer.value) {
-        const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
-        if (c?.stackName) return `/compose/${c.stackName}`;
-    }
-    return "/compose";
 });
 
 const imagesTabLink = computed(() => {

@@ -37,17 +37,19 @@ const isCollapsed = ref(true);
 
 const endpointDisplay = computed(() => endpointDisplayFunction(props.stack.endpoint));
 
-const currentTab = computed(() => {
-    if (route.path.startsWith("/compose")) return "compose";
-    return "stacks";
-});
+const isRawMode = computed(() => route.path.includes("/raw"));
 
 const url = computed(() => {
-    const base = currentTab.value === "compose" ? "/compose" : "/stacks";
-    if (props.stack.endpoint) {
-        return `${base}/${props.stack.name}/${props.stack.endpoint}`;
+    if (isRawMode.value) {
+        if (props.stack.endpoint) {
+            return `/stacks/${props.stack.name}/raw/${props.stack.endpoint}`;
+        }
+        return `/stacks/${props.stack.name}/raw`;
     }
-    return `${base}/${props.stack.name}`;
+    if (props.stack.endpoint) {
+        return `/stacks/${props.stack.name}/${props.stack.endpoint}`;
+    }
+    return `/stacks/${props.stack.name}`;
 });
 
 const depthMargin = computed(() => ({

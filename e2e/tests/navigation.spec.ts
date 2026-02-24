@@ -27,12 +27,12 @@ test.describe("Header Navigation", () => {
         await expect(page.getByText("Logout")).toBeVisible();
     });
 
-    test("clicking Compose link in sidebar navigates to /stacks/compose", async ({ page }) => {
+    test("clicking Compose link in sidebar navigates to /stacks/new", async ({ page }) => {
         // The "+" or compose link in the stack list
-        const composeLink = page.locator("a[href='/stacks/compose']").first();
+        const composeLink = page.locator("a[href='/stacks/new']").first();
         if (await composeLink.isVisible()) {
             await composeLink.click();
-            await expect(page).toHaveURL(/\/stacks\/compose$/);
+            await expect(page).toHaveURL(/\/stacks\/new$/);
         }
     });
 

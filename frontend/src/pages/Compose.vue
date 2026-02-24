@@ -9,89 +9,120 @@
                 </span>
             </h1>
 
-            <div v-if="stack.isManagedByDockge" class="mb-3">
-                <div class="btn-group me-2" role="group">
-                    <button v-if="isEditMode" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackDeploy')" @click="deployStack">
-                        <font-awesome-icon icon="rocket" class="me-1" />
-                        {{ $t("deployStack") }}
-                    </button>
+            <div v-if="stack.isManagedByDockge" class="d-flex align-items-center justify-content-between mb-3">
+                <div class="d-flex align-items-center">
+                    <div class="btn-group me-2" role="group">
+                        <button v-if="isEditMode" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackDeploy')" @click="deployStack">
+                            <font-awesome-icon icon="rocket" class="me-1" />
+                            {{ $t("deployStack") }}
+                        </button>
 
-                    <button v-if="isEditMode" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackSave')" @click="saveStack">
-                        <font-awesome-icon icon="save" class="me-1" />
-                        {{ $t("saveStackDraft") }}
-                    </button>
+                        <button v-if="isEditMode" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackSave')" @click="saveStack">
+                            <font-awesome-icon icon="save" class="me-1" />
+                            {{ $t("saveStackDraft") }}
+                        </button>
 
-                    <button v-if="!isEditMode" class="btn btn-secondary" :disabled="processing" :title="$t('tooltipStackEdit')" @click="enableEditMode">
-                        <font-awesome-icon icon="pen" class="me-1" />
-                        {{ $t("editStack") }}
-                    </button>
+                        <button v-if="!isEditMode" class="btn btn-secondary" :disabled="processing" :title="$t('tooltipStackEdit')" @click="enableEditMode">
+                            <font-awesome-icon icon="pen" class="me-1" />
+                            {{ $t("editStack") }}
+                        </button>
 
-                    <button v-if="!isEditMode && !active" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackStart')" @click="startStack">
-                        <font-awesome-icon icon="play" class="me-1" />
-                        {{ $t("startStack") }}
-                    </button>
+                        <button v-if="!isEditMode && !active" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackStart')" @click="startStack">
+                            <font-awesome-icon icon="play" class="me-1" />
+                            {{ $t("startStack") }}
+                        </button>
 
-                    <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackRestart')" @click="restartStack">
-                        <font-awesome-icon icon="rotate" class="me-1" />
-                        {{ $t("restartStack") }}
-                    </button>
+                        <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackRestart')" @click="restartStack">
+                            <font-awesome-icon icon="rotate" class="me-1" />
+                            {{ $t("restartStack") }}
+                        </button>
 
-                    <button v-if="!isEditMode" class="btn" :class="stack.imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
-                        <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
-                        <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
-                    </button>
+                        <button v-if="!isEditMode" class="btn" :class="stack.imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
+                            <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
+                            <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
+                        </button>
 
-                    <BModal v-model="showUpdateDialog" :title="$t('updateStack')" :close-on-esc="true" @show="resetUpdateDialog" @hidden="resetUpdateDialog">
-                        <p class="mb-3" v-html="$t('updateStackMsg')"></p>
+                        <BModal v-model="showUpdateDialog" :title="$t('updateStack')" :close-on-esc="true" @show="resetUpdateDialog" @hidden="resetUpdateDialog">
+                            <p class="mb-3" v-html="$t('updateStackMsg')"></p>
 
-                        <div v-if="changelogLinks.length > 0" class="mb-3">
-                            <h5>{{ $t("changelog") }}</h5>
-                            <div v-for="link in changelogLinks" :key="link.service">
-                                <strong>{{ link.service }}:</strong>{{ " " }}
-                                <a :href="link.url" target="_blank">{{ link.url }}</a>
+                            <div v-if="changelogLinks.length > 0" class="mb-3">
+                                <h5>{{ $t("changelog") }}</h5>
+                                <div v-for="link in changelogLinks" :key="link.service">
+                                    <strong>{{ link.service }}:</strong>{{ " " }}
+                                    <a :href="link.url" target="_blank">{{ link.url }}</a>
+                                </div>
                             </div>
-                        </div>
 
-                        <BForm>
-                            <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
-                            <div style="margin-left: 2.5rem;">
-                                <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
-                            </div>
-                        </BForm>
+                            <BForm>
+                                <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
+                                <div style="margin-left: 2.5rem;">
+                                    <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
+                                </div>
+                            </BForm>
 
-                        <template #footer>
-                            <button class="btn btn-primary" @click="updateStack">
-                                <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
-                            </button>
-                        </template>
-                    </BModal>
+                            <template #footer>
+                                <button class="btn btn-primary" @click="updateStack">
+                                    <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
+                                </button>
+                            </template>
+                        </BModal>
 
-                    <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackStop')" @click="stopStack">
-                        <font-awesome-icon icon="stop" class="me-1" />
-                        {{ $t("stopStack") }}
-                    </button>
-
-                    <BDropdown right text="" variant="normal" menu-class="overflow-dropdown">
-                        <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
-                            <font-awesome-icon icon="search" class="me-1" />
-                            {{ $t("checkUpdates") }}
-                        </BDropdownItem>
-                        <BDropdownItem :title="$t('tooltipStackDown')" @click="downStack">
+                        <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackStop')" @click="stopStack">
                             <font-awesome-icon icon="stop" class="me-1" />
-                            {{ $t("downStack") }}
-                        </BDropdownItem>
-                        <BDropdownItem v-if="!isEditMode && !errorDelete" :title="$t('tooltipStackDelete')" @click="showDeleteDialog = !showDeleteDialog">
-                            <font-awesome-icon icon="trash" class="me-1 text-danger" />
-                            {{ $t("deleteStack") }}
-                        </BDropdownItem>
-                        <BDropdownItem v-if="errorDelete" :title="$t('tooltipStackForceDelete')" @click="showForceDeleteDialog = !showForceDeleteDialog">
-                            <font-awesome-icon icon="trash" class="me-1 text-danger" />
-                            {{ $t("forceDeleteStack") }}
-                        </BDropdownItem>
-                    </BDropdown>
+                            {{ $t("stopStack") }}
+                        </button>
+
+                        <BDropdown right text="" variant="normal" menu-class="overflow-dropdown">
+                            <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
+                                <font-awesome-icon icon="search" class="me-1" />
+                                {{ $t("checkUpdates") }}
+                            </BDropdownItem>
+                            <BDropdownItem :title="$t('tooltipStackDown')" @click="downStack">
+                                <font-awesome-icon icon="stop" class="me-1" />
+                                {{ $t("downStack") }}
+                            </BDropdownItem>
+                            <BDropdownItem v-if="!isEditMode && !errorDelete" :title="$t('tooltipStackDelete')" @click="showDeleteDialog = !showDeleteDialog">
+                                <font-awesome-icon icon="trash" class="me-1 text-danger" />
+                                {{ $t("deleteStack") }}
+                            </BDropdownItem>
+                            <BDropdownItem v-if="errorDelete" :title="$t('tooltipStackForceDelete')" @click="showForceDeleteDialog = !showForceDeleteDialog">
+                                <font-awesome-icon icon="trash" class="me-1 text-danger" />
+                                {{ $t("forceDeleteStack") }}
+                            </BDropdownItem>
+                        </BDropdown>
+                    </div>
+
+                    <button v-if="isEditMode && !isAdd" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackDiscard')" @click="discardStack">{{ $t("discardStack") }}</button>
                 </div>
 
-                <button v-if="isEditMode && !isAdd" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackDiscard')" @click="discardStack">{{ $t("discardStack") }}</button>
+                <!-- Parsed / Raw toggle -->
+                <div v-if="!isAdd" class="btn-group" role="group">
+                    <input
+                        id="view-parsed"
+                        v-model="viewMode"
+                        type="radio"
+                        class="btn-check"
+                        name="viewMode"
+                        autocomplete="off"
+                        value="parsed"
+                    />
+                    <label class="btn btn-outline-primary" for="view-parsed">
+                        {{ $t("parsed") }}
+                    </label>
+
+                    <input
+                        id="view-raw"
+                        v-model="viewMode"
+                        type="radio"
+                        class="btn-check"
+                        name="viewMode"
+                        autocomplete="off"
+                        value="raw"
+                    />
+                    <label class="btn btn-outline-primary" for="view-raw">
+                        {{ $t("raw") }}
+                    </label>
+                </div>
             </div>
 
             <!-- URLs -->
@@ -481,6 +512,7 @@ const updateDialogData = reactive({
     pruneAllAfterUpdate: false,
 });
 const newContainerName = ref("");
+const viewMode = ref<"parsed" | "raw">("parsed");
 const stopServiceStatusTimeout = ref(false);
 const stopDockerStatsTimeout = ref(false);
 
@@ -542,7 +574,7 @@ const changelogLinks = computed(() => {
     return links;
 });
 
-const isAdd = computed(() => route.path === "/stacks/compose" && !submitted.value);
+const isAdd = computed(() => route.path === "/stacks/new" && !submitted.value);
 
 const globalStack = computed(() => completeStackList.value[stack.name + "_" + endpoint.value]);
 
@@ -612,6 +644,16 @@ watch(jsonConfig, () => {
         yamlDoc = doc;
     }
 }, { deep: true });
+
+// Navigate to raw view when toggle changes
+watch(viewMode, (mode) => {
+    if (mode === "raw" && stack.name) {
+        const rawUrl = stack.endpoint
+            ? `/stacks/${stack.name}/raw/${stack.endpoint}`
+            : `/stacks/${stack.name}/raw`;
+        router.push(rawUrl);
+    }
+});
 
 // Navigation guards
 onBeforeRouteUpdate((to, from, next) => {
@@ -1082,6 +1124,15 @@ onMounted(() => {
 .agent-name {
     font-size: 13px;
     color: $dark-font-color3;
+}
+
+.btn-check:active + .btn-outline-primary,
+.btn-check:checked + .btn-outline-primary {
+    color: #fff;
+
+    .dark & {
+        color: #000;
+    }
 }
 
 :deep(.overflow-dropdown) {

@@ -36,8 +36,16 @@ const routes = [
                         component: DashboardHome,
                         children: [
                             {
-                                path: "/stacks/compose",
+                                path: "/stacks/new",
                                 component: Compose,
+                            },
+                            {
+                                path: "/stacks/:stackName/raw/:endpoint",
+                                component: ComposeYaml,
+                            },
+                            {
+                                path: "/stacks/:stackName/raw",
+                                component: ComposeYaml,
                             },
                             {
                                 path: "/stacks/:stackName/:endpoint",
@@ -148,26 +156,6 @@ const routes = [
                         ],
                     },
                     {
-                        path: "/compose",
-                        children: [
-                            {
-                                path: "",
-                                component: ComposeYaml,
-                                name: "composeHome",
-                            },
-                            {
-                                path: ":stackName",
-                                component: ComposeYaml,
-                                name: "composeStack",
-                            },
-                            {
-                                path: ":stackName/:endpoint",
-                                component: ComposeYaml,
-                                name: "composeStackEndpoint",
-                            },
-                        ],
-                    },
-                    {
                         path: "/images",
                         children: [
                             {
@@ -234,6 +222,22 @@ const routes = [
     // Redirects
     {
         path: "/",
+        redirect: "/stacks",
+    },
+    {
+        path: "/stacks/compose",
+        redirect: "/stacks/new",
+    },
+    {
+        path: "/compose/:stackName/:endpoint",
+        redirect: (to: any) => `/stacks/${to.params.stackName}/raw/${to.params.endpoint}`,
+    },
+    {
+        path: "/compose/:stackName",
+        redirect: (to: any) => `/stacks/${to.params.stackName}/raw`,
+    },
+    {
+        path: "/compose",
         redirect: "/stacks",
     },
 ];
