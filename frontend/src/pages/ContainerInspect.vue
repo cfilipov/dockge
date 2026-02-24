@@ -429,9 +429,15 @@ function isValidDate(dateStr: string): boolean {
 
 function formatDate(dateStr: string): string {
     if (!dateStr) return "";
-    const d = dayjs(dateStr);
-    if (!d.isValid()) return dateStr;
-    return d.format("YYYY-MM-DD HH:mm:ss");
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
 }
 
 const uptimeStr = computed(() => {
