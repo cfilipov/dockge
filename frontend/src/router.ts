@@ -222,4 +222,7 @@ export const router = createRouter({
     linkActiveClass: "active",
     history: createWebHistory(),
     routes,
+    scrollBehavior() {
+        return { top: 0 };
+    },
 });

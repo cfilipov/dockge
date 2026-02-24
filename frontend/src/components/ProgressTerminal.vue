@@ -6,7 +6,6 @@
             </button>
             <Terminal
                 ref="progressTerminal"
-                class="terminal"
                 :name="name"
                 :endpoint="endpoint"
                 :rows="rows"
@@ -65,5 +64,9 @@ defineExpose({ show, hide });
     &:hover {
         color: white;
     }
+}
+
+:deep(.shadow-box) {
+    background-color: black !important;
 }
 </style>
