@@ -208,7 +208,7 @@ func (m *MockClient) ImagePrune(_ context.Context, all bool) (string, error) {
 }
 
 func (m *MockClient) NetworkList(_ context.Context) ([]string, error) {
-	return []string{"bridge", "host", "none"}, nil
+	return []string{"bridge", "host", "none", "proxy", "monitoring_net", "shared-db"}, nil
 }
 
 // Events synthesizes container events by polling the in-memory state every 60s

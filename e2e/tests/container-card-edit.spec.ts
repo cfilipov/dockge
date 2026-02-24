@@ -120,6 +120,32 @@ test.describe("Container Card Editing", () => {
         await expect(yamlEditor).toContainText("https://changelog.example.com");
     });
 
+    test("toggle external network updates YAML", async ({ page }) => {
+        const networkSection = page.locator(".shadow-box.big-padding").filter({
+            has: page.getByText("Internal Networks"),
+        });
+
+        // External networks from the mock should be listed as toggle switches
+        const proxyToggle = networkSection.locator(".form-check-label", { hasText: "proxy" });
+        await expect(proxyToggle).toBeVisible();
+        await expect(networkSection.locator(".form-check-label", { hasText: "shared-db" })).toBeVisible();
+        await expect(networkSection.locator(".form-check-label", { hasText: "monitoring_net" })).toBeVisible();
+
+        // Filtered-out networks (bridge, host, none) should NOT appear
+        await expect(networkSection.locator(".form-check-label", { hasText: "bridge" })).not.toBeAttached();
+        await expect(networkSection.locator(".form-check-label", { hasText: "host" })).not.toBeAttached();
+        await expect(networkSection.locator(".form-check-label", { hasText: "none" })).not.toBeAttached();
+
+        // Toggle "proxy" ON — should add it as external network in YAML
+        await proxyToggle.click();
+        await expect(yamlEditor).toContainText("proxy");
+        await expect(yamlEditor).toContainText("external: true");
+
+        // Toggle "proxy" OFF — should remove it from YAML
+        await proxyToggle.click();
+        await expect(yamlEditor).not.toContainText("external: true");
+    });
+
     test("add network via sidebar and container card updates YAML", async ({ page }) => {
         // 1. Add an internal network in the sidebar NetworkInput section
         //    The NetworkInput is inside the right column's last shadow-box
