@@ -41,7 +41,7 @@
                     <div v-if="networkDetail" class="shadow-box big-padding mb-3">
                         <div class="overview-list">
                             <div class="overview-item">
-                                <div class="overview-label">{{ $t("name") }}</div>
+                                <div class="overview-label">{{ $t("overviewName") }}</div>
                                 <div class="overview-value">{{ networkDetail.name }}</div>
                             </div>
 
