@@ -347,6 +347,7 @@ const updateDialogData = reactive({
 const progressTerminalRef = ref<InstanceType<typeof ProgressTerminal>>();
 const now = ref(Date.now());
 let uptimeTimer: ReturnType<typeof setInterval> | null = null;
+let processTimer: ReturnType<typeof setInterval> | null = null;
 
 // Process list from containerTop
 const processList = ref<Array<{ pid: string; user: string; command: string }>>([]);
@@ -551,6 +552,7 @@ onMounted(() => {
         });
 
         fetchProcesses();
+        processTimer = setInterval(fetchProcesses, 10000);
     }
 
     uptimeTimer = setInterval(() => {
@@ -561,6 +563,9 @@ onMounted(() => {
 onUnmounted(() => {
     if (uptimeTimer) {
         clearInterval(uptimeTimer);
+    }
+    if (processTimer) {
+        clearInterval(processTimer);
     }
 });
 </script>
