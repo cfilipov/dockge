@@ -28,8 +28,8 @@
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-2">
-                    <router-link :to="yamlTabLink" class="nav-link">
-                        <font-awesome-icon icon="file-code" /> {{ $t("yaml") }}
+                    <router-link :to="composeTabLink" class="nav-link">
+                        <font-awesome-icon icon="file-code" /> {{ $t("compose") }}
                     </router-link>
                 </li>
 
@@ -202,7 +202,7 @@ const shellTabLink = computed(() => {
 
 // Which stack-centric tab we're currently on (if any)
 const currentStackTab = computed(() => {
-    if (route.path.startsWith("/yaml")) return "yaml";
+    if (route.path.startsWith("/compose")) return "compose";
     if (route.path.startsWith("/stacks")) return "stacks";
     return "";
 });
@@ -210,7 +210,7 @@ const currentStackTab = computed(() => {
 // The currently selected stack name (shared across stacks/yaml tabs)
 const selectedStack = computed(() => (route.params.stackName as string) || "");
 
-// Stack/YAML tab links: carry the selected stack to the other tab, or go home if clicking the same tab
+// Stack/Compose tab links: carry the selected stack to the other tab, or go home if clicking the same tab
 const stacksTabLink = computed(() => {
     if (currentStackTab.value === "stacks") return "/stacks";
     if (selectedStack.value) return `/stacks/${selectedStack.value}`;
@@ -221,14 +221,14 @@ const stacksTabLink = computed(() => {
     return "/stacks";
 });
 
-const yamlTabLink = computed(() => {
-    if (currentStackTab.value === "yaml") return "/yaml";
-    if (selectedStack.value) return `/yaml/${selectedStack.value}`;
+const composeTabLink = computed(() => {
+    if (currentStackTab.value === "compose") return "/compose";
+    if (selectedStack.value) return `/compose/${selectedStack.value}`;
     if (selectedContainer.value) {
         const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
-        if (c?.stackName) return `/yaml/${c.stackName}`;
+        if (c?.stackName) return `/compose/${c.stackName}`;
     }
-    return "/yaml";
+    return "/compose";
 });
 
 const classes = computed(() => {

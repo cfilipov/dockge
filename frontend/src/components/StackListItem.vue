@@ -38,12 +38,12 @@ const isCollapsed = ref(true);
 const endpointDisplay = computed(() => endpointDisplayFunction(props.stack.endpoint));
 
 const currentTab = computed(() => {
-    if (route.path.startsWith("/yaml")) return "yaml";
+    if (route.path.startsWith("/compose")) return "compose";
     return "stacks";
 });
 
 const url = computed(() => {
-    const base = currentTab.value === "yaml" ? "/yaml" : "/stacks";
+    const base = currentTab.value === "compose" ? "/compose" : "/stacks";
     if (props.stack.endpoint) {
         return `${base}/${props.stack.name}/${props.stack.endpoint}`;
     }

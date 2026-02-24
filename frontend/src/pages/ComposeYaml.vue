@@ -263,7 +263,7 @@
             </BModal>
         </div>
         <div v-else>
-            <h1 class="mb-3">{{ $t("yaml") }}</h1>
+            <h1 class="mb-3">{{ $t("compose") }}</h1>
             <div class="shadow-box big-padding">
                 <p class="text-muted mb-0">{{ $t("selectStack") }}</p>
             </div>
@@ -452,9 +452,9 @@ const endpoint = computed(() => stack.endpoint || (route.params.endpoint as stri
 
 const yamlUrl = computed(() => {
     if (stack.endpoint) {
-        return `/yaml/${stack.name}/${stack.endpoint}`;
+        return `/compose/${stack.name}/${stack.endpoint}`;
     }
-    return `/yaml/${stack.name}`;
+    return `/compose/${stack.name}`;
 });
 
 // Watchers
@@ -655,7 +655,7 @@ function deleteDialog() {
     emitAgent(endpoint.value, "deleteStack", stack.name, { deleteStackFiles: deleteStackFiles.value }, (res: any) => {
         toastRes(res);
         if (res.ok) {
-            router.push("/yaml");
+            router.push("/compose");
         } else {
             errorDelete.value = true;
         }
@@ -666,7 +666,7 @@ function forceDeleteDialog() {
     emitAgent(endpoint.value, "forceDeleteStack", stack.name, (res: any) => {
         toastRes(res);
         if (res.ok) {
-            router.push("/yaml");
+            router.push("/compose");
         }
     });
 }

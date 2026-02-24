@@ -150,22 +150,22 @@ const routes = [
                         ],
                     },
                     {
-                        path: "/yaml",
+                        path: "/compose",
                         children: [
                             {
                                 path: "",
                                 component: ComposeYaml,
-                                name: "yamlHome",
+                                name: "composeHome",
                             },
                             {
                                 path: ":stackName",
                                 component: ComposeYaml,
-                                name: "yamlStack",
+                                name: "composeStack",
                             },
                             {
                                 path: ":stackName/:endpoint",
                                 component: ComposeYaml,
-                                name: "yamlStackEndpoint",
+                                name: "composeStackEndpoint",
                             },
                         ],
                     },
@@ -229,12 +229,12 @@ const routes = [
         redirect: "/stacks",
     },
     {
-        path: "/compose",
-        redirect: "/stacks/compose",
+        path: "/yaml",
+        redirect: "/compose",
     },
     {
-        path: "/compose/:pathMatch(.*)",
-        redirect: (to: any) => `/stacks/${to.params.pathMatch}`,
+        path: "/yaml/:pathMatch(.*)",
+        redirect: (to: any) => `/compose/${to.params.pathMatch}`,
     },
 ];
 
