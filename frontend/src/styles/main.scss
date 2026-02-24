@@ -416,11 +416,14 @@ optgroup {
     .stack-list {
         .item {
             &:hover {
-                background-color: $dark-bg2;
+                background-color: $dark-header-bg;
             }
 
             &.active {
-                background-color: $dark-bg2;
+                background-color: $dark-header-bg;
+                border-left: 4px solid $primary;
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
             }
         }
     }
@@ -510,6 +513,8 @@ optgroup {
 }
 
 .stack-list {
+    padding-right: 6px;
+
     &.scrollbar {
         overflow-y: auto;
     }
@@ -523,12 +528,13 @@ optgroup {
     .item {
         display: flex;
         align-items: center;
-        height: 52px;
+        height: 46px;
         text-decoration: none;
         border-radius: 10px;
-        transition: all ease-in-out 0.15s;
+        transition: none;
         width: 100%;
         padding: 0 8px;
+        margin: 3px 0;
 
         &.disabled {
             opacity: 0.3;

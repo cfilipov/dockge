@@ -35,11 +35,12 @@ const badgeLabel = computed(() => {
     color: inherit;
     display: flex;
     align-items: center;
-    min-height: 52px;
+    min-height: 46px;
     border-radius: 10px;
-    transition: all ease-in-out 0.15s;
+    transition: none;
     width: 100%;
     padding: 5px 8px;
+    margin: 3px 0;
     overflow: hidden;
     min-width: 0;
     &:hover {
@@ -47,6 +48,9 @@ const badgeLabel = computed(() => {
     }
     &.active {
         background-color: $highlight-white;
+        border-left: 4px solid $primary;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
     }
     .title {
         margin-top: -4px;
