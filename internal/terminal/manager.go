@@ -161,11 +161,32 @@ func (m *Manager) RemoveAfter(name string, delay time.Duration) {
 
 // RemoveWriterFromAll removes a writer (by connID) from every terminal.
 // Called when a WebSocket connection disconnects.
+//
+// For pipe terminals with a cancel function (log streams), if the last writer
+// is removed, the terminal is closed and removed — otherwise the log stream
+// goroutine would run forever with no readers.
 func (m *Manager) RemoveWriterFromAll(id string) {
+    // Phase 1: remove writer, collect pipe terminals that hit zero writers
     m.mu.RLock()
-    defer m.mu.RUnlock()
-    for _, t := range m.terminals {
+    var toCleanup []string
+    for name, t := range m.terminals {
         t.RemoveWriter(id)
+        if t.Type == TypePipe && t.HasCancel() && t.WriterCount() == 0 {
+            toCleanup = append(toCleanup, name)
+        }
+    }
+    m.mu.RUnlock()
+
+    // Phase 2: remove and close orphaned pipe terminals
+    if len(toCleanup) > 0 {
+        m.mu.Lock()
+        for _, name := range toCleanup {
+            if t, ok := m.terminals[name]; ok && t.WriterCount() == 0 {
+                delete(m.terminals, name)
+                go t.Close()
+            }
+        }
+        m.mu.Unlock()
     }
 }
 
@@ -384,6 +405,13 @@ func (t *Terminal) OnExit(fn func()) {
     t.mu.Lock()
     defer t.mu.Unlock()
     t.onExit = fn
+}
+
+// HasCancel returns true if the terminal has a cancel function set.
+func (t *Terminal) HasCancel() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.cancel != nil
 }
 
 // Close terminates the terminal process and cleans up.

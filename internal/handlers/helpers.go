@@ -3,6 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"log/slog"
+	"sync"
+	"time"
 
 	"github.com/cfilipov/dockge/internal/compose"
 	"github.com/cfilipov/dockge/internal/docker"
@@ -29,6 +31,9 @@ type App struct {
 	Version          string
 	StacksDir        string
 	MainTerminalName string // tracked for checkMainTerminal
+
+	refreshMu    sync.Mutex
+	refreshTimer *time.Timer
 }
 
 // checkLogin verifies that the connection is authenticated.

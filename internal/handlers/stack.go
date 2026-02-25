@@ -278,11 +278,16 @@ func (app *App) BroadcastAll() {
 }
 
 // TriggerRefresh broadcasts fresh data after a short delay to let Docker state settle.
+// Uses a debounce timer so rapid successive calls coalesce into a single broadcast.
 func (app *App) TriggerRefresh() {
-	go func() {
-		time.Sleep(500 * time.Millisecond)
+	app.refreshMu.Lock()
+	defer app.refreshMu.Unlock()
+	if app.refreshTimer != nil {
+		app.refreshTimer.Stop()
+	}
+	app.refreshTimer = time.AfterFunc(500*time.Millisecond, func() {
 		app.BroadcastAll()
-	}()
+	})
 }
 
 func (app *App) handleRequestContainerList(c *ws.Conn, msg *ws.ClientMessage) {

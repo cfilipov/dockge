@@ -4,6 +4,7 @@ import (
     "strings"
     "sync"
     "testing"
+    "time"
 )
 
 func TestManagerCreateGet(t *testing.T) {
@@ -123,6 +124,81 @@ func TestManagerRemoveWriterFromAll(t *testing.T) {
     if t2.WriterCount() != 0 {
         t.Error("expected 0 writers on t2")
     }
+}
+
+func TestRemoveWriterFromAllCleansPipeWithCancel(t *testing.T) {
+	t.Parallel()
+
+	m := NewManager()
+	term := m.Create("logs--mystack", TypePipe)
+	cancelCh := make(chan struct{}, 1)
+	term.SetCancel(func() { cancelCh <- struct{}{} })
+	term.AddWriter("client1", func(string) {})
+
+	m.RemoveWriterFromAll("client1")
+
+	// Terminal should be removed from manager
+	if m.Get("logs--mystack") != nil {
+		t.Error("pipe terminal with cancel and zero writers should be removed")
+	}
+	// Close runs in a goroutine — wait for cancel via channel
+	select {
+	case <-cancelCh:
+		// success
+	case <-time.After(time.Second):
+		t.Error("cancel should have been called")
+	}
+}
+
+func TestRemoveWriterFromAllKeepsPTY(t *testing.T) {
+	t.Parallel()
+
+	m := NewManager()
+	term := m.Create("main-terminal", TypePTY)
+	term.AddWriter("client1", func(string) {})
+
+	m.RemoveWriterFromAll("client1")
+
+	// PTY terminal should be kept even with zero writers
+	if m.Get("main-terminal") == nil {
+		t.Error("PTY terminal should be kept after removing last writer")
+	}
+}
+
+func TestRemoveWriterFromAllKeepsPipeWithoutCancel(t *testing.T) {
+	t.Parallel()
+
+	m := NewManager()
+	term := m.Create("compose--mystack", TypePipe)
+	// No SetCancel — this is a compose action terminal
+	term.AddWriter("client1", func(string) {})
+
+	m.RemoveWriterFromAll("client1")
+
+	// Pipe terminal without cancel should be kept (compose action terminals)
+	if m.Get("compose--mystack") == nil {
+		t.Error("pipe terminal without cancel should be kept")
+	}
+}
+
+func TestRemoveWriterFromAllKeepsTerminalWithRemainingWriters(t *testing.T) {
+	t.Parallel()
+
+	m := NewManager()
+	term := m.Create("logs--mystack", TypePipe)
+	term.SetCancel(func() {})
+	term.AddWriter("client1", func(string) {})
+	term.AddWriter("client2", func(string) {})
+
+	m.RemoveWriterFromAll("client1")
+
+	// Terminal should be kept because client2 is still connected
+	if m.Get("logs--mystack") == nil {
+		t.Error("terminal with remaining writers should be kept")
+	}
+	if term.WriterCount() != 1 {
+		t.Errorf("expected 1 writer remaining, got %d", term.WriterCount())
+	}
 }
 
 func TestTerminalWriteBuffer(t *testing.T) {
