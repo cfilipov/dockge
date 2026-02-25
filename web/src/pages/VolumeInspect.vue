@@ -6,29 +6,31 @@
             <div class="row">
                 <div class="col-lg-8">
                     <!-- Containers Card -->
-                    <h4 class="mb-3">{{ $t("volumeContainers") }} ({{ volumeDetail?.containers?.length ?? 0 }})</h4>
-                    <div v-if="volumeDetail && volumeDetail.containers && volumeDetail.containers.length > 0">
-                        <div v-for="c in volumeDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
-                            <h5 class="mb-3">
-                                <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link"><font-awesome-icon icon="cubes" class="me-2" />{{ c.name }}</router-link>
-                            </h5>
-                            <div class="inspect-grid">
-                                <div class="inspect-label">{{ $t("containerID") }}</div>
-                                <div class="inspect-value"><code :title="c.containerId">{{ c.containerId.substring(0, 12) }}</code></div>
+                    <CollapsibleSection>
+                        <template #heading>{{ $t("volumeContainers") }} ({{ volumeDetail?.containers?.length ?? 0 }})</template>
+                        <div v-if="volumeDetail && volumeDetail.containers && volumeDetail.containers.length > 0">
+                            <div v-for="c in volumeDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
+                                <h5 class="mb-3">
+                                    <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link"><font-awesome-icon icon="cubes" class="me-2" />{{ c.name }}</router-link>
+                                </h5>
+                                <div class="inspect-grid">
+                                    <div class="inspect-label">{{ $t("containerID") }}</div>
+                                    <div class="inspect-value"><code :title="c.containerId">{{ c.containerId.substring(0, 12) }}</code></div>
 
-                                <div class="inspect-label">{{ $t("status") }}</div>
-                                <div class="inspect-value">
-                                    <span class="badge rounded-pill" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
+                                    <div class="inspect-label">{{ $t("status") }}</div>
+                                    <div class="inspect-value">
+                                        <span class="badge rounded-pill" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div v-else-if="volumeDetail" class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ $t("noVolumeContainers") }}</p>
-                    </div>
-                    <div v-else class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ loading ? "Loading..." : "" }}</p>
-                    </div>
+                        <div v-else-if="volumeDetail" class="shadow-box big-padding mb-3">
+                            <p class="text-muted mb-0">{{ $t("noVolumeContainers") }}</p>
+                        </div>
+                        <div v-else class="shadow-box big-padding mb-3">
+                            <p class="text-muted mb-0">{{ loading ? "Loading..." : "" }}</p>
+                        </div>
+                    </CollapsibleSection>
                 </div>
 
                 <div class="col-lg-4">

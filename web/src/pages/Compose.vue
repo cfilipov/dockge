@@ -167,40 +167,42 @@
                     </div>
 
                     <!-- Containers -->
-                    <h4 class="mb-3">{{ $tc("container", 2) }} ({{ Object.keys(jsonConfig.services || {}).length }})</h4>
+                    <CollapsibleSection>
+                        <template #heading>{{ $tc("container", 2) }} ({{ Object.keys(jsonConfig.services || {}).length }})</template>
 
-                    <div v-if="isEditMode" class="input-group mb-3">
-                        <input
-                            v-model="newContainerName"
-                            :placeholder="$t(`New Container Name...`)"
-                            class="form-control"
-                            @keyup.enter="addContainer"
-                        />
-                        <button class="btn btn-primary" @click="addContainer">
-                            {{ $t("addContainer") }}
-                        </button>
-                    </div>
+                        <div v-if="isEditMode" class="input-group mb-3">
+                            <input
+                                v-model="newContainerName"
+                                :placeholder="$t(`New Container Name...`)"
+                                class="form-control"
+                                @keyup.enter="addContainer"
+                            />
+                            <button class="btn btn-primary" @click="addContainer">
+                                {{ $t("addContainer") }}
+                            </button>
+                        </div>
 
-                    <div ref="containerListRef">
-                        <Container
-                            v-for="(service, name) in jsonConfig.services"
-                            :key="name"
-                            :name="name"
-                            :is-edit-mode="isEditMode"
-                            :first="name === Object.keys(jsonConfig.services)[0]"
-                            :serviceStatus="serviceStatusList[name]"
-                            :serviceImageUpdateAvailable="serviceUpdateStatus[name] || false"
-                            :serviceRecreateNecessary="serviceRecreateStatus[name] || false"
-                            :dockerStats="dockerStats"
-                            :processing="processing"
-                            @start-service="startService"
-                            @stop-service="stopService"
-                            @restart-service="restartService"
-                            @update-service="updateService"
-                        />
-                    </div>
+                        <div ref="containerListRef">
+                            <Container
+                                v-for="(service, name) in jsonConfig.services"
+                                :key="name"
+                                :name="name"
+                                :is-edit-mode="isEditMode"
+                                :first="name === Object.keys(jsonConfig.services)[0]"
+                                :serviceStatus="serviceStatusList[name]"
+                                :serviceImageUpdateAvailable="serviceUpdateStatus[name] || false"
+                                :serviceRecreateNecessary="serviceRecreateStatus[name] || false"
+                                :dockerStats="dockerStats"
+                                :processing="processing"
+                                @start-service="startService"
+                                @stop-service="stopService"
+                                @restart-service="restartService"
+                                @update-service="updateService"
+                            />
+                        </div>
 
-                    <button v-if="false && isEditMode && jsonConfig.services && Object.keys(jsonConfig.services).length > 0" class="btn btn-normal mb-3" @click="addContainer">{{ $t("addContainer") }}</button>
+                        <button v-if="false && isEditMode && jsonConfig.services && Object.keys(jsonConfig.services).length > 0" class="btn btn-normal mb-3" @click="addContainer">{{ $t("addContainer") }}</button>
+                    </CollapsibleSection>
 
                     <!-- Combined Terminal Output -->
                     <div v-show="!isEditMode">
@@ -359,10 +361,12 @@ scrollable size="fullscreen" hide-footer>
                         </div>
 
                         <!-- Networks -->
-                        <h4 class="mb-3">{{ $tc("network", 2) }} ({{ Object.keys(networks || {}).length }})</h4>
-                        <div class="shadow-box big-padding mb-3">
-                            <NetworkInput />
-                        </div>
+                        <CollapsibleSection>
+                            <template #heading>{{ $tc("network", 2) }} ({{ Object.keys(networks || {}).length }})</template>
+                            <div class="shadow-box big-padding mb-3">
+                                <NetworkInput />
+                            </div>
+                        </CollapsibleSection>
                     </div>
                 </div>
             </div>

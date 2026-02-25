@@ -6,58 +6,62 @@
             <div class="row">
                 <div class="col-lg-8">
                     <!-- Containers Card -->
-                    <h4 class="mb-3">{{ $t("imageContainers") }} ({{ imageDetail?.containers?.length ?? 0 }})</h4>
-                    <div v-if="imageDetail && imageDetail.containers && imageDetail.containers.length > 0">
-                        <div v-for="c in imageDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
-                            <h5 class="mb-3">
-                                <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link"><font-awesome-icon icon="cubes" class="me-2" />{{ c.name }}</router-link>
-                            </h5>
-                            <div class="inspect-grid">
-                                <div class="inspect-label">{{ $t("containerID") }}</div>
-                                <div class="inspect-value"><code :title="c.containerId">{{ c.containerId.substring(0, 12) }}</code></div>
+                    <CollapsibleSection>
+                        <template #heading>{{ $t("imageContainers") }} ({{ imageDetail?.containers?.length ?? 0 }})</template>
+                        <div v-if="imageDetail && imageDetail.containers && imageDetail.containers.length > 0">
+                            <div v-for="c in imageDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
+                                <h5 class="mb-3">
+                                    <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link"><font-awesome-icon icon="cubes" class="me-2" />{{ c.name }}</router-link>
+                                </h5>
+                                <div class="inspect-grid">
+                                    <div class="inspect-label">{{ $t("containerID") }}</div>
+                                    <div class="inspect-value"><code :title="c.containerId">{{ c.containerId.substring(0, 12) }}</code></div>
 
-                                <div class="inspect-label">{{ $t("status") }}</div>
-                                <div class="inspect-value">
-                                    <span class="badge rounded-pill" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
+                                    <div class="inspect-label">{{ $t("status") }}</div>
+                                    <div class="inspect-value">
+                                        <span class="badge rounded-pill" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div v-else-if="imageDetail" class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ $t("noImageContainers") }}</p>
-                    </div>
-                    <div v-else class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ loading ? "Loading..." : "" }}</p>
-                    </div>
+                        <div v-else-if="imageDetail" class="shadow-box big-padding mb-3">
+                            <p class="text-muted mb-0">{{ $t("noImageContainers") }}</p>
+                        </div>
+                        <div v-else class="shadow-box big-padding mb-3">
+                            <p class="text-muted mb-0">{{ loading ? "Loading..." : "" }}</p>
+                        </div>
+                    </CollapsibleSection>
 
                     <!-- Layers Card -->
-                    <h4 class="mb-3">{{ $t("imageLayers") }} ({{ imageDetail?.layers?.length ?? 0 }})</h4>
-                    <div v-if="imageDetail && imageDetail.layers && imageDetail.layers.length > 0" class="shadow-box big-padding mb-3">
-                        <div class="table-responsive">
-                            <table class="table table-sm mb-0 layer-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>{{ $t("imageSize") }}</th>
-                                        <th>{{ $t("processCommand") }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="(layer, idx) in imageDetail.layers" :key="idx">
-                                        <td><code>{{ layer.id }}</code></td>
-                                        <td>{{ layer.size }}</td>
-                                        <td class="command-cell"><code>{{ truncateCommand(layer.command) }}</code></td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <CollapsibleSection>
+                        <template #heading>{{ $t("imageLayers") }} ({{ imageDetail?.layers?.length ?? 0 }})</template>
+                        <div v-if="imageDetail && imageDetail.layers && imageDetail.layers.length > 0" class="shadow-box big-padding mb-3">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 layer-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>{{ $t("imageSize") }}</th>
+                                            <th>{{ $t("processCommand") }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(layer, idx) in imageDetail.layers" :key="idx">
+                                            <td><code>{{ layer.id }}</code></td>
+                                            <td>{{ layer.size }}</td>
+                                            <td class="command-cell"><code>{{ truncateCommand(layer.command) }}</code></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                    <div v-else-if="imageDetail" class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">No layers.</p>
-                    </div>
-                    <div v-else class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ loading ? "Loading..." : "" }}</p>
-                    </div>
+                        <div v-else-if="imageDetail" class="shadow-box big-padding mb-3">
+                            <p class="text-muted mb-0">No layers.</p>
+                        </div>
+                        <div v-else class="shadow-box big-padding mb-3">
+                            <p class="text-muted mb-0">{{ loading ? "Loading..." : "" }}</p>
+                        </div>
+                    </CollapsibleSection>
                 </div>
 
                 <div class="col-lg-4">

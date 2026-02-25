@@ -99,73 +99,78 @@
             <div v-if="viewMode === 'parsed'" class="row">
                 <div class="col-lg-8">
                     <!-- Networks Card -->
-                    <h4 class="mb-3">{{ $t("containerNetworks") }} ({{ networks.length }})</h4>
-                    <div v-if="networks.length > 0">
-                        <div v-for="net in networks" :key="net.name" class="shadow-box big-padding mb-3">
-                            <h5 class="mb-3">
-                                <router-link :to="{ name: 'networkDetail', params: { networkName: net.name } }" class="stack-link"><font-awesome-icon icon="network-wired" class="me-2" />{{ net.name }}</router-link>
-                            </h5>
-                            <div class="inspect-grid">
-                                <div class="inspect-label">{{ $t("networkIPv4") }}</div>
-                                <div class="inspect-value"><code>{{ net.ipv4 || '–' }}</code></div>
+                    <CollapsibleSection>
+                        <template #heading>{{ $t("containerNetworks") }} ({{ networks.length }})</template>
+                        <div v-if="networks.length > 0">
+                            <div v-for="net in networks" :key="net.name" class="shadow-box big-padding mb-3">
+                                <h5 class="mb-3">
+                                    <router-link :to="{ name: 'networkDetail', params: { networkName: net.name } }" class="stack-link"><font-awesome-icon icon="network-wired" class="me-2" />{{ net.name }}</router-link>
+                                </h5>
+                                <div class="inspect-grid">
+                                    <div class="inspect-label">{{ $t("networkIPv4") }}</div>
+                                    <div class="inspect-value"><code>{{ net.ipv4 || '–' }}</code></div>
 
-                                <div class="inspect-label">{{ $t("networkIPv6") }}</div>
-                                <div class="inspect-value"><code>{{ net.ipv6 || '–' }}</code></div>
+                                    <div class="inspect-label">{{ $t("networkIPv6") }}</div>
+                                    <div class="inspect-value"><code>{{ net.ipv6 || '–' }}</code></div>
 
-                                <div class="inspect-label">{{ $t("networkMAC") }}</div>
-                                <div class="inspect-value"><code>{{ net.mac || '–' }}</code></div>
+                                    <div class="inspect-label">{{ $t("networkMAC") }}</div>
+                                    <div class="inspect-value"><code>{{ net.mac || '–' }}</code></div>
 
-                                <div class="inspect-label">{{ $t("networkGateway") }}</div>
-                                <div class="inspect-value"><code>{{ net.gateway || '–' }}</code></div>
+                                    <div class="inspect-label">{{ $t("networkGateway") }}</div>
+                                    <div class="inspect-value"><code>{{ net.gateway || '–' }}</code></div>
 
-                                <template v-if="net.aliases && net.aliases.length > 0">
-                                    <div class="inspect-label">{{ $t("networkAliases") }}</div>
-                                    <div class="inspect-value">
-                                        <template v-for="(alias, i) in net.aliases" :key="i">
-                                            <code>{{ alias }}</code><template v-if="i < net.aliases.length - 1">, </template>
-                                        </template>
-                                    </div>
-                                </template>
+                                    <template v-if="net.aliases && net.aliases.length > 0">
+                                        <div class="inspect-label">{{ $t("networkAliases") }}</div>
+                                        <div class="inspect-value">
+                                            <template v-for="(alias, i) in net.aliases" :key="i">
+                                                <code>{{ alias }}</code><template v-if="i < net.aliases.length - 1">, </template>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div v-else class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ $t("noNetworks") }}</p>
-                    </div>
+                        <div v-else class="shadow-box big-padding mb-3">
+                            <p class="text-muted mb-0">{{ $t("noNetworks") }}</p>
+                        </div>
+                    </CollapsibleSection>
 
                     <!-- Mounts Card -->
-                    <h4 class="mb-3">{{ $t("containerMounts") }} ({{ mounts.length }})</h4>
-                    <div v-if="mounts.length > 0">
-                        <div v-for="(mount, idx) in mounts" :key="idx" class="shadow-box big-padding mb-3">
-                            <div class="inspect-grid">
-                                <div class="inspect-label">{{ $t("mountType") }}</div>
-                                <div class="inspect-value">{{ mount.Type }}</div>
+                    <CollapsibleSection>
+                        <template #heading>{{ $t("containerMounts") }} ({{ mounts.length }})</template>
+                        <div v-if="mounts.length > 0">
+                            <div v-for="(mount, idx) in mounts" :key="idx" class="shadow-box big-padding mb-3">
+                                <div class="inspect-grid">
+                                    <div class="inspect-label">{{ $t("mountType") }}</div>
+                                    <div class="inspect-value">{{ mount.Type }}</div>
 
-                                <template v-if="mount.Type === 'volume' && mount.Name">
-                                    <div class="inspect-label">{{ $t("mountVolume") }}</div>
-                                    <div class="inspect-value">
-                                        <router-link :to="{ name: 'volumeDetail', params: { volumeName: mount.Name } }" class="stack-link"><font-awesome-icon icon="hard-drive" class="me-2" />{{ mount.Name }}</router-link>
-                                    </div>
-                                </template>
+                                    <template v-if="mount.Type === 'volume' && mount.Name">
+                                        <div class="inspect-label">{{ $t("mountVolume") }}</div>
+                                        <div class="inspect-value">
+                                            <router-link :to="{ name: 'volumeDetail', params: { volumeName: mount.Name } }" class="stack-link"><font-awesome-icon icon="hard-drive" class="me-2" />{{ mount.Name }}</router-link>
+                                        </div>
+                                    </template>
 
-                                <div class="inspect-label">{{ $t("mountSource") }}</div>
-                                <div class="inspect-value"><code>{{ mount.Source || mount.Name || '–' }}</code></div>
+                                    <div class="inspect-label">{{ $t("mountSource") }}</div>
+                                    <div class="inspect-value"><code>{{ mount.Source || mount.Name || '–' }}</code></div>
 
-                                <div class="inspect-label">{{ $t("mountDestination") }}</div>
-                                <div class="inspect-value"><code>{{ mount.Destination }}</code></div>
+                                    <div class="inspect-label">{{ $t("mountDestination") }}</div>
+                                    <div class="inspect-value"><code>{{ mount.Destination }}</code></div>
 
-                                <div class="inspect-label">{{ $t("mountReadWrite") }}</div>
-                                <div class="inspect-value">{{ mount.RW ? 'rw' : 'ro' }}</div>
+                                    <div class="inspect-label">{{ $t("mountReadWrite") }}</div>
+                                    <div class="inspect-value">{{ mount.RW ? 'rw' : 'ro' }}</div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div v-else class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ $t("noMounts") }}</p>
-                    </div>
+                        <div v-else class="shadow-box big-padding mb-3">
+                            <p class="text-muted mb-0">{{ $t("noMounts") }}</p>
+                        </div>
+                    </CollapsibleSection>
 
                     <!-- Processes Card -->
-                    <h4 class="mb-3">{{ $t("containerProcesses") }} ({{ processList.length }})</h4>
-                    <div class="shadow-box big-padding mb-3">
+                    <CollapsibleSection>
+                        <template #heading>{{ $t("containerProcesses") }} ({{ processList.length }})</template>
+                        <div class="shadow-box big-padding mb-3">
                         <div v-if="processList.length > 0" class="table-responsive">
                             <table class="table table-sm mb-0 process-table">
                                 <thead>
@@ -186,6 +191,7 @@
                         </div>
                         <p v-else class="text-muted mb-0">{{ $t("noProcesses") }}</p>
                     </div>
+                    </CollapsibleSection>
                 </div>
 
                 <div class="col-lg-4">
