@@ -1,5 +1,5 @@
 <template>
-    <div class="shadow-box mb-3" :style="boxStyle">
+    <div class="shadow-box mb-3">
         <div class="list-header">
             <div class="header-top">
                 <div class="d-flex flex-grow-1 align-items-center">
@@ -88,19 +88,10 @@ const selectMode = ref(false);
 const selectAll = ref(false);
 const disableSelectAllWatcher = ref(false);
 const selectedStacks = ref<Record<string, boolean>>({});
-const windowTop = ref(0);
 const stackFilter = reactive(new StackFilter());
 const closedAgents = reactive(new Map<string, boolean>());
 const stackListRef = ref<HTMLElement>();
 const confirmPauseRef = ref<InstanceType<typeof Confirm>>();
-
-const boxStyle = computed(() => {
-    if (window.innerWidth > 550) {
-        return { height: `calc(100vh - 160px + ${windowTop.value}px)` };
-    } else {
-        return { height: "calc(100vh - 160px)" };
-    }
-});
 
 const agentStackList = computed(() => {
     let result = Object.values(completeStackList.value) as any[];
@@ -266,14 +257,6 @@ function resumeSelected() {
     cancelSelectMode();
 }
 
-function onScroll() {
-    if (window.top!.scrollY <= 133) {
-        windowTop.value = window.top!.scrollY;
-    } else {
-        windowTop.value = 133;
-    }
-}
-
 watch(searchText, () => {
     for (let stack of flatStackList.value) {
         if (!selectedStacks.value[stack.id]) {
@@ -347,7 +330,6 @@ watch(flatStackList, () => {
 defineExpose({ scrollToActive });
 
 onMounted(() => {
-    window.addEventListener("scroll", onScroll);
     nextTick(() => {
         const container = stackListRef.value;
         const active = container?.querySelector(".item.active") as HTMLElement | null;
@@ -359,7 +341,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-    window.removeEventListener("scroll", onScroll);
     activeObserver?.disconnect();
 });
 </script>
@@ -368,9 +349,8 @@ onBeforeUnmount(() => {
 @import "../styles/vars.scss";
 
 .shadow-box {
-    height: calc(100vh - 150px);
-    position: sticky;
-    top: 10px;
+    flex: 1;
+    min-height: 0;
 }
 
 .small-padding {

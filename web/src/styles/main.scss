@@ -3,9 +3,9 @@
 @import "bootstrap-vue-next/dist/bootstrap-vue-next.css";
 
 html {
-    // Prevent layout shift when Bootstrap modal adds overflow:hidden to body
-    // BVN 0.14 doesn't compensate with padding-right like Bootstrap normally does
-    scrollbar-gutter: stable;
+    // Header and sidebar are fixed; only the detail pane or Settings scrolls.
+    // No window-level scrollbar, so no layout shift when Bootstrap modals open.
+    overflow: hidden;
 }
 
 #app {

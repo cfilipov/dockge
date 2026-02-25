@@ -1,5 +1,5 @@
 <template>
-    <div class="shadow-box mb-3" :style="boxStyle">
+    <div class="shadow-box mb-3">
         <div class="list-header">
             <div class="header-top">
                 <div class="d-flex flex-grow-1 align-items-center">
@@ -61,7 +61,6 @@ defineProps<{
 const { emitAgent } = useSocket();
 
 const searchText = ref("");
-const windowTop = ref(0);
 const imageList = ref<Record<string, any>[]>([]);
 const listRef = ref<HTMLElement>();
 
@@ -82,14 +81,6 @@ class ImageFilter {
 }
 
 const imageFilter = reactive(new ImageFilter());
-
-const boxStyle = computed(() => {
-    if (window.innerWidth > 550) {
-        return { height: `calc(100vh - 160px + ${windowTop.value}px)` };
-    } else {
-        return { height: "calc(100vh - 160px)" };
-    }
-});
 
 const listStyle = computed(() => {
     return { height: "calc(100% - 60px)" };
@@ -156,14 +147,6 @@ function fetchImages() {
     });
 }
 
-function onScroll() {
-    if (window.top!.scrollY <= 133) {
-        windowTop.value = window.top!.scrollY;
-    } else {
-        windowTop.value = 133;
-    }
-}
-
 // Auto-scroll: track whether the active item is visible in the scroll container
 const isActiveVisible = ref(false);
 let activeObserver: IntersectionObserver | null = null;
@@ -204,7 +187,6 @@ defineExpose({ scrollToActive });
 
 onMounted(() => {
     fetchImages();
-    window.addEventListener("scroll", onScroll);
     nextTick(() => {
         const container = listRef.value;
         const active = container?.querySelector(".item.active") as HTMLElement | null;
@@ -216,7 +198,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-    window.removeEventListener("scroll", onScroll);
     activeObserver?.disconnect();
 });
 </script>
@@ -225,9 +206,8 @@ onBeforeUnmount(() => {
 @import "../styles/vars.scss";
 
 .shadow-box {
-    height: calc(100vh - 150px);
-    position: sticky;
-    top: 10px;
+    flex: 1;
+    min-height: 0;
 }
 
 .list-header {

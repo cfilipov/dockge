@@ -112,6 +112,12 @@ onMounted(() => {
 <style lang="scss" scoped>
 .container-fluid {
     width: 98%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.row {
+    height: 100%;
 }
 
 // The sidebar column must sit above the content column so that
@@ -120,6 +126,16 @@ onMounted(() => {
 .col-12.col-md-4 {
     position: relative;
     z-index: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+// Detail pane — the only scroll container on Dashboard pages
+.col-12.col-md-8 {
+    height: 100%;
+    overflow-y: auto;
 }
 
 .locate-btn {

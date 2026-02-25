@@ -1,5 +1,5 @@
 <template>
-    <div :class="classes">
+    <div class="app-layout" :class="classes">
         <div v-if="! socketIO.connected && ! socketIO.firstConnect" class="lost-connection">
             <div class="container-fluid">
                 {{ socketIO.connectionErrorMsg }}
@@ -302,8 +302,17 @@ async function resetMockState() {
     }
 }
 
+.app-layout {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 main {
-    min-height: calc(100vh - 160px);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .title {
