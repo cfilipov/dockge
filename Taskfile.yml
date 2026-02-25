@@ -96,6 +96,12 @@ tasks:
     dir: e2e
     cmd: pnpm test
 
+  update-screenshots:
+    desc: Update E2E golden screenshots
+    deps: [build-web, build-go]
+    dir: e2e
+    cmd: pnpm run test:update-screenshots
+
   docker:
     desc: Build Docker image
     cmd: docker buildx build -f docker/Dockerfile -t cfilipov/dockge:latest --target release .

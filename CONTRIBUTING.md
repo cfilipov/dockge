@@ -90,6 +90,7 @@ Run `task --list` to see all targets. The important ones:
 | `task lint` | Lint frontend (ESLint) and Go (`go vet`) |
 | `task fmt` | Format frontend and Go (`gofmt`) |
 | `task clean` | Remove build artifacts |
+| `task update-screenshots` | Update E2E golden screenshots |
 | `task docker` | Build production Docker image |
 
 ## Building
@@ -142,6 +143,16 @@ Golden screenshots are committed to `e2e/__screenshots__/`. When a screenshot te
 ```bash
 cd e2e && pnpm run test:report
 ```
+
+#### Updating golden screenshots
+
+If a UI change intentionally alters how pages look, update the golden screenshots:
+
+```bash
+task update-screenshots
+```
+
+This rebuilds the frontend and backend, then re-runs all E2E tests with `--update-snapshots` to regenerate the golden files. Review the diff in `e2e/__screenshots__/` before committing — every changed screenshot should correspond to an intentional UI change. If a screenshot changed unexpectedly, investigate before committing.
 
 **Design notes:**
 - Tests run sequentially (`workers: 1`) — the mock backend has shared mutable state
