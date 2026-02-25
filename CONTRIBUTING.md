@@ -87,9 +87,11 @@ Run `task --list` to see all targets. The important ones:
 | `task dev-web` | Run Vite dev server only (port 5000) |
 | `task kill` | Kill any running backend or Vite processes |
 | `task test` | Run all tests (Go + E2E) |
+| `task check-ts` | TypeScript type check (`tsc --noEmit`) |
 | `task lint` | Lint frontend (ESLint) and Go (`go vet`) |
 | `task fmt` | Format frontend and Go (`gofmt`) |
 | `task clean` | Remove build artifacts |
+| `task test-e2e-report` | Show Playwright HTML report with screenshot diffs |
 | `task update-screenshots` | Update E2E golden screenshots |
 | `task docker` | Build production Docker image |
 
@@ -141,7 +143,7 @@ task test-e2e                    # Playwright E2E tests (builds frontend + backe
 Golden screenshots are committed to `e2e/__screenshots__/`. When a screenshot test fails, Playwright writes expected/actual/diff images to `e2e/test-results/`. View the HTML report:
 
 ```bash
-cd e2e && pnpm run test:report
+task test-e2e-report
 ```
 
 #### Updating golden screenshots
