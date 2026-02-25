@@ -14,7 +14,7 @@ test.describe("Compose Create — New Stack", () => {
         await expect.soft(page.getByRole("heading", { name: "Containers" })).toBeVisible();
         await expect.soft(page.getByPlaceholder("New Container Name...")).toBeVisible();
         await expect.soft(page.getByRole("button", { name: "Add Container" })).toBeVisible();
-        await expect.soft(page.getByRole("heading", { name: "Networks", exact: true })).toBeVisible();
+        await expect.soft(page.getByRole("heading", { name: /^Networks/ })).toBeVisible();
         await expect.soft(page.getByRole("button", { name: "Deploy" })).toBeVisible();
         await expect.soft(page.getByRole("button", { name: "Save" })).toBeVisible();
         await expect.soft(page.locator(".cm-editor").first()).toBeVisible();

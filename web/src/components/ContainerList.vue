@@ -143,14 +143,18 @@ const isActiveVisible = ref(false);
 let activeObserver: IntersectionObserver | null = null;
 let needsInitialScroll = true;
 
-function scrollToActive() {
+function scrollToActive(behavior: ScrollBehavior = "smooth") {
     const container = listRef.value;
     const el = container?.querySelector(".item.active") as HTMLElement | null;
     if (!el || !container) return;
+    // Skip scroll if the active item is already fully visible
+    const cr = container.getBoundingClientRect();
+    const ar = el.getBoundingClientRect();
+    if (ar.top >= cr.top && ar.bottom <= cr.bottom) return;
     // Manual scrollTop to avoid scrollIntoView bubbling to ancestor scroll containers
     container.scrollTo({
         top: el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2,
-        behavior: "smooth",
+        behavior,
     });
 }
 
@@ -172,7 +176,7 @@ watch(filteredContainers, () => {
     const wasVisible = isActiveVisible.value;
     nextTick(() => {
         if (wasVisible || needsInitialScroll) {
-            scrollToActive();
+            scrollToActive(needsInitialScroll ? "instant" : "smooth");
             if (needsInitialScroll && listRef.value?.querySelector(".item.active")) {
                 needsInitialScroll = false;
             }
