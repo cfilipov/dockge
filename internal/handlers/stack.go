@@ -1,883 +1,724 @@
 package handlers
 
 import (
-    "context"
-    "fmt"
-    "log/slog"
-    "os"
-    "os/exec"
-    "path/filepath"
-    "strings"
-    "sync"
-    "time"
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
 
-    "github.com/cfilipov/dockge/internal/compose"
-    "github.com/cfilipov/dockge/internal/docker"
-    "github.com/cfilipov/dockge/internal/stack"
-    "github.com/cfilipov/dockge/internal/terminal"
-    "github.com/cfilipov/dockge/internal/ws"
+	"github.com/cfilipov/dockge/internal/compose"
+	"github.com/cfilipov/dockge/internal/docker"
+	"github.com/cfilipov/dockge/internal/stack"
+	"github.com/cfilipov/dockge/internal/terminal"
+	"github.com/cfilipov/dockge/internal/ws"
 )
 
-// stackCache holds the in-memory stack list, refreshed by the background goroutine.
-var (
-    stackCacheMu sync.RWMutex
-    stackCache   map[string]*stack.Stack
-)
-
-// containerCache holds containers grouped by compose project, updated alongside stackCache.
-var (
-    containerCacheMu sync.RWMutex
-    containerCache   map[string][]docker.Container
-)
+// freshData holds all the data needed for a broadcast, queried fresh each time.
+type freshData struct {
+	stacks         map[string]*stack.Stack
+	byProject      map[string][]docker.Container
+	updateMap      map[string]bool
+	serviceUpdates map[string]bool
+	recreateMap    map[string]bool
+	imagesByStack  map[string]map[string]string
+}
 
 func RegisterStackHandlers(app *App) {
-    app.WS.Handle("requestStackList", app.handleRequestStackList)
-    app.WS.Handle("getStack", app.handleGetStack)
-    app.WS.Handle("saveStack", app.handleSaveStack)
-    app.WS.Handle("deployStack", app.handleDeployStack)
-    app.WS.Handle("startStack", app.handleStartStack)
-    app.WS.Handle("stopStack", app.handleStopStack)
-    app.WS.Handle("restartStack", app.handleRestartStack)
-    app.WS.Handle("downStack", app.handleDownStack)
-    app.WS.Handle("updateStack", app.handleUpdateStack)
-    app.WS.Handle("deleteStack", app.handleDeleteStack)
-    app.WS.Handle("forceDeleteStack", app.handleForceDeleteStack)
-    app.WS.Handle("pauseStack", app.handlePauseStack)
-    app.WS.Handle("resumeStack", app.handleResumeStack)
+	app.WS.Handle("requestStackList", app.handleRequestStackList)
+	app.WS.Handle("getStack", app.handleGetStack)
+	app.WS.Handle("saveStack", app.handleSaveStack)
+	app.WS.Handle("deployStack", app.handleDeployStack)
+	app.WS.Handle("startStack", app.handleStartStack)
+	app.WS.Handle("stopStack", app.handleStopStack)
+	app.WS.Handle("restartStack", app.handleRestartStack)
+	app.WS.Handle("downStack", app.handleDownStack)
+	app.WS.Handle("updateStack", app.handleUpdateStack)
+	app.WS.Handle("deleteStack", app.handleDeleteStack)
+	app.WS.Handle("forceDeleteStack", app.handleForceDeleteStack)
+	app.WS.Handle("pauseStack", app.handlePauseStack)
+	app.WS.Handle("resumeStack", app.handleResumeStack)
+}
+
+// queryFreshData queries Docker, filesystem, and BoltDB to build a complete
+// snapshot of all stack data. No caches — each call is a fresh query.
+func (app *App) queryFreshData() *freshData {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// 1. Query Docker (~10-50ms)
+	containers, err := app.Docker.ContainerList(ctx, true, "")
+	if err != nil {
+		slog.Warn("queryFreshData: container list", "err", err)
+	}
+
+	// 2. Parse YAML from disk for ignore labels + image refs (~5ms for 50 stacks)
+	ignoreMap, imagesByStack := parseAllComposeData(app.StacksDir)
+
+	// 3. Build stack list from containers + filesystem
+	stacks := stack.GetStackListFromContainers(app.StacksDir, containers, ignoreMap)
+	byProject := groupByProject(containers)
+
+	// 4. Read image update results from BoltDB (~0.5ms, memory-mapped)
+	updateMap, _ := app.ImageUpdates.StackHasUpdates()
+	serviceUpdates, _ := app.ImageUpdates.AllServiceUpdates()
+
+	// 5. Compute recreate inline (compare running images vs compose YAML)
+	recreateMap := computeRecreateMap(stacks, byProject, imagesByStack)
+
+	return &freshData{
+		stacks:         stacks,
+		byProject:      byProject,
+		updateMap:      updateMap,
+		serviceUpdates: serviceUpdates,
+		recreateMap:    recreateMap,
+		imagesByStack:  imagesByStack,
+	}
+}
+
+// parseAllComposeData scans the stacks directory, parses each compose file,
+// and returns both the ignore map and the images-by-stack map.
+func parseAllComposeData(stacksDir string) (stack.IgnoreMap, map[string]map[string]string) {
+	entries, err := os.ReadDir(stacksDir)
+	if err != nil {
+		return nil, nil
+	}
+
+	ignoreMap := make(stack.IgnoreMap)
+	imagesByStack := make(map[string]map[string]string)
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		path := compose.FindComposeFile(stacksDir, name)
+		if path == "" {
+			continue
+		}
+
+		services := compose.ParseFile(path)
+		images := make(map[string]string)
+		for svc, sd := range services {
+			if sd.Image != "" {
+				images[svc] = sd.Image
+			}
+			if sd.StatusIgnore {
+				if ignoreMap[name] == nil {
+					ignoreMap[name] = make(map[string]bool)
+				}
+				ignoreMap[name][svc] = true
+			}
+		}
+		imagesByStack[name] = images
+	}
+	return ignoreMap, imagesByStack
+}
+
+// groupByProject groups containers by compose project.
+// Standalone containers (no project) are grouped under "_standalone".
+func groupByProject(containers []docker.Container) map[string][]docker.Container {
+	byProject := make(map[string][]docker.Container, len(containers))
+	for _, c := range containers {
+		key := c.Project
+		if key == "" {
+			key = "_standalone"
+		}
+		byProject[key] = append(byProject[key], c)
+	}
+	return byProject
+}
+
+// computeRecreateMap compares running container images with compose.yaml images
+// to determine which stacks need recreation.
+func computeRecreateMap(stacks map[string]*stack.Stack, byProject map[string][]docker.Container, imagesByStack map[string]map[string]string) map[string]bool {
+	result := make(map[string]bool)
+	for name, s := range stacks {
+		if !s.IsStarted() {
+			continue
+		}
+		projectContainers := byProject[name]
+		if len(projectContainers) == 0 {
+			continue
+		}
+		composeImages := imagesByStack[name]
+		if len(composeImages) == 0 {
+			continue
+		}
+
+		for _, c := range projectContainers {
+			svc := c.Service
+			if svc == "" {
+				continue
+			}
+			compImg, ok := composeImages[svc]
+			if ok && c.Image != "" && compImg != "" && c.Image != compImg {
+				result[name] = true
+				break
+			}
+		}
+	}
+	return result
 }
 
 // StartStackWatcher starts a background goroutine that:
-// 1. Does an initial full container list to populate the cache
+// 1. Does an initial broadcast with fresh data
 // 2. Subscribes to Docker Events to react to container lifecycle changes
 // 3. Keeps a slow fallback ticker (60s) as a safety net
-//
-// This replaces the old StartStackListBroadcaster which polled every 10s.
 func (app *App) StartStackWatcher(ctx context.Context) {
-    // Initial full refresh
-    app.refreshStackCache()
-    app.broadcastStackList()
-    app.broadcastContainerList()
+	// Initial broadcast
+	app.BroadcastAll()
 
-    // Subscribe to Docker events
-    eventCh, errCh := app.Docker.Events(ctx)
+	// Subscribe to Docker events
+	eventCh, errCh := app.Docker.Events(ctx)
 
-    go func() {
-        // Fallback ticker — full refresh every 60s as safety net
-        ticker := time.NewTicker(60 * time.Second)
-        defer ticker.Stop()
+	go func() {
+		// Fallback ticker — full refresh every 60s as safety net
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
 
-        // Debounce: batch events that arrive within 500ms into a single refresh.
-        // Collects affected project names so only those stacks are re-queried.
-        var debounceTimer *time.Timer
-        var debounceMu sync.Mutex
-        pendingProjects := make(map[string]struct{})
+		// Debounce: batch events that arrive within 500ms into a single refresh.
+		var debounceTimer *time.Timer
+		var debounceMu sync.Mutex
 
-        triggerDebounced := func(project string) {
-            debounceMu.Lock()
-            defer debounceMu.Unlock()
-            if project != "" {
-                pendingProjects[project] = struct{}{}
-            }
-            if debounceTimer != nil {
-                debounceTimer.Stop()
-            }
-            debounceTimer = time.AfterFunc(500*time.Millisecond, func() {
-                debounceMu.Lock()
-                projects := pendingProjects
-                pendingProjects = make(map[string]struct{})
-                debounceMu.Unlock()
+		triggerDebounced := func() {
+			debounceMu.Lock()
+			defer debounceMu.Unlock()
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			debounceTimer = time.AfterFunc(500*time.Millisecond, func() {
+				app.BroadcastAll()
+			})
+		}
 
-                for p := range projects {
-                    app.refreshStackProject(p)
-                }
-                app.broadcastStackList()
-                app.broadcastContainerList()
-            })
-        }
+		for {
+			select {
+			case <-ctx.Done():
+				debounceMu.Lock()
+				if debounceTimer != nil {
+					debounceTimer.Stop()
+				}
+				debounceMu.Unlock()
+				return
 
-        for {
-            select {
-            case <-ctx.Done():
-                debounceMu.Lock()
-                if debounceTimer != nil {
-                    debounceTimer.Stop()
-                }
-                debounceMu.Unlock()
-                return
+			case evt, ok := <-eventCh:
+				if !ok {
+					// Event channel closed — fall back to polling only
+					slog.Warn("docker events channel closed, falling back to polling")
+					app.runPollingFallback(ctx)
+					return
+				}
+				slog.Debug("docker event", "action", evt.Action, "project", evt.Project, "service", evt.Service)
+				triggerDebounced()
 
-            case evt, ok := <-eventCh:
-                if !ok {
-                    // Event channel closed — fall back to polling only
-                    slog.Warn("docker events channel closed, falling back to polling")
-                    app.runPollingFallback(ctx)
-                    return
-                }
-                slog.Debug("docker event", "action", evt.Action, "project", evt.Project, "service", evt.Service)
-                triggerDebounced(evt.Project)
+			case err, ok := <-errCh:
+				if !ok {
+					continue
+				}
+				slog.Warn("docker events error", "err", err)
+				// Reconnect: fall back to polling
+				app.runPollingFallback(ctx)
+				return
 
-            case err, ok := <-errCh:
-                if !ok {
-                    continue
-                }
-                slog.Warn("docker events error", "err", err)
-                // Reconnect: fall back to polling
-                app.runPollingFallback(ctx)
-                return
-
-            case <-ticker.C:
-                app.refreshStackCache()
-                app.broadcastStackList()
-                app.broadcastContainerList()
-            }
-        }
-    }()
+			case <-ticker.C:
+				app.BroadcastAll()
+			}
+		}
+	}()
 }
 
 // runPollingFallback runs a simple 60s polling loop when events are unavailable.
 func (app *App) runPollingFallback(ctx context.Context) {
-    ticker := time.NewTicker(60 * time.Second)
-    defer ticker.Stop()
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
 
-    for {
-        select {
-        case <-ctx.Done():
-            return
-        case <-ticker.C:
-            app.refreshStackCache()
-            app.broadcastStackList()
-            app.broadcastContainerList()
-        }
-    }
-}
-
-// refreshStackProject refreshes container state for a single compose project.
-// This is much cheaper than a full refreshStackCache since it only queries
-// containers belonging to one project.
-func (app *App) refreshStackProject(project string) {
-    if project == "" || project == "dockge" {
-        return
-    }
-
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-
-    containers, err := app.Docker.ContainerList(ctx, true, project)
-    if err != nil {
-        slog.Warn("refresh stack project", "err", err, "project", project)
-        return
-    }
-
-    // Derive status from container states (skip status-ignored services)
-    var running, exited, created, paused int
-    for _, c := range containers {
-        svc := c.Service
-        if app.ComposeCache.IsStatusIgnored(project, svc) {
-            continue
-        }
-        switch strings.ToLower(c.State) {
-        case "running":
-            running++
-        case "exited", "dead":
-            exited++
-        case "created":
-            created++
-        case "paused":
-            paused++
-        }
-    }
-
-    // Update container cache for this project
-    containerCacheMu.Lock()
-    if containerCache == nil {
-        containerCache = make(map[string][]docker.Container)
-    }
-    containerCache[project] = containers
-    containerCacheMu.Unlock()
-
-    stackCacheMu.Lock()
-    if stackCache == nil {
-        stackCache = make(map[string]*stack.Stack)
-    }
-    s, exists := stackCache[project]
-    if !exists {
-        // Check if it's a managed stack (has compose file on disk)
-        if stack.ComposeFileExists(app.StacksDir, project) {
-            s = &stack.Stack{
-                Name:              project,
-                Status:            stack.CREATED_FILE,
-                IsManagedByDockge: true,
-            }
-        } else if len(containers) > 0 {
-            // External stack
-            s = &stack.Stack{
-                Name:              project,
-                IsManagedByDockge: false,
-            }
-        } else {
-            stackCacheMu.Unlock()
-            return
-        }
-        stackCache[project] = s
-    }
-
-    // Update status
-    if running > 0 && exited > 0 {
-        s.Status = stack.RUNNING_AND_EXITED
-    } else if running > 0 {
-        s.Status = stack.RUNNING
-    } else if exited > 0 {
-        s.Status = stack.EXITED
-    } else if created > 0 {
-        s.Status = stack.CREATED_STACK
-    } else if paused > 0 {
-        s.Status = stack.RUNNING
-    } else if s.IsManagedByDockge {
-        s.Status = stack.CREATED_FILE
-    }
-    stackCacheMu.Unlock()
-
-    // Recompute recreateNecessary for this project
-    if running > 0 {
-        runningImages := make(map[string]string)
-        for _, c := range containers {
-            if c.Service != "" {
-                runningImages[c.Service] = c.Image
-            }
-        }
-        composeImages := app.ComposeCache.GetImages(project)
-        anyRecreate := false
-        for svc, runImg := range runningImages {
-            compImg, ok := composeImages[svc]
-            if ok && runImg != "" && compImg != "" && runImg != compImg {
-                anyRecreate = true
-                break
-            }
-        }
-        app.SetRecreateNecessary(project, anyRecreate)
-    }
-}
-
-// refreshStackCache queries the Docker client for all compose containers,
-// groups them by project, and merges with the filesystem scan.
-// Used for initial startup and the 60s fallback — NOT for event-driven updates.
-func (app *App) refreshStackCache() {
-    ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-    defer cancel()
-
-    // Get all containers with compose labels
-    containers, err := app.Docker.ContainerList(ctx, true, "")
-    if err != nil {
-        slog.Warn("refresh stack cache: container list", "err", err)
-    }
-
-    stacks := stack.GetStackListFromContainers(app.StacksDir, containers, app.buildIgnoreMap())
-
-    // Group containers by project for the container cache.
-    // Standalone containers (no compose project) are grouped under "_standalone".
-    byProject := make(map[string][]docker.Container, len(containers))
-    for _, c := range containers {
-        key := c.Project
-        if key == "" {
-            key = "_standalone"
-        }
-        byProject[key] = append(byProject[key], c)
-    }
-
-    stackCacheMu.Lock()
-    stackCache = stacks
-    stackCacheMu.Unlock()
-
-    containerCacheMu.Lock()
-    containerCache = byProject
-    containerCacheMu.Unlock()
-
-    // Compute recreateNecessary for all running stacks
-    app.refreshRecreateCache(stacks, containers)
-}
-
-// refreshRecreateCache compares running images with compose.yaml images and
-// populates the recreate cache. Uses the already-fetched container list.
-// Builds the full update map locally and applies it in a single batch to avoid
-// N intermediate snapshot copies.
-func (app *App) refreshRecreateCache(stacks map[string]*stack.Stack, containers []docker.Container) {
-    // Group containers by project
-    byProject := make(map[string][]docker.Container, len(containers))
-    for _, c := range containers {
-        if c.Project != "" {
-            byProject[c.Project] = append(byProject[c.Project], c)
-        }
-    }
-
-    updates := make(map[string]bool)
-    for name, s := range stacks {
-        if !s.IsStarted() {
-            continue
-        }
-        projectContainers := byProject[name]
-        if len(projectContainers) == 0 {
-            continue
-        }
-
-        // Build running images map
-        runningImages := make(map[string]string)
-        for _, c := range projectContainers {
-            if c.Service != "" {
-                runningImages[c.Service] = c.Image
-            }
-        }
-
-        composeImages := app.ComposeCache.GetImages(name)
-        anyRecreate := false
-        for svc, runningImage := range runningImages {
-            composeImage, ok := composeImages[svc]
-            if ok && runningImage != "" && composeImage != "" && runningImage != composeImage {
-                anyRecreate = true
-                break
-            }
-        }
-        updates[name] = anyRecreate
-    }
-
-    if len(updates) > 0 {
-        app.SetRecreateNecessaryBatch(updates)
-    }
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			app.BroadcastAll()
+		}
+	}
 }
 
 // stackListResponse is the typed response for the stackList event.
 type stackListResponse struct {
-    OK        bool                             `json:"ok"`
-    StackList map[string]stack.StackSimpleJSON `json:"stackList"`
-}
-
-func (app *App) broadcastStackList() {
-    stackCacheMu.RLock()
-    stacks := stackCache
-    stackCacheMu.RUnlock()
-
-    if stacks == nil {
-        return
-    }
-
-    updateMap := app.GetImageUpdateMap()
-    recreateMap := app.GetRecreateCache()
-    listJSON := stack.BuildStackListJSON(stacks, "", updateMap, recreateMap)
-    app.WS.BroadcastAuthenticatedRaw("agent", "stackList", stackListResponse{
-        OK:        true,
-        StackList: listJSON,
-    })
+	OK        bool                             `json:"ok"`
+	StackList map[string]stack.StackSimpleJSON `json:"stackList"`
 }
 
 // containerListResponse is the typed response for the containerList event.
 type containerListResponse struct {
-    OK            bool                      `json:"ok"`
-    ContainerList []stack.ContainerSimpleJSON `json:"containerList"`
+	OK            bool                       `json:"ok"`
+	ContainerList []stack.ContainerSimpleJSON `json:"containerList"`
 }
 
-func (app *App) broadcastContainerList() {
-    containerCacheMu.RLock()
-    containers := containerCache
-    containerCacheMu.RUnlock()
+// BroadcastAll queries fresh data and broadcasts both stack list and container list
+// to all authenticated connections.
+func (app *App) BroadcastAll() {
+	data := app.queryFreshData()
 
-    stackCacheMu.RLock()
-    stacks := stackCache
-    stackCacheMu.RUnlock()
+	stackJSON := stack.BuildStackListJSON(data.stacks, "", data.updateMap, data.recreateMap)
+	app.WS.BroadcastAuthenticatedRaw("agent", "stackList", stackListResponse{
+		OK:        true,
+		StackList: stackJSON,
+	})
 
-    if containers == nil {
-        return
-    }
+	containerJSON := stack.BuildContainerListJSON(data.byProject, data.stacks, data.serviceUpdates, data.recreateMap, data.imagesByStack)
+	app.WS.BroadcastAuthenticatedRaw("agent", "containerList", containerListResponse{
+		OK:            true,
+		ContainerList: containerJSON,
+	})
+}
 
-    serviceUpdates, _ := app.ImageUpdates.AllServiceUpdates()
-    recreateMap := app.GetRecreateCache()
-    listJSON := stack.BuildContainerListJSON(containers, stacks, serviceUpdates, app.ComposeCache, recreateMap)
-
-    app.WS.BroadcastAuthenticatedRaw("agent", "containerList", containerListResponse{
-        OK:            true,
-        ContainerList: listJSON,
-    })
+// TriggerRefresh broadcasts fresh data after a short delay to let Docker state settle.
+func (app *App) TriggerRefresh() {
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		app.BroadcastAll()
+	}()
 }
 
 func (app *App) handleRequestContainerList(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+	}
 
-    // If cache is empty, refresh synchronously so the first load is instant
-    containerCacheMu.RLock()
-    empty := len(containerCache) == 0
-    containerCacheMu.RUnlock()
-    if empty {
-        app.refreshStackCache()
-    }
-
-    app.sendContainerListTo(c)
+	app.sendContainerListTo(c)
 }
 
-// sendContainerListTo sends the cached container list to a single connection.
+// sendContainerListTo sends a fresh container list to a single connection.
 func (app *App) sendContainerListTo(c *ws.Conn) {
-    containerCacheMu.RLock()
-    containers := containerCache
-    containerCacheMu.RUnlock()
+	data := app.queryFreshData()
 
-    stackCacheMu.RLock()
-    stacks := stackCache
-    stackCacheMu.RUnlock()
+	containerJSON := stack.BuildContainerListJSON(data.byProject, data.stacks, data.serviceUpdates, data.recreateMap, data.imagesByStack)
+	if containerJSON == nil {
+		containerJSON = []stack.ContainerSimpleJSON{}
+	}
 
-    serviceUpdates, _ := app.ImageUpdates.AllServiceUpdates()
-    recreateMap := app.GetRecreateCache()
-    listJSON := stack.BuildContainerListJSON(containers, stacks, serviceUpdates, app.ComposeCache, recreateMap)
-    if listJSON == nil {
-        listJSON = []stack.ContainerSimpleJSON{}
-    }
-
-    c.SendEvent("agent", "containerList", containerListResponse{
-        OK:            true,
-        ContainerList: listJSON,
-    })
-}
-
-// FlushStackCache clears and synchronously repopulates the stack cache
-// from the Docker client. Used by mock reset to ensure all handlers
-// (including getStack) see the updated state immediately.
-func (app *App) FlushStackCache() {
-    stackCacheMu.Lock()
-    stackCache = nil
-    stackCacheMu.Unlock()
-    app.refreshStackCache()
-}
-
-// TriggerStackListRefresh refreshes the cache and broadcasts immediately (after a mutation).
-// If stackName is non-empty, only that stack is re-queried (much cheaper).
-func (app *App) TriggerStackListRefresh(stackName ...string) {
-    go func() {
-        // Small delay to let docker compose state settle
-        time.Sleep(500 * time.Millisecond)
-        if len(stackName) > 0 && stackName[0] != "" {
-            app.refreshStackProject(stackName[0])
-        } else {
-            app.refreshStackCache()
-        }
-        app.broadcastStackList()
-        app.broadcastContainerList()
-    }()
+	c.SendEvent("agent", "containerList", containerListResponse{
+		OK:            true,
+		ContainerList: containerJSON,
+	})
 }
 
 func (app *App) handleRequestStackList(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+	}
 
-    // If cache is empty, refresh synchronously so the first load is instant
-    stackCacheMu.RLock()
-    empty := stackCache == nil || len(stackCache) == 0
-    stackCacheMu.RUnlock()
-    if empty {
-        app.refreshStackCache()
-    }
-
-    app.sendStackListTo(c)
+	app.sendStackListTo(c)
 }
 
-// sendStackListTo sends the cached stack list to a single connection.
+// sendStackListTo sends a fresh stack list to a single connection.
 func (app *App) sendStackListTo(c *ws.Conn) {
-    stackCacheMu.RLock()
-    stacks := stackCache
-    stackCacheMu.RUnlock()
+	data := app.queryFreshData()
 
-    var listJSON map[string]stack.StackSimpleJSON
-    if stacks != nil {
-        updateMap := app.GetImageUpdateMap()
-        recreateMap := app.GetRecreateCache()
-        listJSON = stack.BuildStackListJSON(stacks, "", updateMap, recreateMap)
-    }
-    if listJSON == nil {
-        listJSON = map[string]stack.StackSimpleJSON{}
-    }
+	listJSON := stack.BuildStackListJSON(data.stacks, "", data.updateMap, data.recreateMap)
+	if listJSON == nil {
+		listJSON = map[string]stack.StackSimpleJSON{}
+	}
 
-    c.SendEvent("agent", "stackList", stackListResponse{
-        OK:        true,
-        StackList: listJSON,
-    })
+	c.SendEvent("agent", "stackList", stackListResponse{
+		OK:        true,
+		StackList: listJSON,
+	})
 }
 
 func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
 
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    // Read from cache for status, then load full YAML from disk
-    stackCacheMu.RLock()
-    cached, exists := stackCache[stackName]
-    stackCacheMu.RUnlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-    s := &stack.Stack{Name: stackName}
-    if exists {
-        s.Status = cached.Status
-        s.IsManagedByDockge = cached.IsManagedByDockge
-        s.ComposeFileName = cached.ComposeFileName
-        s.ComposeOverrideFileName = cached.ComposeOverrideFileName
-    }
+	// Query Docker for this stack's containers to determine status
+	containers, _ := app.Docker.ContainerList(ctx, true, stackName)
 
-    // Load YAML content from disk (fast — local file I/O)
-    s.LoadFromDisk(app.StacksDir)
+	// Parse compose file for ignore labels
+	ignoreMap, imagesByStack := parseAllComposeData(app.StacksDir)
 
-    hostname := "localhost"
-    if h, err := app.Settings.Get("primaryHostname"); err == nil && h != "" {
-        hostname = h
-    }
+	// Build status from containers
+	stacks := stack.GetStackListFromContainers(app.StacksDir, containers, ignoreMap)
 
-    updateMap := app.GetImageUpdateMap()
-    recreateMap := app.GetRecreateCache()
+	s := &stack.Stack{Name: stackName}
+	if cached, exists := stacks[stackName]; exists {
+		s.Status = cached.Status
+		s.IsManagedByDockge = cached.IsManagedByDockge
+		s.ComposeFileName = cached.ComposeFileName
+		s.ComposeOverrideFileName = cached.ComposeOverrideFileName
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, struct {
-            OK    bool               `json:"ok"`
-            Stack stack.StackFullJSON `json:"stack"`
-        }{
-            OK:    true,
-            Stack: s.ToJSON("", hostname, updateMap[stackName], recreateMap[stackName]),
-        })
-    }
+	// Load YAML content from disk (fast — local file I/O)
+	s.LoadFromDisk(app.StacksDir)
+
+	hostname := "localhost"
+	if h, err := app.Settings.Get("primaryHostname"); err == nil && h != "" {
+		hostname = h
+	}
+
+	updateMap := app.GetImageUpdateMap()
+
+	// Compute recreate for this stack
+	byProject := groupByProject(containers)
+	recreateMap := computeRecreateMap(stacks, byProject, imagesByStack)
+
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, struct {
+			OK    bool               `json:"ok"`
+			Stack stack.StackFullJSON `json:"stack"`
+		}{
+			OK:    true,
+			Stack: s.ToJSON("", hostname, updateMap[stackName], recreateMap[stackName]),
+		})
+	}
 }
 
 func (app *App) handleSaveStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
 
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    composeYAML := argString(args, 1)
-    composeENV := argString(args, 2)
-    composeOverrideYAML := argString(args, 3)
-    // isAdd := argBool(args, 4)
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	composeYAML := argString(args, 1)
+	composeENV := argString(args, 2)
+	composeOverrideYAML := argString(args, 3)
+	// isAdd := argBool(args, 4)
 
-    if stackName == "" || composeYAML == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and compose YAML required"})
-        }
-        return
-    }
+	if stackName == "" || composeYAML == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and compose YAML required"})
+		}
+		return
+	}
 
-    s := &stack.Stack{
-        Name:                stackName,
-        ComposeYAML:         composeYAML,
-        ComposeENV:          composeENV,
-        ComposeOverrideYAML: composeOverrideYAML,
-    }
+	s := &stack.Stack{
+		Name:                stackName,
+		ComposeYAML:         composeYAML,
+		ComposeENV:          composeENV,
+		ComposeOverrideYAML: composeOverrideYAML,
+	}
 
-    if err := s.SaveToDisk(app.StacksDir); err != nil {
-        slog.Error("save stack", "err", err, "stack", stackName)
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
-        }
-        return
-    }
+	if err := s.SaveToDisk(app.StacksDir); err != nil {
+		slog.Error("save stack", "err", err, "stack", stackName)
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
-    // Eagerly update compose cache (don't wait for fsnotify)
-    app.updateComposeCacheFromYAML(stackName, composeYAML)
+	// Handle imageupdates.check transitions
+	app.handleComposeYAMLSave(stackName, composeYAML)
 
-    app.TriggerStackListRefresh(stackName)
+	app.TriggerRefresh()
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Saved"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Saved"})
+	}
 }
 
 func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
 
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    composeYAML := argString(args, 1)
-    composeENV := argString(args, 2)
-    composeOverrideYAML := argString(args, 3)
-    // isAdd := argBool(args, 4)
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	composeYAML := argString(args, 1)
+	composeENV := argString(args, 2)
+	composeOverrideYAML := argString(args, 3)
+	// isAdd := argBool(args, 4)
 
-    if stackName == "" || composeYAML == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and compose YAML required"})
-        }
-        return
-    }
+	if stackName == "" || composeYAML == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and compose YAML required"})
+		}
+		return
+	}
 
-    s := &stack.Stack{
-        Name:                stackName,
-        ComposeYAML:         composeYAML,
-        ComposeENV:          composeENV,
-        ComposeOverrideYAML: composeOverrideYAML,
-    }
+	s := &stack.Stack{
+		Name:                stackName,
+		ComposeYAML:         composeYAML,
+		ComposeENV:          composeENV,
+		ComposeOverrideYAML: composeOverrideYAML,
+	}
 
-    if err := s.SaveToDisk(app.StacksDir); err != nil {
-        slog.Error("deploy stack save", "err", err, "stack", stackName)
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
-        }
-        return
-    }
+	if err := s.SaveToDisk(app.StacksDir); err != nil {
+		slog.Error("deploy stack save", "err", err, "stack", stackName)
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
-    // Eagerly update compose cache (don't wait for fsnotify)
-    app.updateComposeCacheFromYAML(stackName, composeYAML)
+	// Handle imageupdates.check transitions
+	app.handleComposeYAMLSave(stackName, composeYAML)
 
-    // Return immediately — validation and deploy run in background
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deployed"})
-    }
+	// Return immediately — validation and deploy run in background
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deployed"})
+	}
 
-    // Validate then deploy in background; errors stream to the terminal
-    go app.runDeployWithValidation(stackName)
+	// Validate then deploy in background; errors stream to the terminal
+	go app.runDeployWithValidation(stackName)
 }
 
 func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+	}
 
-    go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
+	go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
 }
 
 func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
+	}
 
-    go app.runComposeAction(stackName, "stop", "stop")
+	go app.runComposeAction(stackName, "stop", "stop")
 }
 
 func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
+	}
 
-    go app.runComposeAction(stackName, "restart", "restart")
+	go app.runComposeAction(stackName, "restart", "restart")
 }
 
 func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
+	}
 
-    go app.runComposeAction(stackName, "down", "down")
+	go app.runComposeAction(stackName, "down", "down")
 }
 
 func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
+	}
 
-    go func() {
-        app.runDockerCommands(stackName, "update", [][]string{
-            {"compose", "pull"},
-            {"compose", "up", "-d", "--remove-orphans"},
-        })
-        // Prune dangling images via SDK (no docker CLI needed)
-        if msg, err := app.Docker.ImagePrune(context.Background(), true); err != nil {
-            slog.Warn("image prune after update", "stack", stackName, "err", err)
-        } else {
-            slog.Debug("image prune after update", "stack", stackName, "result", msg)
-        }
-        // Clear stale "update available" cache and re-check with new images
-        if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
-            slog.Warn("clear image update cache", "stack", stackName, "err", err)
-        }
-        app.checkImageUpdatesForStack(stackName)
-        app.broadcastStackList()
-        app.broadcastContainerList()
-    }()
+	go func() {
+		app.runDockerCommands(stackName, "update", [][]string{
+			{"compose", "pull"},
+			{"compose", "up", "-d", "--remove-orphans"},
+		})
+		// Prune dangling images via SDK (no docker CLI needed)
+		if msg, err := app.Docker.ImagePrune(context.Background(), true); err != nil {
+			slog.Warn("image prune after update", "stack", stackName, "err", err)
+		} else {
+			slog.Debug("image prune after update", "stack", stackName, "result", msg)
+		}
+		// Clear stale "update available" cache and re-check with new images
+		if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
+			slog.Warn("clear image update cache", "stack", stackName, "err", err)
+		}
+		app.checkImageUpdatesForStack(stackName)
+		app.BroadcastAll()
+	}()
 }
 
 func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
 
-    var opts struct {
-        DeleteStackFiles bool `json:"deleteStackFiles"`
-    }
-    argObject(args, 1, &opts)
+	var opts struct {
+		DeleteStackFiles bool `json:"deleteStackFiles"`
+	}
+	argObject(args, 1, &opts)
 
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
+	}
 
-    go func() {
-        ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-        defer cancel()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
 
-        // Down first (with --remove-orphans, matching Node.js)
-        app.Compose.DownRemoveOrphans(ctx, stackName, &discardWriter{})
+		// Down first (with --remove-orphans, matching Node.js)
+		app.Compose.DownRemoveOrphans(ctx, stackName, &discardWriter{})
 
-        // Delete files if requested
-        if opts.DeleteStackFiles {
-            dir := filepath.Join(app.StacksDir, stackName)
-            if err := os.RemoveAll(dir); err != nil {
-                slog.Error("delete stack files", "err", err, "stack", stackName)
-            }
-        }
+		// Delete files if requested
+		if opts.DeleteStackFiles {
+			dir := filepath.Join(app.StacksDir, stackName)
+			if err := os.RemoveAll(dir); err != nil {
+				slog.Error("delete stack files", "err", err, "stack", stackName)
+			}
+		}
 
-        app.TriggerStackListRefresh(stackName)
-        slog.Info("stack deleted", "stack", stackName)
-    }()
+		app.TriggerRefresh()
+		slog.Info("stack deleted", "stack", stackName)
+	}()
 }
 
 func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
+	}
 
-    go func() {
-        ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-        defer cancel()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
 
-        app.Compose.DownVolumes(ctx, stackName, &discardWriter{})
+		app.Compose.DownVolumes(ctx, stackName, &discardWriter{})
 
-        dir := filepath.Join(app.StacksDir, stackName)
-        if err := os.RemoveAll(dir); err != nil {
-            slog.Error("force delete stack", "err", err, "stack", stackName)
-        }
+		dir := filepath.Join(app.StacksDir, stackName)
+		if err := os.RemoveAll(dir); err != nil {
+			slog.Error("force delete stack", "err", err, "stack", stackName)
+		}
 
-        app.TriggerStackListRefresh(stackName)
-        slog.Info("stack force deleted", "stack", stackName)
-    }()
+		app.TriggerRefresh()
+		slog.Info("stack force deleted", "stack", stackName)
+	}()
 }
 
 func (app *App) handlePauseStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+	}
 
-    go app.runComposeAction(stackName, "pause", "pause")
+	go app.runComposeAction(stackName, "pause", "pause")
 }
 
 func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-    args := parseArgs(msg)
-    stackName := argString(args, 0)
-    if stackName == "" {
-        if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
-        }
-        return
-    }
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	if stackName == "" {
+		if msg.ID != nil {
+			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+		}
+		return
+	}
 
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
-    }
+	if msg.ID != nil {
+		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+	}
 
-    go app.runComposeAction(stackName, "unpause", "unpause")
+	go app.runComposeAction(stackName, "unpause", "unpause")
 }
 
 // runComposeAction runs a compose command in the background, streaming output
@@ -886,260 +727,238 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
 // In mock mode: uses pipe terminal + Composer interface (no real docker CLI).
 // In real mode: uses PTY terminal + exec.Command (for rich terminal output).
 func (app *App) runComposeAction(stackName, action string, composeArgs ...string) {
-    termName := "compose--" + stackName
-    envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
-    displayParts := append(envArgs, composeArgs...)
-    cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(displayParts, " "))
+	termName := "compose--" + stackName
+	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
+	displayParts := append(envArgs, composeArgs...)
+	cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(displayParts, " "))
 
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
-    if app.Mock {
-        term := app.Terms.Recreate(termName, terminal.TypePipe)
-        term.Write([]byte(cmdDisplay))
+	if app.Mock {
+		term := app.Terms.Recreate(termName, terminal.TypePipe)
+		term.Write([]byte(cmdDisplay))
 
-        if err := app.Compose.RunCompose(ctx, stackName, term, composeArgs...); err != nil {
-            if ctx.Err() == nil {
-                errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-                term.Write([]byte(errMsg))
-                slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-            }
-        } else {
-            term.Write([]byte("\r\n[Done]\r\n"))
-        }
-    } else {
-        term := app.Terms.Recreate(termName, terminal.TypePTY)
-        term.Write([]byte(cmdDisplay))
+		if err := app.Compose.RunCompose(ctx, stackName, term, composeArgs...); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+			}
+		} else {
+			term.Write([]byte("\r\n[Done]\r\n"))
+		}
+	} else {
+		term := app.Terms.Recreate(termName, terminal.TypePTY)
+		term.Write([]byte(cmdDisplay))
 
-        dir := filepath.Join(app.StacksDir, stackName)
-        args := []string{"compose"}
-        args = append(args, envArgs...)
-        args = append(args, composeArgs...)
-        cmd := exec.CommandContext(ctx, "docker", args...)
-        cmd.Dir = dir
+		dir := filepath.Join(app.StacksDir, stackName)
+		args := []string{"compose"}
+		args = append(args, envArgs...)
+		args = append(args, composeArgs...)
+		cmd := exec.CommandContext(ctx, "docker", args...)
+		cmd.Dir = dir
 
-        if err := term.RunPTY(cmd); err != nil {
-            if ctx.Err() == nil {
-                errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-                term.Write([]byte(errMsg))
-                slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-            }
-        } else {
-            term.Write([]byte("\r\n[Done]\r\n"))
-        }
-    }
+		if err := term.RunPTY(cmd); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+			}
+		} else {
+			term.Write([]byte("\r\n[Done]\r\n"))
+		}
+	}
 
-    // Schedule terminal cleanup after a grace period
-    app.Terms.RemoveAfter(termName, 30*time.Second)
+	// Schedule terminal cleanup after a grace period
+	app.Terms.RemoveAfter(termName, 30*time.Second)
 
-    app.TriggerStackListRefresh(stackName)
+	app.TriggerRefresh()
 }
 
 // runDeployWithValidation validates the compose file via `docker compose config`
 // and then runs `docker compose up -d --remove-orphans`.
 func (app *App) runDeployWithValidation(stackName string) {
-    termName := "compose--" + stackName
-    envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
-    envDisplay := ""
-    if len(envArgs) > 0 {
-        envDisplay = strings.Join(envArgs, " ") + " "
-    }
+	termName := "compose--" + stackName
+	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
+	envDisplay := ""
+	if len(envArgs) > 0 {
+		envDisplay = strings.Join(envArgs, " ") + " "
+	}
 
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
-    if app.Mock {
-        term := app.Terms.Recreate(termName, terminal.TypePipe)
+	if app.Mock {
+		term := app.Terms.Recreate(termName, terminal.TypePipe)
 
-        // Step 1: Validate
-        term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
-        if err := app.Compose.Config(ctx, stackName, term); err != nil {
-            if ctx.Err() == nil {
-                errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
-                term.Write([]byte(errMsg))
-                slog.Warn("deploy validation failed", "stack", stackName, "err", err)
-            }
-            return
-        }
+		// Step 1: Validate
+		term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
+		if err := app.Compose.Config(ctx, stackName, term); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Warn("deploy validation failed", "stack", stackName, "err", err)
+			}
+			return
+		}
 
-        // Step 2: Deploy
-        term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
-        if err := app.Compose.RunCompose(ctx, stackName, term, "up", "-d", "--remove-orphans"); err != nil {
-            if ctx.Err() == nil {
-                errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-                term.Write([]byte(errMsg))
-                slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
-            }
-        } else {
-            term.Write([]byte("\r\n[Done]\r\n"))
-        }
-    } else {
-        term := app.Terms.Recreate(termName, terminal.TypePTY)
-        dir := filepath.Join(app.StacksDir, stackName)
+		// Step 2: Deploy
+		term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
+		if err := app.Compose.RunCompose(ctx, stackName, term, "up", "-d", "--remove-orphans"); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
+			}
+		} else {
+			term.Write([]byte("\r\n[Done]\r\n"))
+		}
+	} else {
+		term := app.Terms.Recreate(termName, terminal.TypePTY)
+		dir := filepath.Join(app.StacksDir, stackName)
 
-        // Step 1: Validate
-        term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
-        validateArgs := []string{"compose"}
-        validateArgs = append(validateArgs, envArgs...)
-        validateArgs = append(validateArgs, "config", "--dry-run")
-        validateCmd := exec.CommandContext(ctx, "docker", validateArgs...)
-        validateCmd.Dir = dir
-        if err := term.RunPTY(validateCmd); err != nil {
-            if ctx.Err() == nil {
-                errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
-                term.Write([]byte(errMsg))
-                slog.Warn("deploy validation failed", "stack", stackName, "err", err)
-            }
-            return
-        }
+		// Step 1: Validate
+		term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
+		validateArgs := []string{"compose"}
+		validateArgs = append(validateArgs, envArgs...)
+		validateArgs = append(validateArgs, "config", "--dry-run")
+		validateCmd := exec.CommandContext(ctx, "docker", validateArgs...)
+		validateCmd.Dir = dir
+		if err := term.RunPTY(validateCmd); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Warn("deploy validation failed", "stack", stackName, "err", err)
+			}
+			return
+		}
 
-        // Step 2: Deploy
-        term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
-        upArgs := []string{"compose"}
-        upArgs = append(upArgs, envArgs...)
-        upArgs = append(upArgs, "up", "-d", "--remove-orphans")
-        upCmd := exec.CommandContext(ctx, "docker", upArgs...)
-        upCmd.Dir = dir
-        if err := term.RunPTY(upCmd); err != nil {
-            if ctx.Err() == nil {
-                errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-                term.Write([]byte(errMsg))
-                slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
-            }
-        } else {
-            term.Write([]byte("\r\n[Done]\r\n"))
-        }
-    }
+		// Step 2: Deploy
+		term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
+		upArgs := []string{"compose"}
+		upArgs = append(upArgs, envArgs...)
+		upArgs = append(upArgs, "up", "-d", "--remove-orphans")
+		upCmd := exec.CommandContext(ctx, "docker", upArgs...)
+		upCmd.Dir = dir
+		if err := term.RunPTY(upCmd); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
+			}
+		} else {
+			term.Write([]byte("\r\n[Done]\r\n"))
+		}
+	}
 
-    // Schedule terminal cleanup after a grace period
-    app.Terms.RemoveAfter(termName, 30*time.Second)
+	// Schedule terminal cleanup after a grace period
+	app.Terms.RemoveAfter(termName, 30*time.Second)
 
-    app.TriggerStackListRefresh(stackName)
+	app.TriggerRefresh()
 }
 
 // runDockerCommands runs multiple docker commands sequentially on the same terminal.
 func (app *App) runDockerCommands(stackName, action string, argSets [][]string) {
-    termName := "compose--" + stackName
-    envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
+	termName := "compose--" + stackName
+	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
 
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
-    if app.Mock {
-        term := app.Terms.Recreate(termName, terminal.TypePipe)
+	if app.Mock {
+		term := app.Terms.Recreate(termName, terminal.TypePipe)
 
-        for _, dockerArgs := range argSets {
-            cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
-            term.Write([]byte(cmdDisplay))
+		for _, dockerArgs := range argSets {
+			cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
+			term.Write([]byte(cmdDisplay))
 
-            var err error
-            if len(dockerArgs) > 0 && dockerArgs[0] == "compose" {
-                err = app.Compose.RunCompose(ctx, stackName, term, dockerArgs[1:]...)
-            } else {
-                err = app.Compose.RunDocker(ctx, stackName, term, dockerArgs...)
-            }
+			var err error
+			if len(dockerArgs) > 0 && dockerArgs[0] == "compose" {
+				err = app.Compose.RunCompose(ctx, stackName, term, dockerArgs[1:]...)
+			} else {
+				err = app.Compose.RunDocker(ctx, stackName, term, dockerArgs...)
+			}
 
-            if err != nil {
-                if ctx.Err() == nil {
-                    errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-                    term.Write([]byte(errMsg))
-                    slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-                }
-                app.TriggerStackListRefresh(stackName)
-                return
-            }
-        }
+			if err != nil {
+				if ctx.Err() == nil {
+					errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+					term.Write([]byte(errMsg))
+					slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+				}
+				app.TriggerRefresh()
+				return
+			}
+		}
 
-        term.Write([]byte("\r\n[Done]\r\n"))
-    } else {
-        term := app.Terms.Recreate(termName, terminal.TypePTY)
-        dir := filepath.Join(app.StacksDir, stackName)
+		term.Write([]byte("\r\n[Done]\r\n"))
+	} else {
+		term := app.Terms.Recreate(termName, terminal.TypePTY)
+		dir := filepath.Join(app.StacksDir, stackName)
 
-        for _, dockerArgs := range argSets {
-            cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
-            term.Write([]byte(cmdDisplay))
+		for _, dockerArgs := range argSets {
+			cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
+			term.Write([]byte(cmdDisplay))
 
-            var cmd *exec.Cmd
-            if len(dockerArgs) > 0 && dockerArgs[0] == "compose" && len(envArgs) > 0 {
-                args := []string{"compose"}
-                args = append(args, envArgs...)
-                args = append(args, dockerArgs[1:]...)
-                cmd = exec.CommandContext(ctx, "docker", args...)
-            } else {
-                cmd = exec.CommandContext(ctx, "docker", dockerArgs...)
-            }
-            cmd.Dir = dir
+			var cmd *exec.Cmd
+			if len(dockerArgs) > 0 && dockerArgs[0] == "compose" && len(envArgs) > 0 {
+				args := []string{"compose"}
+				args = append(args, envArgs...)
+				args = append(args, dockerArgs[1:]...)
+				cmd = exec.CommandContext(ctx, "docker", args...)
+			} else {
+				cmd = exec.CommandContext(ctx, "docker", dockerArgs...)
+			}
+			cmd.Dir = dir
 
-            if err := term.RunPTY(cmd); err != nil {
-                if ctx.Err() == nil {
-                    errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-                    term.Write([]byte(errMsg))
-                    slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-                }
-                app.TriggerStackListRefresh(stackName)
-                return
-            }
-        }
+			if err := term.RunPTY(cmd); err != nil {
+				if ctx.Err() == nil {
+					errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+					term.Write([]byte(errMsg))
+					slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+				}
+				app.TriggerRefresh()
+				return
+			}
+		}
 
-        term.Write([]byte("\r\n[Done]\r\n"))
-    }
+		term.Write([]byte("\r\n[Done]\r\n"))
+	}
 
-    // Schedule terminal cleanup after a grace period
-    app.Terms.RemoveAfter(termName, 30*time.Second)
+	// Schedule terminal cleanup after a grace period
+	app.Terms.RemoveAfter(termName, 30*time.Second)
 
-    app.TriggerStackListRefresh(stackName)
+	app.TriggerRefresh()
 }
 
-// updateComposeCacheFromYAML eagerly parses the YAML string and updates the
-// compose cache. Handles imageupdates.check label transitions:
-//   - check disabled → clear stale BBolt entry
-//   - check re-enabled → trigger async image update check
-func (app *App) updateComposeCacheFromYAML(stackName, composeYAML string) {
-    newServices := compose.ParseYAML(composeYAML)
-    oldServices := app.ComposeCache.GetServiceData(stackName)
-    app.ComposeCache.Update(stackName, newServices)
+// handleComposeYAMLSave handles side effects of saving compose YAML:
+// - Services with imageupdates.check=false → delete stale BBolt entries
+// - Services with imageupdates.check re-enabled → trigger async check
+func (app *App) handleComposeYAMLSave(stackName, composeYAML string) {
+	newServices := compose.ParseYAML(composeYAML)
 
-    // Handle imageupdates.check transitions
-    anyReEnabled := false
-    for svc, newData := range newServices {
-        if !newData.ImageUpdatesCheck {
-            // Check disabled → clear stale BBolt entry
-            if err := app.ImageUpdates.DeleteService(stackName, svc); err != nil {
-                slog.Warn("clear disabled service update", "err", err, "stack", stackName, "svc", svc)
-            }
-        } else if oldSvc, existed := oldServices[svc]; existed && !oldSvc.ImageUpdatesCheck {
-            // Check re-enabled → trigger async check
-            anyReEnabled = true
-        }
-    }
-    if anyReEnabled {
-        go func() {
-            app.checkImageUpdatesForStack(stackName)
-            app.broadcastStackList()
-            app.broadcastContainerList()
-        }()
-    }
-}
-
-// buildIgnoreMap creates a stack.IgnoreMap from the ComposeCache for services
-// that have dockge.status.ignore=true. Delegates to ComposeCache.BuildIgnoreMap()
-// which reads under RLock without deep-copying the entire cache.
-func (app *App) buildIgnoreMap() stack.IgnoreMap {
-    return stack.IgnoreMap(app.ComposeCache.BuildIgnoreMap())
+	for svc, sd := range newServices {
+		if !sd.ImageUpdatesCheck {
+			// Check disabled → clear stale BBolt entry
+			if err := app.ImageUpdates.DeleteService(stackName, svc); err != nil {
+				slog.Warn("clear disabled service update", "err", err, "stack", stackName, "svc", svc)
+			}
+		}
+	}
 }
 
 // composeEnvDisplay injects env-file args into a docker command display string.
 // If dockerArgs starts with "compose" and envArgs is non-empty, the env args
 // are spliced in after "compose". Otherwise returns dockerArgs unchanged.
 func composeEnvDisplay(dockerArgs, envArgs []string) []string {
-    if len(dockerArgs) == 0 || dockerArgs[0] != "compose" || len(envArgs) == 0 {
-        return dockerArgs
-    }
-    out := make([]string, 0, len(dockerArgs)+len(envArgs))
-    out = append(out, "compose")
-    out = append(out, envArgs...)
-    out = append(out, dockerArgs[1:]...)
-    return out
+	if len(dockerArgs) == 0 || dockerArgs[0] != "compose" || len(envArgs) == 0 {
+		return dockerArgs
+	}
+	out := make([]string, 0, len(dockerArgs)+len(envArgs))
+	out = append(out, "compose")
+	out = append(out, envArgs...)
+	out = append(out, dockerArgs[1:]...)
+	return out
 }
 
 // discardWriter silently discards all output.

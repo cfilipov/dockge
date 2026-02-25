@@ -111,10 +111,6 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     // Terminal manager
     terms := terminal.NewManager()
 
-    // Compose cache
-    composeCache := compose.NewComposeCache()
-    composeCache.PopulateFromDisk(stacksDir)
-
     // WebSocket server
     wss := ws.NewServer()
 
@@ -127,7 +123,6 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
         WS:           wss,
         Docker:       dockerClient,
         Compose:      composeExec,
-        ComposeCache: composeCache,
         Terms:        terms,
         JWTSecret:    jwtSecret,
         NeedSetup:    userCount == 0,

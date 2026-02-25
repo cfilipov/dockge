@@ -180,10 +180,6 @@ func main() {
         }
     }
 
-    // Compose file cache — parse once, update via fsnotify
-    composeCache := compose.NewComposeCache()
-    composeCache.PopulateFromDisk(cfg.StacksDir)
-
     // Wire up handlers
     app := &handlers.App{
         Users:        users,
@@ -193,7 +189,6 @@ func main() {
         WS:           wss,
         Docker:       dockerClient,
         Compose:      composeExec,
-        ComposeCache: composeCache,
         Terms:        terms,
         JWTSecret:    jwtSecret,
         NeedSetup:    userCount == 0,
@@ -219,7 +214,7 @@ func main() {
                     slog.Error("seed image updates on mock reset", "err", err)
                 }
             }
-            app.FlushStackCache()
+            app.BroadcastAll()
             // Remove global.env if created by a prior test run
             os.Remove(filepath.Join(cfg.StacksDir, "global.env"))
             slog.Info("mock state reset to default")
@@ -245,11 +240,11 @@ func main() {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
-    // Start compose file watcher (fsnotify) — keeps ComposeCache up to date
-    if err := compose.StartWatcher(ctx, cfg.StacksDir, composeCache, func(stackName string) {
-        app.TriggerStackListRefresh(stackName)
+    // Start compose file watcher (fsnotify) — triggers broadcast on file changes
+    if err := compose.StartWatcher(ctx, cfg.StacksDir, func(stackName string) {
+        app.TriggerRefresh()
     }); err != nil {
-        slog.Warn("compose file watcher failed to start, cache will be static", "err", err)
+        slog.Warn("compose file watcher failed to start", "err", err)
     }
 
     app.StartStackWatcher(ctx)
