@@ -198,11 +198,12 @@ onMounted(() => {
 .logs-page {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 160px);
+    height: 100%;
 }
 
 .terminal {
-    min-height: 200px;
+    min-height: 0;
+    margin-bottom: 1rem;
 }
 
 :deep(.overflow-dropdown) {
