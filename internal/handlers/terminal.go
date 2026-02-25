@@ -429,8 +429,8 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
         scanner := bufio.NewScanner(stream)
         scanner.Buffer(make([]byte, 64*1024), 64*1024)
         for scanner.Scan() {
-            line := scanner.Text() + "\n"
-            term.Write([]byte(line))
+            b := scanner.Bytes()
+            term.Write(append(b, '\n'))
         }
     }()
 
@@ -493,8 +493,8 @@ func (app *App) handleJoinContainerLogByName(c *ws.Conn, msg *ws.ClientMessage) 
         scanner := bufio.NewScanner(stream)
         scanner.Buffer(make([]byte, 64*1024), 64*1024)
         for scanner.Scan() {
-            line := scanner.Text() + "\n"
-            term.Write([]byte(line))
+            b := scanner.Bytes()
+            term.Write(append(b, '\n'))
         }
     }()
 
@@ -584,12 +584,16 @@ func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal
                 }
                 defer stream.Close()
 
-                prefix := coloredPrefix(svcName, colorIdx, maxLen)
+                pfx := []byte(coloredPrefix(svcName, colorIdx, maxLen))
                 scanner := bufio.NewScanner(stream)
                 scanner.Buffer(make([]byte, 64*1024), 64*1024)
                 for scanner.Scan() {
-                    line := prefix + scanner.Text() + "\n"
-                    term.Write([]byte(line))
+                    b := scanner.Bytes()
+                    line := make([]byte, 0, len(pfx)+len(b)+1)
+                    line = append(line, pfx...)
+                    line = append(line, b...)
+                    line = append(line, '\n')
+                    term.Write(line)
                 }
             }(c.ID, c.Service, i)
         }

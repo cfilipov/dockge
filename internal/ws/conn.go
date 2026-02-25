@@ -77,26 +77,14 @@ func (c *Conn) SendEvent(event string, args ...interface{}) {
 }
 
 func (c *Conn) writeJSON(v interface{}) {
-    c.mu.Lock()
-    defer c.mu.Unlock()
-
-    if c.closed {
-        return
-    }
-
-    ctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
-    defer cancel()
-
+    // Marshal outside the lock — this is CPU work, not I/O
     data, err := json.Marshal(v)
     if err != nil {
         slog.Error("ws marshal", "err", err)
         return
     }
 
-    if err := c.ws.Write(ctx, websocket.MessageText, data); err != nil {
-        slog.Debug("ws write", "err", err)
-        c.closeLocked()
-    }
+    c.writeRaw(data)
 }
 
 // writeRaw sends pre-marshalled JSON bytes to the connection.
