@@ -4,83 +4,64 @@
         {
             "label": "Build Backend",
             "type": "shell",
-            "command": "go build -o dockge .",
+            "command": "make build-go",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
             "problemMatcher": ["$go"],
-            "detail": "Build the Go backend binary"
+            "detail": "make build-go"
         },
         {
             "label": "Build Frontend",
             "type": "shell",
-            "command": "pnpm run build",
+            "command": "make build-web",
             "group": "build",
-            "options": {
-                "cwd": "${workspaceFolder}/web"
-            },
             "problemMatcher": [],
-            "detail": "Build frontend to dist/"
+            "detail": "make build-web"
         },
         {
             "label": "Build All",
-            "dependsOn": ["Build Frontend", "Build Backend"],
-            "dependsOrder": "parallel",
+            "type": "shell",
+            "command": "make build",
             "group": "build",
-            "problemMatcher": [],
-            "detail": "Build frontend and backend in parallel"
+            "problemMatcher": ["$go"],
+            "detail": "make build"
         },
         {
             "label": "Go Tests",
             "type": "shell",
-            "command": "go test -race ./...",
+            "command": "make test-go",
             "group": "test",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
             "problemMatcher": ["$go"],
-            "detail": "Run all Go tests with race detector"
+            "detail": "make test-go"
         },
         {
             "label": "E2E Tests",
             "type": "shell",
-            "command": "pnpm test",
+            "command": "make test-e2e",
             "group": {
                 "kind": "test",
                 "isDefault": true
             },
-            "options": {
-                "cwd": "${workspaceFolder}/e2e"
-            },
-            "dependsOn": ["Build Frontend"],
             "problemMatcher": [],
-            "detail": "Build frontend, then run E2E tests (backend is built by Playwright)"
+            "detail": "make test-e2e"
         },
         {
-            "label": "Frontend Lint",
+            "label": "Lint",
             "type": "shell",
-            "command": "pnpm run lint",
+            "command": "make lint",
             "group": "test",
-            "options": {
-                "cwd": "${workspaceFolder}/web"
-            },
-            "problemMatcher": ["$eslint-stylish"],
-            "detail": "Run ESLint on frontend code"
+            "problemMatcher": ["$eslint-stylish", "$go"],
+            "detail": "make lint"
         },
         {
-            "label": "Frontend Type Check",
+            "label": "Format",
             "type": "shell",
-            "command": "pnpm run check-ts",
-            "group": "test",
-            "options": {
-                "cwd": "${workspaceFolder}/web"
-            },
-            "problemMatcher": ["$tsc"],
-            "detail": "TypeScript type checking"
+            "command": "make fmt",
+            "group": "none",
+            "problemMatcher": [],
+            "detail": "make fmt"
         }
     ]
 }

@@ -2,6 +2,7 @@
     "recommendations": [
         "golang.go",
         "vue.volar",
+        "ms-playwright.playwright",
         "ms-vscode.makefile-tools",
         "carlos-algms.make-task-provider",
         "esbenp.prettier-vscode",
