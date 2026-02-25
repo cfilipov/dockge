@@ -162,6 +162,7 @@ function fetchNetworks() {
 // Auto-scroll: track whether the active item is visible in the scroll container
 const isActiveVisible = ref(false);
 let activeObserver: IntersectionObserver | null = null;
+let needsInitialScroll = true;
 
 function scrollToActive() {
     const container = listRef.value;
@@ -190,7 +191,12 @@ function observeActive() {
 watch(filteredNetworks, () => {
     const wasVisible = isActiveVisible.value;
     nextTick(() => {
-        if (wasVisible) scrollToActive();
+        if (wasVisible || needsInitialScroll) {
+            scrollToActive();
+            if (needsInitialScroll && listRef.value?.querySelector(".item.active")) {
+                needsInitialScroll = false;
+            }
+        }
         observeActive();
     });
 });
@@ -198,12 +204,14 @@ watch(filteredNetworks, () => {
 defineExpose({ scrollToActive });
 
 onMounted(() => {
+    needsInitialScroll = true;
     fetchNetworks();
     nextTick(() => {
         const container = listRef.value;
         const active = container?.querySelector(".item.active") as HTMLElement | null;
         if (active && container) {
             container.scrollTop = active.offsetTop - container.clientHeight / 2 + active.clientHeight / 2;
+            needsInitialScroll = false;
         }
         observeActive();
     });
