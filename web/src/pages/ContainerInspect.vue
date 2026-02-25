@@ -99,7 +99,7 @@
             <div v-if="viewMode === 'parsed'" class="row">
                 <div class="col-lg-8">
                     <!-- Networks Card -->
-                    <h4 class="mb-3">{{ $t("containerNetworks") }}</h4>
+                    <h4 class="mb-3">{{ $t("containerNetworks") }} ({{ networks.length }})</h4>
                     <div v-if="networks.length > 0">
                         <div v-for="net in networks" :key="net.name" class="shadow-box big-padding mb-3">
                             <h5 class="mb-3">
@@ -134,7 +134,7 @@
                     </div>
 
                     <!-- Mounts Card -->
-                    <h4 class="mb-3">{{ $t("containerMounts") }}</h4>
+                    <h4 class="mb-3">{{ $t("containerMounts") }} ({{ mounts.length }})</h4>
                     <div v-if="mounts.length > 0">
                         <div v-for="(mount, idx) in mounts" :key="idx" class="shadow-box big-padding mb-3">
                             <div class="inspect-grid">
@@ -164,7 +164,7 @@
                     </div>
 
                     <!-- Processes Card -->
-                    <h4 class="mb-3">{{ $t("containerProcesses") }}</h4>
+                    <h4 class="mb-3">{{ $t("containerProcesses") }} ({{ processList.length }})</h4>
                     <div class="shadow-box big-padding mb-3">
                         <div v-if="processList.length > 0" class="table-responsive">
                             <table class="table table-sm mb-0 process-table">

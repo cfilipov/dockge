@@ -167,7 +167,7 @@
                     </div>
 
                     <!-- Containers -->
-                    <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
+                    <h4 class="mb-3">{{ $tc("container", 2) }} ({{ Object.keys(jsonConfig.services || {}).length }})</h4>
 
                     <div v-if="isEditMode" class="input-group mb-3">
                         <input
@@ -359,7 +359,7 @@ scrollable size="fullscreen" hide-footer>
                         </div>
 
                         <!-- Networks -->
-                        <h4 class="mb-3">{{ $tc("network", 2) }}</h4>
+                        <h4 class="mb-3">{{ $tc("network", 2) }} ({{ Object.keys(networks || {}).length }})</h4>
                         <div class="shadow-box big-padding mb-3">
                             <NetworkInput />
                         </div>
