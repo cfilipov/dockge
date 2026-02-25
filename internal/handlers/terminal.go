@@ -526,7 +526,7 @@ func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal
 
     go func() {
         err := app.Compose.RunCompose(ctx, stackName, term,
-            "logs", "-f", "--tail", "100", "--ansi", "always")
+            "logs", "-f", "--tail", "100")
         if err != nil && ctx.Err() == nil {
             slog.Warn("combined logs stream", "err", err, "stack", stackName)
         }
