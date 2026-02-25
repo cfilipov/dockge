@@ -395,7 +395,7 @@ import { useI18n } from "vue-i18n";
 import CodeMirror from "vue-codemirror6";
 import { yaml } from "@codemirror/lang-yaml";
 import { python } from "@codemirror/lang-python";
-import { dracula as editorTheme } from "thememirror";
+import { tomorrowNightEighties as editorTheme } from "../editor-theme";
 import { lineNumbers, EditorView } from "@codemirror/view";
 import { indentUnit, indentService } from "@codemirror/language";
 import { parseDocument, Document } from "yaml";

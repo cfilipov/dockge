@@ -32,7 +32,7 @@
 import { ref, inject, type Ref } from "vue";
 import CodeMirror from "vue-codemirror6";
 import { python } from "@codemirror/lang-python";
-import { dracula as editorTheme } from "thememirror";
+import { tomorrowNightEighties as editorTheme } from "../../editor-theme";
 import { lineNumbers, EditorView } from "@codemirror/view";
 
 const settings = inject<Ref<Record<string, any>>>("settings")!;

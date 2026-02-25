@@ -308,7 +308,7 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import CodeMirror from "vue-codemirror6";
 import { yaml as yamlLang } from "@codemirror/lang-yaml";
-import { dracula as editorTheme } from "thememirror";
+import { tomorrowNightEighties as editorTheme } from "../editor-theme";
 import { lineNumbers } from "@codemirror/view";
 import yamlLib from "yaml";
 import dayjs from "dayjs";

@@ -29,7 +29,7 @@ export default defineConfig({
             output: {
                 manualChunks(id) {
                     if (id.includes("node_modules")) {
-                        if (id.includes("codemirror") || id.includes("thememirror") || id.includes("@lezer")) {
+                        if (id.includes("codemirror") || id.includes("@lezer")) {
                             return "codemirror";
                         }
                         if (id.includes("@xterm") || id.includes("xterm-addon")) {
