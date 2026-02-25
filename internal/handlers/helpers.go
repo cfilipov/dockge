@@ -126,6 +126,27 @@ func (app *App) SetRecreateNecessary(stackName string, needed bool) {
     app.recreateSnapshot.Store(&snap)
 }
 
+// SetRecreateNecessaryBatch applies multiple recreate flag updates in a single
+// lock acquisition and publishes one snapshot. Eliminates N intermediate snapshots
+// when refreshing all stacks.
+func (app *App) SetRecreateNecessaryBatch(updates map[string]bool) {
+    app.recreateMu.Lock()
+    defer app.recreateMu.Unlock()
+    if app.recreateInternal == nil {
+        app.recreateInternal = make(map[string]bool)
+    }
+    for k, v := range updates {
+        app.recreateInternal[k] = v
+    }
+
+    // Build and publish immutable snapshot
+    snap := make(map[string]bool, len(app.recreateInternal))
+    for k, v := range app.recreateInternal {
+        snap[k] = v
+    }
+    app.recreateSnapshot.Store(&snap)
+}
+
 // GetImageUpdateMap returns stack name → true for stacks with available updates.
 func (app *App) GetImageUpdateMap() map[string]bool {
     m, err := app.ImageUpdates.StackHasUpdates()

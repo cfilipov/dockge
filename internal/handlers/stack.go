@@ -297,6 +297,8 @@ func (app *App) refreshStackCache() {
 
 // refreshRecreateCache compares running images with compose.yaml images and
 // populates the recreate cache. Uses the already-fetched container list.
+// Builds the full update map locally and applies it in a single batch to avoid
+// N intermediate snapshot copies.
 func (app *App) refreshRecreateCache(stacks map[string]*stack.Stack, containers []docker.Container) {
     // Group containers by project
     byProject := make(map[string][]docker.Container, len(containers))
@@ -306,6 +308,7 @@ func (app *App) refreshRecreateCache(stacks map[string]*stack.Stack, containers 
         }
     }
 
+    updates := make(map[string]bool)
     for name, s := range stacks {
         if !s.IsStarted() {
             continue
@@ -332,7 +335,11 @@ func (app *App) refreshRecreateCache(stacks map[string]*stack.Stack, containers 
                 break
             }
         }
-        app.SetRecreateNecessary(name, anyRecreate)
+        updates[name] = anyRecreate
+    }
+
+    if len(updates) > 0 {
+        app.SetRecreateNecessaryBatch(updates)
     }
 }
 
@@ -380,7 +387,8 @@ func (app *App) broadcastContainerList() {
     }
 
     serviceUpdates, _ := app.ImageUpdates.AllServiceUpdates()
-    listJSON := stack.BuildContainerListJSON(containers, stacks, serviceUpdates, app.ComposeCache)
+    recreateMap := app.GetRecreateCache()
+    listJSON := stack.BuildContainerListJSON(containers, stacks, serviceUpdates, app.ComposeCache, recreateMap)
 
     app.WS.BroadcastAuthenticatedRaw("agent", "containerList", containerListResponse{
         OK:            true,
@@ -419,7 +427,8 @@ func (app *App) sendContainerListTo(c *ws.Conn) {
     stackCacheMu.RUnlock()
 
     serviceUpdates, _ := app.ImageUpdates.AllServiceUpdates()
-    listJSON := stack.BuildContainerListJSON(containers, stacks, serviceUpdates, app.ComposeCache)
+    recreateMap := app.GetRecreateCache()
+    listJSON := stack.BuildContainerListJSON(containers, stacks, serviceUpdates, app.ComposeCache, recreateMap)
     if listJSON == nil {
         listJSON = []stack.ContainerSimpleJSON{}
     }
@@ -1113,21 +1122,10 @@ func (app *App) updateComposeCacheFromYAML(stackName, composeYAML string) {
 }
 
 // buildIgnoreMap creates a stack.IgnoreMap from the ComposeCache for services
-// that have dockge.status.ignore=true.
+// that have dockge.status.ignore=true. Delegates to ComposeCache.BuildIgnoreMap()
+// which reads under RLock without deep-copying the entire cache.
 func (app *App) buildIgnoreMap() stack.IgnoreMap {
-    allData := app.ComposeCache.GetAll()
-    ignore := make(stack.IgnoreMap, len(allData))
-    for stackName, services := range allData {
-        for svcName, svc := range services {
-            if svc.StatusIgnore {
-                if ignore[stackName] == nil {
-                    ignore[stackName] = make(map[string]bool)
-                }
-                ignore[stackName][svcName] = true
-            }
-        }
-    }
-    return ignore
+    return stack.IgnoreMap(app.ComposeCache.BuildIgnoreMap())
 }
 
 // composeEnvDisplay injects env-file args into a docker command display string.

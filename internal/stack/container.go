@@ -23,11 +23,15 @@ type ContainerSimpleJSON struct {
 // BuildContainerListJSON converts cached container data into the flat JSON array
 // the frontend expects. Enriches each container with update/recreate status using
 // O(1) map lookups (no additional Docker or registry calls).
+//
+// recreateMap is the stack-level recreate cache (stack → needs recreation). When
+// a stack has no recreate flag, per-container image comparison is skipped entirely.
 func BuildContainerListJSON(
     containersByProject map[string][]docker.Container,
     stacks map[string]*Stack,
     serviceUpdates map[string]bool,
     composeCache *compose.ComposeCache,
+    recreateMap map[string]bool,
 ) []ContainerSimpleJSON {
     // Count total containers for pre-allocation
     total := 0
@@ -48,8 +52,13 @@ func BuildContainerListJSON(
             }
         }
 
-        // Get compose images for recreate comparison
-        composeImages := composeCache.GetImages(project)
+        // Only fetch compose images when the stack-level recreate flag is set,
+        // avoiding the map lookup entirely for stacks where no recreate is needed.
+        var composeImages map[string]string
+        stackRecreate := recreateMap[project]
+        if stackRecreate {
+            composeImages = composeCache.GetImages(project)
+        }
 
         for _, c := range containers {
             stackName := project
@@ -63,9 +72,9 @@ func BuildContainerListJSON(
                 svc = extractServiceFromName(c.Name)
             }
 
-            // Recreate check: running image vs compose.yaml image
+            // Recreate check: only when stack-level flag says recreation is needed
             recreate := false
-            if !standalone {
+            if stackRecreate && !standalone {
                 if compImg, ok := composeImages[svc]; ok && c.Image != "" && compImg != "" && c.Image != compImg {
                     recreate = true
                 }

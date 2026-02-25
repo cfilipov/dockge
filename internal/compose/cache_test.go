@@ -124,30 +124,30 @@ func TestComposeCacheDelete(t *testing.T) {
     }
 }
 
-func TestComposeCacheGetAll(t *testing.T) {
+func TestComposeCacheBuildIgnoreMap(t *testing.T) {
     t.Parallel()
 
     c := NewComposeCache()
     c.Update("stack-a", map[string]ServiceData{
-        "web": {Image: "nginx"},
+        "web":     {Image: "nginx", StatusIgnore: true},
+        "redis":   {Image: "redis", StatusIgnore: false},
     })
     c.Update("stack-b", map[string]ServiceData{
-        "api": {Image: "node:20"},
+        "api": {Image: "node:20", StatusIgnore: false},
     })
 
-    all := c.GetAll()
-    if len(all) != 2 {
-        t.Fatalf("expected 2 stacks, got %d", len(all))
+    ignore := c.BuildIgnoreMap()
+    if len(ignore) != 1 {
+        t.Fatalf("expected 1 stack with ignored services, got %d", len(ignore))
     }
-    if all["stack-a"]["web"].Image != "nginx" {
-        t.Error("stack-a web image mismatch")
+    if !ignore["stack-a"]["web"] {
+        t.Error("expected stack-a/web to be ignored")
     }
-
-    // Verify deep copy: mutating returned value shouldn't affect cache
-    all["stack-a"]["web"] = ServiceData{Image: "mutated"}
-    original := c.GetAll()
-    if original["stack-a"]["web"].Image != "nginx" {
-        t.Error("deep copy failed: mutating returned map affected cache")
+    if ignore["stack-a"]["redis"] {
+        t.Error("expected stack-a/redis to not be ignored")
+    }
+    if ignore["stack-b"] != nil {
+        t.Error("expected stack-b to have no ignored services")
     }
 }
 
@@ -211,7 +211,7 @@ func TestComposeCacheConcurrent(t *testing.T) {
                 c.GetServiceData(name)
                 c.IsStatusIgnored(name, "svc")
                 c.ImageUpdatesEnabled(name, "svc")
-                c.GetAll()
+                c.BuildIgnoreMap()
             }
         }(i)
     }
