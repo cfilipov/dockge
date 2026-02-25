@@ -41,13 +41,13 @@ export default defineConfig({
             use: {
                 ...devices["Desktop Chrome"],
                 viewport: { width: 1280, height: 720 },
-                storageState: "e2e/.auth/user.json",
+                storageState: ".auth/user.json",
             },
             dependencies: ["setup"],
         },
     ],
     webServer: {
-        command: "cd ../backend-go && go build -o dockge-backend . && ./dockge-backend --dev --mock --port 5001 --stacks-dir test-data/stacks",
+        command: "cd .. && go build -o dockge . && ./dockge --dev --mock --port 5001 --data-dir test-data --stacks-dir test-data/stacks",
         port: 5001,
         reuseExistingServer: !process.env.CI,
     },

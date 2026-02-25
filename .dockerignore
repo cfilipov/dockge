@@ -3,15 +3,22 @@
 node_modules
 .idea
 data
-stacks
 tmp
 /private
 
 # Docker extra
 docker
 .editorconfig
-.eslintrc.cjs
 .git
 .gitignore
 .github
 *.md
+
+# Build artifacts
+dist
+dockge-backend
+
+# Dev / test artifacts
+.playwright-mcp
+e2e
+test-data

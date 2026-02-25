@@ -2,34 +2,22 @@
 .env
 node_modules
 .idea
-data
+# BoltDB file (created by dev server in test-data/)
+*.db
 tmp
 /private
 
-# Git only
-frontend-dist
+# Build artifacts
+/dist
+/dockge
 
 # Dev artifacts
 .playwright-mcp
 CLAUDE.md
 PLAN.md
 
-# Rust backend build artifacts
-backend-rust/target
-
-# Go backend build output
-backend-go/dockge-backend
-
-# Go backend embedded frontend (copied at build time)
-backend-go/frontend-dist
-
-# Go workspace (local dev convenience for gopls)
-go.work
-go.work.sum
-
 # Playwright E2E test artifacts (golden screenshots ARE committed)
 e2e/.auth/
 e2e/test-results/
 e2e/playwright-report/
 e2e/blob-report/
-

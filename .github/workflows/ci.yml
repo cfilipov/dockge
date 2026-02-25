@@ -17,6 +17,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest, ARM, ARM64]
         node: [22]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: web
     steps:
       - name: Checkout Code
         run: |  # Mainly for Windows
@@ -29,29 +32,29 @@ jobs:
         with:
           node-version: ${{matrix.node}}
 
+      - name: Install pnpm
+        run: npm install -g pnpm
+
       - name: Install dependencies
-        run: npm install
+        run: pnpm install
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Check Typescript
-        run: npm run check-ts
+        run: pnpm run check-ts
 
       - name: Build
-        run: npm run build:frontend
+        run: pnpm run build
 
   go-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend-go
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
 
       - name: Test
         run: go test -race -cover ./...
@@ -66,7 +69,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
 
       - uses: actions/setup-node@v3
         with:
@@ -75,23 +78,23 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm
 
-      - name: Install Node dependencies
-        run: pnpm install
+      - name: Install frontend dependencies
+        run: cd web && pnpm install
+
+      - name: Install E2E dependencies
+        run: cd e2e && pnpm install
 
       - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
+        run: cd e2e && npx playwright install chromium --with-deps
 
       - name: Build frontend
-        run: pnpm run build:frontend
-
-      - name: Build Go backend
-        run: cd backend-go && go build -o dockge-backend .
+        run: cd web && pnpm run build
 
       - name: Create stacks directory
         run: sudo mkdir -p /opt/stacks && sudo chown $USER /opt/stacks
 
       - name: Run E2E tests
-        run: pnpm run test:e2e
+        run: cd e2e && pnpm test
 
       - name: Upload test results
         if: ${{ !cancelled() }}
@@ -108,4 +111,3 @@ jobs:
           name: screenshot-diffs
           path: e2e/test-results/
           retention-days: 14
-

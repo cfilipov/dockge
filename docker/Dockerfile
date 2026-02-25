@@ -2,21 +2,19 @@
 # Build frontend
 ############################################
 FROM node:22-bookworm-slim AS build_frontend
-WORKDIR /app
+WORKDIR /app/web
 
 # Install dependencies first for caching
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY web/package.json web/pnpm-lock.yaml web/.npmrc ./
 RUN corepack enable && pnpm install --frozen-lockfile
 
-# Copy frontend source and shared common/ types
-COPY frontend/ ./frontend/
-COPY common/ ./common/
-COPY tsconfig.json ./
-RUN pnpm run build:frontend
+# Copy frontend source (includes src/common/ shared types)
+COPY web/ ./
+RUN pnpm run build
 
 # Strip pre-compressed variants — the Go server gzips on the fly,
 # so .br and .gz files only add ~800KB to the embedded binary.
-RUN find frontend-dist -name '*.br' -o -name '*.gz' | xargs rm -f
+RUN find ../dist -name '*.br' -o -name '*.gz' | xargs rm -f
 
 ############################################
 # Build Go backend (embeds frontend)
@@ -26,17 +24,19 @@ RUN apk add --no-cache git upx
 WORKDIR /app
 
 # Copy go module files first for dependency caching
-COPY backend-go/go.mod backend-go/go.sum ./backend-go/
-RUN cd backend-go && go mod download
+COPY go.mod go.sum ./
+RUN go mod download
 
 # Copy frontend build output for embedding (pre-compressed files already stripped)
-COPY --from=build_frontend /app/frontend-dist ./backend-go/frontend-dist/
+COPY --from=build_frontend /app/dist ./dist/
 
 # Copy package.json for version extraction, then Go source
-COPY package.json ./
-COPY backend-go/ ./backend-go/
-RUN VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"\([0-9][^"]*\)".*/\1/') && \
-    cd backend-go && CGO_ENABLED=0 go build \
+COPY web/package.json ./web/
+COPY internal/ ./internal/
+COPY cmd/ ./cmd/
+COPY main.go embed.go ./
+RUN VERSION=$(grep '"version"' web/package.json | head -1 | sed 's/.*"\([0-9][^"]*\)".*/\1/') && \
+    CGO_ENABLED=0 go build \
     -ldflags="-s -w -X main.version=${VERSION}" \
     -o /dockge . && \
     upx --best --lzma /dockge

@@ -1,50 +1,67 @@
 {
   "commands": [
     {
-      "name": "Build: frontend",
+      "name": "frontend",
+      "group": "Build",
       "commands": [
-        "pnpm run build:frontend"
+        "cd web && pnpm run build"
       ]
     },
     {
-      "name": "Test: full e2e",
+      "name": "full e2e",
+      "group": "Test",
       "commands": [
-        "pnpm run test:e2e"
+        "cd e2e && pnpm test"
       ]
     },
     {
-      "name": "Test: backend with race detector",
+      "name": "backend with race detector",
+      "group": "Test",
       "commands": [
-        "cd backend-go",
         "go test -race -v ./..."
       ]
     },
     {
-      "name": "Test: update screenshots",
+      "name": "update screenshots",
+      "group": "Test",
       "commands": [
-        "pnpm run test:e2e:update-screenshots"
+        "cd e2e && npx playwright test --update-snapshots"
       ]
     },
     {
-      "name": "Test: backend fuzzing",
+      "name": "backend fuzzing",
+      "group": "Test",
       "commands": [
-        "cd backend-go",
         "go test -fuzz=FuzzParseYAML -fuzztime=10s ./internal/compose/"
       ]
     },
     {
-      "name": "Test: backend benchmark",
+      "name": "backend benchmark",
+      "group": "Test",
       "commands": [
-        "cd backend-go",
         "go test -bench=. -benchmem -run='^$' ."
       ]
     },
     {
-      "name": "Run: dev with mock data",
+      "name": "dev mode with mock data",
+      "group": "Run",
       "commands": [
-        "cd backend-go",
-        "go build -o dockge-backend .",
-        "./dockge-backend --dev --mock --port 5001 --stacks-dir test-data/stacks"
+        "go build -o dockge .",
+        "./dockge --dev --mock --port 5001 --data-dir test-data --stacks-dir test-data/stacks"
+      ]
+    },
+    {
+      "name": "calude",
+      "group": "Claude",
+      "commands": [
+        "claude"
+      ]
+    },
+    {
+      "name": "claude (hands-free)",
+      "group": "Claude",
+      "commands": [
+        "claude --dangerously-skip-permissions"
       ]
     }
   ]
