@@ -12,6 +12,7 @@ tmp
 /dockge
 
 # Dev artifacts
+.task/
 .playwright-mcp
 CLAUDE.md
 PLAN.md
