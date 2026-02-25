@@ -160,8 +160,14 @@ const isActiveVisible = ref(false);
 let activeObserver: IntersectionObserver | null = null;
 
 function scrollToActive() {
-    const el = listRef.value?.querySelector(".item.active");
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    const container = listRef.value;
+    const el = container?.querySelector(".item.active") as HTMLElement | null;
+    if (!el || !container) return;
+    // Manual scrollTop to avoid scrollIntoView bubbling to ancestor scroll containers
+    container.scrollTo({
+        top: el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2,
+        behavior: "smooth",
+    });
 }
 
 function observeActive() {
@@ -191,8 +197,11 @@ defineExpose({ scrollToActive });
 onMounted(() => {
     window.addEventListener("scroll", onScroll);
     nextTick(() => {
-        const active = listRef.value?.querySelector(".item.active");
-        active?.scrollIntoView({ block: "center" });
+        const container = listRef.value;
+        const active = container?.querySelector(".item.active") as HTMLElement | null;
+        if (active && container) {
+            container.scrollTop = active.offsetTop - container.clientHeight / 2 + active.clientHeight / 2;
+        }
         observeActive();
     });
 });
