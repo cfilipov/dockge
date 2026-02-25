@@ -58,6 +58,7 @@ func main() {
         "dataDir", cfg.DataDir,
         "dev", cfg.Dev,
         "mock", cfg.Mock,
+        "pprof", cfg.Dev || cfg.Pprof,
         "logLevel", cfg.LogLevel,
         "noAuth", cfg.NoAuth,
     )
@@ -81,8 +82,8 @@ func main() {
         w.Write([]byte("ok"))
     })
 
-    // Enable pprof endpoints in dev mode for live profiling
-    if cfg.Dev {
+    // Enable pprof endpoints in dev mode or via DOCKGE_PPROF=1
+    if cfg.Dev || cfg.Pprof {
         mux.HandleFunc("/debug/pprof/", pprofIndex)
         mux.HandleFunc("/debug/pprof/cmdline", pprofCmdline)
         mux.HandleFunc("/debug/pprof/profile", pprofProfile)

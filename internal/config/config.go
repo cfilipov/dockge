@@ -16,6 +16,7 @@ type Config struct {
     Mock      bool       // Use mock Docker CLI instead of SDK (for dev without Docker socket)
     LogLevel  slog.Level // Parsed log level (debug, info, warn, error)
     NoAuth    bool       // Skip authentication (all endpoints open)
+    Pprof     bool       // Enable /debug/pprof/ endpoints
 }
 
 func Parse() *Config {
@@ -51,6 +52,9 @@ func Parse() *Config {
     }
     if v := os.Getenv("DOCKGE_NO_AUTH"); v == "1" || v == "true" {
         cfg.NoAuth = true
+    }
+    if v := os.Getenv("DOCKGE_PPROF"); v == "1" || v == "true" {
+        cfg.Pprof = true
     }
 
     cfg.LogLevel = parseLogLevel(logLevel)
