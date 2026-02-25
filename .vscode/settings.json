@@ -1,6 +1,6 @@
 {
     "makefile.makefilePath": "Makefile",
-    "playwright.reuseBrowser": true,
+    "playwright.reuseBrowser": false,
     "playwright.configs": [
         "e2e/playwright.config.ts"
     ]

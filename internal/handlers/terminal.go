@@ -3,7 +3,6 @@ package handlers
 import (
     "bufio"
     "context"
-    "fmt"
     "log/slog"
     "os"
     "os/exec"
@@ -16,29 +15,6 @@ import (
     "github.com/cfilipov/dockge/internal/terminal"
     "github.com/cfilipov/dockge/internal/ws"
 )
-
-// ANSI color codes matching docker compose's service name palette.
-var composeColors = []string{
-    "\033[36m", // cyan
-    "\033[33m", // yellow
-    "\033[32m", // green
-    "\033[35m", // magenta
-    "\033[34m", // blue
-    "\033[96m", // bright cyan
-    "\033[93m", // bright yellow
-    "\033[92m", // bright green
-    "\033[95m", // bright magenta
-    "\033[94m", // bright blue
-}
-
-const ansiReset = "\033[0m"
-
-// coloredPrefix returns "serviceName | " with ANSI color, padded to align pipes.
-func coloredPrefix(svcName string, colorIdx int, maxLen int) string {
-    color := composeColors[colorIdx%len(composeColors)]
-    padded := fmt.Sprintf("%-*s", maxLen, svcName)
-    return color + padded + " | " + ansiReset
-}
 
 // mainTerminalMu guards mainTerminalName.
 var mainTerminalMu sync.Mutex
@@ -539,7 +515,9 @@ func (app *App) handleLeaveCombinedTerminal(c *ws.Conn, msg *ws.ClientMessage) {
 }
 
 // startCombinedLogs creates a combined log terminal for a stack and starts streaming
-// logs from all containers in the project using the Docker client.
+// logs using a single `docker compose logs` process. This produces one stream
+// instead of N per-container goroutines, which dramatically reduces the number
+// of WebSocket messages for large stacks.
 func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal {
     term := app.Terms.Create(termName, terminal.TypePipe)
 
@@ -547,57 +525,11 @@ func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal
     term.SetCancel(cancel)
 
     go func() {
-        // Find all containers for this stack
-        containers, err := app.Docker.ContainerList(ctx, true, stackName)
-        if err != nil {
-            slog.Warn("combined logs: list containers", "err", err, "stack", stackName)
-            term.Write([]byte("[Error] Could not list containers: " + err.Error() + "\r\n"))
-            return
+        err := app.Compose.RunCompose(ctx, stackName, term,
+            "logs", "-f", "--tail", "100", "--ansi", "always")
+        if err != nil && ctx.Err() == nil {
+            slog.Warn("combined logs stream", "err", err, "stack", stackName)
         }
-
-        if len(containers) == 0 {
-            term.Write([]byte("[Info] No containers found for stack " + stackName + "\r\n"))
-            return
-        }
-
-        // Compute max service name length for aligned pipe prefixes
-        maxLen := 0
-        for _, c := range containers {
-            if len(c.Service) > maxLen {
-                maxLen = len(c.Service)
-            }
-        }
-
-        // Open a log stream for each container and merge into the terminal
-        var wg sync.WaitGroup
-        for i, c := range containers {
-            wg.Add(1)
-            go func(containerID, svcName string, colorIdx int) {
-                defer wg.Done()
-
-                stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
-                if err != nil {
-                    if ctx.Err() == nil {
-                        slog.Warn("combined log stream", "err", err, "service", svcName)
-                    }
-                    return
-                }
-                defer stream.Close()
-
-                pfx := []byte(coloredPrefix(svcName, colorIdx, maxLen))
-                scanner := bufio.NewScanner(stream)
-                scanner.Buffer(make([]byte, 64*1024), 64*1024)
-                for scanner.Scan() {
-                    b := scanner.Bytes()
-                    line := make([]byte, 0, len(pfx)+len(b)+1)
-                    line = append(line, pfx...)
-                    line = append(line, b...)
-                    line = append(line, '\n')
-                    term.Write(line)
-                }
-            }(c.ID, c.Service, i)
-        }
-        wg.Wait()
     }()
 
     return term

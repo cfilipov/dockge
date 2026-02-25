@@ -121,6 +121,34 @@ func parseAllComposeData(stacksDir string) (stack.IgnoreMap, map[string]map[stri
 	return ignoreMap, imagesByStack
 }
 
+// parseComposeDataForStack parses compose data for a single stack,
+// avoiding the cost of scanning all stacks in the directory.
+func parseComposeDataForStack(stacksDir, stackName string) (stack.IgnoreMap, map[string]map[string]string) {
+	ignoreMap := make(stack.IgnoreMap)
+	imagesByStack := make(map[string]map[string]string)
+
+	path := compose.FindComposeFile(stacksDir, stackName)
+	if path == "" {
+		return ignoreMap, imagesByStack
+	}
+
+	services := compose.ParseFile(path)
+	images := make(map[string]string)
+	for svc, sd := range services {
+		if sd.Image != "" {
+			images[svc] = sd.Image
+		}
+		if sd.StatusIgnore {
+			if ignoreMap[stackName] == nil {
+				ignoreMap[stackName] = make(map[string]bool)
+			}
+			ignoreMap[stackName][svc] = true
+		}
+	}
+	imagesByStack[stackName] = images
+	return ignoreMap, imagesByStack
+}
+
 // groupByProject groups containers by compose project.
 // Standalone containers (no project) are grouped under "_standalone".
 func groupByProject(containers []docker.Container) map[string][]docker.Container {
@@ -403,8 +431,8 @@ func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
 	// Query Docker for this stack's containers to determine status
 	containers, _ := app.Docker.ContainerList(ctx, true, stackName)
 
-	// Parse compose file for ignore labels
-	ignoreMap, imagesByStack := parseAllComposeData(app.StacksDir)
+	// Parse compose file for the requested stack only (not all stacks).
+	ignoreMap, imagesByStack := parseComposeDataForStack(app.StacksDir, stackName)
 
 	// Build status from containers
 	stacks := stack.GetStackListFromContainers(app.StacksDir, containers, ignoreMap)

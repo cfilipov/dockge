@@ -183,22 +183,23 @@
                         </div>
 
                         <div ref="containerListRef">
-                            <Container
-                                v-for="(service, name) in jsonConfig.services"
-                                :key="name"
-                                :name="name"
-                                :is-edit-mode="isEditMode"
-                                :first="name === Object.keys(jsonConfig.services)[0]"
-                                :serviceStatus="serviceStatusList[name]"
-                                :serviceImageUpdateAvailable="serviceUpdateStatus[name] || false"
-                                :serviceRecreateNecessary="serviceRecreateStatus[name] || false"
-                                :dockerStats="dockerStats"
-                                :processing="processing"
-                                @start-service="startService"
-                                @stop-service="stopService"
-                                @restart-service="restartService"
-                                @update-service="updateService"
-                            />
+                            <template v-for="(service, name, index) in jsonConfig.services" :key="name">
+                                <Container
+                                    v-if="index < renderedCount"
+                                    :name="name"
+                                    :is-edit-mode="isEditMode"
+                                    :first="index === 0"
+                                    :serviceStatus="serviceStatusList[name]"
+                                    :serviceImageUpdateAvailable="serviceUpdateStatus[name] || false"
+                                    :serviceRecreateNecessary="serviceRecreateStatus[name] || false"
+                                    :dockerStats="dockerStats"
+                                    :processing="processing"
+                                    @start-service="startService"
+                                    @stop-service="stopService"
+                                    @restart-service="restartService"
+                                    @update-service="updateService"
+                                />
+                            </template>
                         </div>
 
                         <button v-if="false && isEditMode && jsonConfig.services && Object.keys(jsonConfig.services).length > 0" class="btn btn-normal mb-3" @click="addContainer">{{ $t("addContainer") }}</button>
@@ -393,7 +394,7 @@ scrollable size="fullscreen" hide-footer>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, provide, onMounted } from "vue";
+import { ref, reactive, computed, watch, provide, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute, useRouter, onBeforeRouteUpdate, onBeforeRouteLeave } from "vue-router";
 import { useI18n } from "vue-i18n";
 import CodeMirror from "vue-codemirror6";
@@ -424,6 +425,9 @@ const router = useRouter();
 const { t } = useI18n();
 const { emitAgent, agentCount, agentList, agentStatusList, completeStackList, composeTemplate, envTemplate, endpointDisplayFunction, info } = useSocket();
 const { toastRes, toastError } = useAppToast();
+
+// Suppress jsonConfig → YAML sync during programmatic updates (e.g. loadStack)
+let skipConfigSync = false;
 
 // CodeMirror setup
 const editorFocus = ref(false);
@@ -517,6 +521,29 @@ const newContainerName = ref("");
 const viewMode = ref<"parsed" | "raw">("parsed");
 const stopServiceStatusTimeout = ref(false);
 const stopDockerStatsTimeout = ref(false);
+
+// Progressive rendering: render containers in batches to avoid blocking the main thread
+const RENDER_BATCH_SIZE = 20;
+const renderedCount = ref(Infinity); // Infinity = render all (for small stacks / edit mode)
+let renderRAF = 0;
+
+function scheduleProgressiveRender(total: number) {
+    cancelAnimationFrame(renderRAF);
+    if (total <= RENDER_BATCH_SIZE) {
+        renderedCount.value = Infinity;
+        return;
+    }
+    renderedCount.value = RENDER_BATCH_SIZE;
+    function renderBatch() {
+        renderedCount.value += RENDER_BATCH_SIZE;
+        if (renderedCount.value < total) {
+            renderRAF = requestAnimationFrame(renderBatch);
+        } else {
+            renderedCount.value = Infinity;
+        }
+    }
+    renderRAF = requestAnimationFrame(renderBatch);
+}
 
 // Provide to children (Container, NetworkInput)
 provide("jsonConfig", jsonConfig);
@@ -630,6 +657,7 @@ watch(() => stack.composeOverrideYAML, () => {
 });
 
 watch(jsonConfig, () => {
+    if (skipConfigSync) return;
     if (!editorFocus.value) {
         console.debug("jsonConfig changed");
 
@@ -750,10 +778,20 @@ function loadStack() {
     processing.value = true;
     emitAgent(endpoint.value, "getStack", stack.name, (res: any) => {
         if (res.ok) {
+            // Suppress the jsonConfig → YAML deep watcher during initial load.
+            // yamlCodeChange() sets jsonConfig from YAML; the watcher would
+            // redundantly convert it back (with expensive copyYAMLComments).
+            skipConfigSync = true;
             Object.assign(stack, res.stack);
             yamlCodeChange();
+            // Progressive rendering: render first batch immediately, then
+            // schedule remaining batches via requestAnimationFrame so the
+            // browser can paint between batches instead of blocking for 500ms+.
+            const serviceCount = jsonConfig.services ? Object.keys(jsonConfig.services).length : 0;
+            scheduleProgressiveRender(serviceCount);
             processing.value = false;
             bindTerminal();
+            nextTick(() => { skipConfigSync = false; });
         } else {
             toastRes(res);
         }
@@ -947,6 +985,7 @@ function enableEditMode() {
     if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
     }
+    renderedCount.value = Infinity; // Show all containers when editing
     isEditMode.value = true;
 }
 
@@ -1085,6 +1124,10 @@ onMounted(() => {
 
     requestServiceStatus();
     requestDockerStats();
+});
+
+onUnmounted(() => {
+    cancelAnimationFrame(renderRAF);
 });
 </script>
 

@@ -2,6 +2,7 @@ package compose
 
 import (
     "bufio"
+    "bytes"
     "context"
     "fmt"
     "io"
@@ -173,6 +174,8 @@ func (m *MockCompose) RunCompose(ctx context.Context, stackName string, w io.Wri
         return m.pause(stackName, w)
     case "unpause":
         return m.unpause(stackName, w)
+    case "logs":
+        return m.logs(ctx, stackName, w, args[1:])
     case "config":
         return m.config(stackName, w)
     default:
@@ -416,6 +419,64 @@ func (m *MockCompose) unpause(stackName string, w io.Writer) error {
     r.render()
     m.state.Set(stackName, "running")
     return nil
+}
+
+// logColors mirrors docker compose's service name color palette.
+var logColors = []string{
+    "\033[36m", // cyan
+    "\033[33m", // yellow
+    "\033[32m", // green
+    "\033[35m", // magenta
+    "\033[34m", // blue
+    "\033[96m", // bright cyan
+    "\033[93m", // bright yellow
+    "\033[92m", // bright green
+    "\033[95m", // bright magenta
+    "\033[94m", // bright blue
+}
+
+func (m *MockCompose) logs(ctx context.Context, stackName string, w io.Writer, args []string) error {
+    services := m.getServices(stackName)
+    if len(services) == 0 {
+        return nil
+    }
+
+    // Compute max service name length for aligned prefixes.
+    maxLen := 0
+    for _, svc := range services {
+        if len(svc) > maxLen {
+            maxLen = len(svc)
+        }
+    }
+
+    // Build all initial log lines in a single buffer so they arrive as one
+    // write to the terminal, avoiding N individual WebSocket messages.
+    var buf bytes.Buffer
+    for i, svc := range services {
+        color := logColors[i%len(logColors)]
+        padded := fmt.Sprintf("%-*s", maxLen, svc)
+        prefix := color + padded + " | " + "\033[0m"
+        for line := 1; line <= 3; line++ {
+            fmt.Fprintf(&buf, "%s[mock] log line %d from %s\n", prefix, line, svc)
+        }
+    }
+    w.Write(buf.Bytes())
+
+    // If -f/--follow, block until context is cancelled (simulates tailing).
+    if hasFlag(args, "-f") || hasFlag(args, "--follow") {
+        <-ctx.Done()
+    }
+    return nil
+}
+
+// hasFlag checks whether a flag is present in args.
+func hasFlag(args []string, flag string) bool {
+    for _, a := range args {
+        if a == flag {
+            return true
+        }
+    }
+    return false
 }
 
 func (m *MockCompose) config(stackName string, w io.Writer) error {

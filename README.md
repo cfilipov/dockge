@@ -63,7 +63,7 @@ This fork has rewritten the Node.js backend entirely with a Go implementation.
 | | Node.js backend | Go backend |
 |---|---|---|
 | Docker image size | ~500MB | **~55MB** |
-| Memory (docker container) | ~135MB-250MB | ~25MB-40MB |
+| Memory (docker container) | ~135MB-250MB | ~35MB |
 
 ### Configuration
 
