@@ -83,7 +83,7 @@
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-1">
-                    <router-link to="/networks" class="nav-link">
+                    <router-link :to="networksTabLink" class="nav-link">
                         <font-awesome-icon icon="network-wired" class="me-1" /> {{ $t("networksNav") }}
                     </router-link>
                 </li>
@@ -107,7 +107,7 @@
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-1">
-                    <router-link to="/volumes" class="nav-link">
+                    <router-link :to="volumesTabLink" class="nav-link">
                         <font-awesome-icon icon="hard-drive" class="me-1" /> {{ $t("volumesNav") }}
                     </router-link>
                 </li>
@@ -140,6 +140,7 @@ import Login from "../components/Login.vue";
 import { useSocket } from "../composables/useSocket";
 import { useTheme } from "../composables/useTheme";
 import { useAppToast } from "../composables/useAppToast";
+import { useTabMemory } from "../composables/useTabMemory";
 
 const route = useRoute();
 
@@ -153,10 +154,32 @@ const {
     emitAgent,
     logout,
     containerList,
+    completeStackList,
 } = useSocket();
+
+const {
+    lastStack,
+    lastContainer,
+    lastImage,
+    lastNetwork,
+    lastVolume,
+} = useTabMemory();
 
 const { theme, isMobile } = useTheme();
 const { toastRes } = useAppToast();
+
+// Check if a stack name exists in the complete stack list
+function stackExists(name: string): boolean {
+    for (const key in completeStackList.value) {
+        if (key.startsWith(name + "_")) return true;
+    }
+    return false;
+}
+
+// Check if a container name exists in the container list
+function containerExists(name: string): boolean {
+    return containerList.value.some((c: any) => c.name === name);
+}
 
 // Which container-centric tab we're currently on (if any)
 const currentTab = computed(() => {
@@ -177,6 +200,9 @@ const containersTabLink = computed(() => {
         const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
         if (c) return { name: "containerDetail", params: { containerName: c.name } };
     }
+    if (lastContainer.value && containerExists(lastContainer.value)) {
+        return { name: "containerDetail", params: { containerName: lastContainer.value } };
+    }
     return "/containers";
 });
 
@@ -187,6 +213,9 @@ const logsTabLink = computed(() => {
         const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
         if (c) return { name: "containerLogs", params: { containerName: c.name } };
     }
+    if (lastContainer.value && containerExists(lastContainer.value)) {
+        return { name: "containerLogs", params: { containerName: lastContainer.value } };
+    }
     return "/logs";
 });
 
@@ -196,6 +225,9 @@ const shellTabLink = computed(() => {
     if (selectedStack.value) {
         const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
         if (c) return { name: "containerShell", params: { containerName: c.name, type: "bash" } };
+    }
+    if (lastContainer.value && containerExists(lastContainer.value)) {
+        return { name: "containerShell", params: { containerName: lastContainer.value, type: "bash" } };
     }
     return "/shell";
 });
@@ -210,6 +242,9 @@ const stacksTabLink = computed(() => {
         const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
         if (c?.stackName) return `/stacks/${c.stackName}`;
     }
+    if (lastStack.value && stackExists(lastStack.value)) {
+        return `/stacks/${lastStack.value}`;
+    }
     return "/stacks";
 });
 
@@ -219,7 +254,26 @@ const imagesTabLink = computed(() => {
         const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
         if (c?.image) return { name: "imageDetail", params: { imageRef: c.image } };
     }
+    if (lastImage.value) {
+        return { name: "imageDetail", params: { imageRef: lastImage.value } };
+    }
     return "/images";
+});
+
+const networksTabLink = computed(() => {
+    if (route.path.startsWith("/networks")) return "/networks";
+    if (lastNetwork.value) {
+        return { name: "networkDetail", params: { networkName: lastNetwork.value } };
+    }
+    return "/networks";
+});
+
+const volumesTabLink = computed(() => {
+    if (route.path.startsWith("/volumes")) return "/volumes";
+    if (lastVolume.value) {
+        return { name: "volumeDetail", params: { volumeName: lastVolume.value } };
+    }
+    return "/volumes";
 });
 
 const classes = computed(() => {
