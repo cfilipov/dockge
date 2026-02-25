@@ -34,6 +34,10 @@ type App struct {
 
 	refreshMu    sync.Mutex
 	refreshTimer *time.Timer
+
+	broadcastMu      sync.Mutex
+	lastStackMsg     []byte
+	lastContainerMsg []byte
 }
 
 // checkLogin verifies that the connection is authenticated.

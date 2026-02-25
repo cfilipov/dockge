@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -168,7 +170,7 @@ func computeRecreateMap(stacks map[string]*stack.Stack, byProject map[string][]d
 // StartStackWatcher starts a background goroutine that:
 // 1. Does an initial broadcast with fresh data
 // 2. Subscribes to Docker Events to react to container lifecycle changes
-// 3. Keeps a slow fallback ticker (60s) as a safety net
+// 3. Falls back to polling if events become unavailable
 func (app *App) StartStackWatcher(ctx context.Context) {
 	// Initial broadcast
 	app.BroadcastAll()
@@ -177,10 +179,6 @@ func (app *App) StartStackWatcher(ctx context.Context) {
 	eventCh, errCh := app.Docker.Events(ctx)
 
 	go func() {
-		// Fallback ticker — full refresh every 60s as safety net
-		ticker := time.NewTicker(60 * time.Second)
-		defer ticker.Stop()
-
 		// Debounce: batch events that arrive within 500ms into a single refresh.
 		var debounceTimer *time.Timer
 		var debounceMu sync.Mutex
@@ -224,9 +222,6 @@ func (app *App) StartStackWatcher(ctx context.Context) {
 				// Reconnect: fall back to polling
 				app.runPollingFallback(ctx)
 				return
-
-			case <-ticker.C:
-				app.BroadcastAll()
 			}
 		}
 	}()
@@ -261,6 +256,8 @@ type containerListResponse struct {
 
 // BroadcastAll queries fresh data and broadcasts both stack list and container list
 // to all authenticated connections. Skips all work if no clients are connected.
+// Marshals each message once and compares against the last broadcast — if the
+// wire bytes are identical, the send is skipped entirely.
 func (app *App) BroadcastAll() {
 	if !app.WS.HasAuthenticatedConns() {
 		return
@@ -269,16 +266,50 @@ func (app *App) BroadcastAll() {
 	data := app.queryFreshData()
 
 	stackJSON := stack.BuildStackListJSON(data.stacks, "", data.updateMap, data.recreateMap)
-	app.WS.BroadcastAuthenticatedRaw("agent", "stackList", stackListResponse{
-		OK:        true,
-		StackList: stackJSON,
+	stackMsg, err := json.Marshal(ws.ServerMessage{
+		Event: "agent",
+		Args:  []interface{}{"stackList", stackListResponse{OK: true, StackList: stackJSON}},
 	})
+	if err != nil {
+		slog.Error("marshal stackList broadcast", "err", err)
+		return
+	}
 
 	containerJSON := stack.BuildContainerListJSON(data.byProject, data.stacks, data.serviceUpdates, data.recreateMap, data.imagesByStack)
-	app.WS.BroadcastAuthenticatedRaw("agent", "containerList", containerListResponse{
-		OK:            true,
-		ContainerList: containerJSON,
+	containerMsg, err := json.Marshal(ws.ServerMessage{
+		Event: "agent",
+		Args:  []interface{}{"containerList", containerListResponse{OK: true, ContainerList: containerJSON}},
 	})
+	if err != nil {
+		slog.Error("marshal containerList broadcast", "err", err)
+		return
+	}
+
+	app.broadcastMu.Lock()
+
+	stackChanged := !bytes.Equal(stackMsg, app.lastStackMsg)
+	containerChanged := !bytes.Equal(containerMsg, app.lastContainerMsg)
+
+	if stackChanged {
+		app.lastStackMsg = stackMsg
+	}
+	if containerChanged {
+		app.lastContainerMsg = containerMsg
+	}
+
+	app.broadcastMu.Unlock()
+
+	if stackChanged {
+		app.WS.BroadcastAuthenticatedBytes(stackMsg)
+	} else {
+		slog.Debug("broadcast skipped (unchanged)", "list", "stackList")
+	}
+
+	if containerChanged {
+		app.WS.BroadcastAuthenticatedBytes(containerMsg)
+	} else {
+		slog.Debug("broadcast skipped (unchanged)", "list", "containerList")
+	}
 }
 
 // TriggerRefresh broadcasts fresh data after a short delay to let Docker state settle.

@@ -110,6 +110,20 @@ func (s *Server) BroadcastAuthenticatedRaw(event string, args ...interface{}) {
     }
 }
 
+// BroadcastAuthenticatedBytes sends pre-marshaled JSON bytes to all
+// authenticated connections. Use this when you've already serialized the
+// ServerMessage and want to avoid re-marshaling.
+func (s *Server) BroadcastAuthenticatedBytes(data []byte) {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+
+    for c := range s.conns {
+        if c.UserID() != 0 {
+            c.writeRaw(data)
+        }
+    }
+}
+
 // ConnectionCount returns the number of active connections.
 func (s *Server) ConnectionCount() int {
     s.mu.RLock()
