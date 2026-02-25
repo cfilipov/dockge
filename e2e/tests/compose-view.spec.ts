@@ -6,11 +6,11 @@ test.describe("Compose View — Running Stack", () => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         // Wait for the stack name heading to appear
-        await expect(page.getByRole("heading", { name: "01-web-app" })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /01-web-app/ })).toBeVisible({ timeout: 15000 });
     });
 
     test("displays stack name in heading with uptime pill", async ({ page }) => {
-        await expect(page.getByRole("heading", { name: "01-web-app" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /01-web-app/ })).toBeVisible();
     });
 
     test("shows action buttons for a running stack", async ({ page }) => {

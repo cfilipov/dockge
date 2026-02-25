@@ -13,7 +13,7 @@ test.describe("Container Log", () => {
     });
 
     test("displays log heading with container name", async ({ page }) => {
-        await expect(page.getByRole("heading", { name: /active\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
     });
 
     test("terminal element is visible", async ({ page }) => {

@@ -220,6 +220,8 @@ func main() {
                 }
             }
             app.FlushStackCache()
+            // Remove global.env if created by a prior test run
+            os.Remove(filepath.Join(cfg.StacksDir, "global.env"))
             slog.Info("mock state reset to default")
             w.WriteHeader(http.StatusOK)
             w.Write([]byte("ok"))

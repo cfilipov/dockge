@@ -8,7 +8,7 @@ test.describe("Container Inspect", () => {
     });
 
     test("displays inspect heading", async ({ page }) => {
-        await expect(page.getByRole("heading", { name: /active\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
     });
 
     test("shows parsed view by default", async ({ page }) => {

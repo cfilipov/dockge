@@ -86,7 +86,14 @@ type composeData struct {
 	volumes  []string // top-level named volume names
 }
 
-// mockOverrides holds data parsed from a mock.yaml sidecar file.
+// globalMockConfig holds data parsed from the root-level mock.yaml file
+// in the stacks directory. Defines Docker resources that exist independently
+// of any compose project.
+type globalMockConfig struct {
+	networks map[string]networkMeta // standalone network name → metadata
+}
+
+// mockOverrides holds data parsed from a per-stack mock.yaml sidecar file.
 type mockOverrides struct {
 	status   string                      // stack-level status
 	services map[string]serviceOverrides // per-service overrides
@@ -121,6 +128,12 @@ func BuildMockData(stacksDir string) *MockData {
 	d.networks["bridge"] = networkMeta{driver: "bridge", scope: "local"}
 	d.networks["host"] = networkMeta{driver: "host", scope: "local"}
 	d.networks["none"] = networkMeta{driver: "null", scope: "local"}
+
+	// Global mock config (root-level mock.yaml in stacks dir)
+	globalCfg := parseGlobalMockYAML(filepath.Join(stacksDir, "mock.yaml"))
+	for name, meta := range globalCfg.networks {
+		d.networks[name] = meta
+	}
 
 	// Standalone containers
 	d.standalones = []standaloneContainer{
@@ -670,6 +683,72 @@ func parseMockYAML(path string) mockOverrides {
 	}
 
 	return mo
+}
+
+// parseGlobalMockYAML reads the root-level mock.yaml in the stacks directory.
+// This defines Docker resources that exist independently of any compose project
+// (standalone networks, etc.). Returns zero value if file doesn't exist.
+func parseGlobalMockYAML(path string) globalMockConfig {
+	f, err := os.Open(path)
+	if err != nil {
+		return globalMockConfig{}
+	}
+	defer f.Close()
+
+	cfg := globalMockConfig{
+		networks: make(map[string]networkMeta),
+	}
+
+	var currentNet string
+	inNetworks := false
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimRight(line, " \t")
+
+		if trimmed == "" || strings.HasPrefix(strings.TrimSpace(trimmed), "#") {
+			continue
+		}
+
+		indent := countIndent(line)
+
+		// Top-level keys
+		if indent == 0 {
+			inNetworks = strings.TrimSpace(trimmed) == "networks:"
+			currentNet = ""
+			continue
+		}
+
+		if !inNetworks {
+			continue
+		}
+
+		// Network name (indent 2)
+		if indent == 2 && strings.HasSuffix(trimmed, ":") {
+			currentNet = strings.TrimSpace(strings.TrimSuffix(trimmed, ":"))
+			cfg.networks[currentNet] = networkMeta{driver: "bridge", scope: "local"}
+			continue
+		}
+
+		// Network fields (indent 4)
+		if indent == 4 && currentNet != "" {
+			field := strings.TrimSpace(trimmed)
+			meta := cfg.networks[currentNet]
+
+			if strings.HasPrefix(field, "driver:") {
+				meta.driver = strings.TrimSpace(strings.TrimPrefix(field, "driver:"))
+				meta.driver = strings.Trim(meta.driver, "\"'")
+			} else if strings.HasPrefix(field, "internal:") {
+				val := strings.TrimSpace(strings.TrimPrefix(field, "internal:"))
+				meta.internal = strings.Trim(val, "\"'") == "true"
+			}
+
+			cfg.networks[currentNet] = meta
+		}
+	}
+
+	return cfg
 }
 
 // findComposeFilePath finds a compose file in a stack directory.

@@ -1,0 +1,11 @@
+# Global mock configuration — defines Docker resources that exist
+# independently of any compose project (standalone networks, etc.).
+# Parsed by BuildMockData at startup.
+
+networks:
+  proxy:
+    driver: bridge
+  shared-db:
+    driver: bridge
+  monitoring_net:
+    driver: bridge

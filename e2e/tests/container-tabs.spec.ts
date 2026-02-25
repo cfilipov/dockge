@@ -21,7 +21,7 @@ test.describe("Container Tabs — Stacks to Logs", () => {
 
         // URL and heading
         await expect(page).toHaveURL("/logs/01-web-app-nginx-1");
-        await expect(page.getByRole("heading", { name: /active\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
 
         // Logs nav tab is active
         const logsNav = page.getByRole("link", { name: "Logs" }).first();
@@ -55,7 +55,7 @@ test.describe("Container Tabs — Stacks to Containers", () => {
 
         // URL and heading
         await expect(page).toHaveURL(/\/containers\/01-web-app-.*-1/);
-        await expect(page.getByRole("heading", { name: /active\s+01-web-app-/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+01-web-app-/i })).toBeVisible({ timeout: 10000 });
 
         // Containers nav tab is active
         const containersNav = page.getByRole("link", { name: "Containers" }).first();
@@ -88,7 +88,7 @@ test.describe("Container Tabs — Stacks to Shell", () => {
 
         // URL and heading
         await expect(page).toHaveURL("/shell/01-web-app-nginx-1/bash");
-        await expect(page.getByRole("heading", { name: /active\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
 
         // Shell nav tab is active
         const shellNav = page.getByRole("link", { name: "Shell" }).first();
@@ -119,7 +119,7 @@ test.describe("Container Tabs — Sidebar switching", () => {
         // Start on logs tab with nginx selected
         await page.goto("/logs/01-web-app-nginx-1");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /active\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
 
         // Click a different container in the sidebar (redis from the same stack)
         const redisItem = page.locator(".item", { hasText: "01-web-app-redis-1" });
@@ -163,7 +163,7 @@ test.describe("Container Tabs — Tab switching preserves selection", () => {
     test("switching from Containers to Logs preserves container selection", async ({ page }) => {
         await page.goto("/containers/02-blog-mysql-1");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /active\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
 
         // Click Logs tab
         const logsNav = page.getByRole("link", { name: "Logs" }).first();
@@ -171,39 +171,39 @@ test.describe("Container Tabs — Tab switching preserves selection", () => {
 
         // Should navigate to logs for the same container
         await expect(page).toHaveURL("/logs/02-blog-mysql-1");
-        await expect(page.getByRole("heading", { name: /active\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
     });
 
     test("switching from Logs to Shell preserves container selection", async ({ page }) => {
         await page.goto("/logs/02-blog-mysql-1");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /active\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
 
         // Click Shell tab
         const shellNav = page.getByRole("link", { name: "Shell" }).first();
         await shellNav.click();
 
         await expect(page).toHaveURL("/shell/02-blog-mysql-1/bash");
-        await expect(page.getByRole("heading", { name: /active\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
     });
 
     test("switching from Shell to Containers preserves container selection", async ({ page }) => {
         await page.goto("/shell/02-blog-mysql-1/bash");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /active\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
 
         // Click Containers tab
         const containersNav = page.getByRole("link", { name: "Containers" }).first();
         await containersNav.click();
 
         await expect(page).toHaveURL("/containers/02-blog-mysql-1");
-        await expect(page.getByRole("heading", { name: /active\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
     });
 
     test("clicking the same tab clears selection and goes to home view", async ({ page }) => {
         await page.goto("/logs/02-blog-mysql-1");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /active\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
 
         // Click Logs tab again — should go to /logs (home)
         const logsNav = page.getByRole("link", { name: "Logs" }).first();
@@ -224,7 +224,7 @@ test.describe("Container Tabs — Tab switching preserves selection", () => {
 
         // Switch to Logs tab
         await page.getByRole("link", { name: "Logs" }).first().click();
-        await expect(page.getByRole("heading", { name: /active\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-preserved-selection.png");
     });
 });

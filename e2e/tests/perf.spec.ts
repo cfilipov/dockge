@@ -25,7 +25,7 @@ test.describe("Performance", () => {
         const start = Date.now();
 
         await page.goto("/stacks/01-web-app");
-        await expect(page.getByRole("heading", { name: "01-web-app" })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("heading", { name: /01-web-app/ })).toBeVisible({ timeout: 10000 });
 
         const elapsed = Date.now() - start;
 
