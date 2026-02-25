@@ -12,10 +12,6 @@ RUN corepack enable && pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm run build
 
-# Strip pre-compressed variants — the Go server gzips on the fly,
-# so .br and .gz files only add ~800KB to the embedded binary.
-RUN find ../dist -name '*.br' -o -name '*.gz' | xargs rm -f
-
 ############################################
 # Build Go backend (embeds frontend)
 ############################################
@@ -27,7 +23,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy frontend build output for embedding (pre-compressed files already stripped)
+# Copy frontend build output for embedding
 COPY --from=build_frontend /app/dist ./dist/
 
 # Copy package.json for version extraction, then Go source
