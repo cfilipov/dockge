@@ -78,6 +78,8 @@ const statusLabel = computed(() => t(statusInfo.value.label));
         border-bottom-left-radius: 0;
     }
     .title {
+        flex: 1;
+        min-width: 0;
         margin-top: -4px;
         overflow: hidden;
         text-overflow: ellipsis;
