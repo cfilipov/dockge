@@ -117,6 +117,20 @@ func (s *Server) ConnectionCount() int {
     return len(s.conns)
 }
 
+// HasAuthenticatedConns returns true if at least one authenticated client
+// is connected. This is O(n) in the worst case but short-circuits on the
+// first match.
+func (s *Server) HasAuthenticatedConns() bool {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    for c := range s.conns {
+        if c.UserID() != 0 {
+            return true
+        }
+    }
+    return false
+}
+
 // DisconnectOthers closes all connections except the given one.
 func (s *Server) DisconnectOthers(keep *Conn) {
     s.mu.RLock()

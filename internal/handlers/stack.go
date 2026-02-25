@@ -260,8 +260,12 @@ type containerListResponse struct {
 }
 
 // BroadcastAll queries fresh data and broadcasts both stack list and container list
-// to all authenticated connections.
+// to all authenticated connections. Skips all work if no clients are connected.
 func (app *App) BroadcastAll() {
+	if !app.WS.HasAuthenticatedConns() {
+		return
+	}
+
 	data := app.queryFreshData()
 
 	stackJSON := stack.BuildStackListJSON(data.stacks, "", data.updateMap, data.recreateMap)
