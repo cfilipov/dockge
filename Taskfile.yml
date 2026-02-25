@@ -1,0 +1,101 @@
+version: '3'
+
+vars:
+  BINARY: dockge
+
+tasks:
+  default:
+    desc: Show available tasks
+    silent: true
+    cmd: task --list
+
+  setup:
+    desc: Install all dependencies (first-time dev setup)
+    cmds:
+      - cd web && pnpm install
+      - cd e2e && pnpm install
+      - cd e2e && npx playwright install chromium
+
+  build:
+    desc: Build everything
+    deps: [build-web, build-go]
+
+  build-web:
+    desc: Build frontend (Vite → dist/)
+    dir: web
+    cmd: pnpm run build
+
+  build-go:
+    desc: Build Go backend
+    cmd: go build -o {{.BINARY}} .
+    sources:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+    generates:
+      - ./{{.BINARY}}
+
+  dev:
+    desc: Run Go backend + Vite HMR (ports 5001 + 5000)
+    deps: [build-go]
+    cmds:
+      - cmd: |
+          trap 'kill 0' EXIT
+          cd web && pnpm run dev &
+          ./{{.BINARY}} --dev --mock --port 5001 --data-dir test-data --stacks-dir test-data/stacks &
+          wait
+
+  dev-web:
+    desc: Run Vite dev server only (port 5000)
+    dir: web
+    cmd: pnpm run dev
+
+  dev-go:
+    desc: Run Go backend only in dev+mock mode (port 5001)
+    deps: [build-go]
+    cmd: ./{{.BINARY}} --dev --mock --port 5001 --data-dir test-data --stacks-dir test-data/stacks
+
+  kill:
+    desc: Kill any running dockge backend or Vite dev server
+    ignore_error: true
+    cmds:
+      - cmd: pkill -f './{{.BINARY}}' 2>/dev/null
+        ignore_error: true
+      - cmd: pkill -f 'node.*vite' 2>/dev/null
+        ignore_error: true
+
+  clean:
+    desc: Remove build artifacts
+    cmd: rm -rf dist {{.BINARY}}
+
+  lint:
+    desc: Lint frontend and Go code
+    cmds:
+      - cmd: pnpm run lint
+        dir: web
+      - go vet ./...
+
+  fmt:
+    desc: Format frontend and Go code
+    cmds:
+      - cmd: pnpm run fmt
+        dir: web
+      - gofmt -w .
+
+  test:
+    desc: Run all tests
+    deps: [test-go, test-e2e]
+
+  test-go:
+    desc: Run Go tests with race detector
+    cmd: go test -race ./...
+
+  test-e2e:
+    desc: Run Playwright E2E tests
+    deps: [build-web, build-go]
+    dir: e2e
+    cmd: pnpm test
+
+  docker:
+    desc: Build Docker image
+    cmd: docker buildx build -f docker/Dockerfile -t cfilipov/dockge:latest --target release .

@@ -12,7 +12,7 @@
 go.mod                           # Go module (github.com/cfilipov/dockge)
 main.go                          # Entry point, HTTP server, WebSocket upgrade
 embed.go                         # //go:embed all:dist
-Makefile                         # Build orchestration (run `make help`)
+Taskfile.yml                     # Build orchestration (run `task --list`)
 internal/
   config/                        # CLI flags and env var parsing
   db/                            # BoltDB wrapper
@@ -51,47 +51,60 @@ docker/Dockerfile                # Production multi-stage build
 
 - [Go](https://go.dev/dl/) 1.25+
 - [Node.js](https://nodejs.org/) 22+ and [pnpm](https://pnpm.io/)
-- [GNU Make](https://www.gnu.org/software/make/)
+- [Task](https://taskfile.dev/) (installed by `bootstrap.sh`, or see [manual install](#installing-task-manually))
 
-## Makefile targets
+## Getting started
 
-Run `make help` to see all targets. The important ones:
-
-| Target | Description |
-|--------|-------------|
-| `make setup` | Install all dependencies (first-time dev setup) |
-| `make build` | Build everything (frontend + Go binary) |
-| `make dev` | Run Go backend + Vite HMR concurrently |
-| `make test` | Run all tests (Go + E2E) |
-| `make lint` | Lint frontend (ESLint) and Go (`go vet`) |
-| `make fmt` | Format frontend and Go (`gofmt`) |
-| `make clean` | Remove build artifacts |
-| `make docker` | Build production Docker image |
-
-## Building
+### Linux / macOS
 
 ```bash
-make build
+./bootstrap.sh                   # Installs Task and runs setup (deps + Playwright)
+task dev                         # Go backend (5001) + Vite HMR (5000)
 ```
 
-This builds the frontend (`dist/`) and the Go binary (`dockge`). The binary is self-contained — in production it embeds the frontend via `embed.FS`.
+### Windows
 
-## Development
-
-### Quick start
-
-```bash
-make setup                       # Install all deps + Playwright (first time only)
-make dev                         # Go backend (5001) + Vite HMR (5000)
+```powershell
+go install github.com/go-task/task/v3/cmd/task@v3.45.3
+task setup                       # Install deps + Playwright
+task dev                         # Go backend (5001) + Vite HMR (5000)
 ```
 
 Ctrl+C stops both. Use port 5000 for development — Vite proxies `/ws` to the backend automatically.
 
 No real Docker daemon is needed. The `--mock` flag provides in-memory Docker state with four seeded stacks. Dev data (BoltDB) is stored in `test-data/`.
 
+## Task targets
+
+Run `task --list` to see all targets. The important ones:
+
+| Target | Description |
+|--------|-------------|
+| `task setup` | Install all dependencies (first-time dev setup) |
+| `task build` | Build everything (frontend + Go binary) |
+| `task dev` | Run Go backend + Vite HMR concurrently |
+| `task dev-go` | Run Go backend only (port 5001) |
+| `task dev-web` | Run Vite dev server only (port 5000) |
+| `task kill` | Kill any running backend or Vite processes |
+| `task test` | Run all tests (Go + E2E) |
+| `task lint` | Lint frontend (ESLint) and Go (`go vet`) |
+| `task fmt` | Format frontend and Go (`gofmt`) |
+| `task clean` | Remove build artifacts |
+| `task docker` | Build production Docker image |
+
+## Building
+
+```bash
+task build
+```
+
+This builds the frontend (`dist/`) and the Go binary (`dockge`). The binary is self-contained — in production it embeds the frontend via `embed.FS`.
+
+## Development
+
 ### CLI flags
 
-The Makefile targets handle these, but for reference:
+The task targets handle these, but for reference:
 
 | Flag | Default | Env var | Description |
 |------|---------|---------|-------------|
@@ -117,9 +130,9 @@ Located in `test-data/stacks/`:
 ## Running tests
 
 ```bash
-make test                        # All tests (Go + E2E)
-make test-go                     # Go tests with race detector
-make test-e2e                    # Playwright E2E tests (builds frontend + backend first)
+task test                        # All tests (Go + E2E)
+task test-go                     # Go tests with race detector
+task test-e2e                    # Playwright E2E tests (builds frontend + backend first)
 ```
 
 ### Visual regression screenshots
@@ -141,8 +154,8 @@ Place a `compose.yaml` in `test-data/stacks/<name>/`.
 
 ## Coding style
 
-- **Go**: `gofmt` (run `make fmt`)
-- **TypeScript/Vue**: 4 spaces, camelCase (run `make lint`)
+- **Go**: `gofmt` (run `task fmt`)
+- **TypeScript/Vue**: 4 spaces, camelCase (run `task lint`)
 - **CSS/SCSS**: kebab-case
 - **BoltDB keys**: snake_case
 
@@ -175,3 +188,30 @@ Add translatable strings to `web/src/lang/en.json`.
 - **Frontend**: `web/package.json`
 - **E2E tests**: `e2e/package.json`
 - **Go backend**: `go.mod` (project root)
+
+## Installing Task manually
+
+If you can't run `bootstrap.sh`, install [Task](https://taskfile.dev/) and run setup yourself:
+
+**With Go** (all platforms):
+```bash
+go install github.com/go-task/task/v3/cmd/task@v3.45.3
+task setup
+```
+
+**Linux/macOS** (install script):
+```bash
+sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
+task setup
+```
+
+**Windows** (Chocolatey, Scoop, or Winget):
+```powershell
+choco install go-task        # Chocolatey
+scoop install task           # Scoop
+winget install Task.Task     # Winget
+```
+
+Then run `task setup` to install dependencies.
+
+See the [official installation docs](https://taskfile.dev/docs/installation) for more options.

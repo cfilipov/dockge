@@ -3,10 +3,8 @@
         "golang.go",
         "vue.volar",
         "ms-playwright.playwright",
-        "ms-vscode.makefile-tools",
-        "carlos-algms.make-task-provider",
+        "task.vscode-task",
         "esbenp.prettier-vscode",
-        "svelte.svelte-vscode",
         "dbaeumer.vscode-eslint"
     ]
 }
