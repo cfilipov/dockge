@@ -2,7 +2,6 @@
  * Common utilities for backend and frontend
  */
 import yaml, { Document, Pair, Scalar } from "yaml";
-import { DotenvParseOutput } from "dotenv";
 
 // Init dayjs
 import dayjs from "dayjs";
@@ -26,21 +25,12 @@ export interface BaseRes {
     msg?: string;
 }
 
-let randomBytes : (numBytes: number) => Uint8Array;
-initRandomBytes();
-
-async function initRandomBytes() {
-    if (typeof window !== "undefined" && window.crypto) {
-        randomBytes = function randomBytes(numBytes: number) {
-            const bytes = new Uint8Array(numBytes);
-            for (let i = 0; i < numBytes; i += 65536) {
-                window.crypto.getRandomValues(bytes.subarray(i, i + Math.min(numBytes - i, 65536)));
-            }
-            return bytes;
-        };
-    } else {
-        randomBytes = (await import("node:crypto")).randomBytes;
+function randomBytes(numBytes: number): Uint8Array {
+    const bytes = new Uint8Array(numBytes);
+    for (let i = 0; i < numBytes; i += 65536) {
+        crypto.getRandomValues(bytes.subarray(i, i + Math.min(numBytes - i, 65536)));
     }
+    return bytes;
 }
 
 export const ALL_ENDPOINTS = "##ALL_DOCKGE_ENDPOINTS##";
@@ -563,6 +553,36 @@ export function parseDockerPort(input : string | number | Record<string, unknown
     };
 }
 
+/**
+ * Parse a .env file string into key-value pairs.
+ * Handles comments, empty lines, quoted values, and export prefix.
+ */
+export function parseEnv(src: string): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const line of src.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+
+        // Strip optional "export " prefix
+        const assign = trimmed.startsWith("export ") ? trimmed.slice(7) : trimmed;
+        const eq = assign.indexOf("=");
+        if (eq === -1) continue;
+
+        const key = assign.substring(0, eq).trim();
+        let value = assign.substring(eq + 1).trim();
+
+        // Remove surrounding quotes (single, double, or backtick)
+        if (value.length >= 2) {
+            const q = value[0];
+            if ((q === '"' || q === "'" || q === "`") && value.endsWith(q)) {
+                value = value.slice(1, -1);
+            }
+        }
+        result[key] = value;
+    }
+    return result;
+}
+
 export function envsubst(string : string, variables : LooseObject) : string {
     return replaceVariablesSync(string, variables)[0];
 }
@@ -574,7 +594,7 @@ export function envsubst(string : string, variables : LooseObject) : string {
  * @param env Environment variables
  * @returns string Yaml string with environment variables replaced
  */
-export function envsubstYAML(content : string, env : DotenvParseOutput) : string {
+export function envsubstYAML(content : string, env : Record<string, string>) : string {
     const doc = yaml.parseDocument(content);
     if (doc.contents) {
         // @ts-ignore
@@ -590,7 +610,7 @@ export function envsubstYAML(content : string, env : DotenvParseOutput) : string
  * @param pair
  * @param env
  */
-function traverseYAML(pair : Pair, env : DotenvParseOutput) : void {
+function traverseYAML(pair : Pair, env : Record<string, string>) : void {
     // @ts-ignore
     if (pair.value && pair.value.items) {
         // @ts-ignore

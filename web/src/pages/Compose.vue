@@ -403,7 +403,7 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import {
     COMBINED_TERMINAL_COLS,
     COMBINED_TERMINAL_ROWS,
-    copyYAMLComments, envsubstYAML,
+    copyYAMLComments, envsubstYAML, parseEnv,
     getCombinedTerminalName,
     getComposeTerminalName,
     PROGRESS_TERMINAL_ROWS,
@@ -412,7 +412,6 @@ import { BModal } from "bootstrap-vue-next";
 import { LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../common/compose-labels";
 import NetworkInput from "../components/NetworkInput.vue";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
-import dotenv from "dotenv";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
 
@@ -915,7 +914,7 @@ function yamlCodeChange() {
         Object.keys(jsonConfig).forEach(key => delete jsonConfig[key]);
         Object.assign(jsonConfig, config);
 
-        const env = dotenv.parse(stack.composeENV);
+        const env = parseEnv(stack.composeENV);
         const envYAMLStr = envsubstYAML(stack.composeYAML, env);
         const envConfig = yamlToJSON(envYAMLStr).config;
         Object.keys(envsubstJSONConfig).forEach(key => delete envsubstJSONConfig[key]);

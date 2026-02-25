@@ -15,7 +15,6 @@
         "@inventage/envsubst": "^0.16.0",
         "compare-versions": "~6.1.1",
         "dayjs": "~1.11.13",
-        "dotenv": "~16.3.2",
         "jwt-decode": "~3.1.2",
         "timezones-list": "~3.0.3",
         "yaml": "~2.3.4"

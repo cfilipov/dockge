@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Document, parseDocument } from "yaml";
-import dotenv from "dotenv";
-import { envsubstYAML, copyYAMLComments } from "./util-common";
+import { envsubstYAML, copyYAMLComments, parseEnv } from "./util-common";
 
 function convertToBoolean(value: any, fallbackVal: boolean | undefined = undefined): boolean | undefined {
     if (value === true || value === "true") {
@@ -30,7 +29,7 @@ export class ComposeDocument {
     constructor(composeYAML?: string, composeENV?: string) {
         if (composeYAML) {
             const mainDoc = this.parseYAML(composeYAML);
-            const envsubstData = composeENV ? this.parseYAML(envsubstYAML(composeYAML, dotenv.parse(composeENV))).data : mainDoc.data;
+            const envsubstData = composeENV ? this.parseYAML(envsubstYAML(composeYAML, parseEnv(composeENV))).data : mainDoc.data;
 
             this.doc = mainDoc.doc;
             this.composeData = {
