@@ -319,6 +319,10 @@ optgroup {
         color: $dark-font-color;
     }
 
+    .nav-pills .nav-link {
+        transition: none;
+    }
+
     .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
         color: $dark-font-color2;
         background: $primary-gradient;
