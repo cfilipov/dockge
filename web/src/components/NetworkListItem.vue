@@ -37,6 +37,8 @@ const badgeLabel = computed(() => inUse.value ? t("networkInUse") : t("networkUn
     width: 100%;
     padding: 5px 8px;
     margin: 3px 0;
+    overflow: hidden;
+    min-width: 0;
     &:hover {
         background-color: $highlight-white;
     }
@@ -48,6 +50,9 @@ const badgeLabel = computed(() => inUse.value ? t("networkInUse") : t("networkUn
     }
     .title {
         margin-top: -4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
 
