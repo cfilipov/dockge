@@ -161,7 +161,7 @@ optgroup {
     margin-left: 1px !important;
 }
 
-.btn-group {
+.btn-group[role="group"] {
     gap: 1px;
     background: white;
 
