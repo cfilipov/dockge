@@ -542,7 +542,7 @@ func runBanner(service string, startedAt time.Time, maxLen int) string {
     }
     ts := startedAt.Local().Format("15:04:05")
     // Bold + true-color RGB 199,166,255 (#c7a6ff — matches UI $info purple)
-    return fmt.Sprintf("\033[1;38;2;199;166;255m %-*s \u25B6 CONTAINER START \u2014 %s (%s) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\033[0m\n",
+    return fmt.Sprintf("\033[1;38;2;199;166;255m %-*s \u25B6 CONTAINER START \u2014 %s (%s)\033[0m\n",
         maxLen, "", service, ts)
 }
 
@@ -615,13 +615,13 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
         }
     }
 
-    // Spawn initial readers with banners
+    // Spawn initial readers with banners (tail=100 for history)
     for _, c := range containers {
         injectBanner(c.ID, c.Service)
         activeReaders.Store(c.ID, struct{}{})
         go func(id, svc string, idx int) {
             defer activeReaders.Delete(id)
-            app.readContainerLogs(ctx, id, svc, maxLen, idx, lineCh)
+            app.readContainerLogs(ctx, id, svc, maxLen, idx, "100", lineCh)
         }(c.ID, c.Service, colorMap[c.Service])
     }
 
@@ -629,6 +629,8 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
     // - Always inject a banner (marks the restart boundary in the log stream)
     // - Only spawn a new reader if this container ID doesn't already have one
     //   (handles recreate where the old container is destroyed and a new one starts)
+    // Event-spawned readers use tail="0" to avoid re-fetching historical lines
+    // that the previous reader already streamed.
     eventCh, _ := app.Docker.Events(ctx)
     go func() {
         for {
@@ -653,7 +655,7 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
                 if _, loaded := activeReaders.LoadOrStore(evt.ContainerID, struct{}{}); !loaded {
                     go func(id, svc string, ci int) {
                         defer activeReaders.Delete(id)
-                        app.readContainerLogs(ctx, id, svc, maxLen, ci, lineCh)
+                        app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", lineCh)
                     }(evt.ContainerID, evt.Service, idx)
                 }
             case <-ctx.Done():
@@ -668,9 +670,10 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
 
 // readContainerLogs streams logs for a single container, prefixing each line
 // with a colored service name. Runs until the stream closes or ctx is cancelled.
-// Banners are injected by the caller, not here.
-func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, lineCh chan<- []byte) {
-    stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
+// Banners are injected by the caller, not here. Use tail="100" for initial
+// readers (show history) and tail="0" for event-spawned readers (follow only).
+func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, tail string, lineCh chan<- []byte) {
+    stream, _, err := app.Docker.ContainerLogs(ctx, containerID, tail, true)
     if err != nil {
         if ctx.Err() == nil {
             slog.Warn("combined logs: container stream", "err", err, "container", containerID)
