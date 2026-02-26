@@ -562,7 +562,8 @@ func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal
 }
 
 // runCombinedLogs orchestrates per-container log readers and a batched flusher.
-// It blocks until ctx is cancelled or all readers finish.
+// It subscribes to Docker events to spawn new readers when containers (re)start,
+// and blocks until ctx is cancelled.
 func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, stackName string) {
     containers, err := app.Docker.ContainerList(ctx, true, stackName)
     if err != nil {
@@ -585,30 +586,55 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
         }
     }
 
-    lineCh := make(chan []byte, 256)
-    var wg sync.WaitGroup
-
+    // Assign stable color indices per service
+    colorMap := make(map[string]int, len(containers))
     for i, c := range containers {
-        wg.Add(1)
-        go app.readContainerLogs(ctx, c.ID, c.Service, maxLen, i, lineCh, &wg)
+        colorMap[c.Service] = i
     }
 
-    // Close channel when all readers finish
+    lineCh := make(chan []byte, 256)
+
+    // Spawn initial readers
+    for _, c := range containers {
+        go app.readContainerLogs(ctx, c.ID, c.Service, maxLen, colorMap[c.Service], lineCh)
+    }
+
+    // Watch for container start events → spawn new readers for restarts
+    // and newly added services.
+    eventCh, _ := app.Docker.Events(ctx)
     go func() {
-        wg.Wait()
-        close(lineCh)
+        for {
+            select {
+            case evt, ok := <-eventCh:
+                if !ok {
+                    return
+                }
+                if evt.Project != stackName || evt.Action != "start" {
+                    continue
+                }
+                idx, known := colorMap[evt.Service]
+                if !known {
+                    idx = len(colorMap)
+                    colorMap[evt.Service] = idx
+                    if len(evt.Service) > maxLen {
+                        maxLen = len(evt.Service)
+                    }
+                }
+                go app.readContainerLogs(ctx, evt.ContainerID, evt.Service, maxLen, idx, lineCh)
+            case <-ctx.Done():
+                return
+            }
+        }
     }()
 
-    // Run flusher on this goroutine (blocks until done)
+    // Flusher blocks until ctx is cancelled
     flushLogLines(ctx, term, lineCh)
 }
 
 // readContainerLogs streams logs for a single container, prefixes each line
-// with a colored service name, and sends it to lineCh. Optionally emits a
-// bold run-boundary banner before the first log line.
-func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, lineCh chan<- []byte, wg *sync.WaitGroup) {
-    defer wg.Done()
-
+// with a colored service name, and sends it to lineCh. Emits a bold
+// run-boundary banner if the container's start time is available.
+func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, lineCh chan<- []byte) {
     // Emit run boundary banner (skipped when startedAt is zero, e.g. mock mode)
     startedAt, err := app.Docker.ContainerStartedAt(ctx, containerID)
     if err == nil {
