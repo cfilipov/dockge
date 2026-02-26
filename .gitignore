@@ -11,6 +11,8 @@ tmp
 /dist
 /dockge
 test-data/bin/
+test-data/e2e-data/
+test-data/e2e-stacks/
 
 # Dev artifacts
 .task/
@@ -21,6 +23,7 @@ CLAUDE.md
 PLAN.md
 
 # Playwright E2E test artifacts (golden screenshots ARE committed)
+.auth/
 e2e/.auth/
 e2e/test-results/
 e2e/playwright-report/
