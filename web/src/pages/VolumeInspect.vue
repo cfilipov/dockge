@@ -11,15 +11,13 @@
                         <div v-if="volumeDetail && volumeDetail.containers && volumeDetail.containers.length > 0">
                             <div v-for="c in volumeDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
                                 <h5 class="mb-3">
-                                    <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link"><font-awesome-icon icon="cubes" class="me-2" />{{ c.name }}</router-link>
+                                    <span class="badge rounded-pill me-2" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
+                                    <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link">{{ c.name }}</router-link>
                                 </h5>
-                                <div class="inspect-grid">
-                                    <div class="inspect-label">{{ $t("containerID") }}</div>
-                                    <div class="inspect-value"><code :title="c.containerId">{{ c.containerId.substring(0, 12) }}</code></div>
-
-                                    <div class="inspect-label">{{ $t("status") }}</div>
-                                    <div class="inspect-value">
-                                        <span class="badge rounded-pill" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
+                                <div class="network-props">
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("containerID") }}</span>
+                                        <code :title="c.containerId">{{ c.containerId.substring(0, 12) }}</code>
                                     </div>
                                 </div>
                             </div>
@@ -153,29 +151,37 @@ onMounted(() => {
 <style scoped lang="scss">
 @import "../styles/vars.scss";
 
-.inspect-grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.6rem 1.5rem;
-    align-items: baseline;
+.network-props {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
-.inspect-label {
-    font-weight: 600;
-    white-space: nowrap;
-    color: $dark-font-color3;
+.network-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    padding: 0.3rem 0.6rem;
 
     .dark & {
-        color: $dark-font-color3;
+        background: $dark-header-bg;
     }
-}
 
-.inspect-value {
-    word-break: break-all;
+    .chip-label {
+        font-size: 0.8em;
+        font-weight: 600;
+        color: $dark-font-color3;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
 
     code {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9em;
+        font-size: 0.85em;
+        color: $primary;
+        background: none;
     }
 }
 

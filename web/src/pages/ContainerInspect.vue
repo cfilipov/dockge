@@ -147,29 +147,33 @@
                         <div v-if="networks.length > 0">
                             <div v-for="net in networks" :key="net.name" class="shadow-box big-padding mb-3">
                                 <h5 class="mb-3">
-                                    <router-link :to="{ name: 'networkDetail', params: { networkName: net.name } }" class="stack-link"><font-awesome-icon icon="network-wired" class="me-2" />{{ net.name }}</router-link>
+                                    <span class="badge rounded-pill bg-success me-2">{{ $t("networkInUse") }}</span>
+                                    <router-link :to="{ name: 'networkDetail', params: { networkName: net.name } }" class="stack-link">{{ net.name }}</router-link>
                                 </h5>
-                                <div class="inspect-grid">
-                                    <div class="inspect-label">{{ $t("networkIPv4") }}</div>
-                                    <div class="inspect-value"><code>{{ net.ipv4 || '–' }}</code></div>
-
-                                    <div class="inspect-label">{{ $t("networkIPv6") }}</div>
-                                    <div class="inspect-value"><code>{{ net.ipv6 || '–' }}</code></div>
-
-                                    <div class="inspect-label">{{ $t("networkMAC") }}</div>
-                                    <div class="inspect-value"><code>{{ net.mac || '–' }}</code></div>
-
-                                    <div class="inspect-label">{{ $t("networkGateway") }}</div>
-                                    <div class="inspect-value"><code>{{ net.gateway || '–' }}</code></div>
-
-                                    <template v-if="net.aliases && net.aliases.length > 0">
-                                        <div class="inspect-label">{{ $t("networkAliases") }}</div>
-                                        <div class="inspect-value">
-                                            <template v-for="(alias, i) in net.aliases" :key="i">
-                                                <code>{{ alias }}</code><template v-if="i < net.aliases.length - 1">, </template>
-                                            </template>
-                                        </div>
-                                    </template>
+                                <div class="network-props">
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("networkIPv4") }}</span>
+                                        <code>{{ net.ipv4 || '–' }}</code>
+                                    </div>
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("networkIPv6") }}</span>
+                                        <code>{{ net.ipv6 || '–' }}</code>
+                                    </div>
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("networkMAC") }}</span>
+                                        <code>{{ net.mac || '–' }}</code>
+                                    </div>
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("networkGateway") }}</span>
+                                        <code>{{ net.gateway || '–' }}</code>
+                                    </div>
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("networkAliases") }}</span>
+                                        <span v-if="net.aliases && net.aliases.length > 0">
+                                            <template v-for="(alias, i) in net.aliases" :key="i"><code>{{ alias }}</code><span v-if="i < net.aliases.length - 1" class="chip-sep">, </span></template>
+                                        </span>
+                                        <code v-else>–</code>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -694,6 +698,44 @@ onUnmounted(() => {
     code {
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.9em;
+    }
+}
+
+.network-props {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.network-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    padding: 0.3rem 0.6rem;
+
+    .dark & {
+        background: $dark-header-bg;
+    }
+
+    .chip-label {
+        font-size: 0.8em;
+        font-weight: 600;
+        color: $dark-font-color3;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    code {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85em;
+        color: $primary;
+        background: none;
+    }
+
+    .chip-sep {
+        color: $dark-font-color3;
     }
 }
 
