@@ -32,6 +32,7 @@ const app = createApp(App);
 app.use(Toast, {
     position: POSITION.BOTTOM_RIGHT,
     showCloseButtonOnHover: true,
+    closeOnClick: false,
 });
 app.use(router);
 app.use(i18n);
