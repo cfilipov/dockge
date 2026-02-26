@@ -541,8 +541,8 @@ func runBanner(service string, startedAt time.Time) string {
         return ""
     }
     ts := startedAt.Local().Format("15:04:05")
-    // Bold + true-color RGB 199,166,255 (#c7a6ff — matches UI $info purple)
-    return fmt.Sprintf("\n\033[1;38;2;199;166;255m\u25B6 CONTAINER START \u2014 %s (%s)\033[0m\n\n",
+    // Bold, black text (38;2;0;0;0) on purple background (48;2;199;166;255) — #c7a6ff
+    return fmt.Sprintf("\n\033[1;38;2;0;0;0;48;2;199;166;255m \u25B6 CONTAINER START \u2014 %s (%s) \033[0m\n\n",
         service, ts)
 }
 
