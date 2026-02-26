@@ -180,6 +180,7 @@
                                     @stop-service="stopService"
                                     @restart-service="restartService"
                                     @update-service="updateService"
+                                    @scroll-to-service="scrollToService"
                                 />
                             </template>
                         </div>
@@ -428,6 +429,7 @@ const { toastRes, toastError } = useAppToast();
 let skipConfigSync = false;
 
 // CodeMirror setup
+const editorInline = ref<InstanceType<typeof CodeMirror>>();
 const editorFocus = ref(false);
 
 const focusEffectHandler = (state: any, focusing: boolean) => {
@@ -1043,6 +1045,29 @@ function restartService(serviceName: string) {
             requestServiceStatus();
         }
     });
+}
+
+function scrollToService(serviceName: string) {
+    const view = editorInline.value?.view;
+    if (!view) return;
+
+    // Find the service name as a top-level key under "services:" in the YAML
+    const doc = view.state.doc;
+    const pattern = new RegExp(`^  ${serviceName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:`);
+    for (let i = 1; i <= doc.lines; i++) {
+        const line = doc.line(i);
+        if (pattern.test(line.text)) {
+            // Select the service name within the line
+            const nameStart = line.from + line.text.indexOf(serviceName);
+            const nameEnd = nameStart + serviceName.length;
+            view.dispatch({
+                selection: { anchor: nameStart, head: nameEnd },
+                effects: EditorView.scrollIntoView(nameStart, { y: "center" }),
+            });
+            view.focus();
+            return;
+        }
+    }
 }
 
 function checkImageUpdates() {

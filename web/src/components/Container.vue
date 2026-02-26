@@ -37,7 +37,7 @@
 
         <!-- Container, image, ports chips -->
         <div v-if="!isEditMode" class="network-props">
-            <div class="network-chip">
+            <div class="network-chip chip-link" @click="emit('scroll-to-service', name)">
                 <span class="chip-label">{{ $t("service") }}</span>
                 <code>{{ name }}</code>
             </div>
@@ -270,6 +270,7 @@ const emit = defineEmits<{
     (e: "stop-service", name: string): void;
     (e: "restart-service", name: string): void;
     (e: "update-service", name: string): void;
+    (e: "scroll-to-service", name: string): void;
 }>();
 
 const showConfig = ref(false);
@@ -555,6 +556,7 @@ function updateUrl(key: string, value: string) {
 
     .chip-link {
         text-decoration: none;
+        cursor: pointer;
 
         &:hover {
             text-decoration: none;
