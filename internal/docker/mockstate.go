@@ -52,6 +52,7 @@ func defaultDevStateMap() map[string]string {
 	m["07-full-features"] = "running"
 	m["08-env-config"] = "inactive"
 	m["09-mega-stack"] = "running"
+	m["10-unmanaged"] = "running"
 	m["test-stack"] = "running"
 
 	// Filler stacks: 60% running, 20% exited, 20% inactive

@@ -331,6 +331,56 @@ func (fd *FakeDaemon) buildContainerList(all bool, projectFilter string) []conta
 		}
 	}
 
+	// External stacks (unmanaged — no compose file in stacks dir)
+	for stackName, services := range fd.data.externalStacks {
+		if projectFilter != "" && stackName != projectFilter {
+			continue
+		}
+
+		status := fd.state.Get(stackName)
+		if status == "inactive" {
+			continue
+		}
+
+		for _, svc := range services {
+			svcState := fd.state.GetService(stackName, svc)
+			if svcState == "" {
+				svcState = fd.data.GetServiceState(stackName, svc, status)
+			}
+			if !all && svcState != "running" {
+				continue
+			}
+
+			image := fd.data.GetRunningImage(stackName, svc)
+			containerID := fmt.Sprintf("mock-%s-%s-1", stackName, svc)
+			containerName := fmt.Sprintf("%s-%s-1", stackName, svc)
+			imageHash := mockHash(image)
+			imageID := fmt.Sprintf("sha256:%s%s", imageHash, imageHash)
+
+			health := fd.data.GetServiceHealth(stackName, svc)
+			statusStr := buildStatusString(svcState, health)
+
+			labels := map[string]string{
+				"com.docker.compose.project": stackName,
+				"com.docker.compose.service": svc,
+			}
+
+			result = append(result, containerJSON{
+				ID:      containerID,
+				Names:   []string{"/" + containerName},
+				Image:   image,
+				ImageID: imageID,
+				Command: "/docker-entrypoint.sh",
+				Created: time.Date(2026, 2, 18, 0, 0, 0, 0, time.UTC).Unix(),
+				State:   svcState,
+				Status:  statusStr,
+				Labels:  labels,
+				Mounts:  fd.buildMounts(stackName, svc),
+				NetworkSettings: &networkSettingsJSON{Networks: fd.buildEndpoints(stackName, svc, containerID)},
+			})
+		}
+	}
+
 	// Standalone containers
 	if projectFilter == "" {
 		for _, s := range fd.data.standalones {

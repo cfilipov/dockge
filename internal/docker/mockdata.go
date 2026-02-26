@@ -33,6 +33,9 @@ type MockData struct {
 
 	// Standalone containers (not part of any compose project)
 	standalones []standaloneContainer
+
+	// External stacks (have Docker containers but no compose file in stacks dir)
+	externalStacks map[string][]string // stackName → service names
 }
 
 type imageMeta struct {
@@ -149,6 +152,16 @@ func BuildMockData(stacksDir string) *MockData {
 	for _, s := range d.standalones {
 		d.addImage(s.image)
 	}
+
+	// External stacks: exist in Docker but not in stacks dir (unmanaged)
+	d.externalStacks = map[string][]string{
+		"10-unmanaged": {"web", "cache"},
+	}
+	d.serviceImages["10-unmanaged/web"] = "nginx:1.25"
+	d.serviceImages["10-unmanaged/cache"] = "redis:7-alpine"
+	d.servicePorts["10-unmanaged/web"] = []string{"8080:80", "8443:443"}
+	d.addImage("nginx:1.25")
+	d.addImage("redis:7-alpine")
 
 	entries, err := os.ReadDir(stacksDir)
 	if err != nil {

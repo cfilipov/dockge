@@ -201,6 +201,7 @@
     "checkUpdates": "Check Updates",
     "tooltipCheckUpdates": "Check registries for newer images",
     "imageUpdatesAvailable": "update",
+    "unmanaged": "unmanaged",
     "updates": "updates",
     "imageUpdate": "Image Update | Image Updates",
     "image": "Image | Images",

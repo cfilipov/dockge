@@ -132,7 +132,11 @@ const agentStackList = computed(() => {
         if (stackFilter.attributes.isFilterSelected()) {
             attributeMatch = false;
             for (const attribute of stackFilter.attributes.selected) {
-                if (stack[attribute] === true) {
+                if (attribute === "unmanaged") {
+                    if (!stack.isManagedByDockge) {
+                        attributeMatch = true;
+                    }
+                } else if (stack[attribute] === true) {
                     attributeMatch = true;
                 }
             }
@@ -215,7 +219,10 @@ function updateFilterOptions(stacks: any[]) {
     }
 
     // Attribute filter options
-    stackFilter.attributes.options = { imageUpdatesAvailable: "imageUpdatesAvailable" };
+    stackFilter.attributes.options = {
+        imageUpdatesAvailable: "imageUpdatesAvailable",
+        unmanaged: "unmanaged",
+    };
 }
 
 function clearSearchText() {

@@ -124,7 +124,12 @@
                 :rows="progressTerminalRows"
             />
 
-            <div v-if="stack.isManagedByDockge" class="row">
+            <div v-if="!stack.isManagedByDockge && !processing" class="unmanaged-banner mb-3">
+                <font-awesome-icon icon="info-circle" class="me-1" />
+                {{ $t("stackNotManagedByDockgeMsg") }}
+            </div>
+
+            <div v-if="stack.isManagedByDockge !== undefined || isAdd" class="row">
                 <div class="col-lg-6">
                     <!-- General -->
                     <div v-if="isAdd">
@@ -153,7 +158,7 @@
                     <CollapsibleSection>
                         <template #heading>{{ $tc("container", 2) }} <span class="section-count">({{ Object.keys(jsonConfig.services || {}).length }})</span></template>
 
-                        <div v-if="isEditMode" class="input-group mb-3">
+                        <div v-if="isEditMode && stack.isManagedByDockge" class="input-group mb-3">
                             <input
                                 v-model="newContainerName"
                                 :placeholder="$t(`New Container Name...`)"
@@ -202,7 +207,7 @@
                         ></Terminal>
                     </div>
                 </div>
-                <div class="col-lg-6">
+                <div v-if="stack.isManagedByDockge" class="col-lg-6">
                     <!-- Override YAML editor (only show if file exists) -->
                     <div v-if="stack.composeOverrideYAML && stack.composeOverrideYAML.trim() !== ''">
                     <h4 class="mb-3">{{ stack.composeOverrideFileName || 'compose.override.yaml' }}</h4>
@@ -370,9 +375,6 @@ scrollable size="fullscreen" hide-footer>
                 </div>
             </div>
 
-            <div v-if="!stack.isManagedByDockge && !processing">
-                {{ $t("stackNotManagedByDockgeMsg") }}
-            </div>
 
             <!-- Delete Dialog -->
             <BModal v-model="showDeleteDialog" :cancelTitle="$t('cancel')" :okTitle="$t('deleteStack')" okVariant="danger" @ok="deleteDialog">
@@ -714,6 +716,19 @@ function requestServiceStatus() {
             serviceUpdateStatus.value = res.serviceUpdateStatus || {};
             serviceRecreateStatus.value = res.serviceRecreateStatus || {};
             stack.imageUpdatesAvailable = Object.values(serviceUpdateStatus.value).some((v: any) => v === true);
+
+            // For unmanaged stacks, synthesize services from Docker status
+            // so container cards render even without a compose file
+            if (!stack.isManagedByDockge && (!jsonConfig.services || Object.keys(jsonConfig.services).length === 0)) {
+                const synth: Record<string, any> = {};
+                for (const svcName of Object.keys(res.serviceStatusList)) {
+                    synth[svcName] = {};
+                }
+                skipConfigSync = true;
+                Object.keys(jsonConfig).forEach(key => delete jsonConfig[key]);
+                Object.assign(jsonConfig, { services: synth });
+                nextTick(() => { skipConfigSync = false; });
+            }
         }
         if (!stopServiceStatusTimeout.value) {
             startServiceStatusTimeout();
@@ -1192,6 +1207,11 @@ onUnmounted(() => {
 .agent-name {
     font-size: 13px;
     color: $dark-font-color3;
+}
+
+.unmanaged-banner {
+    color: $warning;
+    font-size: 14px;
 }
 
 .btn-check:active + .btn-outline-primary,
