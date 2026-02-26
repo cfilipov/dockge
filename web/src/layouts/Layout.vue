@@ -192,42 +192,42 @@ const currentTab = computed(() => {
 // The currently selected container name (shared across containers/logs/shell tabs)
 const selectedContainer = computed(() => (route.params.containerName as string) || "");
 
-// Tab links: carry the selected container to the other tab, or go home if clicking the same tab
+// Tab links: prefer last remembered item, fall back to smart guess from current context
 const containersTabLink = computed(() => {
     if (currentTab.value === "containers") return "/containers";
+    if (lastContainer.value && containerExists(lastContainer.value)) {
+        return { name: "containerDetail", params: { containerName: lastContainer.value } };
+    }
     if (selectedContainer.value) return { name: "containerDetail", params: { containerName: selectedContainer.value } };
     if (selectedStack.value) {
         const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
         if (c) return { name: "containerDetail", params: { containerName: c.name } };
-    }
-    if (lastContainer.value && containerExists(lastContainer.value)) {
-        return { name: "containerDetail", params: { containerName: lastContainer.value } };
     }
     return "/containers";
 });
 
 const logsTabLink = computed(() => {
     if (currentTab.value === "logs") return "/logs";
+    if (lastContainer.value && containerExists(lastContainer.value)) {
+        return { name: "containerLogs", params: { containerName: lastContainer.value } };
+    }
     if (selectedContainer.value) return { name: "containerLogs", params: { containerName: selectedContainer.value } };
     if (selectedStack.value) {
         const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
         if (c) return { name: "containerLogs", params: { containerName: c.name } };
-    }
-    if (lastContainer.value && containerExists(lastContainer.value)) {
-        return { name: "containerLogs", params: { containerName: lastContainer.value } };
     }
     return "/logs";
 });
 
 const shellTabLink = computed(() => {
     if (currentTab.value === "shell") return "/shell";
+    if (lastContainer.value && containerExists(lastContainer.value)) {
+        return { name: "containerShell", params: { containerName: lastContainer.value, type: "bash" } };
+    }
     if (selectedContainer.value) return { name: "containerShell", params: { containerName: selectedContainer.value, type: "bash" } };
     if (selectedStack.value) {
         const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
         if (c) return { name: "containerShell", params: { containerName: c.name, type: "bash" } };
-    }
-    if (lastContainer.value && containerExists(lastContainer.value)) {
-        return { name: "containerShell", params: { containerName: lastContainer.value, type: "bash" } };
     }
     return "/shell";
 });
@@ -238,24 +238,24 @@ const selectedStack = computed(() => (route.params.stackName as string) || "");
 // Stack tab link: carry the selected stack, or go home if clicking the same tab
 const stacksTabLink = computed(() => {
     if (route.path.startsWith("/stacks")) return "/stacks";
+    if (lastStack.value && stackExists(lastStack.value)) {
+        return `/stacks/${lastStack.value}`;
+    }
     if (selectedContainer.value) {
         const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
         if (c?.stackName) return `/stacks/${c.stackName}`;
-    }
-    if (lastStack.value && stackExists(lastStack.value)) {
-        return `/stacks/${lastStack.value}`;
     }
     return "/stacks";
 });
 
 const imagesTabLink = computed(() => {
     if (route.path.startsWith("/images")) return "/images";
+    if (lastImage.value) {
+        return { name: "imageDetail", params: { imageRef: lastImage.value } };
+    }
     if (selectedContainer.value) {
         const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
         if (c?.image) return { name: "imageDetail", params: { imageRef: c.image } };
-    }
-    if (lastImage.value) {
-        return { name: "imageDetail", params: { imageRef: lastImage.value } };
     }
     return "/images";
 });
