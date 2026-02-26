@@ -88,10 +88,7 @@ const statusLabel = computed(() => t(statusInfo.value.label));
 }
 
 .badge {
-    min-width: 75px;
-    width: 75px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .dim {

@@ -1,6 +1,6 @@
 <template>
     <router-link :to="url" :class="{ 'dim' : !stack.isManagedByDockge }" class="item">
-        <Uptime :stack="stack" :fixed-width="true" class="me-2" />
+        <Uptime :stack="stack" class="me-2" />
         <div class="title">
             <span class="me-2">{{ stackName }}</span>
             <font-awesome-icon v-if="stack.started && stack.recreateNecessary" icon="rocket" class="notification-icon me-2" :title="$t('tooltipIconRecreate')" />

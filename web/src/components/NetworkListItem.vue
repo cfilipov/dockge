@@ -57,9 +57,6 @@ const badgeLabel = computed(() => inUse.value ? t("networkInUse") : t("networkUn
 }
 
 .badge {
-    min-width: 62px;
-    width: 62px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 </style>

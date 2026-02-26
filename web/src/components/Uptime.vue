@@ -11,31 +11,17 @@ const { t } = useI18n();
 
 const props = defineProps<{
     stack: Record<string, any> | null;
-    fixedWidth?: boolean;
 }>();
 
 const statusInfo = computed(() => StackStatusInfo.get(props.stack?.status));
 const color = computed(() => statusInfo.value.badgeColor);
 const statusName = computed(() => t(statusInfo.value.label));
 
-const className = computed(() => {
-    let cls = `badge rounded-pill bg-${color.value}`;
-    if (props.fixedWidth) {
-        cls += " fixed-width";
-    }
-    return cls;
-});
+const className = computed(() => `badge rounded-pill bg-${color.value}`);
 </script>
 
 <style scoped>
 .badge {
-    min-width: 62px;
-
-}
-
-.fixed-width {
-    width: 62px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 </style>
