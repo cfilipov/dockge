@@ -373,7 +373,7 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import CodeMirror from "vue-codemirror6";
 import { yaml as yamlLang } from "@codemirror/lang-yaml";
-import { tomorrowNightEighties as editorTheme } from "../editor-theme";
+import { tomorrowNightEighties, tomorrowLight } from "../editor-theme";
 import { lineNumbers } from "@codemirror/view";
 import yamlLib from "yaml";
 import dayjs from "dayjs";
@@ -419,11 +419,11 @@ let statsTimer: ReturnType<typeof setInterval> | null = null;
 // Process list from containerTop
 const processList = ref<Array<{ pid: string; user: string; command: string }>>([]);
 
-const extensionsYAML = [
-    editorTheme,
+const extensionsYAML = computed(() => [
+    isDark.value ? tomorrowNightEighties : tomorrowLight,
     yamlLang(),
     lineNumbers(),
-];
+]);
 
 const endpoint = computed(() => (route.params.endpoint as string) || "");
 const containerName = computed(() => route.params.containerName as string || "");

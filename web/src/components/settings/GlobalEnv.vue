@@ -29,10 +29,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, type Ref } from "vue";
+import { ref, computed, inject, type Ref } from "vue";
 import CodeMirror from "vue-codemirror6";
 import { python } from "@codemirror/lang-python";
-import { tomorrowNightEighties as editorTheme } from "../../editor-theme";
+import { tomorrowNightEighties, tomorrowLight } from "../../editor-theme";
 import { lineNumbers, EditorView } from "@codemirror/view";
 import { useTheme } from "../../composables/useTheme";
 
@@ -49,12 +49,12 @@ const focusEffectHandler = (state: any, focusing: boolean) => {
     return null;
 };
 
-const extensionsEnv = [
-    editorTheme,
+const extensionsEnv = computed(() => [
+    isDark.value ? tomorrowNightEighties : tomorrowLight,
     python(),
     lineNumbers(),
     EditorView.focusChangeEffect.of(focusEffectHandler),
-];
+]);
 
 function saveGeneral() {
     saveSettings();

@@ -78,3 +78,76 @@ const highlightStyle = HighlightStyle.define([
 ]);
 
 export const tomorrowNightEighties = [theme, syntaxHighlighting(highlightStyle)];
+
+// --- Light theme (Tomorrow / VS Code inspired) ---
+
+const lightTheme = EditorView.theme({
+    "&": {
+        backgroundColor: "#ffffff",
+        color: "#1e1e1e",
+    },
+    ".cm-content": {
+        caretColor: "#1e1e1e",
+    },
+    ".cm-cursor, .cm-dropCursor": {
+        borderLeftColor: "#1e1e1e",
+    },
+    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+        backgroundColor: "#add6ff",
+    },
+    ".cm-activeLine": {
+        backgroundColor: "#f0f4f8",
+    },
+    ".cm-gutters": {
+        backgroundColor: "#ffffff",
+        color: "#999999",
+    },
+    ".cm-activeLineGutter": {
+        backgroundColor: "#f0f4f8",
+    },
+}, { dark: false });
+
+const lightHighlightStyle = HighlightStyle.define([
+    {
+        tag: t.comment,
+        color: "#6a737d",
+    },
+    {
+        tag: t.punctuation,
+        color: "#444444",
+    },
+    {
+        tag: [t.propertyName, t.definition(t.propertyName), t.keyword],
+        color: "#7c3aed",
+    },
+    {
+        tag: [t.string, t.special(t.brace)],
+        color: "#0a7e32",
+    },
+    {
+        tag: [t.number, t.bool, t.null],
+        color: "#c45100",
+    },
+    {
+        tag: t.operator,
+        color: "#0598bc",
+    },
+    {
+        tag: [t.className, t.typeName, t.definition(t.typeName)],
+        color: "#b35e00",
+    },
+    {
+        tag: t.function(t.variableName),
+        color: "#0451a5",
+    },
+    {
+        tag: [t.tagName, t.attributeName],
+        color: "#c4291c",
+    },
+    {
+        tag: t.variableName,
+        color: "#7c3aed",
+    },
+]);
+
+export const tomorrowLight = [lightTheme, syntaxHighlighting(lightHighlightStyle)];

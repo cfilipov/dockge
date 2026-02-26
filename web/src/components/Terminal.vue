@@ -20,7 +20,7 @@ const { isDark } = useTheme();
 
 // VS Code's default dark terminal palette
 const darkTheme: ITheme = {
-    background: "#1e1e1e",
+    background: "#000000",
     foreground: "#cccccc",
     cursor: "#aeafad",
     selectionBackground: "#264f78",
