@@ -96,32 +96,32 @@
             />
 
             <!-- Metrics Card -->
-            <div v-if="containerStat" class="shadow-box big-padding text-center mb-3">
+            <div class="shadow-box big-padding text-center mb-3">
                 <div class="row g-3">
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('CPU') }}</div>
-                            <span class="num">{{ containerStat.CPUPerc }}</span>
+                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat?.CPUPerc ?? '--' }}</span>
                         </div>
                     </div>
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('memory') }}</div>
-                            <span class="num">{{ containerStat.MemUsage }}</span>
-                            <span class="num-sub">({{ containerStat.MemPerc }})</span>
+                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat?.MemUsage ?? '--' }}</span>
+                            <span class="num-sub">({{ containerStat?.MemPerc ?? '--' }})</span>
                         </div>
                     </div>
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('blockIO') }}</div>
-                            <span class="num">{{ containerStat.BlockIO }}</span>
+                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat?.BlockIO ?? '--' }}</span>
                             <span class="num-sub">read / write</span>
                         </div>
                     </div>
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('networkIO') }}</div>
-                            <span class="num">{{ containerStat.NetIO }}</span>
+                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat?.NetIO ?? '--' }}</span>
                             <span class="num-sub">rx / tx</span>
                         </div>
                     </div>
@@ -785,6 +785,10 @@ onUnmounted(() => {
     font-weight: bold;
     display: block;
     color: $primary;
+}
+
+.num.placeholder-value {
+    opacity: 0.3;
 }
 
 .num-sub {
