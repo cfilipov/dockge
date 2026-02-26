@@ -250,7 +250,8 @@
                             <div v-if="stackName" class="overview-item">
                                 <div class="overview-label">{{ $t("containerStack") }}</div>
                                 <div class="overview-value">
-                                    <router-link :to="stackLink" class="stack-link"><font-awesome-icon icon="layer-group" class="me-2" />{{ stackName }}</router-link>
+                                    <span class="badge rounded-pill me-2" :class="'bg-' + stackStatusInfo.badgeColor">{{ $t(stackStatusInfo.label) }}</span>
+                                    <router-link :to="stackLink" class="stack-link">{{ stackName }}</router-link>
                                 </div>
                             </div>
 
@@ -258,9 +259,8 @@
                             <div v-if="parsed.Config?.Image" class="overview-item">
                                 <div class="overview-label">{{ $t("containerImage") }}</div>
                                 <div class="overview-value">
-                                    <router-link :to="{ name: 'imageDetail', params: { imageRef: fullImageRef } }" class="stack-link">
-                                        <font-awesome-icon icon="box-archive" class="me-2" />{{ fullImageRef }}
-                                    </router-link>
+                                    <span class="badge rounded-pill bg-success me-2">{{ $t("imageInUse") }}</span>
+                                    <router-link :to="{ name: 'imageDetail', params: { imageRef: fullImageRef } }" class="stack-link">{{ fullImageRef }}</router-link>
                                 </div>
                             </div>
 
@@ -322,7 +322,7 @@
                                 <div class="overview-label">{{ $t("containerUserGroup") }}</div>
                                 <div class="overview-value">
                                     <span v-if="parsed.Config.User">{{ parsed.Config.User }}</span>
-                                    <span v-else class="text-muted">&ndash;</span>
+                                    <span v-else>&ndash;</span>
                                 </div>
                             </div>
                         </div>
@@ -368,7 +368,7 @@ import dayjs from "dayjs";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
-import { ContainerStatusInfo, getComposeTerminalName } from "../common/util-common";
+import { ContainerStatusInfo, StackStatusInfo, getComposeTerminalName } from "../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import UpdateDialog from "../components/UpdateDialog.vue";
 
@@ -417,6 +417,7 @@ const stackName = computed(() => containerInfo.value?.stackName || "");
 const serviceName = computed(() => containerInfo.value?.serviceName || "");
 const globalStack = computed(() => completeStackList.value[stackName.value + "_" + endpoint.value]);
 const stackManaged = computed(() => globalStack.value?.isManagedByDockge ?? false);
+const stackStatusInfo = computed(() => StackStatusInfo.get(globalStack.value?.status));
 const containerActive = computed(() => {
     const state = containerInfo.value?.state;
     return state === "running";
@@ -765,10 +766,13 @@ onUnmounted(() => {
 
 .overview-value {
     word-break: break-all;
+    color: $primary;
 
     code {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9em;
+        font-size: 0.85em;
+        color: inherit;
+        background: none;
     }
 }
 

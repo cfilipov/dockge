@@ -279,10 +279,13 @@ onMounted(() => {
 
 .overview-value {
     word-break: break-all;
+    color: $primary;
 
     code {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9em;
+        font-size: 0.85em;
+        color: inherit;
+        background: none;
     }
 }
 
