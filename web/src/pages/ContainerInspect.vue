@@ -101,7 +101,12 @@
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('CPU') }}</div>
-                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat ? spacedValue(containerStat.CPUPerc) : '--' }}</span>
+                            <div class="metric-values">
+                                <div class="metric-pair-row"><span class="metric-pair">
+                                    <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat ? spacedValue(containerStat.CPUPerc) : '--' }}</span>
+                                    <span class="num-tag">usage</span>
+                                </span></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col">
@@ -473,11 +478,11 @@ const containerStat = computed(() => {
     return dockerStats.value[containerName.value] || null;
 });
 
-/** Split "3.9GiB" into "3.9 GiB", or return as-is if no unit found. Keeps % attached. */
+/** Split "3.9GiB" into "3.9 GiB", or return as-is if no unit found. */
 function spacedValue(s: string): string {
     const m = s.match(/^([\d.]+)\s*(%|[A-Za-z]+)$/);
     if (!m) return s;
-    return m[2] === "%" ? `${m[1]}%` : `${m[1]} ${m[2]}`;
+    return `${m[1]} ${m[2]}`;
 }
 
 /** Split "valueA / valueB" into [spacedA, spacedB], or ["--","--"] */
@@ -808,6 +813,16 @@ onUnmounted(() => {
     border-radius: 10px;
     padding: 0.75rem 0.5rem;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.metric-values {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: -9px;
 }
 
 .metric-label {
