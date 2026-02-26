@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
+import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Compose Create — New Stack", () => {
     test.beforeEach(async ({ page }) => {
@@ -23,5 +24,6 @@ test.describe("Compose Create — New Stack", () => {
     test("screenshot: compose create page", async ({ page }) => {
         await expect(page.locator(".cm-editor").first()).toBeVisible();
         await expect(page).toHaveScreenshot("compose-create.png");
+        await takeLightScreenshot(page, "compose-create-light.png");
     });
 });

@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
+import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Console Page", () => {
     test.beforeEach(async ({ page }) => {
@@ -21,5 +22,6 @@ test.describe("Console Page", () => {
         const alert = page.locator(".alert-warning");
         await expect(terminal.or(alert)).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("console.png");
+        await takeLightScreenshot(page, "console-light.png");
     });
 });

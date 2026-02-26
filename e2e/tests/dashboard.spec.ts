@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
+import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Dashboard Home", () => {
     test.beforeEach(async ({ page }) => {
@@ -21,6 +22,7 @@ test.describe("Dashboard Home", () => {
         // Wait for stacks to load
         await expect(page.locator(".item").first()).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("dashboard-home.png");
+        await takeLightScreenshot(page, "dashboard-home-light.png");
     });
 });
 
@@ -67,5 +69,6 @@ test.describe("Header Navigation", () => {
         await page.locator(".dropdown-profile-pic .nav-link").click();
         await expect(page.getByText("Scan Stacks Folder")).toBeVisible();
         await expect(page).toHaveScreenshot("navigation-profile-dropdown.png");
+        await takeLightScreenshot(page, "navigation-profile-dropdown-light.png");
     });
 });

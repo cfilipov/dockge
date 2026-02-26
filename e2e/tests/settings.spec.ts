@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
+import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Settings — General", () => {
     test.beforeEach(async ({ page }) => {
@@ -28,6 +29,7 @@ test.describe("Settings — General", () => {
     test("screenshot: settings general", async ({ page }) => {
         await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
         await expect(page).toHaveScreenshot("settings-general.png");
+        await takeLightScreenshot(page, "settings-general-light.png");
     });
 });
 
@@ -58,6 +60,7 @@ test.describe("Settings — Appearance", () => {
     test("screenshot: appearance settings", async ({ page }) => {
         await expect(page.getByText("Light")).toBeVisible();
         await expect(page).toHaveScreenshot("settings-appearance.png");
+        await takeLightScreenshot(page, "settings-appearance-lightmode.png");
     });
 
     test("screenshot: light theme", async ({ page }) => {
@@ -97,6 +100,7 @@ test.describe("Settings — Security", () => {
     test("screenshot: settings security", async ({ page }) => {
         await expect(page.locator("#disableAuth-btn")).toBeVisible();
         await expect(page).toHaveScreenshot("settings-security.png");
+        await takeLightScreenshot(page, "settings-security-light.png");
     });
 });
 
@@ -115,6 +119,7 @@ test.describe("Settings — Global .env", () => {
     test("screenshot: settings global env", async ({ page }) => {
         await expect(page.locator(".cm-editor").first()).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("settings-globalenv.png");
+        await takeLightScreenshot(page, "settings-globalenv-light.png");
     });
 
     // This test must run AFTER the screenshot test because it modifies the
@@ -157,5 +162,6 @@ test.describe("Settings — About", () => {
     test("screenshot: settings about", async ({ page }) => {
         await expect(page.getByRole("main").getByText("Dockge")).toBeVisible();
         await expect(page).toHaveScreenshot("settings-about.png");
+        await takeLightScreenshot(page, "settings-about-light.png");
     });
 });

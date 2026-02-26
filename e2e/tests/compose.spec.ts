@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
+import { takeLightScreenshot } from "../helpers/light-mode";
 
 // Use evaluate(el.click()) instead of Playwright's .click() for the Edit
 // button. Playwright's click() calls scrollIntoViewIfNeeded before clicking,
@@ -30,6 +31,7 @@ test.describe("Compose View — Running Stack", () => {
     test("screenshot: compose view running stack", async ({ page }) => {
         await expect(page.locator(".cm-editor").first()).toBeVisible();
         await expect(page).toHaveScreenshot("compose-view-running.png");
+        await takeLightScreenshot(page, "compose-view-running-light.png");
     });
 });
 
@@ -54,5 +56,6 @@ test.describe("Compose Edit Mode", () => {
         await expect(page.getByRole("button", { name: "Deploy" })).toBeVisible();
         await expect(page.locator(".editor-box.edit-mode").first()).toBeVisible();
         await expect(page).toHaveScreenshot("compose-edit-mode.png");
+        await takeLightScreenshot(page, "compose-edit-mode-light.png");
     });
 });

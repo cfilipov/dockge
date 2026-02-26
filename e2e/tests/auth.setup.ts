@@ -16,6 +16,9 @@ setup("authenticate", async ({ page }) => {
     // Wait for successful login — "Stacks" heading appears on dashboard
     await expect(page.getByRole("heading", { name: "Stacks" })).toBeVisible({ timeout: 15000 });
 
+    // Enable auto theme so Playwright's emulateMedia can toggle light/dark
+    await page.evaluate(() => localStorage.setItem("theme", "auto"));
+
     // Save authentication state
     await page.context().storageState({ path: authFile });
 });

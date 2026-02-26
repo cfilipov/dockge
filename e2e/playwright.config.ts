@@ -42,6 +42,7 @@ export default defineConfig({
                 ...devices["Desktop Chrome"],
                 viewport: { width: 1280, height: 720 },
                 storageState: ".auth/user.json",
+                colorScheme: "dark",
             },
             dependencies: ["setup"],
         },

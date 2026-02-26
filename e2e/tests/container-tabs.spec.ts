@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
+import { takeLightScreenshot } from "../helpers/light-mode";
 
 /**
  * Tests for the Containers/Logs/Shell tab navigation system.
@@ -41,6 +42,7 @@ test.describe("Container Tabs — Stacks to Logs", () => {
         await page.locator("a[title='docker compose logs nginx']").click();
         await expect(page.locator(".shadow-box.terminal")).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-stacks-to-logs.png");
+        await takeLightScreenshot(page, "container-tabs-stacks-to-logs-light.png");
     });
 });
 
@@ -75,6 +77,7 @@ test.describe("Container Tabs — Stacks to Containers", () => {
         await page.getByRole("link", { name: /01-web-app-\w+-1/ }).first().click();
         await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-stacks-to-containers.png");
+        await takeLightScreenshot(page, "container-tabs-stacks-to-containers-light.png");
     });
 });
 
@@ -112,6 +115,7 @@ test.describe("Container Tabs — Stacks to Shell", () => {
         await page.locator("a[title='docker compose exec nginx']").click();
         await expect(page.locator(".shadow-box.terminal")).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-stacks-to-shell.png");
+        await takeLightScreenshot(page, "container-tabs-stacks-to-shell-light.png");
     });
 });
 
@@ -157,6 +161,7 @@ test.describe("Container Tabs — Sidebar switching", () => {
         await page.locator(".item", { hasText: "01-web-app-redis-1" }).click();
         await expect(page.getByRole("heading", { name: /exited\s+01-web-app-redis-1/i })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-sidebar-switch.png");
+        await takeLightScreenshot(page, "container-tabs-sidebar-switch-light.png");
     });
 });
 
@@ -227,5 +232,6 @@ test.describe("Container Tabs — Tab switching preserves selection", () => {
         await page.getByRole("link", { name: "Logs" }).first().click();
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-preserved-selection.png");
+        await takeLightScreenshot(page, "container-tabs-preserved-selection-light.png");
     });
 });

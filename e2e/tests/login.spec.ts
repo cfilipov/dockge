@@ -1,7 +1,17 @@
 import { test, expect } from "../fixtures/auth.fixture";
+import { takeLightScreenshot } from "../helpers/light-mode";
 
-// Login tests use a fresh context — no storageState
-test.use({ storageState: { cookies: [], origins: [] } });
+// Login tests use a fresh context — no auth, but keep theme: "auto" so
+// emulateMedia can toggle light/dark via the useTheme composable.
+test.use({
+    storageState: {
+        cookies: [],
+        origins: [{
+            origin: "http://localhost:5051",
+            localStorage: [{ name: "theme", value: "auto" }],
+        }],
+    },
+});
 
 test.describe("Login Page", () => {
     test.beforeEach(async ({ page }) => {
@@ -34,5 +44,6 @@ test.describe("Login Page", () => {
 
     test("screenshot: login form", async ({ page }) => {
         await expect(page).toHaveScreenshot("login-form.png");
+        await takeLightScreenshot(page, "login-form-light.png");
     });
 });

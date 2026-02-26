@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
+import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Container Inspect", () => {
     test.beforeEach(async ({ page }) => {
@@ -20,6 +21,7 @@ test.describe("Container Inspect", () => {
     test("screenshot: container inspect", async ({ page }) => {
         await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-inspect.png");
+        await takeLightScreenshot(page, "container-inspect-light.png");
     });
 });
 
@@ -42,6 +44,7 @@ test.describe("Container Log", () => {
     test("screenshot: container log", async ({ page }) => {
         await expect(page.locator(".shadow-box.terminal")).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-log.png");
+        await takeLightScreenshot(page, "container-log-light.png");
     });
 });
 
@@ -60,5 +63,6 @@ test.describe("Container Terminal", () => {
     test("screenshot: container terminal", async ({ page }) => {
         await expect(page.locator(".shadow-box.terminal")).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-terminal.png");
+        await takeLightScreenshot(page, "container-terminal-light.png");
     });
 });
