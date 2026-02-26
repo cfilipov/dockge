@@ -106,9 +106,10 @@ optgroup {
 }
 
 .shadow-box {
-    box-shadow: 0 15px 70px rgba(0, 0, 0, 0.1);
     padding: 10px;
     border-radius: 10px;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
     &.big-padding {
         padding: 20px;
@@ -142,6 +143,8 @@ optgroup {
 .btn-normal {
     $bg-color: #F5F5F5;
 
+    --bs-btn-active-border-color: #{$bg-color};
+    --bs-btn-active-shadow: none;
     background-color: $bg-color;
     border-color: $bg-color;
 
@@ -162,8 +165,12 @@ optgroup {
 }
 
 .btn-group[role="group"] {
-    gap: 1px;
+    gap: 0;
     background: white;
+
+    .light & {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
 
     .dark & {
         background: $dark-bg;
@@ -261,6 +268,36 @@ optgroup {
     }
 }
 
+// Light Theme — off-white body so white cards pop (mirrors dark mode pattern)
+.light {
+    background-color: #f0f2f5;
+
+    .btn-info {
+        $light-info: #a78bfa;
+        background-color: $light-info;
+        border-color: $light-info;
+
+        &:hover {
+            background-color: darken($light-info, 8%);
+            border-color: darken($light-info, 8%);
+        }
+    }
+
+    .bg-info {
+        background-color: #a78bfa !important;
+    }
+
+    // Shadow on standalone buttons so they pop against the off-white body
+    .btn:not(.btn-link):not(.btn-close):not(.btn-group .btn) {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    // Prevent dark border flash — non-outline buttons don't need visible borders
+    .btn:not([class*="btn-outline"]) {
+        border-color: transparent !important;
+    }
+}
+
 // Dark Theme override here
 .dark {
     background-color: #090c10;
@@ -277,6 +314,7 @@ optgroup {
     .shadow-box {
         &:not(.alert) {
             background-color: $dark-bg;
+            box-shadow: 0 15px 70px rgba(0, 0, 0, 0.1);
         }
     }
 
@@ -471,6 +509,20 @@ optgroup {
         &.bg-maintenance,
         &.bg-light {
             color: $dark-font-color2;
+        }
+    }
+
+    .overflow-dropdown {
+        background-color: $dark-bg;
+        border-color: $dark-font-color3;
+
+        .dropdown-item {
+            color: $dark-font-color;
+
+            &:hover {
+                background-color: $dark-header-bg;
+                color: $dark-font-color;
+            }
         }
     }
 }

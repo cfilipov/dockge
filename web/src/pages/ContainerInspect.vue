@@ -352,7 +352,7 @@
                     :extensions="extensionsYAML"
                     minimal
                     :wrap="true"
-                    :dark="true"
+                    :dark="isDark"
                     :tab="true"
                     :disabled="true"
                 />
@@ -383,9 +383,11 @@ import { useAppToast } from "../composables/useAppToast";
 import { ContainerStatusInfo, StackStatusInfo, getComposeTerminalName } from "../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import UpdateDialog from "../components/UpdateDialog.vue";
+import { useTheme } from "../composables/useTheme";
 
 const route = useRoute();
 const { t } = useI18n();
+const { isDark } = useTheme();
 const { emitAgent, containerList, completeStackList } = useSocket();
 const { toastRes } = useAppToast();
 
@@ -911,17 +913,4 @@ onUnmounted(() => {
     display: block;
 }
 
-:deep(.overflow-dropdown) {
-    background-color: $dark-bg;
-    border-color: $dark-font-color3;
-
-    .dropdown-item {
-        color: $dark-font-color;
-
-        &:hover {
-            background-color: $dark-header-bg;
-            color: $dark-font-color;
-        }
-    }
-}
 </style>

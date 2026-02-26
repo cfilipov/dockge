@@ -221,7 +221,7 @@
                             :extensions="extensions"
                             minimal
                             :wrap="wordWrap"
-                            :dark="true"
+                            :dark="isDark"
                             :tab="true"
                             :disabled="!isEditMode"
                             :hasFocus="editorFocus"
@@ -242,7 +242,7 @@ scrollable size="fullscreen" hide-footer>
                                 :extensions="extensions"
                                 minimal
                                 :wrap="wordWrap"
-                                :dark="true"
+                                :dark="isDark"
                                 :tab="true"
                                 :disabled="!isEditMode"
                                 :hasFocus="editorFocus"
@@ -274,7 +274,7 @@ scrollable size="fullscreen" hide-footer>
                             :extensions="extensions"
                             minimal
                             :wrap="wordWrap"
-                            :dark="true"
+                            :dark="isDark"
                             :tab="true"
                             :disabled="!isEditMode"
                             :hasFocus="editorFocus"
@@ -294,7 +294,7 @@ scrollable size="fullscreen" hide-footer>
                                 :extensions="extensions"
                                 minimal
                                 :wrap="wordWrap"
-                                :dark="true"
+                                :dark="isDark"
                                 :tab="true"
                                 :disabled="!isEditMode"
                                 :hasFocus="editorFocus"
@@ -324,7 +324,7 @@ scrollable size="fullscreen" hide-footer>
                                 :extensions="extensionsEnv"
                                 minimal
                                 :wrap="wordWrap"
-                                :dark="true"
+                                :dark="isDark"
                                 :tab="true"
                                 :disabled="!isEditMode"
                                 :hasFocus="editorFocus"
@@ -342,7 +342,7 @@ scrollable size="fullscreen" hide-footer>
                                 :extensions="extensionsEnv"
                                 minimal
                                 :wrap="wordWrap"
-                                :dark="true"
+                                :dark="isDark"
                                 :tab="true"
                                 :disabled="!isEditMode"
                                 :hasFocus="editorFocus"
@@ -418,10 +418,12 @@ import ProgressTerminal from "../components/ProgressTerminal.vue";
 import UpdateDialog from "../components/UpdateDialog.vue";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
+import { useTheme } from "../composables/useTheme";
 
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const { isDark } = useTheme();
 const { emitAgent, agentCount, agentList, agentStatusList, containerList, completeStackList, composeTemplate, envTemplate, endpointDisplayFunction, info } = useSocket();
 const { toastRes, toastError } = useAppToast();
 
@@ -1152,9 +1154,6 @@ onUnmounted(() => {
 .editor-box {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
-    &.edit-mode {
-        background-color: #2c2f38 !important;
-    }
     position: relative;
 
     :deep(.cm-gutters) {
@@ -1163,14 +1162,6 @@ onUnmounted(() => {
 
     .dark & :deep(.cm-gutters) {
         background-color: $dark-bg !important;
-    }
-
-    &.edit-mode :deep(.cm-gutters) {
-        background-color: #f8f9fa !important;
-    }
-
-    .dark &.edit-mode :deep(.cm-gutters) {
-        background-color: #2c2f38 !important;
     }
 }
 
@@ -1212,17 +1203,4 @@ onUnmounted(() => {
     }
 }
 
-:deep(.overflow-dropdown) {
-    background-color: $dark-bg;
-    border-color: $dark-font-color3;
-
-    .dropdown-item {
-        color: $dark-font-color;
-
-        &:hover {
-            background-color: $dark-header-bg;
-            color: $dark-font-color;
-        }
-    }
-}
 </style>

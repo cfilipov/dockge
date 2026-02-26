@@ -382,6 +382,7 @@ main {
 // Default (narrow): tabs wrap to centered second row
 header {
     flex-wrap: wrap;
+    background-color: white;
 }
 
 .nav {

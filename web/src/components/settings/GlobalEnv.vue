@@ -9,7 +9,7 @@
                         :extensions="extensionsEnv"
                         minimal
                         :wrap="true"
-                        :dark="true"
+                        :dark="isDark"
                         :tab="true"
                         :hasFocus="editorFocus"
                         @change="onChange"
@@ -34,6 +34,9 @@ import CodeMirror from "vue-codemirror6";
 import { python } from "@codemirror/lang-python";
 import { tomorrowNightEighties as editorTheme } from "../../editor-theme";
 import { lineNumbers, EditorView } from "@codemirror/view";
+import { useTheme } from "../../composables/useTheme";
+
+const { isDark } = useTheme();
 
 const settings = inject<Ref<Record<string, any>>>("settings")!;
 const saveSettings = inject<(callback?: () => void, currentPassword?: string) => void>("saveSettings")!;
@@ -66,9 +69,5 @@ function onChange() {
 .editor-box {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
-
-    &.edit-mode {
-        background-color: #2c2f38 !important;
-    }
 }
 </style>

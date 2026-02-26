@@ -149,7 +149,7 @@ onMounted(() => {
 }
 
 .locate-btn {
-    color: #c0c0c0;
+    color: #111;
     padding: 0.25rem 0.5rem;
     &:hover {
         color: inherit;
