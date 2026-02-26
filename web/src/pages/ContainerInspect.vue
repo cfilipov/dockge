@@ -103,7 +103,7 @@
                             <div class="metric-label">{{ $t('CPU') }}</div>
                             <div class="metric-values">
                                 <div class="metric-pair-row"><span class="metric-pair">
-                                    <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat ? spacedValue(containerStat.CPUPerc) : '--' }}</span>
+                                    <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ cpuParts.num }} <span class="num-unit">{{ cpuParts.unit }}</span></span>
                                     <span class="num-tag">usage</span>
                                 </span></div>
                             </div>
@@ -113,11 +113,11 @@
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('memory') }}</div>
                             <div class="metric-pair-row"><span class="metric-pair">
-                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ memParts[0] }}</span>
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ memParts[0].num }} <span class="num-unit">{{ memParts[0].unit }}</span></span>
                                 <span class="num-tag">{{ containerStat?.MemPerc ?? '--' }} used</span>
                             </span></div>
                             <div class="metric-pair-row"><span class="metric-pair">
-                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ memParts[1] }}</span>
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ memParts[1].num }} <span class="num-unit">{{ memParts[1].unit }}</span></span>
                                 <span class="num-tag">avail.</span>
                             </span></div>
                         </div>
@@ -126,11 +126,11 @@
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('blockIO') }}</div>
                             <div class="metric-pair-row"><span class="metric-pair">
-                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ blockParts[0] }}</span>
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ blockParts[0].num }} <span class="num-unit">{{ blockParts[0].unit }}</span></span>
                                 <span class="num-tag">read</span>
                             </span></div>
                             <div class="metric-pair-row"><span class="metric-pair">
-                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ blockParts[1] }}</span>
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ blockParts[1].num }} <span class="num-unit">{{ blockParts[1].unit }}</span></span>
                                 <span class="num-tag">write</span>
                             </span></div>
                         </div>
@@ -139,11 +139,11 @@
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('networkIO') }}</div>
                             <div class="metric-pair-row"><span class="metric-pair">
-                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ netParts[0] }}</span>
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ netParts[0].num }} <span class="num-unit">{{ netParts[0].unit }}</span></span>
                                 <span class="num-tag">rx</span>
                             </span></div>
                             <div class="metric-pair-row"><span class="metric-pair">
-                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ netParts[1] }}</span>
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ netParts[1].num }} <span class="num-unit">{{ netParts[1].unit }}</span></span>
                                 <span class="num-tag">tx</span>
                             </span></div>
                         </div>
@@ -478,21 +478,23 @@ const containerStat = computed(() => {
     return dockerStats.value[containerName.value] || null;
 });
 
-/** Split "3.9GiB" into "3.9 GiB", or return as-is if no unit found. */
-function spacedValue(s: string): string {
+/** Split "3.9GiB" into { num: "3.9", unit: "GiB" }, or { num: s, unit: "" } */
+function splitUnit(s: string): { num: string; unit: string } {
     const m = s.match(/^([\d.]+)\s*(%|[A-Za-z]+)$/);
-    if (!m) return s;
-    return `${m[1]} ${m[2]}`;
+    if (!m) return { num: s, unit: "" };
+    return { num: m[1], unit: m[2] };
 }
 
-/** Split "valueA / valueB" into [spacedA, spacedB], or ["--","--"] */
-function splitPair(raw: string | undefined): [string, string] {
-    if (!raw) return ["--", "--"];
+/** Split "valueA / valueB" into [splitA, splitB] */
+function splitPair(raw: string | undefined): [{ num: string; unit: string }, { num: string; unit: string }] {
+    const placeholder = { num: "--", unit: "" };
+    if (!raw) return [placeholder, placeholder];
     const parts = raw.split(" / ");
-    if (parts.length !== 2) return [spacedValue(raw), "--"];
-    return [spacedValue(parts[0]), spacedValue(parts[1])];
+    if (parts.length !== 2) return [splitUnit(raw), placeholder];
+    return [splitUnit(parts[0]), splitUnit(parts[1])];
 }
 
+const cpuParts = computed(() => containerStat.value ? splitUnit(containerStat.value.CPUPerc) : { num: "--", unit: "" });
 const memParts = computed(() => splitPair(containerStat.value?.MemUsage));
 const blockParts = computed(() => splitPair(containerStat.value?.BlockIO));
 const netParts = computed(() => splitPair(containerStat.value?.NetIO));
@@ -837,6 +839,11 @@ onUnmounted(() => {
     font-weight: bold;
     display: block;
     color: $primary;
+
+    .num-unit {
+        opacity: 0.4;
+        font-size: 0.75em;
+    }
 }
 
 .num.placeholder-value {
