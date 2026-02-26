@@ -1,19 +1,70 @@
 <template>
-    <div class="shadow-box">
+    <div class="shadow-box" :style="{ backgroundColor: isDark ? darkTheme.background : lightTheme.background }">
         <div v-pre ref="terminalEl" class="main-terminal"></div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, onUnmounted } from "vue";
+import { ref, shallowRef, watch, onMounted, onUnmounted } from "vue";
 import { Terminal } from "@xterm/xterm";
+import type { ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_COLS, TERMINAL_ROWS } from "../common/util-common";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
+import { useTheme } from "../composables/useTheme";
 
 const { emitAgent, bindTerminal, unbindTerminal } = useSocket();
 const { toastRes, toastError } = useAppToast();
+const { isDark } = useTheme();
+
+// VS Code's default dark terminal palette
+const darkTheme: ITheme = {
+    background: "#1e1e1e",
+    foreground: "#cccccc",
+    cursor: "#aeafad",
+    selectionBackground: "#264f78",
+    black: "#000000",
+    red: "#cd3131",
+    green: "#0dbc79",
+    yellow: "#e5e510",
+    blue: "#2472c8",
+    magenta: "#bc3fbc",
+    cyan: "#11a8cd",
+    white: "#e5e5e5",
+    brightBlack: "#666666",
+    brightRed: "#f14c4c",
+    brightGreen: "#23d18b",
+    brightYellow: "#f5f543",
+    brightBlue: "#3b8eea",
+    brightMagenta: "#d670d6",
+    brightCyan: "#29b8db",
+    brightWhite: "#e5e5e5",
+};
+
+// VS Code's default light terminal palette
+const lightTheme: ITheme = {
+    background: "#ffffff",
+    foreground: "#333333",
+    cursor: "#000000",
+    selectionBackground: "#add6ff",
+    black: "#000000",
+    red: "#cd3131",
+    green: "#00bc00",
+    yellow: "#949800",
+    blue: "#0451a5",
+    magenta: "#bc05bc",
+    cyan: "#0598bc",
+    white: "#555555",
+    brightBlack: "#666666",
+    brightRed: "#cd3131",
+    brightGreen: "#14ce14",
+    brightYellow: "#b5ba00",
+    brightBlue: "#0451a5",
+    brightMagenta: "#bc05bc",
+    brightCyan: "#0598bc",
+    brightWhite: "#a5a5a5",
+};
 
 const props = withDefaults(defineProps<{
     name: string;
@@ -238,6 +289,7 @@ onMounted(async () => {
         cursorBlink,
         cols: props.cols,
         rows: props.rows,
+        theme: isDark.value ? darkTheme : lightTheme,
     });
 
     if (props.mode === "mainTerminal") {
@@ -264,6 +316,12 @@ onMounted(async () => {
     });
 
     bind();
+
+    watch(isDark, (dark) => {
+        if (terminal.value) {
+            terminal.value.options.theme = dark ? darkTheme : lightTheme;
+        }
+    });
 
     if (props.mainTerminal) {
         emitAgent(props.endpoint, "mainTerminal", props.name, (res: any) => {
@@ -316,7 +374,13 @@ defineExpose({ terminal, bind });
 
 <style lang="scss">
 .terminal {
-    background-color: black !important;
     height: 100%;
+}
+
+// xterm.js hardcodes a black background on the viewport via
+// .xterm:not(.allow-transparency) .xterm-viewport { background-color: #000 }
+// Override it so the viewport inherits the theme background from .xterm.
+.xterm:not(.allow-transparency) .xterm-viewport {
+    background-color: inherit !important;
 }
 </style>

@@ -61,12 +61,8 @@ defineExpose({ show, hide });
         height: 20px;
     }
 
-    &:hover {
+    .dark &:hover {
         color: white;
     }
-}
-
-:deep(.shadow-box) {
-    background-color: black !important;
 }
 </style>

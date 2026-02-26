@@ -299,12 +299,7 @@ onBeforeUnmount(() => {
 }
 
 :deep(.filter-dropdown) {
-    background-color: $dark-bg;
-    border-color: $dark-font-color3;
-    color: $dark-font-color;
-
     .dropdown-header {
-        color: $dark-font-color;
         font-weight: bolder;
         padding-top: 0.25rem;
         padding-bottom: 0.25rem;
@@ -313,13 +308,31 @@ onBeforeUnmount(() => {
     .dropdown-divider {
         margin: 0.25rem 0;
     }
+}
+
+:deep(.filter-dropdown form) {
+    padding: 0.15rem 1rem !important;
+}
+</style>
+
+<style lang="scss">
+@import "../styles/vars.scss";
+
+.dark .filter-dropdown {
+    background-color: $dark-bg;
+    border-color: $dark-font-color3;
+    color: $dark-font-color;
+
+    .dropdown-header {
+        color: $dark-font-color;
+    }
 
     .form-check-input {
         border-color: $dark-font-color3;
     }
 }
 
-:deep(.filter-dropdown-clear) {
+.dark .filter-dropdown-clear {
     color: $dark-font-color;
 
     &:disabled {
@@ -330,9 +343,5 @@ onBeforeUnmount(() => {
         background-color: $dark-header-active-bg;
         color: $dark-font-color;
     }
-}
-
-:deep(.filter-dropdown form) {
-    padding: 0.15rem 1rem !important;
 }
 </style>
