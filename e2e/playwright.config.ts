@@ -21,7 +21,7 @@ export default defineConfig({
     outputDir: "./test-results",
     reporter: [["html", { outputFolder: "./playwright-report" }]],
     use: {
-        baseURL: "http://localhost:5001",
+        baseURL: "http://localhost:5051",
         trace: "on-first-retry",
         viewport: { width: 1280, height: 720 },
     },
@@ -47,8 +47,8 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: "cd .. && go build -o dockge . && ./dockge --dev --mock --port 5001 --data-dir test-data --stacks-dir test-data/stacks",
-        port: 5001,
+        command: "cd .. && go build -o dockge . && ./dockge --dev --mock --port 5051 --data-dir test-data/e2e-data --stacks-dir test-data/e2e-stacks",
+        port: 5051,
         reuseExistingServer: !process.env.CI,
     },
 });
