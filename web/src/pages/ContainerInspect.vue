@@ -539,17 +539,24 @@ const networks = computed(() => {
     }));
 });
 
-// Ports extracted from inspect data
+// Ports extracted from inspect data.
+// Docker returns separate IPv4 (0.0.0.0) and IPv6 (::) bindings for each
+// port mapping — deduplicate so each host→container pair appears only once.
 const ports = computed(() => {
     const portMap = parsed.value?.NetworkSettings?.Ports;
     if (!portMap) return [];
     const result: Array<{ container: string; host: string }> = [];
+    const seen = new Set<string>();
     for (const [containerPort, bindings] of Object.entries(portMap)) {
         if (bindings && Array.isArray(bindings)) {
             for (const b of bindings as Array<{ HostIp: string; HostPort: string }>) {
                 const hostAddr = b.HostIp && b.HostIp !== "0.0.0.0" && b.HostIp !== "::" ? b.HostIp : "";
                 const host = hostAddr ? `${hostAddr}:${b.HostPort}` : b.HostPort;
-                result.push({ container: containerPort, host });
+                const key = `${host}->${containerPort}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    result.push({ container: containerPort, host });
+                }
             }
         }
     }
