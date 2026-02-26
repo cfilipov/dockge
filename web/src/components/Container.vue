@@ -41,7 +41,7 @@
                 <span class="chip-label">{{ $t("service") }}</span>
                 <code>{{ name }}</code>
             </div>
-            <router-link :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="network-chip chip-link">
+            <router-link v-if="imageRef" :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="network-chip chip-link">
                 <span class="chip-label">{{ $t("image") }}</span>
                 <code>{{ imageName }}:{{ imageTag }}</code>
             </router-link>
@@ -398,19 +398,26 @@ const terminalRouteLink = computed(() => {
     };
 });
 
-const imageName = computed(() => {
+const imageRef = computed(() => {
     if (envsubstService.value.image) {
-        return envsubstService.value.image.split(":")[0];
+        return envsubstService.value.image;
+    }
+    // Fall back to the actual image from Docker (e.g. build-only services)
+    if (props.serviceStatus?.[0]?.image) {
+        return props.serviceStatus[0].image;
     }
     return "";
 });
 
+const imageName = computed(() => {
+    const ref = imageRef.value;
+    return ref ? ref.split(":")[0] : "";
+});
+
 const imageTag = computed(() => {
-    if (envsubstService.value.image) {
-        const tag = envsubstService.value.image.split(":")[1];
-        return tag || "latest";
-    }
-    return "";
+    const ref = imageRef.value;
+    if (!ref) return "";
+    return ref.split(":")[1] || "latest";
 });
 
 const started = computed(() => status.value === "running" || status.value === "healthy" || status.value === "unhealthy");
