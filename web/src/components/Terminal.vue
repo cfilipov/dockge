@@ -25,6 +25,7 @@ const props = withDefaults(defineProps<{
     rows?: number;
     cols?: number;
     mode?: string;
+    mainTerminal?: boolean;
 }>(), {
     stackName: undefined,
     serviceName: undefined,
@@ -33,6 +34,7 @@ const props = withDefaults(defineProps<{
     rows: TERMINAL_ROWS,
     cols: TERMINAL_COLS,
     mode: "displayOnly",
+    mainTerminal: false,
 });
 
 const emit = defineEmits<{
@@ -263,7 +265,13 @@ onMounted(async () => {
 
     bind();
 
-    if (props.mode === "mainTerminal") {
+    if (props.mainTerminal) {
+        emitAgent(props.endpoint, "mainTerminal", props.name, (res: any) => {
+            if (!res.ok) {
+                toastRes(res);
+            }
+        });
+    } else if (props.mode === "mainTerminal") {
         emitAgent(props.endpoint, "mainTerminal", props.name, (res: any) => {
             if (!res.ok) {
                 toastRes(res);

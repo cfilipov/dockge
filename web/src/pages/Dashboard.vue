@@ -42,6 +42,11 @@
                     </div>
                     <VolumeList ref="volumeListRef" :scrollbar="true" />
                 </template>
+                <!-- Console sidebar with cheatsheet -->
+                <template v-else-if="showConsoleSidebar">
+                    <h1 class="mb-3">{{ $t("composeCheatsheet") }}</h1>
+                    <ConsoleCheatsheet />
+                </template>
                 <!-- Stack sidebar for all other routes (default) -->
                 <template v-else>
                     <div class="d-flex align-items-center mb-3">
@@ -70,6 +75,7 @@ import ContainerList from "../components/ContainerList.vue";
 import NetworkList from "../components/NetworkList.vue";
 import ImageList from "../components/ImageList.vue";
 import VolumeList from "../components/VolumeList.vue";
+import ConsoleCheatsheet from "../components/ConsoleCheatsheet.vue";
 import { useTheme } from "../composables/useTheme";
 
 const { isMobile } = useTheme();
@@ -100,6 +106,10 @@ const showImageSidebar = computed(() => {
 
 const showVolumeSidebar = computed(() => {
     return route.path.startsWith("/volumes");
+});
+
+const showConsoleSidebar = computed(() => {
+    return route.path.startsWith("/console");
 });
 
 onMounted(() => {

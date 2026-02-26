@@ -3,7 +3,7 @@
         <div v-if="!processing">
             <h1 class="mb-3">{{ $t("console") }}</h1>
 
-            <Terminal v-if="enableConsole" class="terminal" :rows="20" mode="mainTerminal" name="console" :endpoint="endpoint"></Terminal>
+            <Terminal v-if="enableConsole" class="terminal" :rows="20" mode="interactive" :mainTerminal="true" name="console" :endpoint="endpoint"></Terminal>
 
             <div v-else class="alert alert-warning shadow-box" role="alert">
                 <h4 class="alert-heading">{{ $t("Console is not enabled") }}</h4>

@@ -298,5 +298,6 @@
     "volumeInUse": "in use",
     "volumeUnused": "unused",
     "mountVolume": "Volume",
-    "scrollToSelected": "Scroll to selected item"
+    "scrollToSelected": "Scroll to selected item",
+    "composeCheatsheet": "Cheatsheet"
 }
