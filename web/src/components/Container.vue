@@ -1,12 +1,11 @@
 <template>
     <div class="shadow-box big-padding mb-3 container">
-        <div class="row">
-            <div class="col-12 col-xxl-7">
-                <h4>{{ name }}</h4>
-            </div>
-            <div class="col-12 col-xxl-5 mb-2 d-flex justify-content-xxl-end align-items-start">
+        <!-- Service name + service action buttons -->
+        <div class="d-flex justify-content-between align-items-start">
+            <h4>{{ name }}</h4>
+            <div v-if="!isEditMode" class="d-flex align-items-center">
                 <button
-                    v-if="!isEditMode && serviceRecreateNecessary"
+                    v-if="serviceRecreateNecessary"
                     class="btn btn-sm btn-info me-2"
                     :title="$t('tooltipServiceRecreate', [name])"
                     :disabled="processing"
@@ -16,7 +15,7 @@
                 </button>
 
                 <button
-                    v-if="!isEditMode && serviceImageUpdateAvailable"
+                    v-if="serviceImageUpdateAvailable"
                     v-b-modal="updateModalId"
                     class="btn btn-sm btn-info me-2"
                     :title="$t('tooltipServiceUpdate', [name])"
@@ -53,37 +52,39 @@
                     </template>
                 </BModal>
 
-                <div v-if="!isEditMode" class="btn-group service-actions me-2" role="group">
-                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
-                    <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
-                </div>
-
-                <div v-if="!isEditMode" class="btn-group service-actions" role="group">
+                <div class="btn-group service-actions" role="group">
                     <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
                     <button v-if="started" type="button" class="btn btn-sm btn-danger" :title="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
                     <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
                 </div>
             </div>
         </div>
-        <div v-if="!isEditMode" class="row">
-            <div class="d-flex flex-column mb-2">
-                <div class="image">
-                    <router-link :to="inspectRouteLink" class="image-link">
-                        <font-awesome-icon icon="cubes" class="me-2" />{{ containerName }}
-                    </router-link>
-                </div>
-                <div class="image">
-                    <router-link :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="image-link">
-                        <font-awesome-icon icon="box-archive" class="me-2" /><span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
-                    </router-link>
-                </div>
-            </div>
-            <div class="col">
-                <span class="badge me-1" :class="bgStyle">{{ $t(containerStatusInfo.label) }}</span>
 
+        <!-- Container name + image links -->
+        <div v-if="!isEditMode" class="d-flex flex-column">
+            <div class="image">
+                <router-link :to="inspectRouteLink" class="image-link">
+                    <font-awesome-icon icon="cubes" class="me-2" />{{ containerName }}
+                </router-link>
+            </div>
+            <div class="image">
+                <router-link :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="image-link">
+                    <font-awesome-icon icon="box-archive" class="me-2" /><span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
+                </router-link>
+            </div>
+        </div>
+
+        <!-- Status badges + log/shell buttons -->
+        <div v-if="!isEditMode" class="d-flex justify-content-between align-items-center mt-2">
+            <div>
+                <span class="badge me-1" :class="bgStyle">{{ $t(containerStatusInfo.label) }}</span>
                 <a v-for="port in envsubstService.ports" :key="port" :href="parsePort(port).url" target="_blank">
                     <span class="badge me-1 bg-secondary">{{ parsePort(port).display }}</span>
                 </a>
+            </div>
+            <div v-if="started" class="btn-group service-actions" role="group">
+                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
+                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
             </div>
         </div>
 
