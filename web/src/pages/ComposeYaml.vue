@@ -105,8 +105,8 @@
                         autocomplete="off"
                         value="parsed"
                     />
-                    <label class="btn btn-outline-primary" for="yaml-view-parsed">
-                        {{ $t("parsed") }}
+                    <label class="btn btn-outline-primary" for="yaml-view-parsed" :title="$t('showUI')" :aria-label="$t('showUI')">
+                        <font-awesome-icon icon="list" />
                     </label>
 
                     <input
@@ -118,8 +118,8 @@
                         autocomplete="off"
                         value="raw"
                     />
-                    <label class="btn btn-outline-primary" for="yaml-view-raw">
-                        {{ $t("raw") }}
+                    <label class="btn btn-outline-primary" for="yaml-view-raw" :title="$t('showYAML')" :aria-label="$t('showYAML')">
+                        <font-awesome-icon icon="code" />
                     </label>
                 </div>
             </div>
