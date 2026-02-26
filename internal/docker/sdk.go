@@ -223,6 +223,21 @@ func (s *SDKClient) ContainerTop(ctx context.Context, id string) ([]string, [][]
     return resp.Titles, resp.Processes, nil
 }
 
+func (s *SDKClient) ContainerStartedAt(ctx context.Context, containerID string) (time.Time, error) {
+    inspect, err := s.cli.ContainerInspect(ctx, containerID)
+    if err != nil {
+        return time.Time{}, fmt.Errorf("inspect for started_at: %w", err)
+    }
+    if inspect.State == nil || inspect.State.StartedAt == "" {
+        return time.Time{}, nil
+    }
+    t, err := time.Parse(time.RFC3339Nano, inspect.State.StartedAt)
+    if err != nil {
+        return time.Time{}, nil
+    }
+    return t, nil
+}
+
 func (s *SDKClient) ContainerLogs(ctx context.Context, containerID string, tail string, follow bool) (io.ReadCloser, bool, error) {
     // Check if container uses TTY
     inspect, err := s.cli.ContainerInspect(ctx, containerID)

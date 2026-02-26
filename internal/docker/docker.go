@@ -3,6 +3,7 @@ package docker
 import (
     "context"
     "io"
+    "time"
 )
 
 // Client abstracts Docker daemon queries (reads only).
@@ -20,6 +21,10 @@ type Client interface {
     // ContainerStats returns resource usage stats for running containers.
     // If projectFilter is non-empty, only returns stats for that compose project.
     ContainerStats(ctx context.Context, projectFilter string) (map[string]ContainerStat, error)
+
+    // ContainerStartedAt returns when the container was last started.
+    // Returns zero time if the container has never started or info is unavailable.
+    ContainerStartedAt(ctx context.Context, containerID string) (time.Time, error)
 
     // ContainerLogs opens a log stream for a container.
     // Returns the stream, whether the container uses a TTY, and any error.

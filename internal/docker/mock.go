@@ -302,6 +302,10 @@ func (m *MockClient) ContainerStats(_ context.Context, projectFilter string) (ma
 	return result, nil
 }
 
+func (m *MockClient) ContainerStartedAt(_ context.Context, _ string) (time.Time, error) {
+	return time.Time{}, nil
+}
+
 func (m *MockClient) ContainerLogs(_ context.Context, containerID string, tail string, follow bool) (io.ReadCloser, bool, error) {
 	cleanID := strings.TrimPrefix(containerID, "mock-")
 	pr, pw := io.Pipe()
