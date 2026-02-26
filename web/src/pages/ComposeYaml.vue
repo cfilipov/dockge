@@ -465,7 +465,7 @@ const changelogLinks = computed(() => {
     return links;
 });
 
-const globalStack = computed(() => completeStackList.value[stack.name + "_" + endpoint.value]);
+const globalStack = computed(() => completeStackList.value[stack.name + "_" + endpoint.value] ?? null);
 
 const active = computed(() => globalStack.value?.started ?? false);
 

@@ -604,7 +604,7 @@ const changelogLinks = computed(() => {
 
 const isAdd = computed(() => route.path === "/stacks/new" && !submitted.value);
 
-const globalStack = computed(() => completeStackList.value[stack.name + "_" + endpoint.value]);
+const globalStack = computed(() => completeStackList.value[stack.name + "_" + endpoint.value] ?? null);
 
 const active = computed(() => globalStack.value?.started ?? false);
 
