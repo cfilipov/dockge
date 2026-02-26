@@ -7,7 +7,7 @@ test.use({
     storageState: {
         cookies: [],
         origins: [{
-            origin: "http://localhost:5051",
+            origin: `http://localhost:${process.env.E2E_PORT || "5051"}`,
             localStorage: [{ name: "theme", value: "auto" }],
         }],
     },

@@ -10,6 +10,10 @@ if (!process.env.CI) {
     process.env.PLAYWRIGHT_BROWSERS_PATH = join(homedir(), ".cache", "ms-playwright");
 }
 
+// Allow overriding the port so VSCode's persistent test-server (default 5051)
+// and CLI runs (Taskfile sets 5052) don't conflict with each other.
+const port = parseInt(process.env.E2E_PORT || "5051", 10);
+
 export default defineConfig({
     testDir: "./tests",
     snapshotDir: "./__screenshots__",
@@ -19,15 +23,15 @@ export default defineConfig({
     retries: process.env.CI ? 2 : 0,
     workers: 1,
     outputDir: "./test-results",
-    reporter: [["html", { outputFolder: "./playwright-report" }]],
+    reporter: [["html", { outputFolder: "./playwright-report", open: "on-failure" }]],
     use: {
-        baseURL: "http://localhost:5051",
+        baseURL: `http://localhost:${port}`,
         trace: "on-first-retry",
         viewport: { width: 1280, height: 720 },
     },
     expect: {
         toHaveScreenshot: {
-            maxDiffPixelRatio: 0.005,
+            maxDiffPixelRatio: 0.001,
             animations: "disabled",
         },
     },
@@ -48,8 +52,8 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: "cd .. && go build -o dockge . && ./dockge --dev --mock --port 5051 --data-dir test-data/e2e-data --stacks-dir test-data/e2e-stacks",
-        port: 5051,
+        command: `cd .. && go build -o dockge . && ./dockge --dev --mock --port ${port} --data-dir test-data/e2e-data-${port} --stacks-dir test-data/e2e-stacks`,
+        port,
         reuseExistingServer: !process.env.CI,
     },
 });

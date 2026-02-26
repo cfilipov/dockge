@@ -11,7 +11,7 @@ tmp
 /dist
 /dockge
 test-data/bin/
-test-data/e2e-data/
+test-data/e2e-data*/
 test-data/e2e-stacks/
 
 # Dev artifacts

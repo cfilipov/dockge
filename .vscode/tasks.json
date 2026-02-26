@@ -62,6 +62,14 @@
             "group": "none",
             "problemMatcher": [],
             "detail": "make fmt"
+        },
+        {
+            "label": "E2E Report",
+            "type": "shell",
+            "command": "cd e2e && pnpm run test:report",
+            "group": "none",
+            "problemMatcher": [],
+            "detail": "Open Playwright HTML report"
         }
     ]
 }

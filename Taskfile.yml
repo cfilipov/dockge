@@ -109,7 +109,7 @@ tasks:
     desc: Run Playwright E2E tests
     deps: [build-web, build-go]
     dir: e2e
-    cmd: pnpm test
+    cmd: E2E_PORT=5052 pnpm test
 
   test-e2e-report:
     desc: Show Playwright HTML report with screenshot diffs
@@ -120,7 +120,13 @@ tasks:
     desc: Update E2E golden screenshots
     deps: [build-web, build-go]
     dir: e2e
-    cmd: pnpm run test:update-screenshots
+    cmd: E2E_PORT=5052 pnpm run test:update-screenshots
+
+  test-e2e-trace:
+    desc: Run E2E test with tracing (use -- <test-file>)
+    deps: [build-web, build-go]
+    dir: e2e
+    cmd: E2E_PORT=5052 npx playwright test {{.CLI_ARGS}} --trace on
 
   docker:
     desc: Build Docker image
