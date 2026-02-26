@@ -1158,10 +1158,18 @@ onUnmounted(() => {
     position: relative;
 
     :deep(.cm-gutters) {
+        background-color: white !important;
+    }
+
+    .dark & :deep(.cm-gutters) {
         background-color: $dark-bg !important;
     }
 
     &.edit-mode :deep(.cm-gutters) {
+        background-color: #f8f9fa !important;
+    }
+
+    .dark &.edit-mode :deep(.cm-gutters) {
         background-color: #2c2f38 !important;
     }
 }

@@ -838,12 +838,16 @@ onUnmounted(() => {
 }
 
 .metric-cell {
-    background: $dark-header-bg;
+    background: #f0f2f5;
     border-radius: 10px;
     padding: 0.75rem 0.5rem;
     height: 100%;
     display: flex;
     flex-direction: column;
+
+    .dark & {
+        background: $dark-header-bg;
+    }
 }
 
 .metric-values {
@@ -857,8 +861,11 @@ onUnmounted(() => {
 .metric-label {
     font-size: 0.95rem;
     font-weight: 600;
-    color: $dark-font-color;
     margin-bottom: 0.25rem;
+
+    .dark & {
+        color: $dark-font-color;
+    }
 }
 
 .num {
