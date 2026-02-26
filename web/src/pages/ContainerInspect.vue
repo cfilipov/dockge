@@ -95,6 +95,39 @@
                 :endpoint="endpoint"
             />
 
+            <!-- Metrics Card -->
+            <div v-if="containerStat" class="shadow-box big-padding text-center mb-3">
+                <div class="row g-3">
+                    <div class="col">
+                        <div class="metric-cell">
+                            <div class="metric-label">{{ $t('CPU') }}</div>
+                            <span class="num">{{ containerStat.CPUPerc }}</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="metric-cell">
+                            <div class="metric-label">{{ $t('memory') }}</div>
+                            <span class="num">{{ containerStat.MemUsage }}</span>
+                            <span class="num-sub">({{ containerStat.MemPerc }})</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="metric-cell">
+                            <div class="metric-label">{{ $t('blockIO') }}</div>
+                            <span class="num">{{ containerStat.BlockIO }}</span>
+                            <span class="num-sub">read / write</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="metric-cell">
+                            <div class="metric-label">{{ $t('networkIO') }}</div>
+                            <span class="num">{{ containerStat.NetIO }}</span>
+                            <span class="num-sub">rx / tx</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Parsed View: two-column layout -->
             <div v-if="viewMode === 'parsed'" class="row">
                 <div class="col-lg-8">
@@ -348,6 +381,7 @@ const inspectData = ref("fetching ...");
 const inspectObj = ref<any>(null);
 const processing = ref(false);
 const showUpdateDialog = ref(false);
+const dockerStats = ref<Record<string, any>>({});
 const updateDialogData = reactive({
     pruneAfterUpdate: false,
     pruneAllAfterUpdate: false,
@@ -356,6 +390,7 @@ const progressTerminalRef = ref<InstanceType<typeof ProgressTerminal>>();
 const now = ref(Date.now());
 let uptimeTimer: ReturnType<typeof setInterval> | null = null;
 let processTimer: ReturnType<typeof setInterval> | null = null;
+let statsTimer: ReturnType<typeof setInterval> | null = null;
 
 // Process list from containerTop
 const processList = ref<Array<{ pid: string; user: string; command: string }>>([]);
@@ -413,6 +448,21 @@ const restartPolicyStr = computed(() => {
     }
     return rp.Name;
 });
+
+// Docker stats for the current container
+const containerStat = computed(() => {
+    if (!containerName.value) return null;
+    return dockerStats.value[containerName.value] || null;
+});
+
+function requestDockerStats() {
+    if (!containerName.value) return;
+    emitAgent(endpoint.value, "dockerStats", stackName.value, (res: any) => {
+        if (res.ok) {
+            dockerStats.value = res.dockerStats || {};
+        }
+    });
+}
 
 // Networks extracted from inspect data
 const networks = computed(() => {
@@ -573,6 +623,9 @@ onMounted(() => {
 
         fetchProcesses();
         processTimer = setInterval(fetchProcesses, 10000);
+
+        requestDockerStats();
+        statsTimer = setInterval(requestDockerStats, 5000);
     }
 
     uptimeTimer = setInterval(() => {
@@ -586,6 +639,9 @@ onUnmounted(() => {
     }
     if (processTimer) {
         clearInterval(processTimer);
+    }
+    if (statsTimer) {
+        clearInterval(statsTimer);
     }
 });
 </script>
@@ -708,6 +764,33 @@ onUnmounted(() => {
     .dark & {
         color: #000;
     }
+}
+
+.metric-cell {
+    background: $dark-header-bg;
+    border-radius: 10px;
+    padding: 0.75rem 0.5rem;
+    height: 100%;
+}
+
+.metric-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: $dark-font-color;
+    margin-bottom: 0.25rem;
+}
+
+.num {
+    font-size: 30px;
+    font-weight: bold;
+    display: block;
+    color: $primary;
+}
+
+.num-sub {
+    font-size: 14px;
+    color: $dark-font-color3;
+    display: block;
 }
 
 :deep(.overflow-dropdown) {
