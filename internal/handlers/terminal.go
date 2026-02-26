@@ -562,8 +562,9 @@ func (app *App) startCombinedLogs(termName, stackName string) *terminal.Terminal
 }
 
 // runCombinedLogs orchestrates per-container log readers and a batched flusher.
-// It subscribes to Docker events to spawn new readers when containers (re)start,
-// and blocks until ctx is cancelled.
+// It subscribes to Docker events to inject run-boundary banners on restarts and
+// spawn new readers when containers are recreated or added. Blocks until ctx is
+// cancelled.
 func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, stackName string) {
     containers, err := app.Docker.ContainerList(ctx, true, stackName)
     if err != nil {
@@ -594,13 +595,40 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
 
     lineCh := make(chan []byte, 256)
 
-    // Spawn initial readers
-    for _, c := range containers {
-        go app.readContainerLogs(ctx, c.ID, c.Service, maxLen, colorMap[c.Service], lineCh)
+    // Track which container IDs have an active reader goroutine.
+    // Docker follow mode continues through restarts (same container ID),
+    // so we only spawn new readers for genuinely new container IDs
+    // (e.g. after docker compose up --force-recreate).
+    var activeReaders sync.Map // containerID → struct{}
+
+    // injectBanner fetches the container's start time and sends a banner.
+    injectBanner := func(containerID, service string) {
+        startedAt, err := app.Docker.ContainerStartedAt(ctx, containerID)
+        if err != nil || startedAt.IsZero() {
+            return
+        }
+        if banner := runBanner(service, startedAt, maxLen); banner != "" {
+            select {
+            case lineCh <- []byte(banner):
+            case <-ctx.Done():
+            }
+        }
     }
 
-    // Watch for container start events → spawn new readers for restarts
-    // and newly added services.
+    // Spawn initial readers with banners
+    for _, c := range containers {
+        injectBanner(c.ID, c.Service)
+        activeReaders.Store(c.ID, struct{}{})
+        go func(id, svc string, idx int) {
+            defer activeReaders.Delete(id)
+            app.readContainerLogs(ctx, id, svc, maxLen, idx, lineCh)
+        }(c.ID, c.Service, colorMap[c.Service])
+    }
+
+    // Watch for container start events:
+    // - Always inject a banner (marks the restart boundary in the log stream)
+    // - Only spawn a new reader if this container ID doesn't already have one
+    //   (handles recreate where the old container is destroyed and a new one starts)
     eventCh, _ := app.Docker.Events(ctx)
     go func() {
         for {
@@ -620,7 +648,14 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
                         maxLen = len(evt.Service)
                     }
                 }
-                go app.readContainerLogs(ctx, evt.ContainerID, evt.Service, maxLen, idx, lineCh)
+                injectBanner(evt.ContainerID, evt.Service)
+                // Spawn reader only for new container IDs (recreated containers)
+                if _, loaded := activeReaders.LoadOrStore(evt.ContainerID, struct{}{}); !loaded {
+                    go func(id, svc string, ci int) {
+                        defer activeReaders.Delete(id)
+                        app.readContainerLogs(ctx, id, svc, maxLen, ci, lineCh)
+                    }(evt.ContainerID, evt.Service, idx)
+                }
             case <-ctx.Done():
                 return
             }
@@ -631,22 +666,10 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
     flushLogLines(ctx, term, lineCh)
 }
 
-// readContainerLogs streams logs for a single container, prefixes each line
-// with a colored service name, and sends it to lineCh. Emits a bold
-// run-boundary banner if the container's start time is available.
+// readContainerLogs streams logs for a single container, prefixing each line
+// with a colored service name. Runs until the stream closes or ctx is cancelled.
+// Banners are injected by the caller, not here.
 func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, lineCh chan<- []byte) {
-    // Emit run boundary banner (skipped when startedAt is zero, e.g. mock mode)
-    startedAt, err := app.Docker.ContainerStartedAt(ctx, containerID)
-    if err == nil {
-        if banner := runBanner(service, startedAt, maxLen); banner != "" {
-            select {
-            case lineCh <- []byte(banner):
-            case <-ctx.Done():
-                return
-            }
-        }
-    }
-
     stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
     if err != nil {
         if ctx.Err() == nil {
