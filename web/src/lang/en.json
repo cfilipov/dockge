@@ -41,6 +41,7 @@
     "primaryHostname": "Primary Hostname",
     "general": "General",
     "container": "Container | Containers",
+    "service": "Service",
     "scanFolder": "Scan Stacks Folder",
     "resetMockState": "Reset Mock State",
     "dockerImage": "Image",

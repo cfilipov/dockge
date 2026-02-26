@@ -1,9 +1,10 @@
 <template>
     <div class="shadow-box big-padding mb-3 container">
-        <!-- Service name with status badge -->
+        <!-- Container name with status badge -->
         <h5 class="mb-3">
             <span v-if="!isEditMode" class="badge rounded-pill me-2" :class="bgStyle">{{ $t(containerStatusInfo.label) }}</span>
-            {{ name }}
+            <router-link v-if="!isEditMode" :to="inspectRouteLink" class="stack-link">{{ containerName }}</router-link>
+            <template v-else>{{ name }}</template>
         </h5>
 
         <!-- Image update modal -->
@@ -36,10 +37,10 @@
 
         <!-- Container, image, ports chips -->
         <div v-if="!isEditMode" class="network-props">
-            <router-link :to="inspectRouteLink" class="network-chip chip-link">
-                <span class="chip-label">{{ $t("container") }}</span>
-                <code>{{ containerName }}</code>
-            </router-link>
+            <div class="network-chip">
+                <span class="chip-label">{{ $t("service") }}</span>
+                <code>{{ name }}</code>
+            </div>
             <router-link :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="network-chip chip-link">
                 <span class="chip-label">{{ $t("image") }}</span>
                 <code>{{ imageName }}:{{ imageTag }}</code>
@@ -53,7 +54,7 @@
         </div>
 
         <!-- Action/log/shell buttons -->
-        <div v-if="!isEditMode" class="d-flex justify-content-end align-items-center mt-2">
+        <div v-if="!isEditMode" class="d-flex justify-content-end align-items-center mt-3">
             <button
                 v-if="serviceRecreateNecessary"
                 class="btn btn-sm btn-info me-2"
@@ -574,6 +575,16 @@ function updateUrl(key: string, value: string) {
 
     .chip-sep {
         color: $dark-font-color3;
+    }
+
+    .stack-link {
+        font-weight: 600;
+        text-decoration: none;
+        color: inherit;
+
+        &:hover {
+            color: lighten($primary, 10%);
+        }
     }
 
     .notification {
