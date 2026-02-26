@@ -152,6 +152,24 @@ optgroup {
     }
 }
 
+.btn-notify {
+    color: $info !important;
+}
+
+.btn-group > .btn + .btn,
+.btn-group > .btn + .dropdown > .btn {
+    margin-left: 1px !important;
+}
+
+.btn-group {
+    gap: 1px;
+    background: white;
+
+    .dark & {
+        background: $dark-bg;
+    }
+}
+
 .btn-warning {
     color: white;
 

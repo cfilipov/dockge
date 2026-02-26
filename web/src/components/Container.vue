@@ -55,34 +55,16 @@
 
         <!-- Action/log/shell buttons -->
         <div v-if="!isEditMode" class="d-flex justify-content-end align-items-center mt-3">
-            <button
-                v-if="serviceRecreateNecessary"
-                class="btn btn-sm btn-info me-2"
-                :title="$t('tooltipServiceRecreate', [name])"
-                :disabled="processing"
-                @click="recreateService"
-            >
-                <font-awesome-icon icon="rocket" />
-            </button>
-
-            <button
-                v-if="serviceImageUpdateAvailable"
-                v-b-modal="updateModalId"
-                class="btn btn-sm btn-info me-2"
-                :title="$t('tooltipServiceUpdate', [name])"
-                :disabled="processing"
-            >
-                <font-awesome-icon icon="arrow-up" />
-            </button>
-
             <div v-if="started" class="btn-group service-actions" role="group">
                 <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
                 <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
             </div>
             <div class="btn-group service-actions ms-2" role="group">
-                <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
-                <button v-if="started" type="button" class="btn btn-sm btn-danger" :title="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
-                <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
+                <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
+                <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceRecreate', [name])" :disabled="processing" @click="recreateService"><font-awesome-icon icon="rocket" /></button>
+                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" v-b-modal="updateModalId" :title="$t('tooltipServiceUpdate', [name])" :disabled="processing"><font-awesome-icon icon="cloud-arrow-down" /></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
             </div>
         </div>
 

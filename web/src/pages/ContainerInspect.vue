@@ -16,6 +16,11 @@
                             {{ $t("restartStack") }}
                         </button>
 
+                        <button class="btn" :class="recreateNecessary ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipServiceRecreate', [serviceName])" @click="recreateService">
+                            <font-awesome-icon icon="rocket" class="me-1" />
+                            <span class="d-none d-xl-inline">{{ $t("recreate") }}</span>
+                        </button>
+
                         <button class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipServiceUpdate', [serviceName])" @click="showUpdateDialog = true">
                             <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
                             <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
@@ -430,6 +435,7 @@ const containerActive = computed(() => {
     return state === "running";
 });
 const imageUpdatesAvailable = computed(() => containerInfo.value?.imageUpdatesAvailable ?? false);
+const recreateNecessary = computed(() => containerInfo.value?.recreateNecessary ?? false);
 const terminalName = computed(() => stackName.value ? getComposeTerminalName(endpoint.value, stackName.value) : "");
 
 const parsed = computed(() => inspectObj.value);
@@ -592,6 +598,14 @@ function stopService() {
 }
 
 function restartService() {
+    startComposeAction();
+    emitAgent(endpoint.value, "restartService", stackName.value, serviceName.value, (res: any) => {
+        stopComposeAction();
+        toastRes(res);
+    });
+}
+
+function recreateService() {
     startComposeAction();
     emitAgent(endpoint.value, "restartService", stackName.value, serviceName.value, (res: any) => {
         stopComposeAction();
