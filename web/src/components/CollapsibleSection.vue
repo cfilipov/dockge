@@ -41,4 +41,8 @@ const expanded = ref(true);
 .collapsed {
     transform: rotate(-90deg);
 }
+
+.collapsible-heading :deep(.section-count) {
+    color: $dark-font-color3;
+}
 </style>

@@ -151,7 +151,7 @@
 
                     <!-- Containers -->
                     <CollapsibleSection>
-                        <template #heading>{{ $tc("container", 2) }} ({{ Object.keys(jsonConfig.services || {}).length }})</template>
+                        <template #heading>{{ $tc("container", 2) }} <span class="section-count">({{ Object.keys(jsonConfig.services || {}).length }})</span></template>
 
                         <div v-if="isEditMode" class="input-group mb-3">
                             <input
@@ -361,7 +361,7 @@ scrollable size="fullscreen" hide-footer>
 
                         <!-- Networks -->
                         <CollapsibleSection>
-                            <template #heading>{{ $tc("network", 2) }} ({{ Object.keys(networks || {}).length }})</template>
+                            <template #heading>{{ $tc("network", 2) }} <span class="section-count">({{ Object.keys(networks || {}).length }})</span></template>
                             <div class="shadow-box big-padding mb-3">
                                 <NetworkInput />
                             </div>

@@ -7,7 +7,7 @@
                 <div class="col-lg-8">
                     <!-- Containers Card -->
                     <CollapsibleSection>
-                        <template #heading>{{ $t("imageContainers") }} ({{ imageDetail?.containers?.length ?? 0 }})</template>
+                        <template #heading>{{ $t("imageContainers") }} <span class="section-count">({{ imageDetail?.containers?.length ?? 0 }})</span></template>
                         <div v-if="imageDetail && imageDetail.containers && imageDetail.containers.length > 0">
                             <div v-for="c in imageDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
                                 <h5 class="mb-3">
@@ -32,7 +32,7 @@
 
                     <!-- Layers Card -->
                     <CollapsibleSection>
-                        <template #heading>{{ $t("imageLayers") }} ({{ imageDetail?.layers?.length ?? 0 }})</template>
+                        <template #heading>{{ $t("imageLayers") }} <span class="section-count">({{ imageDetail?.layers?.length ?? 0 }})</span></template>
                         <div v-if="imageDetail && imageDetail.layers && imageDetail.layers.length > 0" class="shadow-box big-padding mb-3">
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 layer-table">

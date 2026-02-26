@@ -7,7 +7,7 @@
                 <div class="col-lg-8">
                     <!-- Connected Containers -->
                     <CollapsibleSection>
-                        <template #heading>{{ $t("networkContainers") }} ({{ networkDetail?.containers?.length ?? 0 }})</template>
+                        <template #heading>{{ $t("networkContainers") }} <span class="section-count">({{ networkDetail?.containers?.length ?? 0 }})</span></template>
                         <div v-if="networkDetail && networkDetail.containers && networkDetail.containers.length > 0">
                             <div v-for="c in networkDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
                                 <h5 class="mb-3">

@@ -7,7 +7,7 @@
                 <div class="col-lg-8">
                     <!-- Containers Card -->
                     <CollapsibleSection>
-                        <template #heading>{{ $t("volumeContainers") }} ({{ volumeDetail?.containers?.length ?? 0 }})</template>
+                        <template #heading>{{ $t("volumeContainers") }} <span class="section-count">({{ volumeDetail?.containers?.length ?? 0 }})</span></template>
                         <div v-if="volumeDetail && volumeDetail.containers && volumeDetail.containers.length > 0">
                             <div v-for="c in volumeDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
                                 <h5 class="mb-3">
