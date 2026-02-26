@@ -1,90 +1,87 @@
 <template>
     <div class="shadow-box big-padding mb-3 container">
-        <!-- Service name + service action buttons -->
-        <div class="d-flex justify-content-between align-items-start">
-            <h4>{{ name }}</h4>
-            <div v-if="!isEditMode" class="d-flex align-items-center">
-                <button
-                    v-if="serviceRecreateNecessary"
-                    class="btn btn-sm btn-info me-2"
-                    :title="$t('tooltipServiceRecreate', [name])"
-                    :disabled="processing"
-                    @click="recreateService"
-                >
-                    <font-awesome-icon icon="rocket" />
-                </button>
+        <!-- Service name with status badge -->
+        <h5 class="mb-3">
+            <span v-if="!isEditMode" class="badge rounded-pill me-2" :class="bgStyle">{{ $t(containerStatusInfo.label) }}</span>
+            {{ name }}
+        </h5>
 
-                <button
-                    v-if="serviceImageUpdateAvailable"
-                    v-b-modal="updateModalId"
-                    class="btn btn-sm btn-info me-2"
-                    :title="$t('tooltipServiceUpdate', [name])"
-                    :disabled="processing"
-                >
-                    <font-awesome-icon icon="arrow-up" />
-                </button>
-
-                <!-- Image update modal -->
-                <BModal :id="updateModalId" :ref="(el: any) => { updateModalRef = el }" :title="$tc('imageUpdate', 1)">
-                    <div>
-                        <h5>{{ $t("image") }}</h5>
-                        <span>{{ envsubstService.image }}</span>
-                    </div>
-                    <div v-if="changelogLink" class="mt-3">
-                        <h5>{{ $t("changelog") }}</h5>
-                        <a :href="changelogLink" target="_blank">{{ changelogLink }}</a>
-                    </div>
-
-                    <BForm class="mt-3">
-                        <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
-                        <div style="margin-left: 2.5rem;">
-                            <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
-                        </div>
-                    </BForm>
-
-                    <template #footer>
-                        <button class="btn btn-normal" :title="$t('tooltipServiceUpdateIgnore')" @click="skipCurrentUpdate">
-                            <font-awesome-icon icon="ban" class="me-1" />{{ $t("ignoreUpdate") }}
-                        </button>
-                        <button class="btn btn-primary" :title="$t('tooltipDoServiceUpdate', [name])" @click="doUpdateService">
-                            <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
-                        </button>
-                    </template>
-                </BModal>
-
-                <div class="btn-group service-actions" role="group">
-                    <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
-                    <button v-if="started" type="button" class="btn btn-sm btn-danger" :title="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
-                    <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Container name + image links -->
-        <div v-if="!isEditMode" class="d-flex flex-column">
-            <div class="image">
-                <router-link :to="inspectRouteLink" class="image-link">
-                    <font-awesome-icon icon="cubes" class="me-2" />{{ containerName }}
-                </router-link>
-            </div>
-            <div class="image">
-                <router-link :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="image-link">
-                    <font-awesome-icon icon="box-archive" class="me-2" /><span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
-                </router-link>
-            </div>
-        </div>
-
-        <!-- Status badges + log/shell buttons -->
-        <div v-if="!isEditMode" class="d-flex justify-content-between align-items-center mt-2">
+        <!-- Image update modal -->
+        <BModal v-if="!isEditMode" :id="updateModalId" :ref="(el: any) => { updateModalRef = el }" :title="$tc('imageUpdate', 1)">
             <div>
-                <span class="badge me-1" :class="bgStyle">{{ $t(containerStatusInfo.label) }}</span>
-                <a v-for="port in envsubstService.ports" :key="port" :href="parsePort(port).url" target="_blank">
-                    <span class="badge me-1 bg-secondary">{{ parsePort(port).display }}</span>
-                </a>
+                <h5>{{ $t("image") }}</h5>
+                <span>{{ envsubstService.image }}</span>
             </div>
+            <div v-if="changelogLink" class="mt-3">
+                <h5>{{ $t("changelog") }}</h5>
+                <a :href="changelogLink" target="_blank">{{ changelogLink }}</a>
+            </div>
+
+            <BForm class="mt-3">
+                <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
+                <div style="margin-left: 2.5rem;">
+                    <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
+                </div>
+            </BForm>
+
+            <template #footer>
+                <button class="btn btn-normal" :title="$t('tooltipServiceUpdateIgnore')" @click="skipCurrentUpdate">
+                    <font-awesome-icon icon="ban" class="me-1" />{{ $t("ignoreUpdate") }}
+                </button>
+                <button class="btn btn-primary" :title="$t('tooltipDoServiceUpdate', [name])" @click="doUpdateService">
+                    <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
+                </button>
+            </template>
+        </BModal>
+
+        <!-- Container, image, ports chips -->
+        <div v-if="!isEditMode" class="network-props">
+            <router-link :to="inspectRouteLink" class="network-chip chip-link">
+                <span class="chip-label">{{ $t("container") }}</span>
+                <code>{{ containerName }}</code>
+            </router-link>
+            <router-link :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="network-chip chip-link">
+                <span class="chip-label">{{ $t("image") }}</span>
+                <code>{{ imageName }}:{{ imageTag }}</code>
+            </router-link>
+            <div v-if="envsubstService.ports && envsubstService.ports.length > 0" class="network-chip">
+                <span class="chip-label">{{ $tc("port", 2) }}</span>
+                <span>
+                    <template v-for="(port, i) in envsubstService.ports" :key="port"><a :href="parsePort(port).url" target="_blank" class="chip-port-link"><code>{{ parsePort(port).display }}</code></a><span v-if="i < envsubstService.ports.length - 1" class="chip-sep">, </span></template>
+                </span>
+            </div>
+        </div>
+
+        <!-- Action/log/shell buttons -->
+        <div v-if="!isEditMode" class="d-flex justify-content-end align-items-center mt-2">
+            <button
+                v-if="serviceRecreateNecessary"
+                class="btn btn-sm btn-info me-2"
+                :title="$t('tooltipServiceRecreate', [name])"
+                :disabled="processing"
+                @click="recreateService"
+            >
+                <font-awesome-icon icon="rocket" />
+            </button>
+
+            <button
+                v-if="serviceImageUpdateAvailable"
+                v-b-modal="updateModalId"
+                class="btn btn-sm btn-info me-2"
+                :title="$t('tooltipServiceUpdate', [name])"
+                :disabled="processing"
+            >
+                <font-awesome-icon icon="arrow-up" />
+            </button>
+
             <div v-if="started" class="btn-group service-actions" role="group">
                 <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
                 <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
+            </div>
+            <div class="btn-group service-actions ms-2" role="group">
+                <button v-if="!started" type="button" class="btn btn-sm btn-success" :title="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-danger" :title="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-warning" :title="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
             </div>
         </div>
 
@@ -521,30 +518,62 @@ function updateUrl(key: string, value: string) {
 .container {
     max-width: 100%;
 
-    .image {
-        font-size: 0.8rem;
-        color: #6c757d;
-        .tag {
-            color: #33383b;
+    .network-props {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .network-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        background: rgba(0, 0, 0, 0.06);
+        border-radius: 10px;
+        padding: 0.3rem 0.6rem;
+
+        .dark & {
+            background: $dark-header-bg;
         }
 
-        .image-link {
+        .chip-label {
+            font-size: 0.8em;
+            font-weight: 600;
+            color: $dark-font-color3;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            color: $primary;
+            background: none;
+        }
+    }
+
+    .chip-link {
+        text-decoration: none;
+
+        &:hover {
             text-decoration: none;
-            color: inherit;
 
-            &:hover {
+            code {
                 text-decoration: underline;
-            }
-
-            .dark & .tag {
-                color: $dark-font-color;
             }
         }
     }
 
-    .status {
-        font-size: 0.8rem;
-        color: #6c757d;
+    .chip-port-link {
+        text-decoration: none;
+
+        &:hover code {
+            text-decoration: underline;
+        }
+    }
+
+    .chip-sep {
+        color: $dark-font-color3;
     }
 
     .notification {
