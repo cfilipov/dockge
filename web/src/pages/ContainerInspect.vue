@@ -187,25 +187,32 @@
                         <template #heading>{{ $t("containerMounts") }} ({{ mounts.length }})</template>
                         <div v-if="mounts.length > 0">
                             <div v-for="(mount, idx) in mounts" :key="idx" class="shadow-box big-padding mb-3">
-                                <div class="inspect-grid">
-                                    <div class="inspect-label">{{ $t("mountType") }}</div>
-                                    <div class="inspect-value">{{ mount.Type }}</div>
-
+                                <h5 class="mb-3">
                                     <template v-if="mount.Type === 'volume' && mount.Name">
-                                        <div class="inspect-label">{{ $t("mountVolume") }}</div>
-                                        <div class="inspect-value">
-                                            <router-link :to="{ name: 'volumeDetail', params: { volumeName: mount.Name } }" class="stack-link"><font-awesome-icon icon="hard-drive" class="me-2" />{{ mount.Name }}</router-link>
-                                        </div>
+                                        <span class="badge rounded-pill bg-success me-2">{{ $t("volumeInUse") }}</span>
+                                        <router-link :to="{ name: 'volumeDetail', params: { volumeName: mount.Name } }" class="stack-link">{{ mount.Name }}</router-link>
                                     </template>
-
-                                    <div class="inspect-label">{{ $t("mountSource") }}</div>
-                                    <div class="inspect-value"><code>{{ mount.Source || mount.Name || '–' }}</code></div>
-
-                                    <div class="inspect-label">{{ $t("mountDestination") }}</div>
-                                    <div class="inspect-value"><code>{{ mount.Destination }}</code></div>
-
-                                    <div class="inspect-label">{{ $t("mountReadWrite") }}</div>
-                                    <div class="inspect-value">{{ mount.RW ? 'rw' : 'ro' }}</div>
+                                    <template v-else>
+                                        {{ mount.Destination }}
+                                    </template>
+                                </h5>
+                                <div class="network-props">
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("mountType") }}</span>
+                                        <code>{{ mount.Type }}</code>
+                                    </div>
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("mountSource") }}</span>
+                                        <code>{{ mount.Source || mount.Name || '–' }}</code>
+                                    </div>
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("mountDestination") }}</span>
+                                        <code>{{ mount.Destination }}</code>
+                                    </div>
+                                    <div class="network-chip">
+                                        <span class="chip-label">{{ $t("mountReadWrite") }}</span>
+                                        <code>{{ mount.RW ? 'rw' : 'ro' }}</code>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -674,32 +681,6 @@ onUnmounted(() => {
 .editor-box {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
-}
-
-.inspect-grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.6rem 1.5rem;
-    align-items: baseline;
-}
-
-.inspect-label {
-    font-weight: 600;
-    white-space: nowrap;
-    color: $dark-font-color3;
-
-    .dark & {
-        color: $dark-font-color3;
-    }
-}
-
-.inspect-value {
-    word-break: break-all;
-
-    code {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9em;
-    }
 }
 
 .network-props {
