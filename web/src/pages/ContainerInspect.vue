@@ -101,28 +101,46 @@
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('CPU') }}</div>
-                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat?.CPUPerc ?? '--' }}</span>
+                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat ? spacedValue(containerStat.CPUPerc) : '--' }}</span>
                         </div>
                     </div>
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('memory') }}</div>
-                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat?.MemUsage ?? '--' }}</span>
-                            <span class="num-sub">({{ containerStat?.MemPerc ?? '--' }})</span>
+                            <div class="metric-pair-row"><span class="metric-pair">
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ memParts[0] }}</span>
+                                <span class="num-tag">{{ containerStat?.MemPerc ?? '--' }} used</span>
+                            </span></div>
+                            <div class="metric-pair-row"><span class="metric-pair">
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ memParts[1] }}</span>
+                                <span class="num-tag">avail.</span>
+                            </span></div>
                         </div>
                     </div>
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('blockIO') }}</div>
-                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat?.BlockIO ?? '--' }}</span>
-                            <span class="num-sub">read / write</span>
+                            <div class="metric-pair-row"><span class="metric-pair">
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ blockParts[0] }}</span>
+                                <span class="num-tag">read</span>
+                            </span></div>
+                            <div class="metric-pair-row"><span class="metric-pair">
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ blockParts[1] }}</span>
+                                <span class="num-tag">write</span>
+                            </span></div>
                         </div>
                     </div>
                     <div class="col">
                         <div class="metric-cell">
                             <div class="metric-label">{{ $t('networkIO') }}</div>
-                            <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ containerStat?.NetIO ?? '--' }}</span>
-                            <span class="num-sub">rx / tx</span>
+                            <div class="metric-pair-row"><span class="metric-pair">
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ netParts[0] }}</span>
+                                <span class="num-tag">rx</span>
+                            </span></div>
+                            <div class="metric-pair-row"><span class="metric-pair">
+                                <span class="num" :class="{ 'placeholder-value': !containerStat }">{{ netParts[1] }}</span>
+                                <span class="num-tag">tx</span>
+                            </span></div>
                         </div>
                     </div>
                 </div>
@@ -454,6 +472,25 @@ const containerStat = computed(() => {
     if (!containerName.value) return null;
     return dockerStats.value[containerName.value] || null;
 });
+
+/** Split "3.9GiB" into "3.9 GiB", or return as-is if no unit found. Keeps % attached. */
+function spacedValue(s: string): string {
+    const m = s.match(/^([\d.]+)\s*(%|[A-Za-z]+)$/);
+    if (!m) return s;
+    return m[2] === "%" ? `${m[1]}%` : `${m[1]} ${m[2]}`;
+}
+
+/** Split "valueA / valueB" into [spacedA, spacedB], or ["--","--"] */
+function splitPair(raw: string | undefined): [string, string] {
+    if (!raw) return ["--", "--"];
+    const parts = raw.split(" / ");
+    if (parts.length !== 2) return [spacedValue(raw), "--"];
+    return [spacedValue(parts[0]), spacedValue(parts[1])];
+}
+
+const memParts = computed(() => splitPair(containerStat.value?.MemUsage));
+const blockParts = computed(() => splitPair(containerStat.value?.BlockIO));
+const netParts = computed(() => splitPair(containerStat.value?.NetIO));
 
 function requestDockerStats() {
     if (!containerName.value) return;
@@ -789,6 +826,27 @@ onUnmounted(() => {
 
 .num.placeholder-value {
     opacity: 0.3;
+}
+
+.metric-pair {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+
+    .num {
+        display: inline;
+    }
+
+    .num-tag {
+        font-size: 11px;
+        color: $dark-font-color3;
+        line-height: 1;
+        margin-top: -4px;
+    }
+}
+
+.metric-pair-row {
+    display: block;
 }
 
 .num-sub {
