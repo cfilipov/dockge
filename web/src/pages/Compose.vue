@@ -423,7 +423,7 @@ import { useAppToast } from "../composables/useAppToast";
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-const { emitAgent, agentCount, agentList, agentStatusList, completeStackList, composeTemplate, envTemplate, endpointDisplayFunction, info } = useSocket();
+const { emitAgent, agentCount, agentList, agentStatusList, containerList, completeStackList, composeTemplate, envTemplate, endpointDisplayFunction, info } = useSocket();
 const { toastRes, toastError } = useAppToast();
 
 // Suppress jsonConfig → YAML sync during programmatic updates (e.g. loadStack)
@@ -672,6 +672,14 @@ watch(jsonConfig, () => {
         yamlDoc = doc;
     }
 }, { deep: true });
+
+// Refresh service status when the backend broadcasts an updated container list
+// (e.g. after compose restart/stop/start actions or Docker events).
+watch(containerList, () => {
+    if (!isAdd.value && stack.name) {
+        requestServiceStatus();
+    }
+});
 
 // Navigate to raw view when toggle changes
 watch(viewMode, (mode) => {
