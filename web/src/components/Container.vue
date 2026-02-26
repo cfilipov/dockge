@@ -432,7 +432,7 @@ const imageTag = computed(() => {
     return "";
 });
 
-const started = computed(() => status.value === "running" || status.value === "healthy");
+const started = computed(() => status.value === "running" || status.value === "healthy" || status.value === "unhealthy");
 
 const status = computed(() => {
     if (!props.serviceStatus) {

@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfilipov/dockge/internal/compose"
 	"github.com/cfilipov/dockge/internal/docker"
 	"github.com/cfilipov/dockge/internal/models"
 	"github.com/cfilipov/dockge/internal/terminal"
@@ -21,9 +20,7 @@ type App struct {
 	ImageUpdates *models.ImageUpdateStore
 	WS           *ws.Server
 	Docker       docker.Client
-	Compose      compose.Composer
 	Terms        *terminal.Manager
-	Mock         bool
 	NoAuth       bool // Skip authentication checks (all endpoints open)
 
 	JWTSecret        string

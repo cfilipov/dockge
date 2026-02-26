@@ -2,10 +2,18 @@ package handlers
 
 import (
     "log/slog"
+    "os"
+    "strings"
 
     "github.com/cfilipov/dockge/internal/models"
     "github.com/cfilipov/dockge/internal/ws"
 )
+
+// isMockMode returns true if the app is running in mock mode.
+// This is detected by checking if DOCKER_HOST points to a dockge-mock socket.
+func isMockMode() bool {
+    return strings.Contains(os.Getenv("DOCKER_HOST"), "dockge-mock")
+}
 
 func RegisterAuthHandlers(app *App) {
     app.WS.Handle("login", app.handleLogin)
@@ -29,7 +37,7 @@ func RegisterAuthHandlers(app *App) {
             "version":       app.Version,
             "latestVersion": app.Version,
             "isContainer":   true,
-            "mock":          app.Mock,
+            "mock":          isMockMode(),
         })
 
         // If no users exist, tell the client to show the setup page
@@ -323,7 +331,7 @@ func (app *App) afterLogin(c *ws.Conn) {
         "version":       app.Version,
         "latestVersion": app.Version,
         "isContainer":   true,
-        "mock":          app.Mock,
+        "mock":          isMockMode(),
     })
 
     // NOTE: Do NOT send "autoLogin" here. That event is only for when auth is

@@ -705,7 +705,14 @@ func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 		defer cancel()
 
 		// Down first (with --remove-orphans, matching Node.js)
-		app.Compose.DownRemoveOrphans(ctx, stackName, &discardWriter{})
+		dir := filepath.Join(app.StacksDir, stackName)
+		envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
+		downArgs := []string{"compose"}
+		downArgs = append(downArgs, envArgs...)
+		downArgs = append(downArgs, "down", "--remove-orphans")
+		downCmd := exec.CommandContext(ctx, "docker", downArgs...)
+		downCmd.Dir = dir
+		downCmd.Run() // best-effort, ignore errors
 
 		// Delete files if requested
 		if opts.DeleteStackFiles {
@@ -741,9 +748,14 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		app.Compose.DownVolumes(ctx, stackName, &discardWriter{})
-
 		dir := filepath.Join(app.StacksDir, stackName)
+		envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
+		downArgs := []string{"compose"}
+		downArgs = append(downArgs, envArgs...)
+		downArgs = append(downArgs, "down", "-v", "--remove-orphans")
+		downCmd := exec.CommandContext(ctx, "docker", downArgs...)
+		downCmd.Dir = dir
+		downCmd.Run() // best-effort, ignore errors
 		if err := os.RemoveAll(dir); err != nil {
 			slog.Error("force delete stack", "err", err, "stack", stackName)
 		}
@@ -794,10 +806,8 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
 }
 
 // runComposeAction runs a compose command in the background, streaming output
-// to a terminal that fans out to WebSocket clients.
-//
-// In mock mode: uses pipe terminal + Composer interface (no real docker CLI).
-// In real mode: uses PTY terminal + exec.Command (for rich terminal output).
+// to a PTY terminal that fans out to WebSocket clients.
+// In mock mode, exec.Command resolves to the mock docker binary via PATH.
 func (app *App) runComposeAction(stackName, action string, composeArgs ...string) {
 	termName := "compose--" + stackName
 	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
@@ -807,39 +817,24 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	if app.Mock {
-		term := app.Terms.Recreate(termName, terminal.TypePipe)
-		term.Write([]byte(cmdDisplay))
+	term := app.Terms.Recreate(termName, terminal.TypePTY)
+	term.Write([]byte(cmdDisplay))
 
-		if err := app.Compose.RunCompose(ctx, stackName, term, composeArgs...); err != nil {
-			if ctx.Err() == nil {
-				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-				term.Write([]byte(errMsg))
-				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-			}
-		} else {
-			term.Write([]byte("\r\n[Done]\r\n"))
+	dir := filepath.Join(app.StacksDir, stackName)
+	args := []string{"compose"}
+	args = append(args, envArgs...)
+	args = append(args, composeArgs...)
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = dir
+
+	if err := term.RunPTY(cmd); err != nil {
+		if ctx.Err() == nil {
+			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+			term.Write([]byte(errMsg))
+			slog.Error("compose action", "action", action, "stack", stackName, "err", err)
 		}
 	} else {
-		term := app.Terms.Recreate(termName, terminal.TypePTY)
-		term.Write([]byte(cmdDisplay))
-
-		dir := filepath.Join(app.StacksDir, stackName)
-		args := []string{"compose"}
-		args = append(args, envArgs...)
-		args = append(args, composeArgs...)
-		cmd := exec.CommandContext(ctx, "docker", args...)
-		cmd.Dir = dir
-
-		if err := term.RunPTY(cmd); err != nil {
-			if ctx.Err() == nil {
-				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-				term.Write([]byte(errMsg))
-				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-			}
-		} else {
-			term.Write([]byte("\r\n[Done]\r\n"))
-		}
+		term.Write([]byte("\r\n[Done]\r\n"))
 	}
 
 	// Schedule terminal cleanup after a grace period
@@ -861,67 +856,40 @@ func (app *App) runDeployWithValidation(stackName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	if app.Mock {
-		term := app.Terms.Recreate(termName, terminal.TypePipe)
+	term := app.Terms.Recreate(termName, terminal.TypePTY)
+	dir := filepath.Join(app.StacksDir, stackName)
 
-		// Step 1: Validate
-		term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
-		if err := app.Compose.Config(ctx, stackName, term); err != nil {
-			if ctx.Err() == nil {
-				errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
-				term.Write([]byte(errMsg))
-				slog.Warn("deploy validation failed", "stack", stackName, "err", err)
-			}
-			return
+	// Step 1: Validate
+	term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
+	validateArgs := []string{"compose"}
+	validateArgs = append(validateArgs, envArgs...)
+	validateArgs = append(validateArgs, "config", "--dry-run")
+	validateCmd := exec.CommandContext(ctx, "docker", validateArgs...)
+	validateCmd.Dir = dir
+	if err := term.RunPTY(validateCmd); err != nil {
+		if ctx.Err() == nil {
+			errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
+			term.Write([]byte(errMsg))
+			slog.Warn("deploy validation failed", "stack", stackName, "err", err)
 		}
+		return
+	}
 
-		// Step 2: Deploy
-		term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
-		if err := app.Compose.RunCompose(ctx, stackName, term, "up", "-d", "--remove-orphans"); err != nil {
-			if ctx.Err() == nil {
-				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-				term.Write([]byte(errMsg))
-				slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
-			}
-		} else {
-			term.Write([]byte("\r\n[Done]\r\n"))
+	// Step 2: Deploy
+	term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
+	upArgs := []string{"compose"}
+	upArgs = append(upArgs, envArgs...)
+	upArgs = append(upArgs, "up", "-d", "--remove-orphans")
+	upCmd := exec.CommandContext(ctx, "docker", upArgs...)
+	upCmd.Dir = dir
+	if err := term.RunPTY(upCmd); err != nil {
+		if ctx.Err() == nil {
+			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+			term.Write([]byte(errMsg))
+			slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
 		}
 	} else {
-		term := app.Terms.Recreate(termName, terminal.TypePTY)
-		dir := filepath.Join(app.StacksDir, stackName)
-
-		// Step 1: Validate
-		term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
-		validateArgs := []string{"compose"}
-		validateArgs = append(validateArgs, envArgs...)
-		validateArgs = append(validateArgs, "config", "--dry-run")
-		validateCmd := exec.CommandContext(ctx, "docker", validateArgs...)
-		validateCmd.Dir = dir
-		if err := term.RunPTY(validateCmd); err != nil {
-			if ctx.Err() == nil {
-				errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
-				term.Write([]byte(errMsg))
-				slog.Warn("deploy validation failed", "stack", stackName, "err", err)
-			}
-			return
-		}
-
-		// Step 2: Deploy
-		term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
-		upArgs := []string{"compose"}
-		upArgs = append(upArgs, envArgs...)
-		upArgs = append(upArgs, "up", "-d", "--remove-orphans")
-		upCmd := exec.CommandContext(ctx, "docker", upArgs...)
-		upCmd.Dir = dir
-		if err := term.RunPTY(upCmd); err != nil {
-			if ctx.Err() == nil {
-				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-				term.Write([]byte(errMsg))
-				slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
-			}
-		} else {
-			term.Write([]byte("\r\n[Done]\r\n"))
-		}
+		term.Write([]byte("\r\n[Done]\r\n"))
 	}
 
 	// Schedule terminal cleanup after a grace period
@@ -938,64 +906,36 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	if app.Mock {
-		term := app.Terms.Recreate(termName, terminal.TypePipe)
+	term := app.Terms.Recreate(termName, terminal.TypePTY)
+	dir := filepath.Join(app.StacksDir, stackName)
 
-		for _, dockerArgs := range argSets {
-			cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
-			term.Write([]byte(cmdDisplay))
+	for _, dockerArgs := range argSets {
+		cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
+		term.Write([]byte(cmdDisplay))
 
-			var err error
-			if len(dockerArgs) > 0 && dockerArgs[0] == "compose" {
-				err = app.Compose.RunCompose(ctx, stackName, term, dockerArgs[1:]...)
-			} else {
-				err = app.Compose.RunDocker(ctx, stackName, term, dockerArgs...)
-			}
-
-			if err != nil {
-				if ctx.Err() == nil {
-					errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-					term.Write([]byte(errMsg))
-					slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-				}
-				app.TriggerRefresh()
-				return
-			}
+		var cmd *exec.Cmd
+		if len(dockerArgs) > 0 && dockerArgs[0] == "compose" && len(envArgs) > 0 {
+			args := []string{"compose"}
+			args = append(args, envArgs...)
+			args = append(args, dockerArgs[1:]...)
+			cmd = exec.CommandContext(ctx, "docker", args...)
+		} else {
+			cmd = exec.CommandContext(ctx, "docker", dockerArgs...)
 		}
+		cmd.Dir = dir
 
-		term.Write([]byte("\r\n[Done]\r\n"))
-	} else {
-		term := app.Terms.Recreate(termName, terminal.TypePTY)
-		dir := filepath.Join(app.StacksDir, stackName)
-
-		for _, dockerArgs := range argSets {
-			cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
-			term.Write([]byte(cmdDisplay))
-
-			var cmd *exec.Cmd
-			if len(dockerArgs) > 0 && dockerArgs[0] == "compose" && len(envArgs) > 0 {
-				args := []string{"compose"}
-				args = append(args, envArgs...)
-				args = append(args, dockerArgs[1:]...)
-				cmd = exec.CommandContext(ctx, "docker", args...)
-			} else {
-				cmd = exec.CommandContext(ctx, "docker", dockerArgs...)
+		if err := term.RunPTY(cmd); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
 			}
-			cmd.Dir = dir
-
-			if err := term.RunPTY(cmd); err != nil {
-				if ctx.Err() == nil {
-					errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-					term.Write([]byte(errMsg))
-					slog.Error("compose action", "action", action, "stack", stackName, "err", err)
-				}
-				app.TriggerRefresh()
-				return
-			}
+			app.TriggerRefresh()
+			return
 		}
-
-		term.Write([]byte("\r\n[Done]\r\n"))
 	}
+
+	term.Write([]byte("\r\n[Done]\r\n"))
 
 	// Schedule terminal cleanup after a grace period
 	app.Terms.RemoveAfter(termName, 30*time.Second)
@@ -1033,7 +973,3 @@ func composeEnvDisplay(dockerArgs, envArgs []string) []string {
 	return out
 }
 
-// discardWriter silently discards all output.
-type discardWriter struct{}
-
-func (d *discardWriter) Write(p []byte) (int, error) { return len(p), nil }

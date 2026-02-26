@@ -226,6 +226,7 @@ export class ContainerStatusInfo {
     /** Map a combined status string (from serviceStatusList) to a ContainerStatusInfo. */
     static fromStatus(status: string): ContainerStatusInfo {
         if (status === "healthy") return this.RUNNING;
+        if (status === "unhealthy") return this.UNHEALTHY;
         return this.from({ state: status });
     }
 }

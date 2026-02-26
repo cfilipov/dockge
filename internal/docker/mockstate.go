@@ -5,18 +5,22 @@ import (
 	"sync"
 )
 
-// MockState holds in-memory container state for mock Docker/Compose.
-// It is shared between MockClient and MockCompose so both see the same
-// running/exited/inactive status for each stack.
+// MockState holds in-memory container state for the mock Docker system.
+// It is shared between the fake Docker daemon and the mock docker binary
+// so both see the same running/exited/inactive status for each stack.
 type MockState struct {
 	mu       sync.RWMutex
 	stacks   map[string]string // stackName → status ("running", "exited", "inactive")
+	services map[string]string // "stackName/serviceName" → status override
 	defaults map[string]string // initial state to restore on Reset()
 }
 
 // NewMockState returns an empty MockState (useful for tests).
 func NewMockState() *MockState {
-	return &MockState{stacks: make(map[string]string)}
+	return &MockState{
+		stacks:   make(map[string]string),
+		services: make(map[string]string),
+	}
 }
 
 // NewMockStateFrom returns a MockState initialized from the given map.
@@ -29,7 +33,7 @@ func NewMockStateFrom(defaults map[string]string) *MockState {
 	for k, v := range defaults {
 		d[k] = v
 	}
-	return &MockState{stacks: m, defaults: d}
+	return &MockState{stacks: m, services: make(map[string]string), defaults: d}
 }
 
 // defaultDevStateMap returns the default state map for dev/test use.
@@ -100,6 +104,7 @@ func (s *MockState) Reset() {
 	} else {
 		s.stacks = defaultDevStateMap()
 	}
+	s.services = make(map[string]string)
 }
 
 // Get returns the status for a stack, or "inactive" if not present.
@@ -112,11 +117,32 @@ func (s *MockState) Get(stack string) string {
 	return "inactive"
 }
 
-// Set upserts the status for a stack.
+// Set upserts the status for a stack and clears any per-service overrides
+// (a stack-level change like "stop all" resets individual service states).
 func (s *MockState) Set(stack, status string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.stacks[stack] = status
+	// Clear per-service overrides — a stack-level action overrides them all
+	for k := range s.services {
+		if len(k) > len(stack) && k[:len(stack)+1] == stack+"/" {
+			delete(s.services, k)
+		}
+	}
+}
+
+// SetService sets a per-service state override within a stack.
+func (s *MockState) SetService(stack, service, status string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.services[stack+"/"+service] = status
+}
+
+// GetService returns the per-service state override, or "" if none is set.
+func (s *MockState) GetService(stack, service string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.services[stack+"/"+service]
 }
 
 // Remove deletes a stack's state entry.

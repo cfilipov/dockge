@@ -15,6 +15,9 @@ export default defineConfig({
                 target: "http://localhost:5001",
                 ws: true,
             },
+            "/api": {
+                target: "http://localhost:5001",
+            },
         },
     },
     define: {

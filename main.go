@@ -142,29 +142,39 @@ func main() {
         seedDevStacks(cfg.StacksDir)
     }
 
-    // Mock state and data (shared between MockClient and MockCompose)
+    // Mock state, data, and fake daemon
     var mockState *docker.MockState
     var mockData *docker.MockData
     if cfg.Mock {
         mockData = docker.BuildMockData(cfg.StacksDir)
         mockState = docker.DefaultDevStateFromData(mockData)
+
+        // Start fake Docker daemon on a Unix socket
+        sockPath, daemonCleanup, err := docker.StartFakeDaemon(mockState, mockData, cfg.StacksDir)
+        if err != nil {
+            slog.Error("fake docker daemon", "err", err)
+            os.Exit(1)
+        }
+        defer daemonCleanup()
+
+        // Set DOCKER_HOST so SDKClient and mock binary both connect to fake daemon
+        os.Setenv("DOCKER_HOST", "unix://"+sockPath)
+        slog.Info("mock mode: fake daemon started", "socket", sockPath)
+
+        // Put mock docker binary first on PATH so exec.Command("docker", ...) resolves to it
+        mockBinDir, _ := filepath.Abs("test-data/bin")
+        os.Setenv("PATH", mockBinDir+":"+os.Getenv("PATH"))
+        slog.Info("mock mode: mock docker binary on PATH", "dir", mockBinDir)
     }
 
-    // Docker client (SDK or mock)
-    dockerClient, err := docker.NewClient(cfg.Mock, cfg.StacksDir, mockState, mockData)
+    // Docker client — always uses SDKClient. In mock mode, DOCKER_HOST points
+    // to the fake daemon. In real mode, it connects to the real Docker daemon.
+    dockerClient, err := docker.NewSDKClient()
     if err != nil {
         slog.Error("docker client", "err", err)
         os.Exit(1)
     }
     defer dockerClient.Close()
-
-    // Compose executor
-    var composeExec compose.Composer
-    if cfg.Mock {
-        composeExec = compose.NewMockCompose(cfg.StacksDir, mockState)
-    } else {
-        composeExec = &compose.Exec{StacksDir: cfg.StacksDir}
-    }
 
     // Terminal manager
     terms := terminal.NewManager()
@@ -189,13 +199,11 @@ func main() {
         ImageUpdates: imageUpdates,
         WS:           wss,
         Docker:       dockerClient,
-        Compose:      composeExec,
         Terms:        terms,
         JWTSecret:    jwtSecret,
         NeedSetup:    userCount == 0,
         Version:      version,
         StacksDir:    cfg.StacksDir,
-        Mock:         cfg.Mock,
         NoAuth:       cfg.NoAuth,
     }
     handlers.RegisterAuthHandlers(app)

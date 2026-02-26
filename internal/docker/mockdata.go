@@ -10,7 +10,7 @@ import (
 )
 
 // MockData holds all data derived from compose.yaml and mock.yaml files
-// on disk. It is built once at startup and used by MockClient to serve
+// on disk. It is built once at startup and used by the fake daemon to serve
 // realistic, consistent responses without hardcoded conditionals.
 type MockData struct {
 	// Derived from compose.yaml files

@@ -9,7 +9,7 @@ import (
 func TestParseFile(t *testing.T) {
     // web-app: nginx (image updates changelog label, no dockge control labels),
     //          redis (status.ignore=true)
-    data := ParseFile("/opt/stacks/web-app/compose.yaml")
+    data := ParseFile("/opt/stacks/01-web-app/compose.yaml")
     if len(data) != 2 {
         t.Fatalf("web-app: expected 2 services, got %d", len(data))
     }
@@ -35,7 +35,7 @@ func TestParseFile(t *testing.T) {
     }
 
     // monitoring: grafana (imageupdates.check=false)
-    data = ParseFile("/opt/stacks/monitoring/compose.yaml")
+    data = ParseFile("/opt/stacks/03-monitoring/compose.yaml")
     if grafana, ok := data["grafana"]; !ok {
         t.Error("monitoring: missing grafana")
     } else {

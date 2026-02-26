@@ -4,7 +4,7 @@ services:
     command: node server.js
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - 3000:3000
     depends_on:
       db:
         condition: service_healthy
@@ -18,7 +18,7 @@ services:
     command: python -m http.server 8000
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - 8000:8000
     depends_on:
       - db
     networks:
@@ -30,7 +30,9 @@ services:
     environment:
       POSTGRES_PASSWORD: secret
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U postgres
       interval: 10s
       timeout: 5s
       retries: 3
@@ -52,10 +54,8 @@ services:
       - db
     networks:
       - backend
-
 volumes:
-  dbdata:
-
+  dbdata: null
 networks:
-  frontend:
-  backend:
+  frontend: null
+  backend: null

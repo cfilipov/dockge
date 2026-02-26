@@ -37,6 +37,16 @@ func NewSDKClient() (*SDKClient, error) {
     return &SDKClient{cli: cli}, nil
 }
 
+// NewSDKClientWithHost creates an SDKClient connected to a specific Docker host.
+// The host parameter should be a full URI like "unix:///path/to/docker.sock".
+func NewSDKClientWithHost(host string) (*SDKClient, error) {
+    cli, err := client.NewClientWithOpts(client.WithHost(host), client.WithAPIVersionNegotiation())
+    if err != nil {
+        return nil, fmt.Errorf("docker sdk with host: %w", err)
+    }
+    return &SDKClient{cli: cli}, nil
+}
+
 func (s *SDKClient) ContainerList(ctx context.Context, all bool, projectFilter string) ([]Container, error) {
     opts := container.ListOptions{All: all}
     if projectFilter != "" {

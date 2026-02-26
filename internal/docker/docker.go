@@ -8,7 +8,7 @@ import (
 
 // Client abstracts Docker daemon queries (reads only).
 // Write operations (up, down, stop, restart, pull) remain as CLI shell-outs
-// in the compose package.
+// via exec.Command("docker", ...).
 type Client interface {
     // ContainerList returns containers, optionally filtered by compose project.
     // If all is true, includes stopped containers. If projectFilter is non-empty,
@@ -71,19 +71,4 @@ type Client interface {
 
     // Close releases any resources held by the client.
     Close() error
-}
-
-// NewClient creates a Docker client. If mock is true, returns a MockClient
-// that synthesizes container data in memory from compose.yaml files on disk
-// (no Docker daemon or mock script needed). Otherwise returns an SDKClient
-// that talks directly to the Docker daemon socket.
-// The state and data parameters are only used when mock is true and may be nil otherwise.
-func NewClient(mock bool, stacksDir string, state *MockState, data *MockData) (Client, error) {
-    if mock {
-        if data != nil {
-            return NewMockClientWithData(stacksDir, state, data), nil
-        }
-        return NewMockClient(stacksDir, state), nil
-    }
-    return NewSDKClient()
 }

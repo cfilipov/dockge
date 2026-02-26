@@ -27,6 +27,7 @@ tasks:
 
   build-go:
     desc: Build Go backend
+    deps: [build-mock-docker]
     cmd: go build -o {{.BINARY}} .
     sources:
       - '**/*.go'
@@ -34,6 +35,15 @@ tasks:
       - go.sum
     generates:
       - ./{{.BINARY}}
+
+  build-mock-docker:
+    desc: Build mock docker binary for --mock mode
+    cmd: go build -o test-data/bin/docker ./cmd/mock-docker
+    sources:
+      - cmd/mock-docker/**/*.go
+      - go.mod
+    generates:
+      - test-data/bin/docker
 
   dev:
     desc: Run Go backend + Vite HMR (ports 5001 + 5000)

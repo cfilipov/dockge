@@ -11,7 +11,6 @@ import (
     "testing"
     "time"
 
-    "github.com/cfilipov/dockge/internal/compose"
     "github.com/cfilipov/dockge/internal/db"
     "github.com/cfilipov/dockge/internal/docker"
     "github.com/cfilipov/dockge/internal/handlers"
@@ -103,10 +102,22 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
         t.Fatal(err)
     }
 
-    // Mock Docker + Compose with shared in-memory state
+    // Start fake Docker daemon with shared in-memory state
     state := docker.NewMockState()
-    dockerClient := docker.NewMockClient(stacksDir, state)
-    composeExec := compose.NewMockCompose(stacksDir, state)
+    data := docker.BuildMockData(stacksDir)
+    sockPath, daemonCleanup, err := docker.StartFakeDaemon(state, data, stacksDir)
+    if err != nil {
+        t.Fatal("start fake daemon:", err)
+    }
+
+    // Set DOCKER_HOST so SDKClient connects to fake daemon
+    os.Setenv("DOCKER_HOST", "unix://"+sockPath)
+
+    dockerClient, err := docker.NewSDKClient()
+    if err != nil {
+        daemonCleanup()
+        t.Fatal("new sdk client:", err)
+    }
 
     // Terminal manager
     terms := terminal.NewManager()
@@ -122,13 +133,11 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
         ImageUpdates: imageUpdates,
         WS:           wss,
         Docker:       dockerClient,
-        Compose:      composeExec,
         Terms:        terms,
         JWTSecret:    jwtSecret,
         NeedSetup:    userCount == 0,
         Version:      "test",
         StacksDir:    stacksDir,
-        Mock:         true,
     }
 
     // Register all handlers
@@ -163,7 +172,10 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     t.Cleanup(func() {
         cancel()
         server.Close()
+        dockerClient.Close()
+        daemonCleanup()
         database.Close()
+        os.Unsetenv("DOCKER_HOST")
     })
 
     return &TestEnv{
