@@ -536,14 +536,14 @@ func coloredPrefix(service string, maxLen int, colorIdx int) string {
 
 // runBanner returns a bold purple banner line marking a container start boundary.
 // Returns empty string if startedAt is zero (mock mode / unknown).
-func runBanner(service string, startedAt time.Time, maxLen int) string {
+func runBanner(service string, startedAt time.Time) string {
     if startedAt.IsZero() {
         return ""
     }
     ts := startedAt.Local().Format("15:04:05")
     // Bold + true-color RGB 199,166,255 (#c7a6ff — matches UI $info purple)
-    return fmt.Sprintf("\033[1;38;2;199;166;255m %-*s \u25B6 CONTAINER START \u2014 %s (%s)\033[0m\n",
-        maxLen, "", service, ts)
+    return fmt.Sprintf("\n\033[1;38;2;199;166;255m\u25B6 CONTAINER START \u2014 %s (%s)\033[0m\n\n",
+        service, ts)
 }
 
 // startCombinedLogs creates a combined log terminal for a stack and starts
@@ -607,7 +607,7 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
         if err != nil || startedAt.IsZero() {
             return
         }
-        if banner := runBanner(service, startedAt, maxLen); banner != "" {
+        if banner := runBanner(service, startedAt); banner != "" {
             select {
             case lineCh <- []byte(banner):
             case <-ctx.Done():
