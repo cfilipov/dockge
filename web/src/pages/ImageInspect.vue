@@ -304,28 +304,41 @@ onMounted(() => {
 
     th, td {
         padding: 0.55rem 0.75rem;
+        border: none;
     }
 
-    th {
+    thead th {
+        font-size: 0.8em;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
         color: $dark-font-color3;
-        border-bottom-width: 1px;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 
         .dark & {
-            color: $dark-font-color3;
+            border-bottom-color: $dark-border-color;
         }
     }
 
-    td {
+    tbody td {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+
         .dark & {
             color: $dark-font-color;
-            border-color: $dark-border-color;
+            border-bottom-color: $dark-border-color;
         }
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
     }
 
     code {
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.9em;
+        color: inherit;
+        background: none;
     }
 
     .dark & {
