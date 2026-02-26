@@ -31,7 +31,8 @@ COPY web/package.json ./web/
 COPY internal/ ./internal/
 COPY cmd/ ./cmd/
 COPY main.go embed.go ./
-RUN VERSION=$(grep '"version"' web/package.json | head -1 | sed 's/.*"\([0-9][^"]*\)".*/\1/') && \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    VERSION=$(grep '"version"' web/package.json | head -1 | sed 's/.*"\([0-9][^"]*\)".*/\1/') && \
     CGO_ENABLED=0 go build \
     -ldflags="-s -w -X main.version=${VERSION}" \
     -o /dockge .
