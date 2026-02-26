@@ -9,7 +9,7 @@ test.describe("Container Inspect", () => {
 
     test("displays inspect UI elements", async ({ page }) => {
         await expect.soft(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
-        await expect.soft(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
+        await expect.soft(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
     });
 
     test("raw toggle shows CodeMirror editor", async ({ page }) => {
@@ -18,7 +18,7 @@ test.describe("Container Inspect", () => {
     });
 
     test("screenshot: container inspect", async ({ page }) => {
-        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-inspect.png");
     });
 });

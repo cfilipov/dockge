@@ -49,7 +49,8 @@ test.describe("Container Tabs — Stacks to Containers", () => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
 
-        const inspectLink = page.locator("a[title='docker inspect']").first();
+        // Click the container name link (in h5 heading) which navigates to inspect
+        const inspectLink = page.getByRole("link", { name: /01-web-app-\w+-1/ }).first();
         await expect(inspectLink).toBeVisible({ timeout: 10000 });
         await inspectLink.click();
 
@@ -62,7 +63,7 @@ test.describe("Container Tabs — Stacks to Containers", () => {
         await expect(containersNav).toHaveClass(/active/);
 
         // Parsed inspect view is visible
-        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
 
         // Container sidebar is visible with an item highlighted
         await expect(page.locator(".item.active")).toBeVisible();
@@ -71,8 +72,8 @@ test.describe("Container Tabs — Stacks to Containers", () => {
     test("screenshot: stacks to containers", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
-        await page.locator("a[title='docker inspect']").first().click();
-        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
+        await page.getByRole("link", { name: /01-web-app-\w+-1/ }).first().click();
+        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-stacks-to-containers.png");
     });
 });
@@ -138,7 +139,7 @@ test.describe("Container Tabs — Sidebar switching", () => {
     test("clicking a different container on containers tab switches inspect view", async ({ page }) => {
         await page.goto("/containers/01-web-app-nginx-1");
         await waitForApp(page);
-        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
 
         // Click redis
         const redisItem = page.locator(".item", { hasText: "01-web-app-redis-1" });
@@ -220,7 +221,7 @@ test.describe("Container Tabs — Tab switching preserves selection", () => {
         // Start on Containers tab with a container selected
         await page.goto("/containers/02-blog-mysql-1");
         await waitForApp(page);
-        await expect(page.locator(".inspect-grid").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
 
         // Switch to Logs tab
         await page.getByRole("link", { name: "Logs" }).first().click();

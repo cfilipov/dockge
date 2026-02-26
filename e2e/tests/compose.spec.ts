@@ -14,11 +14,11 @@ test.describe("Compose View — Running Stack", () => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         // Wait for the stack name heading to appear
-        await expect(page.getByRole("heading", { name: /01-web-app/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /01-web-app/, level: 1 })).toBeVisible({ timeout: 15000 });
     });
 
     test("displays stack view UI elements", async ({ page }) => {
-        await expect.soft(page.getByRole("heading", { name: /01-web-app/ })).toBeVisible();
+        await expect.soft(page.getByRole("heading", { name: /01-web-app/, level: 1 })).toBeVisible();
         await expect.soft(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
         await expect.soft(page.getByRole("button", { name: "Restart", exact: true })).toBeVisible();
         await expect.soft(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
@@ -37,7 +37,7 @@ test.describe("Compose Edit Mode", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /01-web-app/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /01-web-app/, level: 1 })).toBeVisible({ timeout: 15000 });
     });
 
     test("edit mode shows deploy/save/discard and editor class", async ({ page }) => {

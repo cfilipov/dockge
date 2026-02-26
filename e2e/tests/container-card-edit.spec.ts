@@ -32,11 +32,11 @@ test.describe("Container Card Editing", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/stacks/06-mixed-state");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /06-mixed-state/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /06-mixed-state/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Locate the "app" service container card
         appCard = page.locator(".shadow-box.big-padding").filter({
-            has: page.locator("h4", { hasText: /^app$/ }),
+            has: page.locator("h5", { hasText: /^app$/ }),
         });
 
         // The main compose YAML editor content (first CodeMirror on the page)

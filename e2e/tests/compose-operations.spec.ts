@@ -23,7 +23,7 @@ test.describe("Compose Operations", () => {
     test("start stack (03-monitoring)", async ({ page }) => {
         await page.goto("/stacks/03-monitoring");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /03-monitoring/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /03-monitoring/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Stack is exited → Start button visible, no Restart
         const startBtn = page.getByRole("button", { name: "Start", exact: true });
@@ -52,7 +52,7 @@ test.describe("Compose Operations", () => {
     test("stop stack (04-database)", async ({ page }) => {
         await page.goto("/stacks/04-database");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /04-database/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /04-database/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Stack is running → Stop button visible
         const stopBtn = page.getByRole("button", { name: "Stop", exact: true });
@@ -77,7 +77,7 @@ test.describe("Compose Operations", () => {
     test("restart stack (02-blog)", async ({ page }) => {
         await page.goto("/stacks/02-blog");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /02-blog/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /02-blog/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Stack is running → Restart button visible
         const restartBtn = page.getByRole("button", { name: "Restart", exact: true });
@@ -103,7 +103,7 @@ test.describe("Compose Operations", () => {
     test("down stack (00-single-service)", async ({ page }) => {
         await page.goto("/stacks/00-single-service");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /00-single-service/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /00-single-service/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Open the dropdown menu and click "Stop & Inactive"
         await page.locator(".btn-group .dropdown-toggle").last().click();
@@ -125,7 +125,7 @@ test.describe("Compose Operations", () => {
     test("update stack (01-web-app)", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /01-web-app/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /01-web-app/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Click Update button to open the confirmation modal
         const updateBtn = page.getByRole("button", { name: "Update", exact: true });
@@ -154,7 +154,7 @@ test.describe("Compose Operations", () => {
     test("service restart (01-web-app nginx)", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /01-web-app/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /01-web-app/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Click the per-service restart button for nginx
         const restartSvc = page.getByTitle("docker compose restart nginx");
@@ -174,7 +174,7 @@ test.describe("Compose Operations", () => {
     test("service stop (stack-010 ruby)", async ({ page }) => {
         await page.goto("/stacks/stack-010");
         await waitForApp(page);
-        await expect(page.getByRole("heading", { name: /stack-010/ })).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole("heading", { name: /stack-010/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Stop the ruby service
         const stopSvc = page.getByTitle("docker compose stop ruby");
