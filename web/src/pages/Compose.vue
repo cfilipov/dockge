@@ -192,7 +192,6 @@
                                     :serviceStatus="serviceStatusList[name]"
                                     :serviceImageUpdateAvailable="serviceUpdateStatus[name] || false"
                                     :serviceRecreateNecessary="serviceRecreateStatus[name] || false"
-                                    :dockerStats="dockerStats"
                                     :processing="processing"
                                     @start-service="startService"
                                     @stop-service="stopService"

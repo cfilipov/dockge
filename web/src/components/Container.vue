@@ -55,7 +55,6 @@
 
                 <div v-if="!isEditMode" class="btn-group service-actions me-2" role="group">
                     <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
-                    <router-link v-if="hasContainer" class="btn btn-sm btn-normal" :title="$t('tooltipServiceInspect')" :to="inspectRouteLink" :disabled="processing"><font-awesome-icon icon="cubes" /></router-link>
                     <router-link v-if="started" class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
                 </div>
 
@@ -67,7 +66,12 @@
             </div>
         </div>
         <div v-if="!isEditMode" class="row">
-            <div class="d-flex flex-wrap justify-content-between gap-3 mb-2">
+            <div class="d-flex flex-column mb-2">
+                <div class="image">
+                    <router-link :to="inspectRouteLink" class="image-link">
+                        <font-awesome-icon icon="cubes" class="me-2" />{{ containerName }}
+                    </router-link>
+                </div>
                 <div class="image">
                     <router-link :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="image-link">
                         <font-awesome-icon icon="box-archive" class="me-2" /><span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
@@ -93,32 +97,6 @@
                 <font-awesome-icon icon="trash" />
                 {{ $t("deleteContainer") }}
             </button>
-        </div>
-        <div v-else-if="statsInstances.length > 0" class="mt-2">
-            <div class="d-flex align-items-center gap-3">
-                <template v-if="!expandedStats">
-                    <div class="stats">
-                        {{ $t('CPU') }}: {{ statsInstances[0].CPUPerc }}
-                    </div>
-                    <div class="stats">
-                        {{ $t('memoryAbbreviated') }}: {{ statsInstances[0].MemUsage }}
-                    </div>
-                </template>
-                <div class="d-flex flex-grow-1 justify-content-end">
-                    <button class="btn btn-sm btn-normal" @click="expandedStats = !expandedStats">
-                        <font-awesome-icon :icon="expandedStats ? 'chevron-up' : 'chevron-down'" />
-                    </button>
-                </div>
-            </div>
-            <transition name="slide-fade" appear>
-                <div v-if="expandedStats" class="d-flex flex-column gap-3 mt-2">
-                    <DockerStat
-                        v-for="stat in statsInstances"
-                        :key="stat.Name"
-                        :stat="stat"
-                    />
-                </div>
-            </transition>
         </div>
 
         <transition name="slide-fade" appear>
@@ -261,7 +239,6 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { parseDockerPort, ContainerStatusInfo } from "../common/util-common";
 import { LABEL_STATUS_IGNORE, LABEL_IMAGEUPDATES_CHECK, LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../common/compose-labels";
 import { BModal, BForm, BFormCheckbox } from "bootstrap-vue-next";
-import DockerStat from "./DockerStat.vue";
 import ArrayInput from "./ArrayInput.vue";
 import ArraySelect from "./ArraySelect.vue";
 import { useSocket } from "../composables/useSocket";
@@ -285,7 +262,6 @@ const props = defineProps<{
     serviceStatus: any;
     serviceImageUpdateAvailable?: boolean;
     serviceRecreateNecessary?: boolean;
-    dockerStats: any;
     ports?: any[];
     processing?: boolean;
 }>();
@@ -298,7 +274,6 @@ const emit = defineEmits<{
 }>();
 
 const showConfig = ref(false);
-const expandedStats = ref(false);
 const updateDialogData = reactive({
     pruneAfterUpdate: false,
     pruneAllAfterUpdate: false,
@@ -456,17 +431,6 @@ const imageTag = computed(() => {
     return "";
 });
 
-const statsInstances = computed(() => {
-    if (!props.serviceStatus) {
-        return [];
-    }
-    return props.serviceStatus
-        .map((s: any) => props.dockerStats[s.name])
-        .filter((s: any) => !!s)
-        .sort((a: any, b: any) => a.Name.localeCompare(b.Name));
-});
-
-const hasContainer = computed(() => !!props.serviceStatus?.[0]);
 const started = computed(() => status.value === "running" || status.value === "healthy");
 
 const status = computed(() => {
@@ -594,17 +558,6 @@ function updateUrl(key: string, value: string) {
         width: 100%;
         align-items: center;
         justify-content: end;
-    }
-
-    .stats-select {
-        cursor: pointer;
-        font-size: 1rem;
-        color: #6c757d;
-    }
-
-    .stats {
-        font-size: 0.8rem;
-        color: #6c757d;
     }
 
     .service-actions .btn {
