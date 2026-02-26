@@ -24,11 +24,11 @@
                     <BDropdownDivider></BDropdownDivider>
 
                     <template v-for="category in containerFilter.categories" :key="category.label">
-                        <BDropdownGroup v-if="category.hasOptions()" :header="$t(category.label)">
+                        <template v-if="category.hasOptions()">
                             <BDropdownForm v-for="(value, key) in category.options" :key="key" form-class="filter-option" @change="category.toggleSelected(value)" @click.stop>
                                 <BFormCheckbox :checked="category.selected.has(value)">{{ $t(key) }}</BFormCheckbox>
                             </BDropdownForm>
-                        </BDropdownGroup>
+                        </template>
                     </template>
                 </BDropdown>
             </div>
