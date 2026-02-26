@@ -231,19 +231,20 @@ function updateName(url: string, updatedName: string) {
     });
 }
 
-function convertDockerRun() {
-    if (dockerRunCommand.value.trim() === "docker run") {
-        throw new Error("Please enter a docker run command");
+async function convertDockerRun() {
+    const cmd = dockerRunCommand.value.trim();
+    if (!cmd || cmd === "docker run") {
+        toastRes({ ok: false, msg: "Please enter a docker run command" });
+        return;
     }
 
-    getSocket().emit("composerize", dockerRunCommand.value, (res: any) => {
-        if (res.ok) {
-            composeTemplate.value = res.composeTemplate;
-            router.push("/stacks/new");
-        } else {
-            toastRes(res);
-        }
-    });
+    try {
+        const { default: composerize } = await import("composerize");
+        composeTemplate.value = composerize(cmd);
+        router.push("/stacks/new");
+    } catch (e: any) {
+        toastRes({ ok: false, msg: e.message || "Failed to convert docker run command" });
+    }
 }
 
 function onNewImportantHeartbeat(heartbeat: any) {

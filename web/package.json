@@ -13,6 +13,7 @@
         "@codemirror/lang-json": "^6.0.2",
         "@codemirror/language": "^6.12.1",
         "@inventage/envsubst": "^0.16.0",
+        "composerize": "~1.7.5",
         "compare-versions": "~6.1.1",
         "dayjs": "~1.11.13",
         "jwt-decode": "~3.1.2",

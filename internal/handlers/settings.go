@@ -13,8 +13,6 @@ func RegisterSettingsHandlers(app *App) {
     app.WS.Handle("getSettings", app.handleGetSettings)
     app.WS.Handle("setSettings", app.handleSetSettings)
     app.WS.Handle("disconnectOtherSocketClients", app.handleDisconnectOthers)
-    app.WS.Handle("composerize", app.handleComposerize)
-
     // Uptime Kuma heartbeat stubs — not applicable to Dockge standalone
     app.WS.Handle("monitorImportantHeartbeatListCount", app.handleStubOk)
     app.WS.Handle("monitorImportantHeartbeatListPaged", app.handleStubOk)
@@ -134,19 +132,5 @@ func (app *App) handleDisconnectOthers(c *ws.Conn, msg *ws.ClientMessage) {
 func (app *App) handleStubOk(c *ws.Conn, msg *ws.ClientMessage) {
     if msg.ID != nil {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true})
-    }
-}
-
-func (app *App) handleComposerize(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-
-    // Stubbed — composerize is not yet implemented in Go
-    if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.ErrorResponse{
-            OK:  false,
-            Msg: "Composerize is not available. Use https://composerize.com to convert docker run commands.",
-        })
     }
 }
