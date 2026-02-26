@@ -454,6 +454,52 @@ func (fd *FakeDaemon) buildEndpoints(stackName, svc, containerID string) map[str
 	return result
 }
 
+// buildPortBindings converts compose port mappings (e.g. "3000:3000", "8080:80/tcp")
+// into Docker inspect format: {"3000/tcp": [{"HostIp": "0.0.0.0", "HostPort": "3000"}]}.
+func (fd *FakeDaemon) buildPortBindings(stackName, svc string) map[string][]portBindingJSON {
+	key := stackName + "/" + svc
+	ports, ok := fd.data.servicePorts[key]
+	if !ok || len(ports) == 0 {
+		return nil
+	}
+
+	result := make(map[string][]portBindingJSON)
+	for _, p := range ports {
+		// Parse formats: "3000", "3000:3000", "8080:80", "8080:80/tcp", "127.0.0.1:8080:80"
+		proto := "tcp"
+		if idx := strings.LastIndex(p, "/"); idx >= 0 {
+			proto = p[idx+1:]
+			p = p[:idx]
+		}
+
+		parts := strings.Split(p, ":")
+		var hostIP, hostPort, containerPort string
+		switch len(parts) {
+		case 1:
+			containerPort = parts[0]
+			hostPort = parts[0]
+		case 2:
+			hostPort = parts[0]
+			containerPort = parts[1]
+		case 3:
+			hostIP = parts[0]
+			hostPort = parts[1]
+			containerPort = parts[2]
+		}
+
+		if hostIP == "" {
+			hostIP = "0.0.0.0"
+		}
+
+		key := containerPort + "/" + proto
+		result[key] = append(result[key], portBindingJSON{
+			HostIp:   hostIP,
+			HostPort: hostPort,
+		})
+	}
+	return result
+}
+
 // containerInspectJSON matches the Docker SDK container.InspectResponse fields.
 type containerInspectJSON struct {
 	ID           string             `json:"Id"`
@@ -502,7 +548,13 @@ type restartPolicyJSON struct {
 	MaximumRetryCount int   `json:"MaximumRetryCount"`
 }
 
+type portBindingJSON struct {
+	HostIp   string `json:"HostIp"`
+	HostPort string `json:"HostPort"`
+}
+
 type inspectNetworkSettingsJSON struct {
+	Ports    map[string][]portBindingJSON    `json:"Ports"`
 	Networks map[string]inspectEndpointJSON `json:"Networks"`
 }
 
@@ -577,6 +629,9 @@ func (fd *FakeDaemon) handleContainerInspect(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	// Build port bindings
+	portBindings := fd.buildPortBindings(stack, svc)
+
 	resp := containerInspectJSON{
 		ID:      id,
 		Created: "2026-02-18T00:00:00.000000000Z",
@@ -613,7 +668,7 @@ func (fd *FakeDaemon) handleContainerInspect(w http.ResponseWriter, r *http.Requ
 			},
 		},
 		Mounts: mounts,
-		NetworkSettings: &inspectNetworkSettingsJSON{Networks: inspectNets},
+		NetworkSettings: &inspectNetworkSettingsJSON{Ports: portBindings, Networks: inspectNets},
 	}
 
 	writeJSON(w, http.StatusOK, resp)

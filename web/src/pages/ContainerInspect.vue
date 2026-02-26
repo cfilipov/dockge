@@ -276,6 +276,16 @@
                                 </div>
                             </div>
 
+                            <!-- Ports -->
+                            <div v-if="ports.length > 0" class="overview-item">
+                                <div class="overview-label">{{ $t("containerPorts") }}</div>
+                                <div class="overview-value">
+                                    <div v-for="(p, i) in ports" :key="i">
+                                        <code>{{ p.host }}</code> <span class="port-arrow">&rarr;</span> <code>{{ p.container }}</code>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Command -->
                             <div v-if="commandStr" class="overview-item">
                                 <div class="overview-label">{{ $t("containerCommand") }}</div>
@@ -529,6 +539,23 @@ const networks = computed(() => {
     }));
 });
 
+// Ports extracted from inspect data
+const ports = computed(() => {
+    const portMap = parsed.value?.NetworkSettings?.Ports;
+    if (!portMap) return [];
+    const result: Array<{ container: string; host: string }> = [];
+    for (const [containerPort, bindings] of Object.entries(portMap)) {
+        if (bindings && Array.isArray(bindings)) {
+            for (const b of bindings as Array<{ HostIp: string; HostPort: string }>) {
+                const hostAddr = b.HostIp && b.HostIp !== "0.0.0.0" && b.HostIp !== "::" ? b.HostIp : "";
+                const host = hostAddr ? `${hostAddr}:${b.HostPort}` : b.HostPort;
+                result.push({ container: containerPort, host });
+            }
+        }
+    }
+    return result;
+});
+
 // Mounts extracted from inspect data
 const mounts = computed(() => {
     if (!parsed.value?.Mounts) return [];
@@ -771,6 +798,11 @@ onUnmounted(() => {
         color: inherit;
         background: none;
     }
+}
+
+.port-arrow {
+    color: $primary;
+    opacity: 0.4;
 }
 
 .stack-link {

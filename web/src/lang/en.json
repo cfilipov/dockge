@@ -228,6 +228,7 @@
     "parsed": "Parsed",
     "containerStack": "Stack",
     "containerImage": "Image",
+    "containerPorts": "Ports",
     "containerCommand": "Command",
     "containerRestartPolicy": "Restart Policy",
     "containerRestartCount": "Restart Count",

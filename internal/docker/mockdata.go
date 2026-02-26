@@ -19,9 +19,10 @@ type MockData struct {
 	volumes  map[string]volumeMeta  // full Docker name → project
 
 	// Per-service data derived from compose.yaml
-	serviceImages   map[string]string   // "stackName/svc" → compose image
+	serviceImages   map[string]string       // "stackName/svc" → compose image
 	serviceVolumes  map[string][]volumeMount // "stackName/svc" → mounts
-	serviceNetworks map[string][]string // "stackName/svc" → full network names
+	serviceNetworks map[string][]string     // "stackName/svc" → full network names
+	servicePorts    map[string][]string     // "stackName/svc" → port mappings
 
 	// Derived from mock.yaml files
 	stackStatuses map[string]string // stack → initial status
@@ -70,6 +71,7 @@ type composeService struct {
 	image    string
 	networks []string // network names as declared in the service
 	volumes  []composeVolumeRef
+	ports    []string // port mappings like "3000:3000", "8080:80"
 }
 
 type composeVolumeRef struct {
@@ -117,6 +119,7 @@ func BuildMockData(stacksDir string) *MockData {
 		serviceImages:   make(map[string]string),
 		serviceVolumes:  make(map[string][]volumeMount),
 		serviceNetworks: make(map[string][]string),
+		servicePorts:    make(map[string][]string),
 		stackStatuses:   make(map[string]string),
 		serviceStates:   make(map[string]string),
 		serviceHealth:   make(map[string]string),
@@ -213,6 +216,11 @@ func BuildMockData(stacksDir string) *MockData {
 			}
 			if len(mounts) > 0 {
 				d.serviceVolumes[key] = mounts
+			}
+
+			// Service ports
+			if len(svc.ports) > 0 {
+				d.servicePorts[key] = svc.ports
 			}
 		}
 
@@ -500,6 +508,7 @@ func parseComposeForMock(path string) composeData {
 	svcIdx := -1
 	inServiceNetworks := false
 	inServiceVolumes := false
+	inServicePorts := false
 	section = ""
 	scanner2 := bufio.NewScanner(f2)
 	for scanner2.Scan() {
@@ -533,6 +542,7 @@ func parseComposeForMock(path string) composeData {
 			svcIdx++
 			inServiceNetworks = false
 			inServiceVolumes = false
+			inServicePorts = false
 			continue
 		}
 
@@ -545,14 +555,22 @@ func parseComposeForMock(path string) composeData {
 			if field == "networks:" {
 				inServiceNetworks = true
 				inServiceVolumes = false
+				inServicePorts = false
 				continue
 			} else if field == "volumes:" {
 				inServiceVolumes = true
 				inServiceNetworks = false
+				inServicePorts = false
+				continue
+			} else if field == "ports:" {
+				inServicePorts = true
+				inServiceNetworks = false
+				inServiceVolumes = false
 				continue
 			} else if !strings.HasPrefix(field, "- ") {
 				inServiceNetworks = false
 				inServiceVolumes = false
+				inServicePorts = false
 			}
 		}
 
@@ -569,6 +587,8 @@ func parseComposeForMock(path string) composeData {
 			} else if inServiceVolumes {
 				vr := parseVolumeRef(val, topLevelVolumes)
 				cd.services[svcIdx].volumes = append(cd.services[svcIdx].volumes, vr)
+			} else if inServicePorts {
+				cd.services[svcIdx].ports = append(cd.services[svcIdx].ports, val)
 			}
 		}
 	}
