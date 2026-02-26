@@ -223,15 +223,20 @@
                     <div v-if="stack.composeOverrideYAML && stack.composeOverrideYAML.trim() !== ''">
                     <h4 class="mb-3">{{ stack.composeOverrideFileName || 'compose.override.yaml' }}</h4>
                     <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
-                        <button v-if="isEditMode" v-b-modal.compose-override-editor-modal class="expand-button">
-                            <font-awesome-icon icon="expand" />
-                        </button>
+                        <div class="editor-buttons">
+                            <button class="editor-btn" :title="wordWrap ? 'Disable word wrap' : 'Enable word wrap'" @click="wordWrap = !wordWrap">
+                                <font-awesome-icon :icon="wordWrap ? 'arrow-turn-down' : 'arrow-right'" />
+                            </button>
+                            <button v-if="isEditMode" v-b-modal.compose-override-editor-modal class="editor-btn">
+                                <font-awesome-icon icon="expand" />
+                            </button>
+                        </div>
                         <code-mirror
                             ref="overrideEditor"
                             v-model="stack.composeOverrideYAML"
                             :extensions="extensions"
                             minimal
-                            :wrap="true"
+                            :wrap="wordWrap"
                             :dark="true"
                             :tab="true"
                             :disabled="!isEditMode"
@@ -252,7 +257,7 @@ scrollable size="fullscreen" hide-footer>
                                 v-model="stack.composeOverrideYAML"
                                 :extensions="extensions"
                                 minimal
-                                :wrap="true"
+                                :wrap="wordWrap"
                                 :dark="true"
                                 :tab="true"
                                 :disabled="!isEditMode"
@@ -271,15 +276,20 @@ scrollable size="fullscreen" hide-footer>
 
                     <!-- YAML editor (inline) -->
                     <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
-                        <button v-if="isEditMode" v-b-modal.compose-editor-modal class="expand-button">
-                            <font-awesome-icon icon="expand" />
-                        </button>
+                        <div class="editor-buttons">
+                            <button class="editor-btn" :title="wordWrap ? 'Disable word wrap' : 'Enable word wrap'" @click="wordWrap = !wordWrap">
+                                <font-awesome-icon :icon="wordWrap ? 'arrow-turn-down' : 'arrow-right'" />
+                            </button>
+                            <button v-if="isEditMode" v-b-modal.compose-editor-modal class="editor-btn">
+                                <font-awesome-icon icon="expand" />
+                            </button>
+                        </div>
                         <code-mirror
                             ref="editorInline"
                             v-model="stack.composeYAML"
                             :extensions="extensions"
                             minimal
-                            :wrap="true"
+                            :wrap="wordWrap"
                             :dark="true"
                             :tab="true"
                             :disabled="!isEditMode"
@@ -299,7 +309,7 @@ scrollable size="fullscreen" hide-footer>
                                 v-model="stack.composeYAML"
                                 :extensions="extensions"
                                 minimal
-                                :wrap="true"
+                                :wrap="wordWrap"
                                 :dark="true"
                                 :tab="true"
                                 :disabled="!isEditMode"
@@ -316,15 +326,20 @@ scrollable size="fullscreen" hide-footer>
                     <div v-if="isEditMode">
                         <h4 class="mb-3">.env</h4>
                         <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
-                            <button v-if="isEditMode" v-b-modal.env-editor-modal class="expand-button">
-                                <font-awesome-icon icon="expand" />
-                            </button>
+                            <div class="editor-buttons">
+                                <button class="editor-btn" :title="wordWrap ? 'Disable word wrap' : 'Enable word wrap'" @click="wordWrap = !wordWrap">
+                                    <font-awesome-icon :icon="wordWrap ? 'arrow-turn-down' : 'arrow-right'" />
+                                </button>
+                                <button v-if="isEditMode" v-b-modal.env-editor-modal class="editor-btn">
+                                    <font-awesome-icon icon="expand" />
+                                </button>
+                            </div>
                             <code-mirror
                                 ref="editorEnv"
                                 v-model="stack.composeENV"
                                 :extensions="extensionsEnv"
                                 minimal
-                                :wrap="true"
+                                :wrap="wordWrap"
                                 :dark="true"
                                 :tab="true"
                                 :disabled="!isEditMode"
@@ -342,7 +357,7 @@ scrollable size="fullscreen" hide-footer>
                                 v-model="stack.composeENV"
                                 :extensions="extensionsEnv"
                                 minimal
-                                :wrap="true"
+                                :wrap="wordWrap"
                                 :dark="true"
                                 :tab="true"
                                 :disabled="!isEditMode"
@@ -518,6 +533,7 @@ const updateDialogData = reactive({
 });
 const newContainerName = ref("");
 const viewMode = ref<"parsed" | "raw">("parsed");
+const wordWrap = ref(localStorage.getItem("editorWordWrap") !== "false");
 const stopServiceStatusTimeout = ref(false);
 const stopDockerStatsTimeout = ref(false);
 
@@ -678,6 +694,10 @@ watch(containerList, () => {
     if (!isAdd.value && stack.name) {
         requestServiceStatus();
     }
+});
+
+watch(wordWrap, (v) => {
+    localStorage.setItem("editorWordWrap", v ? "true" : "false");
 });
 
 // Navigate to raw view when toggle changes
@@ -1152,23 +1172,38 @@ onUnmounted(() => {
         background-color: #2c2f38 !important;
     }
     position: relative;
+
+    :deep(.cm-gutters) {
+        background-color: $dark-bg !important;
+    }
+
+    &.edit-mode :deep(.cm-gutters) {
+        background-color: #2c2f38 !important;
+    }
 }
 
-.expand-button {
-    all: unset;
+.editor-buttons {
     position: absolute;
     right: 15px;
     top: 15px;
     z-index: 10;
+    display: flex;
+    gap: 10px;
 }
 
-.expand-button svg {
-    width:20px;
-    height: 20px;
-}
+.editor-btn {
+    all: unset;
+    cursor: pointer;
+    color: $dark-font-color3;
 
-.expand-button:hover {
-    color: white;
+    svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    &:hover {
+        color: white;
+    }
 }
 
 .agent-name {
