@@ -42,30 +42,13 @@
                             <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
                         </button>
 
-                        <BModal v-model="showUpdateDialog" :title="$t('updateStack')" :close-on-esc="true" @show="resetUpdateDialog" @hidden="resetUpdateDialog">
-                            <p class="mb-3" v-html="$t('updateStackMsg')"></p>
-
-                            <div v-if="changelogLinks.length > 0" class="mb-3">
-                                <h5>{{ $t("changelog") }}</h5>
-                                <div v-for="link in changelogLinks" :key="link.service">
-                                    <strong>{{ link.service }}:</strong>{{ " " }}
-                                    <a :href="link.url" target="_blank">{{ link.url }}</a>
-                                </div>
-                            </div>
-
-                            <BForm>
-                                <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
-                                <div style="margin-left: 2.5rem;">
-                                    <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
-                                </div>
-                            </BForm>
-
-                            <template #footer>
-                                <button class="btn btn-primary" @click="updateStack">
-                                    <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
-                                </button>
-                            </template>
-                        </BModal>
+                        <UpdateDialog
+                            v-model="showUpdateDialog"
+                            :stack-name="stack.name"
+                            :endpoint="endpoint"
+                            :compose-yaml="stack.composeYAML"
+                            @update="doUpdateStack"
+                        />
 
                         <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackStop')" @click="stopStack">
                             <font-awesome-icon icon="stop" class="me-1" />
@@ -428,9 +411,10 @@ import {
     PROGRESS_TERMINAL_ROWS,
 } from "../common/util-common";
 import { BModal } from "bootstrap-vue-next";
-import { LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../common/compose-labels";
+import { LABEL_URLS_PREFIX } from "../common/compose-labels";
 import NetworkInput from "../components/NetworkInput.vue";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
+import UpdateDialog from "../components/UpdateDialog.vue";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
 
@@ -527,10 +511,6 @@ const showDeleteDialog = ref(false);
 const deleteStackFiles = ref(false);
 const showForceDeleteDialog = ref(false);
 const showUpdateDialog = ref(false);
-const updateDialogData = reactive({
-    pruneAfterUpdate: false,
-    pruneAllAfterUpdate: false,
-});
 const newContainerName = ref("");
 const viewMode = ref<"parsed" | "raw">("parsed");
 const wordWrap = ref(localStorage.getItem("editorWordWrap") !== "false");
@@ -601,21 +581,6 @@ const urls = computed(() => {
         }
     }
     return result;
-});
-
-const changelogLinks = computed(() => {
-    const links: { service: string; url: string }[] = [];
-    const services = envsubstJSONConfig.services;
-    if (!services) {
-        return links;
-    }
-    for (const [name, svc] of Object.entries(services) as [string, any][]) {
-        const url = svc?.labels?.[LABEL_IMAGEUPDATES_CHANGELOG];
-        if (url) {
-            links.push({ service: name, url });
-        }
-    }
-    return links;
 });
 
 const isAdd = computed(() => route.path === "/stacks/new" && !submitted.value);
@@ -913,16 +878,10 @@ function restartStack() {
     });
 }
 
-function resetUpdateDialog() {
-    updateDialogData.pruneAfterUpdate = false;
-    updateDialogData.pruneAllAfterUpdate = false;
-}
-
-function updateStack() {
-    showUpdateDialog.value = false;
+function doUpdateStack(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }) {
     startComposeAction();
 
-    emitAgent(endpoint.value, "updateStack", stack.name, updateDialogData.pruneAfterUpdate, updateDialogData.pruneAllAfterUpdate, (res: any) => {
+    emitAgent(endpoint.value, "updateStack", stack.name, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });

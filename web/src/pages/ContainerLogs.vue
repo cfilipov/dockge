@@ -5,39 +5,30 @@
 
             <div v-if="stackName && stackManaged" class="mb-3">
                 <div class="btn-group me-2" role="group">
-                    <button v-if="!stackActive" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackStart')" @click="startStack">
+                    <button v-if="!containerActive" class="btn btn-primary" :disabled="processing" :title="$t('tooltipServiceStart', [serviceName])" @click="startService">
                         <font-awesome-icon icon="play" class="me-1" />
                         {{ $t("startStack") }}
                     </button>
 
-                    <button v-if="stackActive" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackRestart')" @click="restartStack">
+                    <button v-if="containerActive" class="btn btn-normal" :disabled="processing" :title="$t('tooltipServiceRestart', [serviceName])" @click="restartService">
                         <font-awesome-icon icon="rotate" class="me-1" />
                         {{ $t("restartStack") }}
                     </button>
 
-                    <button class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
+                    <button class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipServiceUpdate', [serviceName])" @click="showUpdateDialog = true">
                         <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
                         <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
                     </button>
 
-                    <BModal v-model="showUpdateDialog" :title="$t('updateStack')" :close-on-esc="true" @show="resetUpdateDialog" @hidden="resetUpdateDialog">
-                        <p class="mb-3" v-html="$t('updateStackMsg')"></p>
+                    <UpdateDialog
+                        v-model="showUpdateDialog"
+                        :stack-name="stackName"
+                        :endpoint="endpoint"
+                        :service-name="serviceName"
+                        @update="doUpdate"
+                    />
 
-                        <BForm>
-                            <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
-                            <div style="margin-left: 2.5rem;">
-                                <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
-                            </div>
-                        </BForm>
-
-                        <template #footer>
-                            <button class="btn btn-primary" @click="updateStack">
-                                <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
-                            </button>
-                        </template>
-                    </BModal>
-
-                    <button v-if="stackActive" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackStop')" @click="stopStack">
+                    <button v-if="containerActive" class="btn btn-normal" :disabled="processing" :title="$t('tooltipServiceStop', [serviceName])" @click="stopService">
                         <font-awesome-icon icon="stop" class="me-1" />
                         {{ $t("stopStack") }}
                     </button>
@@ -46,10 +37,6 @@
                         <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
                             <font-awesome-icon icon="search" class="me-1" />
                             {{ $t("checkUpdates") }}
-                        </BDropdownItem>
-                        <BDropdownItem :title="$t('tooltipStackDown')" @click="downStack">
-                            <font-awesome-icon icon="stop" class="me-1" />
-                            {{ $t("downStack") }}
                         </BDropdownItem>
                     </BDropdown>
                 </div>
@@ -76,15 +63,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BModal } from "bootstrap-vue-next";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
 import { ContainerStatusInfo, getComposeTerminalName } from "../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
+import UpdateDialog from "../components/UpdateDialog.vue";
 
 const route = useRoute();
 const { t } = useI18n();
@@ -106,19 +93,19 @@ const badgeLabel = computed(() =>
 
 const processing = ref(false);
 const showUpdateDialog = ref(false);
-const updateDialogData = reactive({
-    pruneAfterUpdate: false,
-    pruneAllAfterUpdate: false,
-});
 const progressTerminalRef = ref<InstanceType<typeof ProgressTerminal>>();
 
 const endpoint = computed(() => (route.params.endpoint as string) || "");
 const containerName = computed(() => route.params.containerName as string || "");
 const stackName = computed(() => containerInfo.value?.stackName || "");
+const serviceName = computed(() => containerInfo.value?.serviceName || "");
 const globalStack = computed(() => completeStackList.value[stackName.value + "_" + endpoint.value]);
-const stackActive = computed(() => globalStack.value?.started ?? false);
 const stackManaged = computed(() => globalStack.value?.isManagedByDockge ?? false);
-const imageUpdatesAvailable = computed(() => globalStack.value?.imageUpdatesAvailable ?? false);
+const containerActive = computed(() => {
+    const state = containerInfo.value?.state;
+    return state === "running";
+});
+const imageUpdatesAvailable = computed(() => containerInfo.value?.imageUpdatesAvailable ?? false);
 const composeTerminalName = computed(() => stackName.value ? getComposeTerminalName(endpoint.value, stackName.value) : "");
 const terminalName = computed(() => "container-log-by-name--" + containerName.value);
 
@@ -131,47 +118,33 @@ function stopComposeAction() {
     processing.value = false;
 }
 
-function startStack() {
+function startService() {
     startComposeAction();
-    emitAgent(endpoint.value, "startStack", stackName.value, (res: any) => {
+    emitAgent(endpoint.value, "startService", stackName.value, serviceName.value, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
 }
 
-function stopStack() {
+function stopService() {
     startComposeAction();
-    emitAgent(endpoint.value, "stopStack", stackName.value, (res: any) => {
+    emitAgent(endpoint.value, "stopService", stackName.value, serviceName.value, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
 }
 
-function restartStack() {
+function restartService() {
     startComposeAction();
-    emitAgent(endpoint.value, "restartStack", stackName.value, (res: any) => {
+    emitAgent(endpoint.value, "restartService", stackName.value, serviceName.value, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
 }
 
-function resetUpdateDialog() {
-    updateDialogData.pruneAfterUpdate = false;
-    updateDialogData.pruneAllAfterUpdate = false;
-}
-
-function updateStack() {
-    showUpdateDialog.value = false;
+function doUpdate(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }) {
     startComposeAction();
-    emitAgent(endpoint.value, "updateStack", stackName.value, updateDialogData.pruneAfterUpdate, updateDialogData.pruneAllAfterUpdate, (res: any) => {
-        stopComposeAction();
-        toastRes(res);
-    });
-}
-
-function downStack() {
-    startComposeAction();
-    emitAgent(endpoint.value, "downStack", stackName.value, (res: any) => {
+    emitAgent(endpoint.value, "updateService", stackName.value, serviceName.value, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
