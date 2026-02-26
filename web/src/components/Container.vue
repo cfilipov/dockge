@@ -399,12 +399,13 @@ const terminalRouteLink = computed(() => {
 });
 
 const imageRef = computed(() => {
-    if (envsubstService.value.image) {
-        return envsubstService.value.image;
-    }
-    // Fall back to the actual image from Docker (e.g. build-only services)
+    // Prefer the actual running image from Docker (matches container detail page)
     if (props.serviceStatus?.[0]?.image) {
         return props.serviceStatus[0].image;
+    }
+    // Fall back to compose YAML (e.g. when container isn't running)
+    if (envsubstService.value.image) {
+        return envsubstService.value.image;
     }
     return "";
 });
