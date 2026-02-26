@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,7 +49,7 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
 		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
-	go app.runServiceAction(stackName, serviceName, "up", app.Compose.ServiceUp)
+	go app.runServiceAction(stackName, serviceName, "up", app.Compose.ServiceUp, "up", "-d", serviceName)
 }
 
 func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
@@ -68,7 +70,7 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
 		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
 	}
 
-	go app.runServiceAction(stackName, serviceName, "stop", app.Compose.ServiceStop)
+	go app.runServiceAction(stackName, serviceName, "stop", app.Compose.ServiceStop, "stop", serviceName)
 }
 
 func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
@@ -89,7 +91,7 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
 		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
 	}
 
-	go app.runServiceAction(stackName, serviceName, "restart", app.Compose.ServiceRestart)
+	go app.runServiceAction(stackName, serviceName, "restart", app.Compose.ServiceRestart, "restart", serviceName)
 }
 
 func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
@@ -111,7 +113,8 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	go func() {
-		app.runServiceAction(stackName, serviceName, "pull and up", app.Compose.ServicePullAndUp)
+		app.runServiceAction(stackName, serviceName, "pull", app.Compose.ServicePullAndUp, "pull", serviceName)
+		app.runServiceAction(stackName, serviceName, "up", app.Compose.ServiceUp, "up", "-d", serviceName)
 		// Clear stale "update available" cache and re-check with new images
 		if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
 			slog.Warn("clear image update cache", "stack", stackName, "err", err)
@@ -120,31 +123,57 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 	}()
 }
 
-// serviceActionFunc is the signature for per-service compose operations.
+// serviceActionFunc is the signature for per-service compose operations (mock mode).
 type serviceActionFunc func(ctx context.Context, stackName, serviceName string, w io.Writer) error
 
 // runServiceAction runs a per-service compose command, streaming output to the
 // stack's compose terminal (same terminal used by stack-level actions).
-func (app *App) runServiceAction(stackName, serviceName, action string, fn serviceActionFunc) {
+//
+// In production: uses PTY + exec.Command so Docker Compose outputs its rich
+// progress UI (colors, animation, progress bars) — same as stack-level actions.
+// In mock mode: uses pipe terminal + the serviceActionFunc callback.
+func (app *App) runServiceAction(stackName, serviceName, action string, fn serviceActionFunc, composeArgs ...string) {
 	termName := "compose--" + stackName
 	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
-	displayParts := append(envArgs, action, serviceName)
+	displayParts := append(envArgs, composeArgs...)
 	cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(displayParts, " "))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	term := app.Terms.Recreate(termName, terminal.TypePipe)
-	term.Write([]byte(cmdDisplay))
+	if app.Mock {
+		term := app.Terms.Recreate(termName, terminal.TypePipe)
+		term.Write([]byte(cmdDisplay))
 
-	if err := fn(ctx, stackName, serviceName, term); err != nil {
-		if ctx.Err() == nil {
-			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-			term.Write([]byte(errMsg))
-			slog.Error("service action", "action", action, "stack", stackName, "service", serviceName, "err", err)
+		if err := fn(ctx, stackName, serviceName, term); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Error("service action", "action", action, "stack", stackName, "service", serviceName, "err", err)
+			}
+		} else {
+			term.Write([]byte("\r\n[Done]\r\n"))
 		}
 	} else {
-		term.Write([]byte("\r\n[Done]\r\n"))
+		term := app.Terms.Recreate(termName, terminal.TypePTY)
+		term.Write([]byte(cmdDisplay))
+
+		dir := filepath.Join(app.StacksDir, stackName)
+		args := []string{"compose"}
+		args = append(args, envArgs...)
+		args = append(args, composeArgs...)
+		cmd := exec.CommandContext(ctx, "docker", args...)
+		cmd.Dir = dir
+
+		if err := term.RunPTY(cmd); err != nil {
+			if ctx.Err() == nil {
+				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+				term.Write([]byte(errMsg))
+				slog.Error("service action", "action", action, "stack", stackName, "service", serviceName, "err", err)
+			}
+		} else {
+			term.Write([]byte("\r\n[Done]\r\n"))
+		}
 	}
 
 	app.TriggerRefresh()
