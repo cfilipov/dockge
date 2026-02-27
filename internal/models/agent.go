@@ -83,6 +83,20 @@ func (s *AgentStore) Remove(url string) error {
     })
 }
 
+// ClearAll removes all agents from the store.
+func (s *AgentStore) ClearAll() error {
+    return s.db.Update(func(tx *bolt.Tx) error {
+        bucket := tx.Bucket(db.BucketAgents)
+        c := bucket.Cursor()
+        for k, _ := c.First(); k != nil; k, _ = c.Next() {
+            if err := bucket.Delete(k); err != nil {
+                return err
+            }
+        }
+        return nil
+    })
+}
+
 // UpdateName changes an agent's display name.
 func (s *AgentStore) UpdateName(url, name string) error {
     return s.db.Update(func(tx *bolt.Tx) error {

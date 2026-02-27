@@ -10,7 +10,7 @@ test.describe("Stack List — Search", () => {
     });
 
     test("search filters stacks by name", async ({ page }) => {
-        const searchInput = page.locator(".search-input");
+        const searchInput = page.getByPlaceholder("Search...");
         await expect(searchInput).toBeVisible();
 
         // Type a search query that matches a specific stack
@@ -23,7 +23,7 @@ test.describe("Stack List — Search", () => {
     });
 
     test("clearing search restores full list", async ({ page }) => {
-        const searchInput = page.locator(".search-input");
+        const searchInput = page.getByPlaceholder("Search...");
         await searchInput.fill("01-web-app");
         await expect(page.locator(".item")).toHaveCount(1, { timeout: 5000 });
 
@@ -36,7 +36,7 @@ test.describe("Stack List — Search", () => {
     });
 
     test("search with no matches shows empty state", async ({ page }) => {
-        const searchInput = page.locator(".search-input");
+        const searchInput = page.getByPlaceholder("Search...");
         await searchInput.fill("nonexistent-stack-xyz-999");
 
         // Verify no items are visible
@@ -53,7 +53,7 @@ test.describe("Stack List — Filter by Status", () => {
 
     test("filter by exited status shows only exited stacks", async ({ page }) => {
         // Open the filter dropdown
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
 
         // Click the "exited" checkbox
         const exitedCheckbox = page.getByRole("checkbox", { name: "exited" });
@@ -77,7 +77,7 @@ test.describe("Stack List — Filter by Status", () => {
 
     test("filter by active status shows only running stacks", async ({ page }) => {
         // Open the filter dropdown
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
 
         // The "active" checkbox — use first() since there may be multiple filter dropdowns
         const activeCheckbox = page.getByRole("checkbox", { name: "active" }).first();
@@ -96,7 +96,7 @@ test.describe("Stack List — Filter by Status", () => {
 
     test("clear filter restores full list", async ({ page }) => {
         // Apply a filter first
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
         await page.getByRole("checkbox", { name: "exited" }).check();
         await page.keyboard.press("Escape");
 
@@ -105,7 +105,7 @@ test.describe("Stack List — Filter by Status", () => {
         const filteredCount = await page.locator(".item").count();
 
         // Re-open filter dropdown and click "Clear Filter"
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
         await page.getByText("Clear Filter").click();
 
         // Verify filter icon is no longer active
@@ -126,7 +126,7 @@ test.describe("Stack List — Filter by Attributes", () => {
 
     test("filter by unmanaged attribute shows unmanaged stacks", async ({ page }) => {
         // Open the filter dropdown
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
 
         // Click the "unmanaged" checkbox
         const unmanagedCheckbox = page.getByRole("checkbox", { name: "unmanaged" });
@@ -151,7 +151,7 @@ test.describe("Stack List — URL Query Sync", () => {
         await expect(page.locator(".item").first()).toBeVisible({ timeout: 10000 });
 
         // Verify search input is pre-filled
-        const searchInput = page.locator(".search-input");
+        const searchInput = page.getByPlaceholder("Search...");
         await expect(searchInput).toHaveValue("web-app");
 
         // Verify filtered results match

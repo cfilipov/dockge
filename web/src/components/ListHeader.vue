@@ -11,6 +11,7 @@
                 <input
                     :value="searchText"
                     class="form-control search-input"
+                    :placeholder="$t('Search')"
                     autocomplete="off"
                     @input="onSearchInput"
                 />
@@ -19,6 +20,7 @@
             <BDropdown variant="link" placement="bottom-end" menu-class="filter-dropdown" toggle-class="filter-icon-container" no-caret>
                 <template #button-content>
                     <font-awesome-icon class="filter-icon" :class="{ 'filter-icon-active': filter.isFilterSelected() }" icon="filter" />
+                    <span class="visually-hidden">{{ $t("filter") }}</span>
                 </template>
 
                 <BDropdownItemButton :disabled="!filter.isFilterSelected()" button-class="filter-dropdown-clear" @click="filter.clear()">

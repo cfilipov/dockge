@@ -16,7 +16,7 @@ test.describe("Logout Flow", () => {
         await waitForApp(page);
 
         // Open profile dropdown
-        await page.locator(".dropdown-profile-pic .nav-link").click();
+        await page.getByRole("button", { name: "User menu" }).click();
         await expect(page.getByText("Logout")).toBeVisible();
 
         // Click Logout

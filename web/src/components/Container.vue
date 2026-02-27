@@ -1,5 +1,5 @@
 <template>
-    <div class="shadow-box big-padding mb-3 container">
+    <div class="shadow-box big-padding mb-3 container" role="region" :aria-label="name">
         <!-- Container name with status badge -->
         <h5 class="mb-3">
             <span v-if="!isEditMode" class="badge rounded-pill me-2" :class="bgStyle">{{ $t(containerStatusInfo.label) }}</span>
@@ -40,15 +40,15 @@
         <!-- Action/log/shell buttons -->
         <div v-if="!isEditMode" class="d-flex justify-content-end align-items-center mt-3">
             <div v-if="started" class="btn-group service-actions" role="group">
-                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
-                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
+                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :aria-label="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
+                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :aria-label="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
             </div>
             <div class="btn-group service-actions ms-2" role="group">
-                <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
-                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
-                <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceRecreate', [name])" :disabled="processing" @click="recreateService"><font-awesome-icon icon="rocket" /></button>
-                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceUpdate', [name])" :disabled="processing" @click="showUpdateDialog = true"><font-awesome-icon icon="cloud-arrow-down" /></button>
-                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
+                <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="$t('tooltipServiceStart', [name])" :aria-label="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceRestart', [name])" :aria-label="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
+                <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceRecreate', [name])" :aria-label="$t('tooltipServiceRecreate', [name])" :disabled="processing" @click="recreateService"><font-awesome-icon icon="rocket" /></button>
+                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceUpdate', [name])" :aria-label="$t('tooltipServiceUpdate', [name])" :disabled="processing" @click="showUpdateDialog = true"><font-awesome-icon icon="cloud-arrow-down" /></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceStop', [name])" :aria-label="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
             </div>
         </div>
 

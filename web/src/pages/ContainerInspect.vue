@@ -231,7 +231,7 @@
                     <!-- Overview Card -->
                     <h4 class="mb-3">{{ $t("containerOverview") }}</h4>
                     <div v-if="parsed" class="shadow-box big-padding mb-3">
-                        <div class="overview-list">
+                        <div class="overview-list" role="region" :aria-label="$t('containerOverview')">
                             <!-- Stack -->
                             <div v-if="stackName" class="overview-item">
                                 <div class="overview-label">{{ $t("containerStack") }}</div>

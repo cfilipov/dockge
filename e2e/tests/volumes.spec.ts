@@ -21,7 +21,7 @@ test.describe("Volumes — List", () => {
     });
 
     test("search filters volume list", async ({ page }) => {
-        const searchInput = page.locator(".search-input");
+        const searchInput = page.getByPlaceholder("Search...");
         // Search for a known volume name pattern
         await searchInput.fill("pgdata");
 
@@ -39,7 +39,7 @@ test.describe("Volumes — List", () => {
 
     test("filter by in use status", async ({ page }) => {
         // Open filter dropdown
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
 
         // Check "in use" checkbox
         const inUseCheckbox = page.getByRole("checkbox", { name: "in use" });
@@ -64,7 +64,7 @@ test.describe("Volumes — Detail", () => {
         await waitForApp(page);
 
         // Wait for detail to load — the overview list is in the right column
-        const overviewList = page.locator(".overview-list").first();
+        const overviewList = page.getByRole("region", { name: "Overview" });
         await expect(overviewList).toBeVisible({ timeout: 10000 });
 
         // Verify overview-specific labels within the overview section
@@ -77,7 +77,7 @@ test.describe("Volumes — Detail", () => {
         await page.goto("/volumes/04-database_pgdata");
         await waitForApp(page);
 
-        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Overview" })).toBeVisible({ timeout: 10000 });
 
         // Verify Containers collapsible section heading is present
         await expect(page.getByText(/^Containers/)).toBeVisible();
@@ -86,7 +86,7 @@ test.describe("Volumes — Detail", () => {
     test("screenshot: volume detail", async ({ page }) => {
         await page.goto("/volumes/04-database_pgdata");
         await waitForApp(page);
-        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Overview" })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("volume-detail.png");
         await takeLightScreenshot(page, "volume-detail-light.png");
     });

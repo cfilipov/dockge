@@ -106,7 +106,7 @@ test.describe("Compose Operations", () => {
         await expect(page.getByRole("heading", { name: /00-single-service/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Open the dropdown menu and click "Stop & Inactive"
-        await page.locator(".btn-group .dropdown-toggle").last().click();
+        await page.getByRole("button", { name: "More actions" }).click();
         await page.getByText("Stop & Inactive").click();
 
         // Verify terminal output
@@ -132,8 +132,9 @@ test.describe("Compose Operations", () => {
         await expect(updateBtn).toBeVisible({ timeout: 15000 });
         await updateBtn.evaluate((el: HTMLElement) => el.click());
 
-        // Confirm in the modal footer
-        const modalUpdateBtn = page.locator(".modal-footer").getByRole("button", { name: "Update" });
+        // Confirm in the modal dialog
+        const modal = page.getByRole("dialog");
+        const modalUpdateBtn = modal.getByRole("button", { name: "Update" });
         await expect(modalUpdateBtn).toBeVisible({ timeout: 5000 });
         await modalUpdateBtn.click();
 
@@ -157,7 +158,7 @@ test.describe("Compose Operations", () => {
         await expect(page.getByRole("heading", { name: /01-web-app/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Click the per-service restart button for nginx
-        const restartSvc = page.getByTitle("docker compose restart nginx");
+        const restartSvc = page.getByRole("button", { name: "docker compose restart nginx" });
         await expect(restartSvc).toBeVisible({ timeout: 15000 });
         await restartSvc.evaluate((el: HTMLElement) => el.click());
 
@@ -169,7 +170,27 @@ test.describe("Compose Operations", () => {
         await expect(term).toContainText("Started");
     });
 
-    // ── Test 7: Service Stop ─────────────────────────────────────────────
+    // ── Test 7: Service Start ─────────────────────────────────────────────
+    // 04-database was stopped by Test 2, so postgres service is stopped
+    test("service start (04-database postgres)", async ({ page }) => {
+        await page.goto("/stacks/04-database");
+        await waitForApp(page);
+        await expect(page.getByRole("heading", { name: /04-database/, level: 1 })).toBeVisible({ timeout: 15000 });
+
+        // Start the postgres service (service is stopped since stack was stopped in Test 2)
+        const startSvc = page.getByRole("button", { name: "docker compose up -d postgres", exact: true });
+        await expect(startSvc).toBeVisible({ timeout: 15000 });
+        await startSvc.evaluate((el: HTMLElement) => el.click());
+
+        // Verify terminal output
+        const term = terminal(page);
+        await expect(term).toContainText("$ docker compose up -d postgres", { timeout: 15000 });
+        await expect(term).toContainText("[Done]", { timeout: 15000 });
+        await expect(term).toContainText("✔");
+        await expect(term).toContainText("Started");
+    });
+
+    // ── Test 8: Service Stop ─────────────────────────────────────────────
     // stack-010 ruby service (running)
     test("service stop (stack-010 ruby)", async ({ page }) => {
         await page.goto("/stacks/stack-010");
@@ -177,7 +198,7 @@ test.describe("Compose Operations", () => {
         await expect(page.getByRole("heading", { name: /stack-010/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Stop the ruby service
-        const stopSvc = page.getByTitle("docker compose stop ruby");
+        const stopSvc = page.getByRole("button", { name: "docker compose stop ruby" });
         await expect(stopSvc).toBeVisible({ timeout: 15000 });
         await stopSvc.evaluate((el: HTMLElement) => el.click());
 

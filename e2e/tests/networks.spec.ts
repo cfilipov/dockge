@@ -24,7 +24,7 @@ test.describe("Networks — List", () => {
     });
 
     test("search filters network list", async ({ page }) => {
-        const searchInput = page.locator(".search-input");
+        const searchInput = page.getByPlaceholder("Search...");
         await expect(searchInput).toBeVisible();
 
         await searchInput.fill("proxy");
@@ -34,7 +34,7 @@ test.describe("Networks — List", () => {
 
     test("filter by in use status", async ({ page }) => {
         // Open filter dropdown
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
 
         // Check "in use" checkbox
         const inUseCheckbox = page.getByRole("checkbox", { name: "in use" });
@@ -65,7 +65,7 @@ test.describe("Networks — Detail", () => {
         await waitForApp(page);
 
         // Wait for detail to load — the overview list is in the right column
-        const overviewList = page.locator(".overview-list").first();
+        const overviewList = page.getByRole("region", { name: "Overview" });
         await expect(overviewList).toBeVisible({ timeout: 10000 });
 
         // Verify overview-specific labels within the overview section
@@ -79,7 +79,7 @@ test.describe("Networks — Detail", () => {
         await waitForApp(page);
 
         // Wait for the overview to load
-        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Overview" })).toBeVisible({ timeout: 10000 });
 
         // Verify the Containers collapsible section heading is present
         await expect(page.getByText(/^Containers/)).toBeVisible();
@@ -88,7 +88,7 @@ test.describe("Networks — Detail", () => {
     test("screenshot: network detail", async ({ page }) => {
         await page.goto("/networks/bridge");
         await waitForApp(page);
-        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Overview" })).toBeVisible({ timeout: 10000 });
         // Wait for the Containers section to fully load
         await expect(page.getByText(/^Containers/)).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("network-detail.png");

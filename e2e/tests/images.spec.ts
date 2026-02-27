@@ -22,7 +22,7 @@ test.describe("Images — List", () => {
     });
 
     test("search filters image list", async ({ page }) => {
-        const searchInput = page.locator(".search-input");
+        const searchInput = page.getByPlaceholder("Search...");
         // Search for a specific full image name to get a single match
         await searchInput.fill("nginx:latest");
 
@@ -37,7 +37,7 @@ test.describe("Images — List", () => {
 
     test("filter by in use status", async ({ page }) => {
         // Open filter dropdown
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
 
         // Check "in use" checkbox
         const inUseCheckbox = page.getByRole("checkbox", { name: "in use" });
@@ -57,7 +57,7 @@ test.describe("Images — List", () => {
 
     test("filter by dangling status", async ({ page }) => {
         // Open filter dropdown
-        await page.locator(".filter-icon").click();
+        await page.getByRole("button", { name: "Filter" }).click();
 
         // Check "dangling" checkbox
         const danglingCheckbox = page.getByRole("checkbox", { name: "dangling" });
@@ -84,7 +84,7 @@ test.describe("Images — Detail", () => {
         await waitForApp(page);
 
         // Wait for detail to load — the overview list is in the right column
-        const overviewList = page.locator(".overview-list").first();
+        const overviewList = page.getByRole("region", { name: "Overview" });
         await expect(overviewList).toBeVisible({ timeout: 10000 });
 
         // Verify overview-specific labels are present within the overview section
@@ -96,7 +96,7 @@ test.describe("Images — Detail", () => {
         await page.goto("/images/nginx:latest");
         await waitForApp(page);
 
-        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Overview" })).toBeVisible({ timeout: 10000 });
 
         // Verify the Layers collapsible section heading is present
         await expect(page.getByText(/^Layers/)).toBeVisible();
@@ -106,7 +106,7 @@ test.describe("Images — Detail", () => {
         await page.goto("/images/nginx:latest");
         await waitForApp(page);
 
-        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Overview" })).toBeVisible({ timeout: 10000 });
 
         // Verify the Containers collapsible section heading is present
         await expect(page.getByText(/^Containers/)).toBeVisible();
@@ -115,7 +115,7 @@ test.describe("Images — Detail", () => {
     test("screenshot: image detail", async ({ page }) => {
         await page.goto("/images/nginx:latest");
         await waitForApp(page);
-        await expect(page.locator(".overview-list").first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Overview" })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("image-detail.png");
         await takeLightScreenshot(page, "image-detail-light.png");
     });

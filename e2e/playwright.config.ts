@@ -52,7 +52,7 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: `cd .. && go build -o dockge . && rm -rf test-data/e2e-stacks && cp -a test-data/stacks test-data/e2e-stacks && ./dockge --dev --mock --port ${port} --data-dir test-data/e2e-data-${port} --stacks-dir test-data/e2e-stacks`,
+        command: `cd .. && go build -o dockge . && rm -rf test-data/e2e-stacks test-data/e2e-data-${port} && cp -a test-data/stacks test-data/e2e-stacks && ./dockge --dev --mock --port ${port} --data-dir test-data/e2e-data-${port} --stacks-dir test-data/e2e-stacks`,
         port,
         reuseExistingServer: !process.env.CI,
     },

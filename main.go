@@ -239,6 +239,11 @@ func main() {
                 }
             }
 
+            // Clear any test-created agents from BoltDB
+            if err := app.Agents.ClearAll(); err != nil {
+                slog.Error("mock reset: clear agents", "err", err)
+            }
+
             app.BroadcastAll()
             slog.Info("mock state reset to default")
             w.WriteHeader(http.StatusOK)

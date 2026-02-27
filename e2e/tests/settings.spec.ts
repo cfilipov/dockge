@@ -16,7 +16,7 @@ test.describe("Settings — General", () => {
         await expect.soft(page.getByRole("link", { name: /Global/i })).toBeVisible();
         await expect.soft(page.getByRole("link", { name: "About" })).toBeVisible();
         // Content header
-        await expect.soft(page.locator(".settings-content-header")).toContainText("General");
+        await expect.soft(page.getByRole("heading", { level: 2 })).toContainText("General");
         // Primary Hostname
         await expect.soft(page.getByText("Primary Hostname")).toBeVisible();
         await expect.soft(page.getByRole("button", { name: /Auto Get/i })).toBeVisible();
@@ -40,21 +40,21 @@ test.describe("Settings — Appearance", () => {
     });
 
     test("displays appearance UI elements", async ({ page }) => {
-        await expect.soft(page.locator(".settings-content-header")).toContainText("Appearance");
-        await expect.soft(page.locator("#language")).toBeVisible();
+        await expect.soft(page.getByRole("heading", { level: 2 })).toContainText("Appearance");
+        await expect.soft(page.getByRole("combobox").first()).toBeVisible();
         await expect.soft(page.getByText("Light")).toBeVisible();
         await expect.soft(page.getByText("Dark")).toBeVisible();
         await expect.soft(page.getByText("Auto")).toBeVisible();
     });
 
     test("theme switching works", async ({ page }) => {
-        // Click Light theme
+        // Click Light theme and wait for body class to update
         await page.getByText("Light", { exact: true }).click();
-        await page.waitForTimeout(500);
+        await page.locator("body.light").waitFor();
 
-        // Click Dark theme
+        // Click Dark theme and wait for body class to update
         await page.getByText("Dark", { exact: true }).click();
-        await page.waitForTimeout(500);
+        await page.locator("body.dark").waitFor();
     });
 
     test("screenshot: appearance settings", async ({ page }) => {
@@ -65,14 +65,14 @@ test.describe("Settings — Appearance", () => {
 
     test("screenshot: light theme", async ({ page }) => {
         await page.getByText("Light", { exact: true }).click();
-        await page.waitForTimeout(1000);
+        await page.locator("body.light").waitFor();
         await page.evaluate(() => window.scrollTo(0, 0));
         await expect(page).toHaveScreenshot("settings-appearance-light.png");
     });
 
     test("screenshot: dark theme", async ({ page }) => {
         await page.getByText("Dark", { exact: true }).click();
-        await page.waitForTimeout(1000);
+        await page.locator("body.dark").waitFor();
         await page.evaluate(() => window.scrollTo(0, 0));
         await expect(page).toHaveScreenshot("settings-appearance-dark.png");
     });
@@ -85,20 +85,20 @@ test.describe("Settings — Security", () => {
     });
 
     test("displays security UI elements", async ({ page }) => {
-        await expect.soft(page.locator(".settings-content-header")).toContainText("Security");
+        await expect.soft(page.getByRole("heading", { level: 2 })).toContainText("Security");
         await expect.soft(page.getByText(/Current User/i)).toBeVisible();
-        await expect.soft(page.locator("#logout-btn")).toBeVisible();
+        await expect.soft(page.getByRole("button", { name: "Logout" })).toBeVisible();
         await expect.soft(page.getByText("Change Password")).toBeVisible();
-        await expect.soft(page.locator("#current-password").first()).toBeVisible();
-        await expect.soft(page.locator("#new-password")).toBeVisible();
-        await expect.soft(page.locator("#repeat-new-password")).toBeVisible();
+        await expect.soft(page.getByLabel("Current Password").first()).toBeVisible();
+        await expect.soft(page.getByLabel("New Password", { exact: true })).toBeVisible();
+        await expect.soft(page.getByLabel("Repeat New Password")).toBeVisible();
         await expect.soft(page.getByRole("button", { name: "Update Password" })).toBeVisible();
         await expect.soft(page.getByText("Advanced")).toBeVisible();
-        await expect.soft(page.locator("#disableAuth-btn")).toBeVisible();
+        await expect.soft(page.getByRole("button", { name: "Disable Auth" })).toBeVisible();
     });
 
     test("screenshot: settings security", async ({ page }) => {
-        await expect(page.locator("#disableAuth-btn")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Disable Auth" })).toBeVisible();
         await expect(page).toHaveScreenshot("settings-security.png");
         await takeLightScreenshot(page, "settings-security-light.png");
     });
@@ -111,7 +111,7 @@ test.describe("Settings — Global .env", () => {
     });
 
     test("displays global env UI elements", async ({ page }) => {
-        await expect.soft(page.locator(".settings-content-header")).toContainText("Global");
+        await expect.soft(page.getByRole("heading", { level: 2 })).toContainText("Global");
         await expect.soft(page.locator(".cm-editor").first()).toBeVisible({ timeout: 10000 });
         await expect.soft(page.getByRole("button", { name: "Save" })).toBeVisible();
     });
@@ -132,10 +132,9 @@ test.describe("Settings — Global .env", () => {
         await editor.click();
         await page.keyboard.press("ControlOrMeta+a");
         await page.keyboard.type("MY_GLOBAL_VAR=hello_world");
-        // Save
+        // Save and wait for confirmation toast
         await page.getByRole("button", { name: "Save" }).click();
-        // Wait for save to complete
-        await page.waitForTimeout(1000);
+        await expect(page.getByText("Saved")).toBeVisible({ timeout: 5000 });
         // Reload and verify persistence
         await page.reload();
         await waitForApp(page);
@@ -151,7 +150,7 @@ test.describe("Settings — About", () => {
     });
 
     test("displays about UI elements", async ({ page }) => {
-        await expect.soft(page.locator(".settings-content-header")).toContainText("About");
+        await expect.soft(page.getByRole("heading", { level: 2 })).toContainText("About");
         await expect.soft(page.getByRole("main").getByText("Dockge")).toBeVisible();
         await expect.soft(page.getByText(/Version/i).first()).toBeVisible();
         await expect.soft(page.getByRole("link", { name: /Check Update/i })).toBeVisible();

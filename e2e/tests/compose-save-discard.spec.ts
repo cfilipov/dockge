@@ -36,11 +36,9 @@ test.describe("Compose — Save Draft & Discard", () => {
         await page.keyboard.press("Enter");
         await page.keyboard.type("# test-save-marker");
 
-        // Click Save
+        // Click Save and wait for confirmation toast
         await page.getByRole("button", { name: "Save" }).evaluate((el: HTMLElement) => el.click());
-
-        // Wait for save to complete
-        await page.waitForTimeout(1000);
+        await expect(page.getByText("Saved")).toBeVisible({ timeout: 5000 });
 
         // Reload and verify persistence
         await page.reload();

@@ -55,7 +55,10 @@
                             {{ $t("stopStack") }}
                         </button>
 
-                        <BDropdown right text="" variant="normal" menu-class="overflow-dropdown">
+                        <BDropdown right variant="normal" menu-class="overflow-dropdown">
+                            <template #button-content>
+                                <span class="visually-hidden">{{ $t("moreActions") }}</span>
+                            </template>
                             <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
                                 <font-awesome-icon icon="search" class="me-1" />
                                 {{ $t("checkUpdates") }}
@@ -210,12 +213,12 @@
                     <!-- Override YAML editor (only show if file exists) -->
                     <div v-if="stack.composeOverrideYAML && stack.composeOverrideYAML.trim() !== ''">
                     <h4 class="mb-3">{{ stack.composeOverrideFileName || 'compose.override.yaml' }}</h4>
-                    <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
+                    <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}" role="region" :aria-label="stack.composeOverrideFileName || 'compose.override.yaml'">
                         <div class="editor-buttons">
                             <button class="editor-btn" :title="wordWrap ? 'Disable word wrap' : 'Enable word wrap'" @click="wordWrap = !wordWrap">
                                 <font-awesome-icon :icon="wordWrap ? 'arrow-turn-down' : 'arrow-right'" />
                             </button>
-                            <button v-if="isEditMode" v-b-modal.compose-override-editor-modal class="editor-btn">
+                            <button v-if="isEditMode" v-b-modal.compose-override-editor-modal class="editor-btn" aria-label="Fullscreen">
                                 <font-awesome-icon icon="expand" />
                             </button>
                         </div>
@@ -263,12 +266,12 @@ scrollable size="fullscreen" hide-footer>
                     <h4 class="mb-3">{{ stack.composeFileName }}</h4>
 
                     <!-- YAML editor (inline) -->
-                    <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
+                    <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}" role="region" :aria-label="stack.composeFileName">
                         <div class="editor-buttons">
                             <button class="editor-btn" :title="wordWrap ? 'Disable word wrap' : 'Enable word wrap'" @click="wordWrap = !wordWrap">
                                 <font-awesome-icon :icon="wordWrap ? 'arrow-turn-down' : 'arrow-right'" />
                             </button>
-                            <button v-if="isEditMode" v-b-modal.compose-editor-modal class="editor-btn">
+                            <button v-if="isEditMode" v-b-modal.compose-editor-modal class="editor-btn" aria-label="Fullscreen">
                                 <font-awesome-icon icon="expand" />
                             </button>
                         </div>
@@ -313,12 +316,12 @@ scrollable size="fullscreen" hide-footer>
                     <!-- ENV editor -->
                     <div v-if="isEditMode">
                         <h4 class="mb-3">.env</h4>
-                        <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
+                        <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}" role="region" aria-label=".env">
                             <div class="editor-buttons">
                                 <button class="editor-btn" :title="wordWrap ? 'Disable word wrap' : 'Enable word wrap'" @click="wordWrap = !wordWrap">
                                     <font-awesome-icon :icon="wordWrap ? 'arrow-turn-down' : 'arrow-right'" />
                                 </button>
-                                <button v-if="isEditMode" v-b-modal.env-editor-modal class="editor-btn">
+                                <button v-if="isEditMode" v-b-modal.env-editor-modal class="editor-btn" aria-label="Fullscreen">
                                     <font-awesome-icon icon="expand" />
                                 </button>
                             </div>
@@ -359,7 +362,7 @@ scrollable size="fullscreen" hide-footer>
                         <!-- Networks -->
                         <CollapsibleSection>
                             <template #heading>{{ $tc("network", 2) }} <span class="section-count">({{ Object.keys(networks || {}).length }})</span></template>
-                            <div class="shadow-box big-padding mb-3">
+                            <div class="shadow-box big-padding mb-3" role="region" :aria-label="$tc('network', 2)">
                                 <NetworkInput />
                             </div>
                         </CollapsibleSection>

@@ -35,9 +35,7 @@ test.describe("Container Card Editing", () => {
         await expect(page.getByRole("heading", { name: /06-mixed-state/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Locate the "app" service container card
-        appCard = page.locator(".shadow-box.big-padding").filter({
-            has: page.locator("h5", { hasText: /^app$/ }),
-        });
+        appCard = page.getByRole("region", { name: "app" });
 
         // The main compose YAML editor content (first CodeMirror on the page)
         yamlEditor = page.locator(".cm-content").first();
@@ -63,7 +61,7 @@ test.describe("Container Card Editing", () => {
     test("add port updates YAML", async () => {
         await evalClick(appCard.getByRole("button", { name: /Add Port/i }));
 
-        const portInputs = appCard.locator(".domain-input[placeholder=\"HOST:CONTAINER\"]");
+        const portInputs = appCard.getByPlaceholder("HOST:CONTAINER");
         const lastPort = portInputs.last();
         await lastPort.fill("9090:90");
 
@@ -73,7 +71,7 @@ test.describe("Container Card Editing", () => {
     test("add environment variable updates YAML", async () => {
         await evalClick(appCard.getByRole("button", { name: /Add Environment Variable/i }));
 
-        const envInputs = appCard.locator(".domain-input[placeholder=\"KEY=VALUE\"]");
+        const envInputs = appCard.getByPlaceholder("KEY=VALUE");
         const lastEnv = envInputs.last();
         await lastEnv.fill("MY_VAR=hello");
 
@@ -83,7 +81,7 @@ test.describe("Container Card Editing", () => {
     test("add container dependency updates YAML", async () => {
         await evalClick(appCard.getByRole("button", { name: /Add Container Dependency/i }));
 
-        const depInputs = appCard.locator(".domain-input[placeholder=\"Container Name\"]");
+        const depInputs = appCard.getByPlaceholder("Container Name");
         const lastDep = depInputs.last();
         await lastDep.fill("db");
 
@@ -113,7 +111,7 @@ test.describe("Container Card Editing", () => {
 
     test("set changelog URL updates YAML", async () => {
         // Target the changelog input (has placeholder="https://") but NOT the image input (which has list attr)
-        const changelogInput = appCard.locator("input.form-control[placeholder=\"https://\"]");
+        const changelogInput = appCard.getByPlaceholder("https://");
         await changelogInput.fill("https://changelog.example.com");
 
         await expect(yamlEditor).toContainText("dockge.imageupdates.changelog");
@@ -121,9 +119,7 @@ test.describe("Container Card Editing", () => {
     });
 
     test("toggle external network updates YAML", async ({ page }) => {
-        const networkSection = page.locator(".shadow-box.big-padding").filter({
-            has: page.getByText("Internal Networks"),
-        });
+        const networkSection = page.getByRole("region", { name: "Networks" });
 
         // External networks from the mock should be listed as toggle switches
         const proxyToggle = networkSection.locator(".form-check-label", { hasText: "proxy" });
@@ -149,16 +145,14 @@ test.describe("Container Card Editing", () => {
     test("add network via sidebar and container card updates YAML", async ({ page }) => {
         // 1. Add an internal network in the sidebar NetworkInput section
         //    The NetworkInput is inside the right column's last shadow-box
-        const networkSection = page.locator(".shadow-box.big-padding").filter({
-            has: page.getByText("Internal Networks"),
-        });
+        const networkSection = page.getByRole("region", { name: "Networks" });
 
         await evalClick(networkSection.getByRole("button", {
             name: "Add",
             exact: true,
         }));
 
-        const networkNameInput = networkSection.locator("input[placeholder=\"Network name...\"]");
+        const networkNameInput = networkSection.getByPlaceholder("Network name...");
         await networkNameInput.fill("my-net");
 
         // 2. In the app card, click "Add Network" and select "my-net"

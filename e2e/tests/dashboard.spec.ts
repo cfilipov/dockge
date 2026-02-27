@@ -35,12 +35,12 @@ test.describe("Header Navigation", () => {
     test("displays header nav elements", async ({ page }) => {
         await expect.soft(page.getByRole("link", { name: "Stacks" })).toBeVisible();
         await expect.soft(page.getByRole("link", { name: "Console" })).toBeVisible();
-        await expect.soft(page.locator(".dropdown-profile-pic")).toBeVisible();
+        await expect.soft(page.getByRole("button", { name: "User menu" })).toBeVisible();
     });
 
     test("profile dropdown shows expected items", async ({ page }) => {
         // Open profile dropdown
-        await page.locator(".dropdown-profile-pic .nav-link").click();
+        await page.getByRole("button", { name: "User menu" }).click();
 
         await expect(page.getByText(/Signed in as/i)).toBeVisible();
         await expect(page.getByText("admin")).toBeVisible();
@@ -60,13 +60,13 @@ test.describe("Header Navigation", () => {
 
     test("Settings link navigates to /settings", async ({ page }) => {
         // Open profile dropdown and click Settings
-        await page.locator(".dropdown-profile-pic .nav-link").click();
+        await page.getByRole("button", { name: "User menu" }).click();
         await page.getByRole("link", { name: "Settings" }).click();
         await expect(page).toHaveURL(/\/settings/);
     });
 
     test("screenshot: profile dropdown", async ({ page }) => {
-        await page.locator(".dropdown-profile-pic .nav-link").click();
+        await page.getByRole("button", { name: "User menu" }).click();
         await expect(page.getByText("Scan Stacks Folder")).toBeVisible();
         await expect(page).toHaveScreenshot("navigation-profile-dropdown.png");
         await takeLightScreenshot(page, "navigation-profile-dropdown-light.png");

@@ -18,13 +18,13 @@ test.describe("Delete Stack", () => {
         await expect(page.getByRole("heading", { name: /stack-015/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // Open the overflow dropdown menu
-        await page.locator(".btn-group .dropdown-toggle").last().click();
+        await page.getByRole("button", { name: "More actions" }).click();
 
-        // Click "Delete" in the dropdown menu (scope to the dropdown that's now visible)
-        await page.locator(".dropdown-menu.show").getByText("Delete", { exact: true }).click();
+        // Click "Delete" in the dropdown menu
+        await page.getByRole("menuitem", { name: "Delete" }).click();
 
         // Verify confirmation modal appears
-        const modal = page.locator(".modal.show");
+        const modal = page.getByRole("dialog");
         await expect(modal.getByText("Are you sure you want to delete this stack?")).toBeVisible({ timeout: 5000 });
 
         // Verify "delete all stack files" checkbox is present and check it
@@ -33,7 +33,7 @@ test.describe("Delete Stack", () => {
         await deleteFilesCheckbox.check();
 
         // Click the modal's "Delete" button (in the modal footer)
-        const modalDeleteBtn = modal.locator(".modal-footer").getByRole("button", { name: "Delete" });
+        const modalDeleteBtn = modal.getByRole("button", { name: "Delete" });
         await expect(modalDeleteBtn).toBeVisible();
         await modalDeleteBtn.click();
 

@@ -1,6 +1,6 @@
 <template>
     <transition name="slide-fade" appear>
-        <div v-show="visible" class="progress-terminal position-relative">
+        <div v-show="visible" class="progress-terminal position-relative" role="region" aria-label="Progress">
             <button class="dismiss-button" :title="$t('Close')" @click="hide">
                 <font-awesome-icon icon="times" />
             </button>

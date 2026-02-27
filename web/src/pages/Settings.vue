@@ -26,7 +26,7 @@
                     </a>
                 </div>
                 <div class="settings-content col-lg-9 col-md-7">
-                    <div v-if="currentPage" class="settings-content-header">
+                    <div v-if="currentPage" class="settings-content-header" role="heading" aria-level="2">
                         {{ subMenus[currentPage].title }}
                     </div>
                     <div class="mx-3">

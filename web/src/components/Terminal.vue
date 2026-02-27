@@ -1,5 +1,5 @@
 <template>
-    <div class="shadow-box" :style="{ backgroundColor: isDark ? darkTheme.background : lightTheme.background }">
+    <div class="shadow-box" role="region" :aria-label="ariaLabel || 'Terminal'" :style="{ backgroundColor: isDark ? darkTheme.background : lightTheme.background }">
         <div v-pre ref="terminalEl" class="main-terminal"></div>
     </div>
 </template>
@@ -77,6 +77,7 @@ const props = withDefaults(defineProps<{
     cols?: number;
     mode?: string;
     mainTerminal?: boolean;
+    ariaLabel?: string;
 }>(), {
     stackName: undefined,
     serviceName: undefined,
@@ -86,6 +87,7 @@ const props = withDefaults(defineProps<{
     cols: TERMINAL_COLS,
     mode: "displayOnly",
     mainTerminal: false,
+    ariaLabel: undefined,
 });
 
 const emit = defineEmits<{

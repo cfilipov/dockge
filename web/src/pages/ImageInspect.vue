@@ -66,7 +66,7 @@
                     <!-- Overview Card -->
                     <h4 class="mb-3">{{ $t("containerOverview") }}</h4>
                     <div v-if="imageDetail" class="shadow-box big-padding mb-3">
-                        <div class="overview-list">
+                        <div class="overview-list" role="region" :aria-label="$t('containerOverview')">
                             <div class="overview-item">
                                 <div class="overview-label">{{ $t("overviewName") }}</div>
                                 <div class="overview-value">{{ displayName }}</div>

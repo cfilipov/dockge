@@ -22,7 +22,7 @@
 
             <div v-if="loggedIn" class="header-profile">
                 <div class="dropdown dropdown-profile-pic">
-                    <div class="nav-link" data-bs-toggle="dropdown">
+                    <div class="nav-link" data-bs-toggle="dropdown" role="button" aria-label="User menu">
                         <div class="profile-pic">{{ usernameFirstChar }}</div>
                         <font-awesome-icon icon="angle-down" />
                     </div>
