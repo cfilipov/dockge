@@ -73,9 +73,10 @@ func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
 
     buf := ""
     if term != nil {
-        buf = term.Buffer()
-        // Register this connection for live updates
-        term.AddWriter(c.ID(), makeTermWriter(c, termName))
+        // Atomic join: register writer AND read buffer under a single lock.
+        // This prevents a race where data arrives between separate Buffer()
+        // and AddWriter() calls, causing duplicate delivery (double prompt).
+        buf = term.JoinAndGetBuffer(c.ID(), makeTermWriter(c, termName))
     }
 
     if msg.ID != nil {
@@ -252,11 +253,9 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     // For local endpoint (empty string), becomes: container-exec--{stackName}-{serviceName}-0
     termName := "container-exec--" + stackName + "-" + serviceName + "-0"
 
-    term := app.Terms.Create(termName, terminal.TypePTY)
-
-    // Register the requesting client BEFORE starting exec so the shell
-    // prompt is captured and delivered.
-    term.AddWriter(c.ID(), makeTermWriter(c, termName))
+    term := app.Terms.Recreate(termName, terminal.TypePTY)
+    // Writer is carried over from the terminalJoin that already ran.
+    // Do NOT add a duplicate writer — that causes the double-prompt race.
 
     dir := filepath.Join(app.StacksDir, stackName)
     execArgs := []string{"compose"}
@@ -321,11 +320,8 @@ func (app *App) handleContainerExec(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    term := app.Terms.Create(termName, terminal.TypePTY)
-
-    // Register the requesting client BEFORE starting exec so the shell
-    // prompt is captured and delivered.
-    term.AddWriter(c.ID(), makeTermWriter(c, termName))
+    term := app.Terms.Recreate(termName, terminal.TypePTY)
+    // Writer is carried over from the terminalJoin that already ran.
 
     cmd := exec.Command("docker", "exec", "-it", containerName, shell)
     cmd.Env = os.Environ()

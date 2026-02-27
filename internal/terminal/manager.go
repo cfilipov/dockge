@@ -259,6 +259,18 @@ func (t *Terminal) Buffer() string {
     return t.buffer.String()
 }
 
+// JoinAndGetBuffer atomically registers a writer and returns the current
+// buffer content. This prevents a race where data arrives between separate
+// AddWriter and Buffer calls, causing duplicate delivery.
+func (t *Terminal) JoinAndGetBuffer(id string, fn WriteFunc) string {
+    t.mu.Lock()
+    defer t.mu.Unlock()
+    if !t.closed {
+        t.writers[id] = fn
+    }
+    return t.buffer.String()
+}
+
 // AddWriter registers a WebSocket client to receive terminal output.
 func (t *Terminal) AddWriter(id string, fn WriteFunc) {
     t.mu.Lock()
