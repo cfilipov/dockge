@@ -53,6 +53,7 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } 
 import VolumeListItem from "./VolumeListItem.vue";
 import { useSocket } from "../composables/useSocket";
 import { StackFilterCategory } from "../common/util-common";
+import { useFilterParams } from "../composables/useFilterParams";
 
 defineProps<{
     scrollbar?: boolean;
@@ -81,6 +82,9 @@ class VolumeFilter {
 }
 
 const volumeFilter = reactive(new VolumeFilter());
+useFilterParams(searchText, [
+    { param: "status", category: volumeFilter.status },
+]);
 
 const listStyle = computed(() => {
     return { height: "calc(100% - 60px)" };

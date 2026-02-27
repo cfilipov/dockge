@@ -53,6 +53,7 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } 
 import NetworkListItem from "./NetworkListItem.vue";
 import { useSocket } from "../composables/useSocket";
 import { StackFilterCategory } from "../common/util-common";
+import { useFilterParams } from "../composables/useFilterParams";
 
 defineProps<{
     scrollbar?: boolean;
@@ -83,6 +84,10 @@ class NetworkFilter {
 }
 
 const networkFilter = reactive(new NetworkFilter());
+useFilterParams(searchText, [
+    { param: "driver", category: networkFilter.driver },
+    { param: "status", category: networkFilter.status },
+]);
 
 const listStyle = computed(() => {
     return { height: "calc(100% - 60px)" };

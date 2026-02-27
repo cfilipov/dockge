@@ -53,6 +53,7 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } 
 import ContainerListItem from "./ContainerListItem.vue";
 import { useSocket } from "../composables/useSocket";
 import { StackFilter, ContainerStatusInfo } from "../common/util-common";
+import { useFilterParams } from "../composables/useFilterParams";
 
 defineProps<{
     scrollbar?: boolean;
@@ -62,6 +63,10 @@ const { containerList } = useSocket();
 
 const searchText = ref("");
 const containerFilter = reactive(new StackFilter());
+useFilterParams(searchText, [
+    { param: "status", category: containerFilter.status },
+    { param: "attr", category: containerFilter.attributes },
+]);
 const listRef = ref<HTMLElement>();
 
 const listStyle = computed(() => {

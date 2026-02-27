@@ -76,6 +76,7 @@ import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
 import { useSocket } from "../composables/useSocket";
 import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, RUNNING_AND_EXITED, UNHEALTHY, UNKNOWN, StackFilter, StackStatusInfo } from "../common/util-common";
+import { useFilterParams } from "../composables/useFilterParams";
 
 defineProps<{
     scrollbar?: boolean;
@@ -89,6 +90,11 @@ const selectAll = ref(false);
 const disableSelectAllWatcher = ref(false);
 const selectedStacks = ref<Record<string, boolean>>({});
 const stackFilter = reactive(new StackFilter());
+useFilterParams(searchText, [
+    { param: "status", category: stackFilter.status },
+    { param: "agent", category: stackFilter.agents },
+    { param: "attr", category: stackFilter.attributes },
+]);
 const closedAgents = reactive(new Map<string, boolean>());
 const stackListRef = ref<HTMLElement>();
 const confirmPauseRef = ref<InstanceType<typeof Confirm>>();

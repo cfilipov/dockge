@@ -61,7 +61,7 @@
 
             <div ref="containerRef" class="col-12 col-md-8 col-xl-9 mb-3">
                 <!-- Add :key to disable vue router re-use the same component -->
-                <router-view :key="$route.fullPath" :calculatedHeight="height" />
+                <router-view :key="$route.path" :calculatedHeight="height" />
             </div>
         </div>
     </div>
