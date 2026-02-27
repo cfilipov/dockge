@@ -117,10 +117,8 @@ func runWatcher(ctx context.Context, watcher *fsnotify.Watcher, stacksDir string
 					}
 				}
 				if event.Op&fsnotify.Remove != 0 {
-					// Stack directory removed
-					if onChange != nil {
-						onChange(name)
-					}
+					// Stack directory removed — debounce like all other events
+					triggerUpdate(name)
 				}
 				continue
 			}

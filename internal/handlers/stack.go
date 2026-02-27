@@ -341,13 +341,13 @@ func (app *App) BroadcastAll() {
 }
 
 // TriggerRefresh broadcasts fresh data after a short delay to let Docker state settle.
-// Uses a debounce timer so rapid successive calls coalesce into a single broadcast.
-// If a timer is already pending, the call is a no-op — the existing timer will fire.
+// Uses a trailing-edge debounce: each call resets the 500ms timer so the broadcast
+// fires 500ms after the *last* call, not 500ms after the first.
 func (app *App) TriggerRefresh() {
 	app.refreshMu.Lock()
 	defer app.refreshMu.Unlock()
 	if app.refreshTimer != nil {
-		return
+		app.refreshTimer.Stop()
 	}
 	app.refreshTimer = time.AfterFunc(500*time.Millisecond, func() {
 		app.refreshMu.Lock()
