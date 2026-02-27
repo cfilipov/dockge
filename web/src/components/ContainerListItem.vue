@@ -53,42 +53,11 @@ const statusLabel = computed(() => t(statusInfo.value.label));
 </script>
 
 <style lang="scss" scoped>
-@import "../styles/vars.scss";
+@import "../styles/list-item";
 
-.item {
-    text-decoration: none;
-    color: inherit;
-    display: flex;
-    align-items: center;
-    min-height: 46px;
-    border-radius: 10px;
-    transition: none;
-    width: 100%;
-    padding: 5px 8px;
-    margin: 3px 0;
-    overflow: hidden;
+.item .title {
+    flex: 1;
     min-width: 0;
-    &:hover {
-        background-color: $highlight-white;
-    }
-    &.active {
-        background-color: $highlight-white;
-        border-left: 4px solid $primary;
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
-    }
-    .title {
-        flex: 1;
-        min-width: 0;
-        margin-top: -4px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-}
-
-.badge {
-    white-space: nowrap;
 }
 
 .dim {

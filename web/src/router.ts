@@ -11,7 +11,6 @@ import ContainerLog from "./pages/ContainerLog.vue";
 import ContainerInspect from "./pages/ContainerInspect.vue";
 import ContainerShell from "./pages/ContainerShell.vue";
 import ContainerLogs from "./pages/ContainerLogs.vue";
-import ComposeYaml from "./pages/ComposeYaml.vue";
 const Settings = () => import("./pages/Settings.vue");
 
 // Settings - Sub Pages
@@ -41,11 +40,11 @@ const routes = [
                             },
                             {
                                 path: "/stacks/:stackName/raw/:endpoint",
-                                component: ComposeYaml,
+                                component: Compose,
                             },
                             {
                                 path: "/stacks/:stackName/raw",
-                                component: ComposeYaml,
+                                component: Compose,
                             },
                             {
                                 path: "/stacks/:stackName/:endpoint",

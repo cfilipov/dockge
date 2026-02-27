@@ -18,6 +18,9 @@
         </BForm>
 
         <template #footer>
+            <button v-if="showIgnore" class="btn btn-normal" :title="$t('tooltipServiceUpdateIgnore')" @click="doIgnore">
+                <font-awesome-icon icon="ban" class="me-1" />{{ $t("ignoreUpdate") }}
+            </button>
             <button class="btn btn-primary" @click="doUpdate">
                 <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
             </button>
@@ -33,17 +36,21 @@ import { LABEL_IMAGEUPDATES_CHANGELOG } from "../common/compose-labels";
 import { useSocket } from "../composables/useSocket";
 import yamlLib from "yaml";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     modelValue: boolean;
     stackName: string;
     endpoint: string;
     serviceName?: string;
     composeYaml?: string;
-}>();
+    showIgnore?: boolean;
+}>(), {
+    showIgnore: false,
+});
 
 const emit = defineEmits<{
     (e: "update:modelValue", value: boolean): void;
     (e: "update", data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }): void;
+    (e: "ignore"): void;
 }>();
 
 const { emitAgent } = useSocket();
@@ -120,5 +127,10 @@ function doUpdate() {
         pruneAfterUpdate: pruneAfterUpdate.value,
         pruneAllAfterUpdate: pruneAllAfterUpdate.value,
     });
+}
+
+function doIgnore() {
+    emit("update:modelValue", false);
+    emit("ignore");
 }
 </script>

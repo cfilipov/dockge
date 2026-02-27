@@ -7,33 +7,17 @@
             <template v-else>{{ name }}</template>
         </h5>
 
-        <!-- Image update modal -->
-        <BModal v-if="!isEditMode" :id="updateModalId" :ref="(el: any) => { updateModalRef = el }" :title="$tc('imageUpdate', 1)">
-            <div>
-                <h5>{{ $t("image") }}</h5>
-                <span>{{ envsubstService.image }}</span>
-            </div>
-            <div v-if="changelogLink" class="mt-3">
-                <h5>{{ $t("changelog") }}</h5>
-                <a :href="changelogLink" target="_blank">{{ changelogLink }}</a>
-            </div>
-
-            <BForm class="mt-3">
-                <BFormCheckbox v-model="updateDialogData.pruneAfterUpdate" switch><span v-html="$t('pruneAfterUpdate')"></span></BFormCheckbox>
-                <div style="margin-left: 2.5rem;">
-                    <BFormCheckbox v-model="updateDialogData.pruneAllAfterUpdate" :checked="updateDialogData.pruneAfterUpdate && updateDialogData.pruneAllAfterUpdate" :disabled="!updateDialogData.pruneAfterUpdate"><span v-html="$t('pruneAllAfterUpdate')"></span></BFormCheckbox>
-                </div>
-            </BForm>
-
-            <template #footer>
-                <button class="btn btn-normal" :title="$t('tooltipServiceUpdateIgnore')" @click="skipCurrentUpdate">
-                    <font-awesome-icon icon="ban" class="me-1" />{{ $t("ignoreUpdate") }}
-                </button>
-                <button class="btn btn-primary" :title="$t('tooltipDoServiceUpdate', [name])" @click="doUpdateService">
-                    <font-awesome-icon icon="cloud-arrow-down" class="me-1" />{{ $t("updateStack") }}
-                </button>
-            </template>
-        </BModal>
+        <!-- Image update dialog -->
+        <UpdateDialog
+            v-if="!isEditMode"
+            v-model="showUpdateDialog"
+            :stack-name="stackName"
+            :endpoint="endpoint"
+            :service-name="name"
+            :show-ignore="true"
+            @update="doUpdateService"
+            @ignore="skipCurrentUpdate"
+        />
 
         <!-- Container, image, ports chips -->
         <div v-if="!isEditMode" class="network-props">
@@ -63,7 +47,7 @@
                 <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
                 <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
                 <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceRecreate', [name])" :disabled="processing" @click="recreateService"><font-awesome-icon icon="rocket" /></button>
-                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" v-b-modal="updateModalId" :title="$t('tooltipServiceUpdate', [name])" :disabled="processing"><font-awesome-icon icon="cloud-arrow-down" /></button>
+                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceUpdate', [name])" :disabled="processing" @click="showUpdateDialog = true"><font-awesome-icon icon="cloud-arrow-down" /></button>
                 <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
             </div>
         </div>
@@ -215,13 +199,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, provide, reactive, type Ref } from "vue";
+import { ref, computed, inject, provide, type Ref } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { parseDockerPort, ContainerStatusInfo } from "../common/util-common";
 import { LABEL_STATUS_IGNORE, LABEL_IMAGEUPDATES_CHECK, LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../common/compose-labels";
-import { BModal, BForm, BFormCheckbox } from "bootstrap-vue-next";
+import { BFormCheckbox } from "bootstrap-vue-next";
 import ArrayInput from "./ArrayInput.vue";
 import ArraySelect from "./ArraySelect.vue";
+import UpdateDialog from "./UpdateDialog.vue";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
 
@@ -256,11 +241,7 @@ const emit = defineEmits<{
 }>();
 
 const showConfig = ref(false);
-const updateDialogData = reactive({
-    pruneAfterUpdate: false,
-    pruneAllAfterUpdate: false,
-});
-const updateModalRef = ref<any>(null);
+const showUpdateDialog = ref(false);
 
 // Computed from injected state
 const endpoint = computed(() => composeEndpoint.value);
@@ -291,16 +272,6 @@ const networkList = computed(() => {
         list.push(networkName);
     }
     return list;
-});
-
-const updateModalId = computed(() => "image-update-modal-" + props.name);
-
-const changelogLink = computed(() => {
-    const labels = envsubstService.value?.labels;
-    if (labels && labels[LABEL_IMAGEUPDATES_CHANGELOG]) {
-        return labels[LABEL_IMAGEUPDATES_CHANGELOG];
-    }
-    return "";
 });
 
 const urlList = computed(() => {
@@ -459,23 +430,16 @@ function recreateService() {
     emit("restart-service", props.name);
 }
 
-function resetUpdateDialog() {
-    updateDialogData.pruneAfterUpdate = false;
-    updateDialogData.pruneAllAfterUpdate = false;
-}
-
-function doUpdateService() {
-    updateModalRef.value?.hide();
-
+function doUpdateService(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }) {
     startComposeAction();
-    emitAgent(endpoint.value, "updateService", composeStack.name, props.name, updateDialogData.pruneAfterUpdate, updateDialogData.pruneAllAfterUpdate, (res: any) => {
+    emitAgent(endpoint.value, "updateService", composeStack.name, props.name, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
 }
 
 function skipCurrentUpdate() {
-    updateModalRef.value?.hide();
+    // No-op for now — placeholder for future "ignore update" feature
 }
 
 function ensureLabels() {

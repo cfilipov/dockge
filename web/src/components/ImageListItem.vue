@@ -55,35 +55,17 @@ const badgeLabel = computed(() => {
 </script>
 
 <style lang="scss" scoped>
-@import "../styles/vars.scss";
+@import "../styles/list-item";
 
 .item {
-    text-decoration: none;
-    color: inherit;
-    display: flex;
-    align-items: center;
     min-height: 52px;
-    border-radius: 10px;
     transition: all ease-in-out 0.15s;
-    width: 100%;
-    padding: 5px 8px;
-    overflow: hidden;
-    min-width: 0;
-    &:hover {
-        background-color: $highlight-white;
-    }
-    &.active {
-        background-color: $highlight-white;
-    }
-    .title {
-        margin-top: -4px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-}
+    margin: 0;
 
-.badge {
-    white-space: nowrap;
+    &.active {
+        border-left: none;
+        border-top-left-radius: 10px;
+        border-bottom-left-radius: 10px;
+    }
 }
 </style>

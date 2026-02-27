@@ -130,7 +130,7 @@
             </div>
 
             <div v-if="stack.isManagedByDockge !== undefined || isAdd" class="row">
-                <div class="col-lg-6">
+                <div v-if="viewMode === 'parsed' || isAdd" :class="viewMode === 'raw' ? 'col-12' : 'col-lg-6'">
                     <!-- General -->
                     <div v-if="isAdd">
                         <h4 class="mb-3">{{ $t("general") }}</h4>
@@ -206,7 +206,7 @@
                         ></Terminal>
                     </div>
                 </div>
-                <div v-if="stack.isManagedByDockge" class="col-lg-6">
+                <div v-if="stack.isManagedByDockge" :class="viewMode === 'raw' && !isAdd ? 'col-12' : 'col-lg-6'">
                     <!-- Override YAML editor (only show if file exists) -->
                     <div v-if="stack.composeOverrideYAML && stack.composeOverrideYAML.trim() !== ''">
                     <h4 class="mb-3">{{ stack.composeOverrideFileName || 'compose.override.yaml' }}</h4>
@@ -390,11 +390,7 @@ import { ref, reactive, computed, watch, provide, onMounted, onUnmounted, nextTi
 import { useRoute, useRouter, onBeforeRouteUpdate, onBeforeRouteLeave } from "vue-router";
 import { useI18n } from "vue-i18n";
 import CodeMirror from "vue-codemirror6";
-import { yaml } from "@codemirror/lang-yaml";
-import { python } from "@codemirror/lang-python";
-import { tomorrowNightEighties, tomorrowLight } from "../editor-theme";
-import { lineNumbers, EditorView } from "@codemirror/view";
-import { indentUnit, indentService } from "@codemirror/language";
+import { EditorView } from "@codemirror/view";
 import { parseDocument, Document } from "yaml";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import {
@@ -412,12 +408,12 @@ import ProgressTerminal from "../components/ProgressTerminal.vue";
 import UpdateDialog from "../components/UpdateDialog.vue";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
-import { useTheme } from "../composables/useTheme";
+import { useStackActions } from "../composables/useStackActions";
+import { useCodeMirrorEditor } from "../composables/useCodeMirrorEditor";
 
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-const { isDark } = useTheme();
 const { emitAgent, agentCount, agentList, agentStatusList, containerList, completeStackList, composeTemplate, envTemplate, endpointDisplayFunction, info } = useSocket();
 const { toastRes, toastError } = useAppToast();
 
@@ -426,43 +422,7 @@ let skipConfigSync = false;
 
 // CodeMirror setup
 const editorInline = ref<InstanceType<typeof CodeMirror>>();
-const editorFocus = ref(false);
-
-const focusEffectHandler = (state: any, focusing: boolean) => {
-    editorFocus.value = focusing;
-    return null;
-};
-
-const yamlIndent = indentService.of((cx: any, pos: number) => {
-    const line = cx.lineAt(pos);
-    if (line.number === 1) {
-        return 0;
-    }
-    const prev = cx.lineAt(line.from - 1);
-    const prevText = prev.text;
-    const prevIndent = prevText.match(/^\s*/)[0].length;
-    const trimmed = prevText.trimEnd();
-    if (trimmed.endsWith(":") || trimmed.endsWith("|-") || trimmed.endsWith("|") || trimmed.endsWith(">") || trimmed.endsWith(">-")) {
-        return prevIndent + 2;
-    }
-    return prevIndent;
-});
-
-const extensions = computed(() => [
-    isDark.value ? tomorrowNightEighties : tomorrowLight,
-    yaml(),
-    indentUnit.of("  "),
-    yamlIndent,
-    lineNumbers(),
-    EditorView.focusChangeEffect.of(focusEffectHandler)
-]);
-
-const extensionsEnv = computed(() => [
-    isDark.value ? tomorrowNightEighties : tomorrowLight,
-    python(),
-    lineNumbers(),
-    EditorView.focusChangeEffect.of(focusEffectHandler)
-]);
+const { isDark, editorFocus, wordWrap, yamlExtensions: extensions, envExtensions: extensionsEnv } = useCodeMirrorEditor();
 
 // Templates
 const defaultTemplate = `
@@ -491,7 +451,6 @@ const containerListRef = ref<HTMLElement>();
 const jsonConfig = reactive<Record<string, any>>({});
 const envsubstJSONConfig = reactive<Record<string, any>>({});
 const yamlError = ref("");
-const processing = ref(true);
 const progressTerminalRows = PROGRESS_TERMINAL_ROWS;
 const combinedTerminalRows = COMBINED_TERMINAL_ROWS;
 const combinedTerminalCols = COMBINED_TERMINAL_COLS;
@@ -503,15 +462,9 @@ const serviceUpdateStatus = ref<Record<string, boolean>>({});
 const serviceRecreateStatus = ref<Record<string, boolean>>({});
 const dockerStats = ref<Record<string, import("../common/types").StatsData>>({});
 const isEditMode = ref(false);
-const errorDelete = ref(false);
 const submitted = ref(false);
-const showDeleteDialog = ref(false);
-const deleteStackFiles = ref(false);
-const showForceDeleteDialog = ref(false);
-const showUpdateDialog = ref(false);
 const newContainerName = ref("");
-const viewMode = ref<"parsed" | "raw">("parsed");
-const wordWrap = ref(localStorage.getItem("editorWordWrap") !== "false");
+const viewMode = ref<"parsed" | "raw">(route.path.includes("/raw") ? "raw" : "parsed");
 const stopServiceStatusTimeout = ref(false);
 const stopDockerStatsTimeout = ref(false);
 
@@ -537,15 +490,6 @@ function scheduleProgressiveRender(total: number) {
     }
     renderRAF = requestAnimationFrame(renderBatch);
 }
-
-// Provide to children (Container, NetworkInput)
-provide("jsonConfig", jsonConfig);
-provide("envsubstJSONConfig", envsubstJSONConfig);
-provide("composeStack", stack);
-provide("composeEndpoint", computed(() => endpoint.value));
-provide("editorFocus", editorFocus);
-provide("startComposeAction", startComposeAction);
-provide("stopComposeAction", stopComposeAction);
 
 // Computed
 const endpointDisplay = computed(() => endpointDisplayFunction(endpoint.value));
@@ -612,6 +556,38 @@ const url = computed(() => {
     return `/stacks/${stack.name}`;
 });
 
+const {
+    processing,
+    errorDelete,
+    showDeleteDialog,
+    deleteStackFiles,
+    showForceDeleteDialog,
+    showUpdateDialog,
+    startComposeAction,
+    stopComposeAction,
+    startStack,
+    stopStack,
+    downStack,
+    restartStack,
+    doUpdateStack,
+    deleteDialog,
+    forceDeleteDialog,
+    checkImageUpdates: checkImageUpdatesRaw,
+} = useStackActions(endpoint, stack, progressTerminalRef);
+
+function checkImageUpdates() {
+    checkImageUpdatesRaw(requestServiceStatus);
+}
+
+// Provide to children (Container, NetworkInput)
+provide("jsonConfig", jsonConfig);
+provide("envsubstJSONConfig", envsubstJSONConfig);
+provide("composeStack", stack);
+provide("composeEndpoint", computed(() => endpoint.value));
+provide("editorFocus", editorFocus);
+provide("startComposeAction", startComposeAction);
+provide("stopComposeAction", stopComposeAction);
+
 // Watchers
 watch(() => stack.composeYAML, () => {
     if (editorFocus.value) {
@@ -659,17 +635,19 @@ watch(containerList, () => {
     }
 });
 
-watch(wordWrap, (v) => {
-    localStorage.setItem("editorWordWrap", v ? "true" : "false");
-});
-
-// Navigate to raw view when toggle changes
+// Navigate between parsed / raw view when toggle changes
 watch(viewMode, (mode) => {
-    if (mode === "raw" && stack.name) {
+    if (!stack.name) return;
+    if (mode === "raw") {
         const rawUrl = stack.endpoint
             ? `/stacks/${stack.name}/raw/${stack.endpoint}`
             : `/stacks/${stack.name}/raw`;
-        router.push(rawUrl);
+        if (route.path !== rawUrl) router.push(rawUrl);
+    } else {
+        const parsedUrl = stack.endpoint
+            ? `/stacks/${stack.name}/${stack.endpoint}`
+            : `/stacks/${stack.name}`;
+        if (route.path !== parsedUrl) router.push(parsedUrl);
     }
 });
 
@@ -768,15 +746,6 @@ function bindTerminal() {
     // ProgressTerminal handles binding internally via show()
 }
 
-function startComposeAction() {
-    processing.value = true;
-    progressTerminalRef.value?.show();
-}
-
-function stopComposeAction() {
-    processing.value = false;
-}
-
 function loadStack() {
     processing.value = true;
     emitAgent(endpoint.value, "getStack", stack.name, (res: any) => {
@@ -849,71 +818,6 @@ function saveStack() {
         if (res.ok) {
             isEditMode.value = false;
             router.push(url.value);
-        }
-    });
-}
-
-function startStack() {
-    startComposeAction();
-
-    emitAgent(endpoint.value, "startStack", stack.name, (res: any) => {
-        stopComposeAction();
-        toastRes(res);
-    });
-}
-
-function stopStack() {
-    startComposeAction();
-
-    emitAgent(endpoint.value, "stopStack", stack.name, (res: any) => {
-        stopComposeAction();
-        toastRes(res);
-    });
-}
-
-function downStack() {
-    startComposeAction();
-
-    emitAgent(endpoint.value, "downStack", stack.name, (res: any) => {
-        stopComposeAction();
-        toastRes(res);
-    });
-}
-
-function restartStack() {
-    startComposeAction();
-
-    emitAgent(endpoint.value, "restartStack", stack.name, (res: any) => {
-        stopComposeAction();
-        toastRes(res);
-    });
-}
-
-function doUpdateStack(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }) {
-    startComposeAction();
-
-    emitAgent(endpoint.value, "updateStack", stack.name, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
-        stopComposeAction();
-        toastRes(res);
-    });
-}
-
-function deleteDialog() {
-    emitAgent(endpoint.value, "deleteStack", stack.name, { deleteStackFiles: deleteStackFiles.value }, (res: any) => {
-        toastRes(res);
-        if (res.ok) {
-            router.push("/stacks");
-        } else {
-            errorDelete.value = true;
-        }
-    });
-}
-
-function forceDeleteDialog() {
-    emitAgent(endpoint.value, "forceDeleteStack", stack.name, (res: any) => {
-        toastRes(res);
-        if (res.ok) {
-            router.push("/stacks");
         }
     });
 }
@@ -1074,19 +978,6 @@ function scrollToService(serviceName: string) {
             return;
         }
     }
-}
-
-function checkImageUpdates() {
-    processing.value = true;
-
-    emitAgent(endpoint.value, "checkImageUpdates", stack.name, (res: any) => {
-        processing.value = false;
-        toastRes(res);
-
-        if (res.ok) {
-            requestServiceStatus();
-        }
-    });
 }
 
 function updateService(serviceName: string) {

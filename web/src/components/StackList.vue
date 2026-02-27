@@ -1,38 +1,6 @@
 <template>
     <div class="shadow-box mb-3">
-        <div class="list-header">
-            <div class="header-top">
-                <div class="d-flex flex-grow-1 align-items-center">
-                    <a v-if="searchText == ''" class="search-icon">
-                        <font-awesome-icon icon="search" />
-                    </a>
-                    <a v-if="searchText != ''" class="search-icon" style="cursor: pointer" @click="clearSearchText">
-                        <font-awesome-icon icon="times" />
-                    </a>
-                    <input v-model="searchText" class="form-control search-input" autocomplete="off" />
-                </div>
-
-                <BDropdown variant="link" placement="bottom-end" menu-class="filter-dropdown" toggle-class="filter-icon-container" no-caret>
-                    <template #button-content>
-                        <font-awesome-icon class="filter-icon" :class="{ 'filter-icon-active': stackFilter.isFilterSelected() }" icon="filter" />
-                    </template>
-
-                    <BDropdownItemButton :disabled="!stackFilter.isFilterSelected()" button-class="filter-dropdown-clear" @click="stackFilter.clear()">
-                        <font-awesome-icon class="ms-1 me-2" icon="times" />{{ $t("clearFilter") }}
-                    </BDropdownItemButton>
-
-                    <BDropdownDivider></BDropdownDivider>
-
-                    <template v-for="category in stackFilter.categories" :key="category.label">
-                        <template v-if="category.hasOptions()">
-                            <BDropdownForm v-for="(value, key) in category.options" :key="key" form-class="filter-option" @change="category.toggleSelected(value)" @click.stop>
-                                <BFormCheckbox :checked="category.selected.has(value)">{{ $t(key) }}</BFormCheckbox>
-                            </BDropdownForm>
-                        </template>
-                    </template>
-                </BDropdown>
-            </div>
-        </div>
+        <ListHeader v-model:search-text="searchText" :filter="stackFilter" />
 
         <div ref="stackListRef" class="stack-list" :class="{ scrollbar: scrollbar }" :style="stackListStyle">
             <div v-if="flatStackList.length === 0" class="text-center mt-3">
@@ -71,8 +39,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { ref, reactive, computed, watch } from "vue";
+import { useActiveScroll } from "../composables/useActiveScroll";
 import Confirm from "../components/Confirm.vue";
+import ListHeader from "./ListHeader.vue";
 import StackListItem from "../components/StackListItem.vue";
 import { useSocket } from "../composables/useSocket";
 import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, RUNNING_AND_EXITED, UNHEALTHY, UNKNOWN, StackFilter, StackStatusInfo } from "../common/util-common";
@@ -233,10 +203,6 @@ function updateFilterOptions(stacks: any[]) {
     };
 }
 
-function clearSearchText() {
-    searchText.value = "";
-}
-
 function deselect(id: string) {
     delete selectedStacks.value[id];
 }
@@ -304,165 +270,18 @@ watch(selectMode, () => {
     }
 });
 
-// Auto-scroll: track whether the active item is visible in the scroll container
-const isActiveVisible = ref(false);
-let activeObserver: IntersectionObserver | null = null;
-let needsInitialScroll = true;
-
-function scrollToActive(behavior: ScrollBehavior = "smooth") {
-    const container = stackListRef.value;
-    const el = container?.querySelector(".item.active") as HTMLElement | null;
-    if (!el || !container) return;
-    // Skip scroll if the active item is already fully visible
-    const cr = container.getBoundingClientRect();
-    const ar = el.getBoundingClientRect();
-    if (ar.top >= cr.top && ar.bottom <= cr.bottom) return;
-    container.scrollTo({
-        top: el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2,
-        behavior,
-    });
-}
-
-function observeActive() {
-    activeObserver?.disconnect();
-    const container = stackListRef.value;
-    const active = container?.querySelector(".item.active");
-    if (!active || !container) { isActiveVisible.value = false; return; }
-    // Synchronous initial check — the IntersectionObserver callback is async
-    // and won't fire before the first list reorder
-    const cr = container.getBoundingClientRect();
-    const ar = active.getBoundingClientRect();
-    isActiveVisible.value = ar.bottom > cr.top && ar.top < cr.bottom;
-    activeObserver = new IntersectionObserver(([entry]) => {
-        isActiveVisible.value = entry.isIntersecting;
-    }, { root: container, threshold: 0.1 });
-    activeObserver.observe(active as Element);
-}
-
-watch(flatStackList, () => {
-    const wasVisible = isActiveVisible.value;
-    nextTick(() => {
-        if (wasVisible || needsInitialScroll) {
-            scrollToActive(needsInitialScroll ? "instant" : "smooth");
-            if (needsInitialScroll && stackListRef.value?.querySelector(".item.active")) {
-                needsInitialScroll = false;
-            }
-        }
-        observeActive();
-    });
-});
+const { scrollToActive } = useActiveScroll(stackListRef, flatStackList);
 
 defineExpose({ scrollToActive });
-
-onMounted(() => {
-    needsInitialScroll = true;
-    nextTick(() => {
-        const container = stackListRef.value;
-        const active = container?.querySelector(".item.active") as HTMLElement | null;
-        if (active && container) {
-            container.scrollTop = active.offsetTop - container.clientHeight / 2 + active.clientHeight / 2;
-            needsInitialScroll = false;
-        }
-        observeActive();
-    });
-});
-
-onBeforeUnmount(() => {
-    activeObserver?.disconnect();
-});
 </script>
 
 <style lang="scss" scoped>
 @import "../styles/vars.scss";
-
-.shadow-box {
-    flex: 1;
-    min-height: 0;
-}
+@import "../styles/list-common";
 
 .small-padding {
     padding-left: 5px !important;
     padding-right: 5px !important;
-}
-
-.list-header {
-    border-bottom: 1px solid #dee2e6;
-    border-radius: 10px 10px 0 0;
-    margin: -10px;
-    margin-bottom: 10px;
-    padding: 5px;
-
-    .dark & {
-        background-color: $dark-header-bg;
-        border-bottom: 0;
-    }
-}
-
-.header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-@media (max-width: 770px) {
-    .list-header {
-        margin: -20px;
-        margin-bottom: 10px;
-        padding: 5px;
-    }
-}
-
-.search-icon {
-    padding: 10px;
-    color: #c0c0c0;
-
-    // Clear filter button (X)
-    svg[data-icon="times"] {
-        cursor: pointer;
-        transition: all ease-in-out 0.1s;
-
-        &:hover {
-            opacity: 0.5;
-        }
-    }
-}
-
-.search-input {
-    max-width: 15em;
-}
-
-:deep(.filter-icon-container) {
-    text-decoration: none;
-    padding-right: 0px;
-}
-
-.filter-icon {
-    padding: 10px;
-    color: $dark-font-color3 !important;
-    cursor: pointer;
-    border: 1px solid transparent;
-}
-
-.filter-icon-active {
-    color: $info !important;
-    border: 1px solid $info;
-    border-radius: 5px;
-}
-
-:deep(.filter-dropdown) {
-    .dropdown-header {
-        font-weight: bolder;
-        padding-top: 0.25rem;
-        padding-bottom: 0.25rem;
-    }
-
-    .dropdown-divider {
-        margin: 0.25rem 0;
-    }
-}
-
-:deep(.filter-dropdown form) {
-    padding: 0.15rem 1rem !important;
 }
 
 .stack-item {
@@ -499,36 +318,5 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     user-select: none;
-}
-</style>
-
-<style lang="scss">
-@import "../styles/vars.scss";
-
-.dark .filter-dropdown {
-    background-color: $dark-bg;
-    border-color: $dark-font-color3;
-    color: $dark-font-color;
-
-    .dropdown-header {
-        color: $dark-font-color;
-    }
-
-    .form-check-input {
-        border-color: $dark-font-color3;
-    }
-}
-
-.dark .filter-dropdown-clear {
-    color: $dark-font-color;
-
-    &:disabled {
-        color: $dark-font-color3;
-    }
-
-    &:hover {
-        background-color: $dark-header-active-bg;
-        color: $dark-font-color;
-    }
 }
 </style>
