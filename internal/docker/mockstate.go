@@ -8,9 +8,11 @@ import (
 // MockState holds in-memory container state for the mock Docker system.
 // It is shared between the fake Docker daemon and the mock docker binary
 // so both see the same running/exited/inactive status for each stack.
+//
+// Valid statuses: "running", "exited", "inactive", "paused".
 type MockState struct {
 	mu       sync.RWMutex
-	stacks   map[string]string // stackName → status ("running", "exited", "inactive")
+	stacks   map[string]string // stackName → status ("running", "exited", "inactive", "paused")
 	services map[string]string // "stackName/serviceName" → status override
 	defaults map[string]string // initial state to restore on Reset()
 }

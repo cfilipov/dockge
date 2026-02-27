@@ -1,0 +1,4 @@
+status: running
+services:
+  postgres:
+    health: healthy

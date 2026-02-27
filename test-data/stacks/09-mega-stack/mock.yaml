@@ -1,0 +1,14 @@
+status: running
+services:
+  svc-003:
+    state: exited
+  svc-012:
+    state: exited
+  svc-025:
+    state: exited
+  svc-041:
+    health: unhealthy
+  svc-067:
+    health: unhealthy
+  svc-088:
+    state: exited

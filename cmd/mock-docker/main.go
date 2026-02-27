@@ -17,8 +17,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	osexec "os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -42,10 +44,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Route: "compose ..." or "image ..."
+	// Route: "compose ...", "exec ...", "image ..."
 	switch args[0] {
 	case "compose":
 		handleCompose(args[1:])
+	case "exec":
+		handleExec(args[1:])
 	case "image":
 		handleImage(args[1:])
 	default:
@@ -97,7 +101,8 @@ func handleCompose(args []string) {
 		composeStop(stackName, services, svc == "")
 	case "down":
 		services := getServicesFromCompose()
-		composeDown(stackName, services)
+		removeVolumes := hasFlag(restArgs, "-v") || hasFlag(restArgs, "--volumes")
+		composeDown(stackName, services, removeVolumes)
 	case "restart":
 		svc := findServiceArg(restArgs)
 		isWholeStack := svc == ""
@@ -121,6 +126,8 @@ func handleCompose(args []string) {
 		composeUnpause(stackName, services)
 	case "config":
 		composeConfig()
+	case "exec":
+		composeExec(restArgs)
 	case "logs":
 		composeLogs(restArgs)
 	default:
@@ -128,10 +135,57 @@ func handleCompose(args []string) {
 	}
 }
 
+func handleExec(args []string) {
+	// docker exec [-it] <container> <shell> [args...]
+	// Skip -i, -t, -it flags to find the container name and shell.
+	var rest []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if a == "-i" || a == "-t" || a == "-it" || a == "-ti" {
+			continue
+		}
+		// Combined flags like -itu, etc
+		if strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--") {
+			continue
+		}
+		rest = append(rest, a)
+	}
+	if len(rest) < 2 {
+		fmt.Fprintln(os.Stderr, "[mock-docker] exec: container and command required")
+		os.Exit(1)
+	}
+	shell := rest[1]
+	execShell(shell)
+}
+
 func handleImage(args []string) {
 	if len(args) >= 1 && args[0] == "prune" {
 		fmt.Println("Total reclaimed space: 0B")
 	}
+}
+
+// --- Exec Helper ---
+
+// execShell replaces the current process with a shell using syscall.Exec.
+// This is how real `docker exec` works — the docker process replaces itself
+// with the target command, so only one process owns the PTY. Using
+// os/exec.Command.Run() would fork a child while mock-docker stays alive,
+// causing both processes to share the PTY and produce a double prompt.
+func execShell(shell string) {
+	shellPath, err := osexec.LookPath(shell)
+	if err != nil {
+		shellPath, err = osexec.LookPath("sh")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "[mock-docker] exec: no shell available")
+			os.Exit(1)
+		}
+	}
+
+	// Replace this process with the shell — no child process, clean PTY ownership.
+	err = syscall.Exec(shellPath, []string{shell}, os.Environ())
+	// Only reached if exec fails
+	fmt.Fprintf(os.Stderr, "[mock-docker] exec: %v\n", err)
+	os.Exit(1)
 }
 
 // --- Compose Commands ---
@@ -178,13 +232,21 @@ func composeStop(stackName string, services []string, isWholeStack bool) {
 	}
 }
 
-func composeDown(stackName string, services []string) {
+func composeDown(stackName string, services []string, removeVolumes bool) {
 	var tasks []progressTask
 	for _, svc := range services {
 		tasks = append(tasks,
 			progressTask{name: fmt.Sprintf("Container %s-%s-1", stackName, svc), action: "Stopping", done: "Stopped"},
 			progressTask{name: fmt.Sprintf("Container %s-%s-1", stackName, svc), action: "Removing", done: "Removed"},
 		)
+	}
+	if removeVolumes {
+		// Add volume removal tasks for common volume names
+		for _, svc := range services {
+			tasks = append(tasks, progressTask{
+				name: fmt.Sprintf("Volume %s_%s-data", stackName, svc), action: "Removing", done: "Removed",
+			})
+		}
 	}
 	tasks = append(tasks, progressTask{
 		name: fmt.Sprintf("Network %s_default", stackName), action: "Removing", done: "Removed",
@@ -223,6 +285,29 @@ func composePull(services []string) {
 	renderProgress(os.Stdout, "Pulling", tasks)
 }
 
+func composeExec(args []string) {
+	// docker compose exec [flags] <service> <command> [args...]
+	// Skip flags (-T, -it, --user, etc.) to find service and command.
+	var rest []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-") {
+			// Skip flags that take a value
+			if a == "--user" || a == "-u" || a == "--env" || a == "-e" || a == "--workdir" || a == "-w" {
+				i++ // skip next arg (the value)
+			}
+			continue
+		}
+		rest = append(rest, a)
+	}
+	if len(rest) < 2 {
+		fmt.Fprintln(os.Stderr, "[mock-docker] compose exec: service and command required")
+		os.Exit(1)
+	}
+	shell := rest[1]
+	execShell(shell)
+}
+
 func composePause(stackName string, services []string) {
 	var tasks []progressTask
 	for _, svc := range services {
@@ -231,6 +316,7 @@ func composePause(stackName string, services []string) {
 		})
 	}
 	renderProgress(os.Stdout, "Pausing", tasks)
+	setMockState(stackName, "paused")
 }
 
 func composeUnpause(stackName string, services []string) {
@@ -292,13 +378,17 @@ func composeLogs(args []string) {
 		}
 	}
 
+	baseTime := time.Now().Add(-10 * time.Minute)
+
 	var buf bytes.Buffer
 	for i, svc := range services {
 		color := logColors[i%len(logColors)]
 		padded := fmt.Sprintf("%-*s", maxLen, svc)
 		prefix := color + padded + " | " + "\033[0m"
-		for line := 1; line <= 3; line++ {
-			fmt.Fprintf(&buf, "%s[mock] log line %d from %s\n", prefix, line, svc)
+
+		lines := composeMockLogLines(svc, i, baseTime)
+		for _, line := range lines {
+			fmt.Fprintf(&buf, "%s%s\n", prefix, line)
 		}
 	}
 	os.Stdout.Write(buf.Bytes())
@@ -307,6 +397,59 @@ func composeLogs(args []string) {
 	if hasFlag(args, "-f") || hasFlag(args, "--follow") {
 		select {} // block forever (parent will kill us)
 	}
+}
+
+// composeMockLogLines generates 15 realistic log lines per service.
+func composeMockLogLines(svc string, idx int, base time.Time) []string {
+	lines := make([]string, 0, 15)
+	svcLower := strings.ToLower(svc)
+
+	for i := 0; i < 15; i++ {
+		ts := base.Add(time.Duration(i*40+idx*5) * time.Second)
+		tsStr := ts.Format("2006-01-02T15:04:05.000Z")
+
+		switch {
+		case strings.Contains(svcLower, "nginx") || strings.Contains(svcLower, "web"):
+			paths := []string{"/", "/api/health", "/static/app.js", "/images/logo.png", "/api/users"}
+			statuses := []int{200, 200, 304, 200, 404, 200, 200, 301, 200, 200}
+			lines = append(lines, fmt.Sprintf("172.17.0.%d - - [%s] \"GET %s HTTP/1.1\" %d %d",
+				2+idx, tsStr, paths[i%len(paths)], statuses[i%len(statuses)], 200+i*100))
+
+		case strings.Contains(svcLower, "postgres") || strings.Contains(svcLower, "db"):
+			msgs := []string{
+				"LOG:  database system is ready to accept connections",
+				"LOG:  connection received: host=172.17.0.3",
+				"LOG:  connection authorized: user=app database=app",
+				"LOG:  duration: 1.234 ms  statement: SELECT 1",
+				"LOG:  checkpoint starting: time",
+			}
+			lines = append(lines, fmt.Sprintf("%s [%d] %s", tsStr, 50+i, msgs[i%len(msgs)]))
+
+		case strings.Contains(svcLower, "redis") || strings.Contains(svcLower, "cache"):
+			msgs := []string{
+				"Ready to accept connections tcp",
+				"* DB saved on disk",
+				"* 10 changes in 300 seconds. Saving...",
+				"* Background saving started by pid 42",
+				"* RDB: 0 MB of memory used by copy-on-write",
+			}
+			lines = append(lines, fmt.Sprintf("1:M %s %s", tsStr, msgs[i%len(msgs)]))
+
+		case strings.Contains(svcLower, "mysql") || strings.Contains(svcLower, "maria"):
+			msgs := []string{
+				"[Server] /usr/sbin/mysqld: ready for connections. Port: 3306",
+				"[InnoDB] Buffer pool(s) load completed",
+				"[Note] Access granted for user 'app'@'172.17.0.3'",
+				"[Note] Event Scheduler: Loaded 0 events",
+				"[Server] mysqld: ready for connections.",
+			}
+			lines = append(lines, fmt.Sprintf("%s 0 [System] %s", tsStr, msgs[i%len(msgs)]))
+
+		default:
+			lines = append(lines, fmt.Sprintf("%s [INFO] %s: request processed #%d", tsStr, svc, i+1))
+		}
+	}
+	return lines
 }
 
 // --- Mock State Communication ---

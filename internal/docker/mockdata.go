@@ -302,16 +302,18 @@ func (d *MockData) addImage(ref string) {
 }
 
 // GetServiceState returns the mock state for a service.
-// Returns "running" if the stack is running and no override, "exited" if stack not running.
+// Returns the stack status for running/paused stacks, "exited" for stopped stacks.
 func (d *MockData) GetServiceState(stackName, svc, stackStatus string) string {
-	if stackStatus != "running" {
+	switch stackStatus {
+	case "running", "paused":
+		key := stackName + "/" + svc
+		if state, ok := d.serviceStates[key]; ok {
+			return state
+		}
+		return stackStatus
+	default:
 		return "exited"
 	}
-	key := stackName + "/" + svc
-	if state, ok := d.serviceStates[key]; ok {
-		return state
-	}
-	return "running"
 }
 
 // GetServiceHealth returns the mock health for a service.

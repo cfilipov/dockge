@@ -1,0 +1,20 @@
+status: running
+services:
+  web:
+    health: healthy
+    update_available: true
+  api:
+    health: healthy
+  db:
+    health: healthy
+  cache:
+    health: healthy
+  worker:
+    state: exited
+  queue:
+    health: unhealthy
+  search:
+    health: starting
+    running_image: "elasticsearch:8.11.0"
+  proxy:
+    health: healthy
