@@ -85,9 +85,9 @@ function submit() {
 }
 
 function resetTurnstile() {
-    if ((window as any).turnstile && turnstileEl.value) {
+    if (window.turnstile && turnstileEl.value) {
         console.log("Resetting Turnstile widget...");
-        (window as any).turnstile.reset(turnstileEl.value);
+        window.turnstile.reset(turnstileEl.value);
         captchaToken.value = "";
     }
 }
@@ -121,9 +121,9 @@ function doGetTurnstileSiteKey() {
 }
 
 function initializeTurnstile() {
-    if ((window as any).turnstile) {
+    if (window.turnstile) {
         console.log("Initializing Turnstile widget...");
-        (window as any).turnstile.render(turnstileEl.value, {
+        window.turnstile.render(turnstileEl.value, {
             sitekey: siteKey.value,
             callback: (t: string) => {
                 captchaToken.value = t;

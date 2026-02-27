@@ -89,3 +89,57 @@ export type DockerArtefactData = {
     info: DockerArtefactInfo,
     data: DockerArtefactItem[]
 }
+
+// --- WebSocket response types ---
+
+export type ApiResponse<T = undefined> = {
+    ok: boolean,
+    msg?: string,
+} & (T extends undefined ? {} : T)
+
+export type StackListResponse = ApiResponse<{
+    stackList: Record<string, SimpleStackData>,
+    endpoint?: string,
+}>
+
+export type ServiceStatusResponse = ApiResponse<{
+    serviceStatusList: Record<string, string>,
+}>
+
+export type DockerStatsResponse = ApiResponse<{
+    dockerStats: Record<string, StatsData>,
+}>
+
+export type ContainerListResponse = ApiResponse<{
+    containerList: Record<string, unknown>[],
+}>
+
+export type TokenResponse = ApiResponse<{
+    token: string,
+    tokenRequired?: boolean,
+}>
+
+export type InfoData = {
+    version: string,
+    latestVersion?: string,
+    primaryHostname?: string,
+    serverTimezone?: string,
+    serverTimezoneOffset?: string,
+}
+
+// --- Turnstile global ---
+
+export interface TurnstileInstance {
+    render(container: HTMLElement, options: {
+        sitekey: string,
+        callback: (token: string) => void,
+        "error-callback"?: () => void,
+    }): void;
+    reset(container: HTMLElement): void;
+}
+
+declare global {
+    interface Window {
+        turnstile?: TurnstileInstance;
+    }
+}

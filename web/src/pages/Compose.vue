@@ -190,7 +190,6 @@
                             </template>
                         </div>
 
-                        <button v-if="false && isEditMode && jsonConfig.services && Object.keys(jsonConfig.services).length > 0" class="btn btn-normal mb-3" @click="addContainer">{{ $t("addContainer") }}</button>
                     </CollapsibleSection>
 
                     <!-- Combined Terminal Output -->
@@ -357,13 +356,6 @@ scrollable size="fullscreen" hide-footer>
                     </BModal>
 
                     <div v-if="isEditMode">
-                        <!-- Volumes -->
-                        <div v-if="false">
-                            <h4 class="mb-3">{{ $tc("volume", 2) }}</h4>
-                            <div class="shadow-box big-padding mb-3">
-                            </div>
-                        </div>
-
                         <!-- Networks -->
                         <CollapsibleSection>
                             <template #heading>{{ $tc("network", 2) }} <span class="section-count">({{ Object.keys(networks || {}).length }})</span></template>
@@ -506,10 +498,10 @@ const combinedTerminalCols = COMBINED_TERMINAL_COLS;
 const stack = reactive<Record<string, any>>({
     composeOverrideYAML: "",
 });
-const serviceStatusList = ref<Record<string, any>>({});
-const serviceUpdateStatus = ref<Record<string, any>>({});
-const serviceRecreateStatus = ref<Record<string, any>>({});
-const dockerStats = ref<Record<string, any>>({});
+const serviceStatusList = ref<Record<string, string>>({});
+const serviceUpdateStatus = ref<Record<string, boolean>>({});
+const serviceRecreateStatus = ref<Record<string, boolean>>({});
+const dockerStats = ref<Record<string, import("../common/types").StatsData>>({});
 const isEditMode = ref(false);
 const errorDelete = ref(false);
 const submitted = ref(false);
@@ -762,7 +754,7 @@ function exitConfirm(next: (val?: boolean | undefined) => void) {
 }
 
 function exitAction() {
-    console.log("exitAction");
+    console.debug("exitAction");
     stopServiceStatusTimeout.value = true;
     stopDockerStatsTimeout.value = true;
     clearTimeout(serviceStatusTimeout!);
@@ -971,16 +963,17 @@ function yamlCodeChange() {
             clearTimeout(yamlErrorTimeout);
         }
         yamlError.value = "";
-    } catch (e: any) {
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
         if (yamlErrorTimeout) {
             clearTimeout(yamlErrorTimeout);
         }
 
         if (yamlError.value) {
-            yamlError.value = e.message;
+            yamlError.value = msg;
         } else {
             yamlErrorTimeout = setTimeout(() => {
-                yamlError.value = e.message;
+                yamlError.value = msg;
             }, 3000);
         }
     }
@@ -994,11 +987,7 @@ function enableEditMode() {
     isEditMode.value = true;
 }
 
-function checkYAML() {
-}
-
 function addContainer() {
-    checkYAML();
 
     if (jsonConfig.services[newContainerName.value]) {
         toastError("Container name already exists");
@@ -1156,6 +1145,9 @@ onMounted(() => {
 
 onUnmounted(() => {
     cancelAnimationFrame(renderRAF);
+    if (yamlErrorTimeout) clearTimeout(yamlErrorTimeout);
+    if (serviceStatusTimeout) clearTimeout(serviceStatusTimeout);
+    if (dockerStatsTimeout) clearTimeout(dockerStatsTimeout);
 });
 </script>
 

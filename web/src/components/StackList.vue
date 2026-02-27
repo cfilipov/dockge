@@ -53,8 +53,8 @@
 
                 <StackListItem
                     v-show="agentCount === 1 || !closedAgents.get(agent.endpoint)"
-                    v-for="(item, i) in agent.stacks"
-                    :key="i"
+                    v-for="item in agent.stacks"
+                    :key="item.name + '_' + (item.endpoint || '')"
                     :stack="item"
                     :isSelectMode="selectMode"
                     :isSelected="isSelected"
@@ -99,11 +99,13 @@ const closedAgents = reactive(new Map<string, boolean>());
 const stackListRef = ref<HTMLElement>();
 const confirmPauseRef = ref<InstanceType<typeof Confirm>>();
 
+// Keep filter options in sync with the stack list (outside computed to avoid side effects)
+watch(completeStackList, (list) => {
+    updateFilterOptions(Object.values(list) as any[]);
+}, { immediate: true });
+
 const agentStackList = computed(() => {
     let result = Object.values(completeStackList.value) as any[];
-
-    // Populate filter options from current data
-    updateFilterOptions(result);
 
     // filter
     result = result.filter(stack => {

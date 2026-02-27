@@ -396,16 +396,23 @@ function copyYAMLCommentsItems(items: any, srcItems: any) {
         return;
     }
 
+    // Pre-compute source item identities to avoid repeated JSON.stringify in O(n²) loop
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const srcIdentities = srcItems.map((srcItem: any) => ({
+        value: String(srcItem.value),
+        key: String(srcItem.key),
+    }));
+
     // First pass - try to match items by their content
     for (let i = 0; i < items.length; i++) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const item: any = items[i];
 
         // Try to find matching source item by content
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const srcIndex = srcItems.findIndex((srcItem: any) =>
-            JSON.stringify(srcItem.value) === JSON.stringify(item.value) &&
-            JSON.stringify(srcItem.key) === JSON.stringify(item.key)
+        const itemValue = String(item.value);
+        const itemKey = String(item.key);
+        const srcIndex = srcIdentities.findIndex((id: { value: string; key: string }) =>
+            id.value === itemValue && id.key === itemKey
         );
 
         if (srcIndex !== -1) {

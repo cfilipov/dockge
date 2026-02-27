@@ -98,6 +98,7 @@ let terminalFitAddOn: FitAddon | null = null;
 let first = true;
 let terminalInputBuffer = "";
 let cursorPosition = 0;
+let stopDarkWatcher: (() => void) | null = null;
 
 function bind(endpoint?: string, name?: string) {
     if (name) {
@@ -317,7 +318,7 @@ onMounted(async () => {
 
     bind();
 
-    watch(isDark, (dark) => {
+    stopDarkWatcher = watch(isDark, (dark) => {
         if (terminal.value) {
             terminal.value.options.theme = dark ? darkTheme : lightTheme;
         }
@@ -355,6 +356,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    stopDarkWatcher?.();
     window.removeEventListener("resize", onResizeEvent);
     if (terminalEl.value) {
         terminalEl.value.removeEventListener("contextmenu", handleContextMenu);

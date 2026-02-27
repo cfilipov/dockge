@@ -68,7 +68,7 @@
                             </template>
 
                             <!-- Edit Name  -->
-                            <font-awesome-icon icon="pen-to-square" @click="showEditAgentNameDialog[agent.name] = !showEditAgentNameDialog[agent.Name]" />
+                            <font-awesome-icon icon="pen-to-square" @click="showEditAgentNameDialog[agent.name] = !showEditAgentNameDialog[agent.name]" />
 
                             <!-- Edit Dialog -->
                             <BModal v-model="showEditAgentNameDialog[agent.name]" :no-close-on-backdrop="true" :close-on-esc="true" :okTitle="$t('Update Name')" okVariant="info" @ok="updateName(agent.url, agent.updatedName)">
@@ -157,32 +157,27 @@ const agent = reactive({
 });
 const tableContainerRef = ref<HTMLElement>();
 
-function getStatusNum(statusName: string) {
-    let num = 0;
-    for (let stackName in completeStackList.value) {
+const statusCounts = computed(() => {
+    const counts: Record<string, number> = { active: 0, partially: 0, unhealthy: 0, down: 0, exited: 0, updateAvailable: 0 };
+    for (const stackName in completeStackList.value) {
         const stack = (completeStackList.value as any)[stackName];
-        if (statusNameShort(stack.status) === statusName) {
-            num += 1;
+        const short = statusNameShort(stack.status);
+        if (short in counts) {
+            counts[short]++;
         }
-    }
-    return num;
-}
-
-const activeNum = computed(() => getStatusNum("active"));
-const partiallyNum = computed(() => getStatusNum("partially"));
-const unhealthyNum = computed(() => getStatusNum("unhealthy"));
-const downNum = computed(() => getStatusNum("down"));
-const exitedNum = computed(() => getStatusNum("exited"));
-const updateAvailableNum = computed(() => {
-    let num = 0;
-    for (let stackName in completeStackList.value) {
-        const stack = (completeStackList.value as any)[stackName];
         if (stack.imageUpdatesAvailable) {
-            num += 1;
+            counts.updateAvailable++;
         }
     }
-    return num;
+    return counts;
 });
+
+const activeNum = computed(() => statusCounts.value.active);
+const partiallyNum = computed(() => statusCounts.value.partially);
+const unhealthyNum = computed(() => statusCounts.value.unhealthy);
+const downNum = computed(() => statusCounts.value.down);
+const exitedNum = computed(() => statusCounts.value.exited);
+const updateAvailableNum = computed(() => statusCounts.value.updateAvailable);
 
 function addAgent() {
     connectingAgent.value = true;
@@ -242,8 +237,8 @@ async function convertDockerRun() {
         const { default: composerize } = await import("composerize");
         composeTemplate.value = composerize(cmd);
         router.push("/stacks/new");
-    } catch (e: any) {
-        toastRes({ ok: false, msg: e.message || "Failed to convert docker run command" });
+    } catch (e: unknown) {
+        toastRes({ ok: false, msg: (e instanceof Error ? e.message : String(e)) || "Failed to convert docker run command" });
     }
 }
 

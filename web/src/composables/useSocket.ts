@@ -4,14 +4,15 @@ import { Terminal } from "@xterm/xterm";
 import { AgentSocket } from "../common/agent-socket";
 import { router } from "../router";
 import { i18n } from "../i18n";
+import type { InfoData, SimpleStackData, AgentData } from "../common/types";
 
 // --- Plain WebSocket wrapper (replaces socket.io-client) ---
 
 class DockgeWebSocket {
     private ws: WebSocket | null = null;
     private nextId = 1;
-    private callbacks = new Map<number, Function>();
-    private listeners = new Map<string, Function[]>();
+    private callbacks = new Map<number, (...args: unknown[]) => void>();
+    private listeners = new Map<string, ((...args: unknown[]) => void)[]>();
     private url = "";
     private reconnectDelay = 1000;
     private maxReconnectDelay = 30000;
@@ -59,7 +60,7 @@ class DockgeWebSocket {
         // Last arg may be a callback (ack pattern)
         const last = args[args.length - 1];
         const hasCallback = typeof last === "function";
-        const callback = hasCallback ? (args.pop() as Function) : null;
+        const callback = hasCallback ? (args.pop() as (...a: unknown[]) => void) : null;
 
         const msg: Record<string, unknown> = {
             event,
@@ -70,6 +71,10 @@ class DockgeWebSocket {
             const id = this.nextId++;
             msg.id = id;
             this.callbacks.set(id, callback);
+            // Auto-clean orphaned callbacks after 30s
+            setTimeout(() => {
+                this.callbacks.delete(id);
+            }, 30000);
         }
 
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -77,7 +82,7 @@ class DockgeWebSocket {
         }
     }
 
-    on(event: string, handler: Function) {
+    on(event: string, handler: (...args: unknown[]) => void) {
         const list = this.listeners.get(event) || [];
         list.push(handler);
         this.listeners.set(event, list);
@@ -163,7 +168,7 @@ const socketIO = reactive({
     connecting: false,
 });
 
-const info = ref<any>({});
+const info = ref<InfoData>({} as InfoData);
 const remember = ref(localStorage.remember !== "0");
 const loggedIn = ref(false);
 const allowLoginDialog = ref(false);
@@ -171,11 +176,11 @@ const username = ref<string | null>(null);
 const composeTemplate = ref("");
 const envTemplate = ref("");
 
-const stackList = ref<Record<string, any>>({});
-const containerList = ref<Record<string, any>[]>([]);
-const allAgentStackList = ref<Record<string, any>>({});
-const agentStatusList = ref<Record<string, any>>({});
-const agentList = ref<Record<string, any>>({});
+const stackList = ref<Record<string, SimpleStackData>>({});
+const containerList = ref<Record<string, unknown>[]>([]);
+const allAgentStackList = ref<Record<string, { stackList: Record<string, SimpleStackData> }>>({});
+const agentStatusList = ref<Record<string, string>>({});
+const agentList = ref<Record<string, AgentData>>({});
 
 // Computed
 const agentCount = computed(() => Object.keys(agentList.value).length);
@@ -271,7 +276,7 @@ function getJWTPayload() {
     return undefined;
 }
 
-function getTurnstileSiteKey(callback: Function) {
+function getTurnstileSiteKey(callback: (...args: unknown[]) => void) {
     getSocket().emit("getTurnstileSiteKey", callback);
 }
 
@@ -280,7 +285,7 @@ function login(
     password: string,
     token: string,
     captchaToken: string,
-    callback: Function
+    callback: (...args: unknown[]) => void,
 ) {
     getSocket().emit("login", {
         username: usernameVal,
@@ -385,7 +390,7 @@ export function initWebSocket() {
     });
 
     socket.on("connect", () => {
-        console.log("Connected to the socket server");
+        console.debug("Connected to the socket server");
 
         clearTimeout(connectingMsgTimeout);
         socketIO.connecting = false;
@@ -397,7 +402,7 @@ export function initWebSocket() {
 
         if (token) {
             if (token !== "autoLogin") {
-                console.log("Logging in by token");
+                console.debug("Logging in by token");
                 loginByToken(token);
             } else {
                 // Timeout if it is not actually auto login
@@ -416,7 +421,7 @@ export function initWebSocket() {
     });
 
     socket.on("disconnect", () => {
-        console.log("disconnect");
+        console.debug("disconnect");
         socketIO.connectionErrorMsg = `${t("Lost connection to the socket server. Reconnecting...")}`;
         socketIO.connected = false;
     });
@@ -445,7 +450,7 @@ export function initWebSocket() {
     });
 
     socket.on("setup", () => {
-        console.log("setup");
+        console.debug("setup");
         router.push("/setup");
     });
 
