@@ -231,7 +231,7 @@ export class ContainerStatusInfo {
     }
 }
 
-export const isDev = process.env.NODE_ENV === "development";
+export const isDev = import.meta.env.DEV;
 export const TERMINAL_COLS = 105;
 export const TERMINAL_ROWS = 10;
 export const PROGRESS_TERMINAL_ROWS = 8;

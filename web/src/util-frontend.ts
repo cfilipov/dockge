@@ -75,10 +75,9 @@ export function setPageLocale() {
  * @returns {string} Base URL
  */
 export function getResBaseURL() {
-    const env = process.env.NODE_ENV;
-    if (env === "development" && isDevContainer()) {
+    if (import.meta.env.DEV && isDevContainer()) {
         return location.protocol + "//" + getDevContainerServerHostname();
-    } else if (env === "development" || localStorage.dev === "dev") {
+    } else if (import.meta.env.DEV || localStorage.dev === "dev") {
         return location.protocol + "//" + location.hostname + ":3001";
     } else {
         return "";
@@ -134,7 +133,7 @@ export function loadToastSettings() {
         containerClassName: "toast-container",
         showCloseButtonOnHover: true,
 
-        filterBeforeCreate: (toast, toasts) => {
+        filterBeforeCreate: (toast: { timeout?: number }, _toasts: unknown[]) => {
             if (toast.timeout === 0) {
                 return false;
             } else {
@@ -148,7 +147,7 @@ export function loadToastSettings() {
  * Get timeout for success toasts
  * @returns {(number|boolean)} Timeout in ms. If false timeout disabled.
  */
-export function getToastSuccessTimeout() {
+export function getToastSuccessTimeout(): number | false {
     let successTimeout = 20000;
 
     if (localStorage.toastSuccessTimeout !== undefined) {
@@ -159,7 +158,7 @@ export function getToastSuccessTimeout() {
     }
 
     if (successTimeout === -1) {
-        successTimeout = false;
+        return false;
     }
 
     return successTimeout;
@@ -169,7 +168,7 @@ export function getToastSuccessTimeout() {
  * Get timeout for error toasts
  * @returns {(number|boolean)} Timeout in ms. If false timeout disabled.
  */
-export function getToastErrorTimeout() {
+export function getToastErrorTimeout(): number | false {
     let errorTimeout = -1;
 
     if (localStorage.toastErrorTimeout !== undefined) {
@@ -180,7 +179,7 @@ export function getToastErrorTimeout() {
     }
 
     if (errorTimeout === -1) {
-        errorTimeout = false;
+        return false;
     }
 
     return errorTimeout;
