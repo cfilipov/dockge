@@ -214,8 +214,12 @@ func main() {
     handlers.RegisterDockerHandlers(app)
     handlers.RegisterServiceHandlers(app)
 
-    // Mock state reset endpoint (test use only)
+    // Mock state reset endpoint (test use only).
     if cfg.Mock && mockState != nil {
+        // Source stacks directory: same parent as stacksDir but named "stacks"
+        // (matches the convention in playwright.config.ts: cp -a test-data/stacks test-data/e2e-stacks)
+        stacksSource := filepath.Join(filepath.Dir(cfg.StacksDir), "stacks")
+
         mux.HandleFunc("POST /api/mock/reset", func(w http.ResponseWriter, _ *http.Request) {
             mockState.Reset()
             if mockData != nil {
@@ -223,9 +227,19 @@ func main() {
                     slog.Error("seed image updates on mock reset", "err", err)
                 }
             }
+
+            // Restore stacks directory from source to undo any filesystem
+            // changes made by tests (deploy creating dirs, delete removing dirs).
+            if info, err := os.Stat(stacksSource); err == nil && info.IsDir() {
+                if err := os.RemoveAll(cfg.StacksDir); err != nil {
+                    slog.Error("mock reset: remove stacks dir", "err", err)
+                }
+                if err := copyDirRecursive(stacksSource, cfg.StacksDir); err != nil {
+                    slog.Error("mock reset: copy stacks dir", "err", err)
+                }
+            }
+
             app.BroadcastAll()
-            // Remove global.env if created by a prior test run
-            os.Remove(filepath.Join(cfg.StacksDir, "global.env"))
             slog.Info("mock state reset to default")
             w.WriteHeader(http.StatusOK)
             w.Write([]byte("ok"))
