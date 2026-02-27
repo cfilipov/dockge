@@ -316,8 +316,6 @@ onMounted(async () => {
         }
     });
 
-    bind();
-
     stopDarkWatcher = watch(isDark, (dark) => {
         if (terminal.value) {
             terminal.value.options.theme = dark ? darkTheme : lightTheme;
@@ -325,31 +323,41 @@ onMounted(async () => {
     });
 
     if (props.mainTerminal) {
+        bind();
         emitAgent(props.endpoint, "mainTerminal", props.name, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
         });
     } else if (props.mode === "mainTerminal") {
+        bind();
         emitAgent(props.endpoint, "mainTerminal", props.name, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
         });
     } else if (props.mode === "interactive" && props.containerName) {
+        // Create the terminal FIRST so any stale terminal is replaced,
+        // then join it in the callback to read the fresh buffer.
         console.debug("Create container exec terminal:", props.name);
         emitAgent(props.endpoint, "containerExec", props.containerName, props.shell, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
+            bind();
         });
     } else if (props.mode === "interactive") {
+        // Create the terminal FIRST so any stale terminal is replaced,
+        // then join it in the callback to read the fresh buffer.
         console.debug("Create Interactive terminal:", props.name);
         emitAgent(props.endpoint, "interactiveTerminal", props.stackName!, props.serviceName!, props.shell, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
+            bind();
         });
+    } else {
+        bind();
     }
 
     updateTerminalSize();
