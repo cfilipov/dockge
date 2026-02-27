@@ -6,6 +6,7 @@ import (
     "fmt"
     "io"
     "runtime/debug"
+    "sort"
     "strconv"
     "strings"
     "sync"
@@ -493,6 +494,9 @@ func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*Netw
             State:       stateByID[id],
         })
     }
+    sort.Slice(containers, func(i, j int) bool {
+        return containers[i].Name < containers[j].Name
+    })
 
     return &NetworkDetail{
         Name:       raw.Name,

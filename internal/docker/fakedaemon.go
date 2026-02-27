@@ -1564,6 +1564,11 @@ func (fd *FakeDaemon) handleNetworkInspect(w http.ResponseWriter, r *http.Reques
 
 	// Find containers on this network
 	allContainers := fd.buildContainerList(true, "")
+	// Sort containers by ID so IP/MAC assignment is deterministic
+	// (Go map iteration in buildContainerList is non-deterministic).
+	sort.Slice(allContainers, func(i, j int) bool {
+		return allContainers[i].ID < allContainers[j].ID
+	})
 	netContainers := make(map[string]networkContainerJSON)
 
 	h := simpleHash(netName)

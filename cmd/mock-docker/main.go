@@ -378,7 +378,9 @@ func composeLogs(args []string) {
 		}
 	}
 
-	baseTime := time.Now().Add(-10 * time.Minute)
+	// Use a fixed base time so log output is deterministic across runs
+	// (avoids screenshot test flakiness from changing timestamps).
+	baseTime := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
 
 	var buf bytes.Buffer
 	for i, svc := range services {
