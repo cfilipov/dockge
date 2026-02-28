@@ -7,18 +7,6 @@
             <template v-else>{{ name }}</template>
         </h5>
 
-        <!-- Image update dialog -->
-        <UpdateDialog
-            v-if="!isEditMode"
-            v-model="showUpdateDialog"
-            :stack-name="stackName"
-            :endpoint="endpoint"
-            :service-name="name"
-            :show-ignore="true"
-            @update="doUpdateService"
-            @ignore="skipCurrentUpdate"
-        />
-
         <!-- Container, image, ports chips -->
         <div v-if="!isEditMode" class="network-props">
             <div class="network-chip chip-link" @click="emit('scroll-to-service', name)">
@@ -40,26 +28,26 @@
         <!-- Action/log/shell buttons -->
         <div v-if="!isEditMode" class="d-flex justify-content-end align-items-center mt-3">
             <div v-if="started" class="btn-group service-actions" role="group">
-                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :aria-label="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><font-awesome-icon icon="file-lines" /></router-link>
-                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :aria-label="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><font-awesome-icon icon="terminal" /></router-link>
+                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceLog', [name])" :aria-label="$t('tooltipServiceLog', [name])" :to="logRouteLink" :disabled="processing"><svg class="svg-icon" :viewBox="icons['file-lines'].viewBox"><path fill="currentColor" :d="icons['file-lines'].path" /></svg></router-link>
+                <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :aria-label="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><svg class="svg-icon" :viewBox="icons.terminal.viewBox"><path fill="currentColor" :d="icons.terminal.path" /></svg></router-link>
             </div>
             <div class="btn-group service-actions ms-2" role="group">
-                <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="$t('tooltipServiceStart', [name])" :aria-label="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><font-awesome-icon icon="play" /></button>
-                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceRestart', [name])" :aria-label="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><font-awesome-icon icon="rotate" /></button>
-                <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceRecreate', [name])" :aria-label="$t('tooltipServiceRecreate', [name])" :disabled="processing" @click="recreateService"><font-awesome-icon icon="rocket" /></button>
-                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceUpdate', [name])" :aria-label="$t('tooltipServiceUpdate', [name])" :disabled="processing" @click="showUpdateDialog = true"><font-awesome-icon icon="cloud-arrow-down" /></button>
-                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceStop', [name])" :aria-label="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><font-awesome-icon icon="stop" /></button>
+                <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="$t('tooltipServiceStart', [name])" :aria-label="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><svg class="svg-icon" :viewBox="icons.play.viewBox"><path fill="currentColor" :d="icons.play.path" /></svg></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceRestart', [name])" :aria-label="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><svg class="svg-icon" :viewBox="icons.rotate.viewBox"><path fill="currentColor" :d="icons.rotate.path" /></svg></button>
+                <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceRecreate', [name])" :aria-label="$t('tooltipServiceRecreate', [name])" :disabled="processing" @click="recreateService"><svg class="svg-icon" :viewBox="icons.rocket.viewBox"><path fill="currentColor" :d="icons.rocket.path" /></svg></button>
+                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceUpdate', [name])" :aria-label="$t('tooltipServiceUpdate', [name])" :disabled="processing" @click="emit('update-service', name)"><svg class="svg-icon" :viewBox="icons['cloud-arrow-down'].viewBox"><path fill="currentColor" :d="icons['cloud-arrow-down'].path" /></svg></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceStop', [name])" :aria-label="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><svg class="svg-icon" :viewBox="icons.stop.viewBox"><path fill="currentColor" :d="icons.stop.path" /></svg></button>
             </div>
         </div>
 
         <div v-if="isEditMode" class="mt-2">
             <button class="btn btn-normal me-2" @click="showConfig = !showConfig">
-                <font-awesome-icon icon="edit" />
+                <svg class="svg-icon" :viewBox="icons.edit.viewBox"><path fill="currentColor" :d="icons.edit.path" /></svg>
                 {{ $t("Edit") }}
             </button>
             <button v-if="false" class="btn btn-normal me-2">Rename</button>
             <button class="btn btn-danger me-2" @click="remove">
-                <font-awesome-icon icon="trash" />
+                <svg class="svg-icon" :viewBox="icons.trash.viewBox"><path fill="currentColor" :d="icons.trash.path" /></svg>
                 {{ $t("deleteContainer") }}
             </button>
         </div>
@@ -165,7 +153,7 @@
                     <ul v-if="urlList.length > 0" class="list-group url-list">
                         <li v-for="entry in urlList" :key="entry.key" class="list-group-item">
                             <input :value="entry.url" type="text" class="no-bg domain-input" placeholder="https://" @input="updateUrl(entry.key, ($event.target as HTMLInputElement).value)" />
-                            <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" @click="removeUrl(entry.key)" />
+                            <svg class="svg-icon action remove ms-2 me-3 text-danger" :viewBox="icons.times.viewBox" @click="removeUrl(entry.key)"><path fill="currentColor" :d="icons.times.path" /></svg>
                         </li>
                     </ul>
                     <div>
@@ -200,15 +188,16 @@
 
 <script setup lang="ts">
 import { ref, computed, inject, provide, type Ref } from "vue";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { parseDockerPort, ContainerStatusInfo } from "../common/util-common";
+import { containerIcons } from "./container-icons";
 import { LABEL_STATUS_IGNORE, LABEL_IMAGEUPDATES_CHECK, LABEL_IMAGEUPDATES_CHANGELOG, LABEL_URLS_PREFIX } from "../common/compose-labels";
 import { BFormCheckbox } from "bootstrap-vue-next";
 import ArrayInput from "./ArrayInput.vue";
 import ArraySelect from "./ArraySelect.vue";
-import UpdateDialog from "./UpdateDialog.vue";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
+
+const icons = containerIcons;
 
 const { emitAgent, info } = useSocket();
 const { toastRes } = useAppToast();
@@ -241,7 +230,6 @@ const emit = defineEmits<{
 }>();
 
 const showConfig = ref(false);
-const showUpdateDialog = ref(false);
 
 // Computed from injected state
 const endpoint = computed(() => composeEndpoint.value);
@@ -260,7 +248,7 @@ provide("service", service);
 const serviceCount = computed(() => Object.keys(jsonConfig.services).length);
 
 const envsubstService = computed(() => {
-    if (!envsubstJSONConfig.services[props.name]) {
+    if (!envsubstJSONConfig.services?.[props.name]) {
         return {};
     }
     return envsubstJSONConfig.services[props.name];
@@ -330,7 +318,10 @@ const changelogUrl = computed({
     },
 });
 
-const containerStatusInfo = computed(() => ContainerStatusInfo.fromStatus(status.value));
+const containerStatusInfo = computed(() => {
+    if (!props.serviceStatus?.[0]) return ContainerStatusInfo.UNKNOWN;
+    return ContainerStatusInfo.from(props.serviceStatus[0]);
+});
 
 const bgStyle = computed(() => `bg-${containerStatusInfo.value.badgeColor}`);
 
@@ -395,10 +386,11 @@ const imageTag = computed(() => {
 const started = computed(() => status.value === "running" || status.value === "healthy" || status.value === "unhealthy");
 
 const status = computed(() => {
-    if (!props.serviceStatus) {
-        return "N/A";
-    }
-    return props.serviceStatus[0].status;
+    if (!props.serviceStatus?.[0]) return "N/A";
+    const c = props.serviceStatus[0];
+    if (c.health === "unhealthy") return "unhealthy";
+    if (c.health === "healthy") return "healthy";
+    return c.state || "N/A";
 });
 
 // Methods
@@ -430,18 +422,6 @@ function recreateService() {
     emit("restart-service", props.name);
 }
 
-function doUpdateService(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }) {
-    startComposeAction();
-    emitAgent(endpoint.value, "updateService", composeStack.name, props.name, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
-        stopComposeAction();
-        toastRes(res);
-    });
-}
-
-function skipCurrentUpdate() {
-    // No-op for now — placeholder for future "ignore update" feature
-}
-
 function ensureLabels() {
     if (!service.value.labels) {
         service.value.labels = {};
@@ -470,6 +450,13 @@ function updateUrl(key: string, value: string) {
 
 <style scoped lang="scss">
 @import "../styles/vars";
+
+.svg-icon {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    fill: currentColor;
+}
 
 .container {
     max-width: 100%;

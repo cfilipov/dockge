@@ -37,7 +37,7 @@
                             {{ $t("restartStack") }}
                         </button>
 
-                        <button v-if="!isEditMode" class="btn" :class="stack.imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
+                        <button v-if="!isEditMode" class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
                             <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
                             <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
                         </button>
@@ -133,7 +133,7 @@
             </div>
 
             <div v-if="stack.isManagedByDockge !== undefined || isAdd" class="row">
-                <div v-if="viewMode === 'parsed' || isAdd" :class="viewMode === 'raw' ? 'col-12' : 'col-lg-6'">
+                <div v-show="viewMode === 'parsed' || isAdd" :class="viewMode === 'raw' ? 'col-12' : 'col-lg-6'">
                     <!-- General -->
                     <div v-if="isAdd">
                         <h4 class="mb-3">{{ $t("general") }}</h4>
@@ -194,6 +194,18 @@
                         </div>
 
                     </CollapsibleSection>
+
+                    <!-- Shared service-level update dialog (single instance for all containers) -->
+                    <UpdateDialog
+                        v-if="showServiceUpdateDialog"
+                        v-model="showServiceUpdateDialog"
+                        :stack-name="stack.name"
+                        :endpoint="endpoint"
+                        :service-name="serviceUpdateTarget"
+                        :show-ignore="true"
+                        @update="doServiceUpdate"
+                        @ignore="serviceUpdateTarget = ''"
+                    />
 
                     <!-- Combined Terminal Output -->
                     <div v-show="!isEditMode">
@@ -410,6 +422,9 @@ import NetworkInput from "../components/NetworkInput.vue";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import UpdateDialog from "../components/UpdateDialog.vue";
 import { useSocket } from "../composables/useSocket";
+import { useContainerStore } from "../stores/containerStore";
+import { useStackStore } from "../stores/stackStore";
+import { useUpdateStore } from "../stores/updateStore";
 import { useAppToast } from "../composables/useAppToast";
 import { useStackActions } from "../composables/useStackActions";
 import { useCodeMirrorEditor } from "../composables/useCodeMirrorEditor";
@@ -417,11 +432,15 @@ import { useCodeMirrorEditor } from "../composables/useCodeMirrorEditor";
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-const { emitAgent, agentCount, agentList, agentStatusList, containerList, completeStackList, composeTemplate, envTemplate, endpointDisplayFunction, info } = useSocket();
+const { emitAgent, agentCount, agentList, agentStatusList, composeTemplate, envTemplate, endpointDisplayFunction, info } = useSocket();
+const containerStore = useContainerStore();
+const stackStoreInstance = useStackStore();
+const updateStoreInstance = useUpdateStore();
 const { toastRes, toastError } = useAppToast();
 
 // Suppress jsonConfig → YAML sync during programmatic updates (e.g. loadStack)
 let skipConfigSync = false;
+
 
 // CodeMirror setup
 const editorInline = ref<InstanceType<typeof CodeMirror>>();
@@ -440,8 +459,6 @@ const envDefault = "# VARIABLE=value #comment";
 
 // Timeouts
 let yamlErrorTimeout: ReturnType<typeof setTimeout> | null = null;
-let serviceStatusTimeout: ReturnType<typeof setTimeout> | null = null;
-let dockerStatsTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // YAML document for comment preservation
 let yamlDoc: any = null;
@@ -460,16 +477,56 @@ const combinedTerminalCols = COMBINED_TERMINAL_COLS;
 const stack = reactive<Record<string, any>>({
     composeOverrideYAML: "",
 });
-const serviceStatusList = ref<Record<string, string>>({});
-const serviceUpdateStatus = ref<Record<string, boolean>>({});
-const serviceRecreateStatus = ref<Record<string, boolean>>({});
-const dockerStats = ref<Record<string, import("../common/types").StatsData>>({});
+// Derive service status from container store (replaces polling)
+const serviceStatusList = computed(() => {
+    const result: Record<string, any[]> = {};
+    if (!stack.name) return result;
+    const containers = containerStore.byStack(stack.name);
+    for (const c of containers) {
+        if (!c.serviceName) continue;
+        if (!result[c.serviceName]) result[c.serviceName] = [];
+        result[c.serviceName].push(c);
+    }
+    return result;
+});
+
+const serviceUpdateStatus = computed(() => {
+    const result: Record<string, boolean> = {};
+    if (!stack.name) return result;
+    const containers = containerStore.byStack(stack.name);
+    for (const c of containers) {
+        if (!c.serviceName) continue;
+        result[c.serviceName] = updateStoreInstance.hasUpdate(`${stack.name}/${c.serviceName}`);
+    }
+    return result;
+});
+
+const serviceRecreateStatus = computed(() => {
+    const result: Record<string, boolean> = {};
+    if (!stack.name) return result;
+    const containers = containerStore.byStack(stack.name);
+    const stackEntry = stackStoreInstance.rawStacks.find(s => s.name === stack.name);
+    if (!stackEntry) return result;
+    for (const c of containers) {
+        if (!c.serviceName) continue;
+        const composeImage = stackEntry.images[c.serviceName];
+        result[c.serviceName] = !!(composeImage && c.image && c.image !== composeImage);
+    }
+    return result;
+});
+
+const imageUpdatesAvailable = computed(() => {
+    return Object.values(serviceUpdateStatus.value).some(v => v);
+});
+
 const isEditMode = ref(false);
 const submitted = ref(false);
 const newContainerName = ref("");
 const viewMode = ref<"parsed" | "raw">(route.path.includes("/raw") ? "raw" : "parsed");
-const stopServiceStatusTimeout = ref(false);
-const stopDockerStatsTimeout = ref(false);
+
+// Shared service-level update dialog state
+const showServiceUpdateDialog = ref(false);
+const serviceUpdateTarget = ref("");
 
 // Progressive rendering: render containers in batches to avoid blocking the main thread
 const RENDER_BATCH_SIZE = 20;
@@ -530,7 +587,7 @@ const urls = computed(() => {
 
 const isAdd = computed(() => route.path === "/stacks/new" && !submitted.value);
 
-const globalStack = computed(() => completeStackList.value[stack.name + "_" + endpoint.value] ?? null);
+const globalStack = computed(() => stackStoreInstance.allStacks.find(s => s.name === stack.name) ?? null);
 
 const active = computed(() => globalStack.value?.started ?? false);
 
@@ -579,7 +636,7 @@ const {
 } = useStackActions(endpoint, stack, progressTerminalRef);
 
 function checkImageUpdates() {
-    checkImageUpdatesRaw(requestServiceStatus);
+    checkImageUpdatesRaw();
 }
 
 // Provide to children (Container, NetworkInput)
@@ -616,8 +673,6 @@ watch(() => stack.composeOverrideYAML, () => {
 watch(jsonConfig, () => {
     if (skipConfigSync) return;
     if (!editorFocus.value) {
-        console.debug("jsonConfig changed");
-
         const doc = new Document(jsonConfig);
 
         // Stick back the yaml comments
@@ -630,13 +685,27 @@ watch(jsonConfig, () => {
     }
 }, { deep: true });
 
-// Refresh service status when the backend broadcasts an updated container list
-// (e.g. after compose restart/stop/start actions or Docker events).
-watch(containerList, () => {
-    if (!isAdd.value && stack.name) {
-        requestServiceStatus();
+// For unmanaged stacks, synthesize services from container store
+watch(() => containerStore.byStack(stack.name), (containers) => {
+    if (!stack.name || stack.isManagedByDockge) return;
+    if (!jsonConfig.services || Object.keys(jsonConfig.services).length === 0) {
+        const synth: Record<string, any> = {};
+        for (const c of containers) {
+            if (c.serviceName && !synth[c.serviceName]) {
+                synth[c.serviceName] = {};
+            }
+        }
+        if (Object.keys(synth).length > 0) {
+            skipConfigSync = true;
+            Object.keys(jsonConfig).forEach(key => delete jsonConfig[key]);
+            Object.assign(jsonConfig, { services: synth });
+            // Also set envsubstJSONConfig so Container.vue doesn't throw
+            Object.keys(envsubstJSONConfig).forEach(key => delete envsubstJSONConfig[key]);
+            Object.assign(envsubstJSONConfig, { services: synth });
+            nextTick(() => { skipConfigSync = false; });
+        }
     }
-});
+}, { immediate: true });
 
 // Navigate between parsed / raw view when toggle changes
 watch(viewMode, (mode) => {
@@ -664,62 +733,6 @@ onBeforeRouteLeave((to, from, next) => {
 });
 
 // Methods
-function startServiceStatusTimeout() {
-    clearTimeout(serviceStatusTimeout!);
-    serviceStatusTimeout = setTimeout(async () => {
-        requestServiceStatus();
-    }, 5000);
-}
-
-function startDockerStatsTimeout() {
-    clearTimeout(dockerStatsTimeout!);
-    dockerStatsTimeout = setTimeout(async () => {
-        requestDockerStats();
-    }, 5000);
-}
-
-function requestServiceStatus() {
-    if (isAdd.value) {
-        return;
-    }
-
-    emitAgent(endpoint.value, "serviceStatusList", stack.name, (res: any) => {
-        if (res.ok) {
-            serviceStatusList.value = res.serviceStatusList;
-            serviceUpdateStatus.value = res.serviceUpdateStatus || {};
-            serviceRecreateStatus.value = res.serviceRecreateStatus || {};
-            stack.imageUpdatesAvailable = Object.values(serviceUpdateStatus.value).some((v: any) => v === true);
-
-            // For unmanaged stacks, synthesize services from Docker status
-            // so container cards render even without a compose file
-            if (!stack.isManagedByDockge && (!jsonConfig.services || Object.keys(jsonConfig.services).length === 0)) {
-                const synth: Record<string, any> = {};
-                for (const svcName of Object.keys(res.serviceStatusList)) {
-                    synth[svcName] = {};
-                }
-                skipConfigSync = true;
-                Object.keys(jsonConfig).forEach(key => delete jsonConfig[key]);
-                Object.assign(jsonConfig, { services: synth });
-                nextTick(() => { skipConfigSync = false; });
-            }
-        }
-        if (!stopServiceStatusTimeout.value) {
-            startServiceStatusTimeout();
-        }
-    });
-}
-
-function requestDockerStats() {
-    emitAgent(endpoint.value, "dockerStats", stack.name, (res: any) => {
-        if (res.ok) {
-            dockerStats.value = res.dockerStats;
-        }
-        if (!stopDockerStatsTimeout.value) {
-            startDockerStatsTimeout();
-        }
-    });
-}
-
 function exitConfirm(next: (val?: boolean | undefined) => void) {
     if (isEditMode.value) {
         if (confirm(t("confirmLeaveStack"))) {
@@ -736,11 +749,6 @@ function exitConfirm(next: (val?: boolean | undefined) => void) {
 
 function exitAction() {
     console.debug("exitAction");
-    stopServiceStatusTimeout.value = true;
-    stopDockerStatsTimeout.value = true;
-    clearTimeout(serviceStatusTimeout!);
-    clearTimeout(dockerStatsTimeout!);
-
     console.debug("leaveCombinedTerminal", endpoint.value, stack.name);
     emitAgent(endpoint.value, "leaveCombinedTerminal", stack.name, () => {});
 }
@@ -927,10 +935,6 @@ function startService(serviceName: string) {
     emitAgent(endpoint.value, "startService", stack.name, serviceName, (res: any) => {
         stopComposeAction();
         toastRes(res);
-
-        if (res.ok) {
-            requestServiceStatus();
-        }
     });
 }
 
@@ -940,10 +944,6 @@ function stopService(serviceName: string) {
     emitAgent(endpoint.value, "stopService", stack.name, serviceName, (res: any) => {
         stopComposeAction();
         toastRes(res);
-
-        if (res.ok) {
-            requestServiceStatus();
-        }
     });
 }
 
@@ -953,10 +953,6 @@ function restartService(serviceName: string) {
     emitAgent(endpoint.value, "restartService", stack.name, serviceName, (res: any) => {
         stopComposeAction();
         toastRes(res);
-
-        if (res.ok) {
-            requestServiceStatus();
-        }
     });
 }
 
@@ -984,15 +980,19 @@ function scrollToService(serviceName: string) {
 }
 
 function updateService(serviceName: string) {
-    startComposeAction();
+    serviceUpdateTarget.value = serviceName;
+    showServiceUpdateDialog.value = true;
+}
 
-    emitAgent(endpoint.value, "updateService", stack.name, serviceName, (res: any) => {
+function doServiceUpdate(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }) {
+    const serviceName = serviceUpdateTarget.value;
+    serviceUpdateTarget.value = "";
+    if (!serviceName) return;
+
+    startComposeAction();
+    emitAgent(endpoint.value, "updateService", stack.name, serviceName, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
         stopComposeAction();
         toastRes(res);
-
-        if (res.ok) {
-            requestServiceStatus();
-        }
     });
 }
 
@@ -1030,18 +1030,35 @@ onMounted(() => {
 
     } else {
         stack.name = route.params.stackName as string;
-        loadStack();
+        initStack();
     }
-
-    requestServiceStatus();
-    requestDockerStats();
 });
+
+function initStack() {
+    if (!stackStoreInstance.loading) {
+        // Store is ready — check if this stack is managed
+        const isManaged = stackStoreInstance.rawStacks.some(s => s.name === stack.name);
+        if (isManaged) {
+            loadStack();
+        } else {
+            // Unmanaged: no getStack call, services come from container store watcher
+            stack.isManagedByDockge = false;
+            processing.value = false;
+        }
+    } else {
+        // Store still loading — wait for it, then decide
+        const stop = watch(() => stackStoreInstance.loading, (loading) => {
+            if (!loading) {
+                stop();
+                initStack();
+            }
+        });
+    }
+}
 
 onUnmounted(() => {
     cancelAnimationFrame(renderRAF);
     if (yamlErrorTimeout) clearTimeout(yamlErrorTimeout);
-    if (serviceStatusTimeout) clearTimeout(serviceStatusTimeout);
-    if (dockerStatsTimeout) clearTimeout(dockerStatsTimeout);
 });
 </script>
 
