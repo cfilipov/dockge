@@ -352,7 +352,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import CodeMirror from "vue-codemirror6";
@@ -363,21 +363,28 @@ import yamlLib from "yaml";
 import dayjs from "dayjs";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { useSocket } from "../composables/useSocket";
+import { useContainerStore } from "../stores/containerStore";
+import { useStackStore } from "../stores/stackStore";
+import { useUpdateStore } from "../stores/updateStore";
 import { useAppToast } from "../composables/useAppToast";
 import { useServiceActions } from "../composables/useServiceActions";
 import { ContainerStatusInfo, StackStatusInfo, getComposeTerminalName } from "../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import ServiceActionBar from "../components/ServiceActionBar.vue";
 import { useTheme } from "../composables/useTheme";
+import { useViewMode } from "../composables/useViewMode";
 
 const route = useRoute();
 const { t } = useI18n();
 const { isDark } = useTheme();
-const { emitAgent, containerList, completeStackList } = useSocket();
+const { emitAgent } = useSocket();
+const containerStore = useContainerStore();
+const stackStoreInstance = useStackStore();
+const updateStoreInstance = useUpdateStore();
 const { toastRes } = useAppToast();
 
 const containerInfo = computed(() =>
-    (containerList.value || []).find((c: any) => c.name === containerName.value)
+    containerStore.containers.find(c => c.name === containerName.value)
 );
 const statusInfo = computed(() =>
     containerInfo.value ? ContainerStatusInfo.from(containerInfo.value) : null
@@ -389,7 +396,9 @@ const badgeLabel = computed(() =>
     statusInfo.value ? t(statusInfo.value.label) : ""
 );
 
-const viewMode = ref<"parsed" | "raw">("parsed");
+const { isRawMode, setRawMode } = useViewMode();
+const viewMode = ref<"parsed" | "raw">(isRawMode.value ? "raw" : "parsed");
+watch(viewMode, (mode) => setRawMode(mode === "raw"));
 const inspectData = ref("fetching ...");
 const inspectObj = ref<any>(null);
 const dockerStats = ref<Record<string, any>>({});
@@ -412,15 +421,22 @@ const endpoint = computed(() => (route.params.endpoint as string) || "");
 const containerName = computed(() => route.params.containerName as string || "");
 const stackName = computed(() => containerInfo.value?.stackName || "");
 const serviceName = computed(() => containerInfo.value?.serviceName || "");
-const globalStack = computed(() => completeStackList.value[stackName.value + "_" + endpoint.value]);
+const globalStack = computed(() => stackStoreInstance.allStacks.find(s => s.name === stackName.value));
 const stackManaged = computed(() => globalStack.value?.isManagedByDockge ?? false);
-const stackStatusInfo = computed(() => StackStatusInfo.get(globalStack.value?.status));
+const stackStatusInfo = computed(() => StackStatusInfo.get(globalStack.value?.status ?? 0));
 const containerActive = computed(() => {
     const state = containerInfo.value?.state;
     return state === "running";
 });
-const imageUpdatesAvailable = computed(() => containerInfo.value?.imageUpdatesAvailable ?? false);
-const recreateNecessary = computed(() => containerInfo.value?.recreateNecessary ?? false);
+const imageUpdatesAvailable = computed(() => {
+    if (!stackName.value || !serviceName.value) return false;
+    return updateStoreInstance.hasUpdate(`${stackName.value}/${serviceName.value}`);
+});
+const recreateNecessary = computed(() => {
+    if (!containerInfo.value || !globalStack.value?.images) return false;
+    const composeImage = globalStack.value.images[serviceName.value];
+    return !!(composeImage && containerInfo.value.image && containerInfo.value.image !== composeImage);
+});
 const terminalName = computed(() => stackName.value ? getComposeTerminalName(endpoint.value, stackName.value) : "");
 
 const {

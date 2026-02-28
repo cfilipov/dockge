@@ -428,6 +428,7 @@ import { useUpdateStore } from "../stores/updateStore";
 import { useAppToast } from "../composables/useAppToast";
 import { useStackActions } from "../composables/useStackActions";
 import { useCodeMirrorEditor } from "../composables/useCodeMirrorEditor";
+import { useViewMode } from "../composables/useViewMode";
 
 const route = useRoute();
 const router = useRouter();
@@ -522,7 +523,8 @@ const imageUpdatesAvailable = computed(() => {
 const isEditMode = ref(false);
 const submitted = ref(false);
 const newContainerName = ref("");
-const viewMode = ref<"parsed" | "raw">(route.path.includes("/raw") ? "raw" : "parsed");
+const { isRawMode, setRawMode } = useViewMode();
+const viewMode = ref<"parsed" | "raw">(isRawMode.value ? "raw" : "parsed");
 
 // Shared service-level update dialog state
 const showServiceUpdateDialog = ref(false);
@@ -709,6 +711,7 @@ watch(() => containerStore.byStack(stack.name), (containers) => {
 
 // Navigate between parsed / raw view when toggle changes
 watch(viewMode, (mode) => {
+    setRawMode(mode === "raw");
     if (!stack.name) return;
     if (mode === "raw") {
         const rawUrl = stack.endpoint

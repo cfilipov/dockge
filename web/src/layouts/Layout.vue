@@ -71,13 +71,13 @@
 
             <ul class="nav nav-pills">
                 <li v-if="loggedIn" class="nav-item me-1">
-                    <router-link :to="stacksTabLink" class="nav-link">
+                    <router-link :to="stacksTabLink" class="nav-link" @click="onStacksTabClick">
                         <font-awesome-icon icon="layer-group" class="me-1" /> {{ $t("stacks") }}
                     </router-link>
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-1">
-                    <router-link :to="containersTabLink" class="nav-link">
+                    <router-link :to="containersTabLink" class="nav-link" @click="onContainersTabClick">
                         <font-awesome-icon icon="cubes" class="me-1" /> {{ $t("containersNav") }}
                     </router-link>
                 </li>
@@ -141,6 +141,9 @@ import { useSocket } from "../composables/useSocket";
 import { useTheme } from "../composables/useTheme";
 import { useAppToast } from "../composables/useAppToast";
 import { useTabMemory } from "../composables/useTabMemory";
+import { useViewMode } from "../composables/useViewMode";
+import { useContainerStore } from "../stores/containerStore";
+import { useStackStore } from "../stores/stackStore";
 
 const route = useRoute();
 
@@ -153,9 +156,11 @@ const {
     info,
     emitAgent,
     logout,
-    containerList,
-    completeStackList,
 } = useSocket();
+
+const containerStore = useContainerStore();
+const stackStore = useStackStore();
+const { isRawMode, setRawMode } = useViewMode();
 
 const {
     lastStack,
@@ -168,17 +173,27 @@ const {
 const { theme, isMobile } = useTheme();
 const { toastRes } = useAppToast();
 
-// Check if a stack name exists in the complete stack list
+// Check if a stack name exists in the stack store
 function stackExists(name: string): boolean {
-    for (const key in completeStackList.value) {
-        if (key.startsWith(name + "_")) return true;
-    }
-    return false;
+    return stackStore.allStacks.some(s => s.name === name);
 }
 
-// Check if a container name exists in the container list
+// Reset raw mode when clicking a tab you're already on (going to its list view)
+function onStacksTabClick() {
+    if (route.path.startsWith("/stacks")) {
+        setRawMode(false);
+    }
+}
+
+function onContainersTabClick() {
+    if (route.path.startsWith("/containers")) {
+        setRawMode(false);
+    }
+}
+
+// Check if a container name exists in the container store
 function containerExists(name: string): boolean {
-    return containerList.value.some((c: any) => c.name === name);
+    return containerStore.containers.some(c => c.name === name);
 }
 
 // Which container-centric tab we're currently on (if any)
@@ -200,7 +215,7 @@ const containersTabLink = computed(() => {
     }
     if (selectedContainer.value) return { name: "containerDetail", params: { containerName: selectedContainer.value } };
     if (selectedStack.value) {
-        const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
+        const c = containerStore.containers.find(c => c.stackName === selectedStack.value);
         if (c) return { name: "containerDetail", params: { containerName: c.name } };
     }
     return "/containers";
@@ -213,7 +228,7 @@ const logsTabLink = computed(() => {
     }
     if (selectedContainer.value) return { name: "containerLogs", params: { containerName: selectedContainer.value } };
     if (selectedStack.value) {
-        const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
+        const c = containerStore.containers.find(c => c.stackName === selectedStack.value);
         if (c) return { name: "containerLogs", params: { containerName: c.name } };
     }
     return "/logs";
@@ -226,7 +241,7 @@ const shellTabLink = computed(() => {
     }
     if (selectedContainer.value) return { name: "containerShell", params: { containerName: selectedContainer.value, type: "bash" } };
     if (selectedStack.value) {
-        const c = containerList.value.find((c: any) => c.stackName === selectedStack.value);
+        const c = containerStore.containers.find(c => c.stackName === selectedStack.value);
         if (c) return { name: "containerShell", params: { containerName: c.name, type: "bash" } };
     }
     return "/shell";
@@ -237,13 +252,15 @@ const selectedStack = computed(() => (route.params.stackName as string) || "");
 
 // Stack tab link: carry the selected stack, or go home if clicking the same tab
 const stacksTabLink = computed(() => {
+    // Already on stacks → go to dashboard (resets raw mode via click handler)
     if (route.path.startsWith("/stacks")) return "/stacks";
+    const rawSuffix = isRawMode.value ? "/raw" : "";
     if (lastStack.value && stackExists(lastStack.value)) {
-        return `/stacks/${lastStack.value}`;
+        return `/stacks/${lastStack.value}${rawSuffix}`;
     }
     if (selectedContainer.value) {
-        const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
-        if (c?.stackName) return `/stacks/${c.stackName}`;
+        const c = containerStore.containers.find(c => c.name === selectedContainer.value);
+        if (c?.stackName) return `/stacks/${c.stackName}${rawSuffix}`;
     }
     return "/stacks";
 });
@@ -254,7 +271,7 @@ const imagesTabLink = computed(() => {
         return { name: "imageDetail", params: { imageRef: lastImage.value } };
     }
     if (selectedContainer.value) {
-        const c = containerList.value.find((c: any) => c.name === selectedContainer.value);
+        const c = containerStore.containers.find(c => c.name === selectedContainer.value);
         if (c?.image) return { name: "imageDetail", params: { imageRef: c.image } };
     }
     return "/images";
