@@ -1,0 +1,12 @@
+status: exited
+networks:
+  stack-013_default:
+    id: "443838a71a5469849a958648d0aad33a443838a71a5469849a958648d0aad33a"
+services:
+  alpine:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-013_default:
+        ip: "172.75.0.2"
+        mac: "02:42:ac:4b:00:02"

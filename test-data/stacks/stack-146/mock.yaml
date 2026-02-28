@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-146_default:
+    id: "5d5e42c71933d54d83f3fc28d3cd6ff35d5e42c71933d54d83f3fc28d3cd6ff3"
+services:
+  nginx-1:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-146_default:
+        ip: "172.66.0.2"
+        mac: "02:42:ac:42:00:02"
+  vault:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-146_default:
+        ip: "172.66.0.3"
+        mac: "02:42:ac:42:00:03"

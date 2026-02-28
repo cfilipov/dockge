@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-012_default:
+    id: "24cb5192c4baead7fa66ef7d0e44506924cb5192c4baead7fa66ef7d0e445069"
+services:
+  rabbitmq:
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-012_default:
+        ip: "172.74.0.2"
+        mac: "02:42:ac:4a:00:02"

@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-097_default:
+    id: "ecf425a39edf65c032599b4c5421df7eecf425a39edf65c032599b4c5421df7e"
+services:
+  httpd-1:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-097_default:
+        ip: "172.43.0.2"
+        mac: "02:42:ac:2b:00:02"
+  mongo:
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-097_default:
+        ip: "172.43.0.3"
+        mac: "02:42:ac:2b:00:03"

@@ -23,6 +23,7 @@ import (
 type FakeDaemon struct {
 	state     *MockState
 	data      *MockData
+	world     *MockWorld
 	stacksDir string
 	listener  net.Listener
 	server    *http.Server
@@ -65,9 +66,12 @@ func StartFakeDaemon(state *MockState, data *MockData, stacksDir string) (socket
 		return "", nil, fmt.Errorf("listen unix: %w", err)
 	}
 
+	world := BuildMockWorld(data, state, stacksDir)
+
 	fd := &FakeDaemon{
 		state:     state,
 		data:      data,
+		world:     world,
 		stacksDir: stacksDir,
 		listener:  listener,
 		eventSubs: make(map[int]chan eventMessage),
@@ -251,171 +255,8 @@ func (fd *FakeDaemon) handleContainerList(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	containers := fd.buildContainerList(all, projectFilter)
+	containers := fd.world.ContainerList(all, projectFilter)
 	writeJSON(w, http.StatusOK, containers)
-}
-
-func (fd *FakeDaemon) buildContainerList(all bool, projectFilter string) []containerJSON {
-	entries, err := os.ReadDir(fd.stacksDir)
-	if err != nil {
-		return []containerJSON{}
-	}
-
-	var result []containerJSON
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		stackName := entry.Name()
-
-		if projectFilter != "" && stackName != projectFilter {
-			continue
-		}
-
-		composeFile := findComposeFilePath(filepath.Join(fd.stacksDir, stackName))
-		if composeFile == "" {
-			continue
-		}
-
-		status := fd.state.Get(stackName)
-		if status == "inactive" {
-			continue
-		}
-
-		services := fd.getServices(stackName)
-		for _, svc := range services {
-			// Per-service runtime override (from stop/start individual service) takes priority
-			svcState := fd.state.GetService(stackName, svc)
-			if svcState == "" {
-				// Fall back to MockData (mock.yaml overrides + stack-level status)
-				svcState = fd.data.GetServiceState(stackName, svc, status)
-			}
-
-			if !all && svcState != "running" && svcState != "paused" {
-				continue
-			}
-
-			image := fd.data.GetRunningImage(stackName, svc)
-			containerID := fmt.Sprintf("mock-%s-%s-1", stackName, svc)
-			containerName := fmt.Sprintf("%s-%s-1", stackName, svc)
-			imageHash := mockHash(image)
-			imageID := fmt.Sprintf("sha256:%s%s", imageHash, imageHash)
-
-			health := fd.data.GetServiceHealth(stackName, svc)
-			statusStr := buildStatusString(svcState, health)
-
-			labels := map[string]string{
-				"com.docker.compose.project": stackName,
-				"com.docker.compose.service": svc,
-			}
-
-			// Build mounts
-			mounts := fd.buildMounts(stackName, svc)
-
-			// Build networks
-			networks := fd.buildEndpoints(stackName, svc, containerID)
-
-			result = append(result, containerJSON{
-				ID:      containerID,
-				Names:   []string{"/" + containerName},
-				Image:   image,
-				ImageID: imageID,
-				Command: "/docker-entrypoint.sh",
-				Created: time.Date(2026, 2, 18, 0, 0, 0, 0, time.UTC).Unix(),
-				State:   svcState,
-				Status:  statusStr,
-				Labels:  labels,
-				Mounts:  mounts,
-				NetworkSettings: &networkSettingsJSON{Networks: networks},
-			})
-		}
-	}
-
-	// External stacks (unmanaged — no compose file in stacks dir)
-	for stackName, services := range fd.data.externalStacks {
-		if projectFilter != "" && stackName != projectFilter {
-			continue
-		}
-
-		status := fd.state.Get(stackName)
-		if status == "inactive" {
-			continue
-		}
-
-		for _, svc := range services {
-			svcState := fd.state.GetService(stackName, svc)
-			if svcState == "" {
-				svcState = fd.data.GetServiceState(stackName, svc, status)
-			}
-			if !all && svcState != "running" && svcState != "paused" {
-				continue
-			}
-
-			image := fd.data.GetRunningImage(stackName, svc)
-			containerID := fmt.Sprintf("mock-%s-%s-1", stackName, svc)
-			containerName := fmt.Sprintf("%s-%s-1", stackName, svc)
-			imageHash := mockHash(image)
-			imageID := fmt.Sprintf("sha256:%s%s", imageHash, imageHash)
-
-			health := fd.data.GetServiceHealth(stackName, svc)
-			statusStr := buildStatusString(svcState, health)
-
-			labels := map[string]string{
-				"com.docker.compose.project": stackName,
-				"com.docker.compose.service": svc,
-			}
-
-			result = append(result, containerJSON{
-				ID:      containerID,
-				Names:   []string{"/" + containerName},
-				Image:   image,
-				ImageID: imageID,
-				Command: "/docker-entrypoint.sh",
-				Created: time.Date(2026, 2, 18, 0, 0, 0, 0, time.UTC).Unix(),
-				State:   svcState,
-				Status:  statusStr,
-				Labels:  labels,
-				Mounts:  fd.buildMounts(stackName, svc),
-				NetworkSettings: &networkSettingsJSON{Networks: fd.buildEndpoints(stackName, svc, containerID)},
-			})
-		}
-	}
-
-	// Standalone containers
-	if projectFilter == "" {
-		for _, s := range fd.data.standalones {
-			if !all && s.state != "running" {
-				continue
-			}
-			imageHash := mockHash(s.image)
-			imageID := fmt.Sprintf("sha256:%s%s", imageHash, imageHash)
-			result = append(result, containerJSON{
-				ID:      fmt.Sprintf("mock-standalone-%s", s.name),
-				Names:   []string{"/" + s.name},
-				Image:   s.image,
-				ImageID: imageID,
-				Command: "/entrypoint.sh",
-				Created: time.Date(2026, 2, 18, 0, 0, 0, 0, time.UTC).Unix(),
-				State:   s.state,
-				Status:  buildStatusString(s.state, ""),
-				Labels:  map[string]string{},
-				Mounts:  []mountJSON{},
-				NetworkSettings: &networkSettingsJSON{
-					Networks: map[string]endpointJSON{
-						"bridge": {
-							IPAddress:   "172.17.0.2",
-							IPPrefixLen: 16,
-							Gateway:     "172.17.0.1",
-							MacAddress:  "02:42:ac:11:00:02",
-							NetworkID:   "mock-net-bridge",
-						},
-					},
-				},
-			})
-		}
-	}
-
-	return result
 }
 
 func buildStatusString(state, health string) string {
@@ -439,118 +280,7 @@ func buildStatusString(state, health string) string {
 	}
 }
 
-func (fd *FakeDaemon) buildMounts(stackName, svc string) []mountJSON {
-	key := stackName + "/" + svc
-	mounts, ok := fd.data.serviceVolumes[key]
-	if !ok {
-		return []mountJSON{}
-	}
-
-	result := make([]mountJSON, 0, len(mounts))
-	for _, mt := range mounts {
-		rw := !mt.readOnly
-		mode := "rw"
-		if mt.readOnly {
-			mode = "ro"
-		}
-		if mt.mountType == "volume" {
-			result = append(result, mountJSON{
-				Type:        "volume",
-				Name:        mt.name,
-				Source:      fmt.Sprintf("/var/lib/docker/volumes/%s/_data", mt.name),
-				Destination: mt.destination,
-				Mode:        mode,
-				RW:          rw,
-			})
-		} else {
-			result = append(result, mountJSON{
-				Type:        "bind",
-				Source:      mt.source,
-				Destination: mt.destination,
-				Mode:        mode,
-				RW:          rw,
-			})
-		}
-	}
-	return result
-}
-
-func (fd *FakeDaemon) buildEndpoints(stackName, svc, containerID string) map[string]endpointJSON {
-	key := stackName + "/" + svc
-	nets, ok := fd.data.serviceNetworks[key]
-	if !ok || len(nets) == 0 {
-		return map[string]endpointJSON{
-			"bridge": {
-				IPAddress:   "172.17.0.2",
-				IPPrefixLen: 16,
-				Gateway:     "172.17.0.1",
-				MacAddress:  "02:42:ac:11:00:02",
-				NetworkID:   "mock-net-bridge",
-			},
-		}
-	}
-
-	result := make(map[string]endpointJSON, len(nets))
-	for i, netName := range nets {
-		subnet := 17 + i
-		hostByte := 2 + simpleHash(key)%200
-		netID := fmt.Sprintf("mock-net-%s", strings.ReplaceAll(netName, "_", "-"))
-		result[netName] = endpointJSON{
-			IPAddress:   fmt.Sprintf("172.%d.0.%d", subnet, hostByte),
-			IPPrefixLen: 16,
-			Gateway:     fmt.Sprintf("172.%d.0.1", subnet),
-			MacAddress:  fmt.Sprintf("02:42:ac:%02x:00:%02x", subnet, hostByte),
-			NetworkID:   netID,
-		}
-	}
-	return result
-}
-
-// buildPortBindings converts compose port mappings (e.g. "3000:3000", "8080:80/tcp")
-// into Docker inspect format: {"3000/tcp": [{"HostIp": "0.0.0.0", "HostPort": "3000"}]}.
-func (fd *FakeDaemon) buildPortBindings(stackName, svc string) map[string][]portBindingJSON {
-	key := stackName + "/" + svc
-	ports, ok := fd.data.servicePorts[key]
-	if !ok || len(ports) == 0 {
-		return nil
-	}
-
-	result := make(map[string][]portBindingJSON)
-	for _, p := range ports {
-		// Parse formats: "3000", "3000:3000", "8080:80", "8080:80/tcp", "127.0.0.1:8080:80"
-		proto := "tcp"
-		if idx := strings.LastIndex(p, "/"); idx >= 0 {
-			proto = p[idx+1:]
-			p = p[:idx]
-		}
-
-		parts := strings.Split(p, ":")
-		var hostIP, hostPort, containerPort string
-		switch len(parts) {
-		case 1:
-			containerPort = parts[0]
-			hostPort = parts[0]
-		case 2:
-			hostPort = parts[0]
-			containerPort = parts[1]
-		case 3:
-			hostIP = parts[0]
-			hostPort = parts[1]
-			containerPort = parts[2]
-		}
-
-		if hostIP == "" {
-			hostIP = "0.0.0.0"
-		}
-
-		key := containerPort + "/" + proto
-		result[key] = append(result[key], portBindingJSON{
-			HostIp:   hostIP,
-			HostPort: hostPort,
-		})
-	}
-	return result
-}
+// buildMounts, buildEndpoints, buildPortBindings removed — now in mockworld.go
 
 // containerInspectJSON matches the Docker SDK container.InspectResponse fields.
 type containerInspectJSON struct {
@@ -625,103 +355,10 @@ type inspectEndpointJSON struct {
 func (fd *FakeDaemon) handleContainerInspect(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	// Determine container details
-	stack, svc, ok := fd.data.parseContainerKey(id)
-
-	image := "mock-image:latest"
-	workDir := "/usr/share/nginx/html"
-	svcState := "running"
-	containerName := strings.TrimPrefix(id, "mock-")
-
-	if ok {
-		image = fd.data.GetRunningImage(stack, svc)
-		if wd := workingDirForImage(image); wd != "" {
-			workDir = wd
-		}
-		stackStatus := fd.state.Get(stack)
-		svcState = fd.data.GetServiceState(stack, svc, stackStatus)
-	} else {
-		// Check standalone containers
-		for _, s := range fd.data.standalones {
-			standaloneID := fmt.Sprintf("mock-standalone-%s", s.name)
-			if standaloneID == id {
-				image = s.image
-				svcState = s.state
-				containerName = s.name
-				if wd := workingDirForImage(image); wd != "" {
-					workDir = wd
-				}
-				break
-			}
-		}
-	}
-
-	imageHash := mockHash(image)
-	imageID := fmt.Sprintf("sha256:%s%s", imageHash, imageHash)
-
-	isRunning := svcState == "running" || svcState == "paused"
-	isPaused := svcState == "paused"
-	pid := 0
-	if isRunning {
-		pid = 12345
-	}
-
-	mounts := fd.buildMounts(stack, svc)
-
-	// Build inspect-style networks
-	inspectNets := make(map[string]inspectEndpointJSON)
-	endpoints := fd.buildEndpoints(stack, svc, id)
-	for name, ep := range endpoints {
-		inspectNets[name] = inspectEndpointJSON{
-			IPAddress:   ep.IPAddress,
-			IPPrefixLen: ep.IPPrefixLen,
-			Gateway:     ep.Gateway,
-			MacAddress:  ep.MacAddress,
-			Aliases:     []string{svc, containerName},
-			NetworkID:   ep.NetworkID,
-		}
-	}
-
-	// Build port bindings
-	portBindings := fd.buildPortBindings(stack, svc)
-
-	resp := containerInspectJSON{
-		ID:      id,
-		Created: "2026-02-18T00:00:00.000000000Z",
-		Name:    "/" + containerName,
-		Path:    "/docker-entrypoint.sh",
-		Args:    []string{"-g", "daemon off;"},
-		State: &containerStateJSON{
-			Status:     svcState,
-			Running:    isRunning,
-			Paused:     isPaused,
-			Restarting: false,
-			OOMKilled:  false,
-			Dead:       false,
-			Pid:        pid,
-			ExitCode:   0,
-			StartedAt:  "2026-02-18T00:00:00.000000000Z",
-			FinishedAt: "0001-01-01T00:00:00Z",
-		},
-		RestartCount: 0,
-		Image:        imageID,
-		Config: &containerConfigJSON{
-			Hostname:   containerName,
-			Image:      image,
-			Cmd:        []string{"nginx", "-g", "daemon off;"},
-			WorkingDir: workDir,
-			User:       "",
-			Env:        []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
-			Tty:        false,
-		},
-		HostConfig: &hostConfigJSON{
-			RestartPolicy: restartPolicyJSON{
-				Name:              "unless-stopped",
-				MaximumRetryCount: 0,
-			},
-		},
-		Mounts: mounts,
-		NetworkSettings: &inspectNetworkSettingsJSON{Ports: portBindings, Networks: inspectNets},
+	resp, ok := fd.world.ContainerInspect(id)
+	if !ok {
+		http.Error(w, fmt.Sprintf(`{"message":"No such container: %s"}`, id), http.StatusNotFound)
+		return
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -778,15 +415,8 @@ type pidsStatsJSON struct {
 func (fd *FakeDaemon) handleContainerStats(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	// Determine container state
-	svcState := "running"
-	if stack, svc, ok := fd.data.parseContainerKey(id); ok {
-		svcState = fd.state.GetService(stack, svc)
-		if svcState == "" {
-			stackStatus := fd.state.Get(stack)
-			svcState = fd.data.GetServiceState(stack, svc, stackStatus)
-		}
-	}
+	// Determine container state from MockWorld (dynamically resolved)
+	svcState := fd.world.GetContainerState(id)
 
 	// Docker SDK expects a JSON body, streamed (stream=false returns one shot).
 	w.Header().Set("Content-Type", "application/json")
@@ -895,9 +525,8 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 
 	// Determine image type for realistic log content
 	imageBase := "generic"
-	if stack, svc, ok := fd.data.parseContainerKey(id); ok {
-		img := fd.data.GetRunningImage(stack, svc)
-		imageBase = extractImageBase(img)
+	if c, ok := fd.world.GetContainer(id); ok {
+		imageBase = extractImageBase(c.Image)
 	}
 
 	// Docker logs use stdcopy multiplexing for non-TTY containers.
@@ -1281,7 +910,7 @@ type imageJSON struct {
 
 func (fd *FakeDaemon) handleImageList(w http.ResponseWriter, r *http.Request) {
 	// Count containers per image
-	containers := fd.buildContainerList(true, "")
+	containers := fd.world.ContainerList(true, "")
 	countByImageID := make(map[string]int)
 	for _, c := range containers {
 		countByImageID[c.ImageID]++
@@ -1307,19 +936,17 @@ func (fd *FakeDaemon) handleImageList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Dangling images
-	result = append(result, imageJSON{
-		ID:       "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-		RepoTags: []string{},
-		Created:  time.Date(2025, 11, 15, 4, 0, 0, 0, time.UTC).Unix(),
-		Size:     257228800,
-	})
-	result = append(result, imageJSON{
-		ID:       "sha256:f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
-		RepoTags: []string{},
-		Created:  time.Date(2025, 10, 20, 2, 0, 0, 0, time.UTC).Unix(),
-		Size:     94060544,
-	})
+	// Dangling images from MockData
+	for i, di := range fd.data.danglingImages {
+		hash := mockHash(fmt.Sprintf("dangling-%d-%s", i, di.id))
+		created, _ := time.Parse(time.RFC3339, di.created)
+		result = append(result, imageJSON{
+			ID:       fmt.Sprintf("sha256:%s%s", hash, hash),
+			RepoTags: []string{},
+			Created:  created.Unix(),
+			Size:     parseSizeToBytes(di.size),
+		})
+	}
 
 	writeJSON(w, http.StatusOK, result)
 }
@@ -1503,131 +1130,17 @@ type networkContainerJSON struct {
 }
 
 func (fd *FakeDaemon) handleNetworkList(w http.ResponseWriter, r *http.Request) {
-	names := fd.data.SortedNetworks()
-	result := make([]networkJSON, 0, len(names))
-
-	for _, name := range names {
-		meta := fd.data.networks[name]
-		netID := fmt.Sprintf("mock-net-%s", strings.ReplaceAll(name, "_", "-"))
-
-		var ipamConfig []ipamConfigJSON
-		if meta.driver == "bridge" {
-			h := simpleHash(name)
-			subnet := 17 + int(h%200)
-			ipamConfig = []ipamConfigJSON{{
-				Subnet:  fmt.Sprintf("172.%d.0.0/16", subnet),
-				Gateway: fmt.Sprintf("172.%d.0.1", subnet),
-			}}
-		}
-
-		result = append(result, networkJSON{
-			Name:     name,
-			ID:       netID,
-			Created:  "2026-01-01T00:00:00Z",
-			Scope:    meta.scope,
-			Driver:   meta.driver,
-			Internal: meta.internal,
-			IPAM: networkIPAMJSON{
-				Driver: "default",
-				Config: ipamConfig,
-			},
-			Containers: map[string]networkContainerJSON{}, // list doesn't populate this
-		})
-	}
-
+	result := fd.world.NetworkList()
 	writeJSON(w, http.StatusOK, result)
 }
 
 func (fd *FakeDaemon) handleNetworkInspect(w http.ResponseWriter, r *http.Request) {
 	networkID := r.PathValue("id")
 
-	var netName string
-	var meta networkMeta
-	found := false
-
-	for name, nm := range fd.data.networks {
-		expectedID := fmt.Sprintf("mock-net-%s", strings.ReplaceAll(name, "_", "-"))
-		if name == networkID || expectedID == networkID {
-			netName = name
-			meta = nm
-			found = true
-			break
-		}
-	}
-
-	if !found {
+	resp, ok := fd.world.NetworkInspect(networkID)
+	if !ok {
 		http.Error(w, fmt.Sprintf(`{"message":"network %s not found"}`, networkID), http.StatusNotFound)
 		return
-	}
-
-	netID := fmt.Sprintf("mock-net-%s", strings.ReplaceAll(netName, "_", "-"))
-
-	// Find containers on this network
-	allContainers := fd.buildContainerList(true, "")
-	// Sort containers by ID so IP/MAC assignment is deterministic
-	// (Go map iteration in buildContainerList is non-deterministic).
-	sort.Slice(allContainers, func(i, j int) bool {
-		return allContainers[i].ID < allContainers[j].ID
-	})
-	netContainers := make(map[string]networkContainerJSON)
-
-	h := simpleHash(netName)
-	subnet := 17 + int(h%200)
-	ipCounter := 2
-
-	for _, c := range allContainers {
-		project := c.Labels["com.docker.compose.project"]
-		service := c.Labels["com.docker.compose.service"]
-		key := project + "/" + service
-
-		nets, hasExplicit := fd.data.serviceNetworks[key]
-		onNetwork := false
-		if hasExplicit {
-			for _, n := range nets {
-				if n == netName {
-					onNetwork = true
-					break
-				}
-			}
-		} else if netName == "bridge" || netName == project+"_default" {
-			onNetwork = true
-		}
-
-		if onNetwork {
-			containerName := ""
-			if len(c.Names) > 0 {
-				containerName = strings.TrimPrefix(c.Names[0], "/")
-			}
-			netContainers[c.ID] = networkContainerJSON{
-				Name:        containerName,
-				MacAddress:  fmt.Sprintf("02:42:ac:%02x:00:%02x", subnet%256, ipCounter),
-				IPv4Address: fmt.Sprintf("172.%d.0.%d/16", subnet, ipCounter),
-			}
-			ipCounter++
-		}
-	}
-
-	var ipamConfig []ipamConfigJSON
-	if meta.driver == "bridge" {
-		ipamConfig = []ipamConfigJSON{{
-			Subnet:  fmt.Sprintf("172.%d.0.0/16", subnet),
-			Gateway: fmt.Sprintf("172.%d.0.1", subnet),
-		}}
-	}
-
-	resp := networkJSON{
-		Name:       netName,
-		ID:         netID,
-		Created:    "2026-01-01T00:00:00Z",
-		Scope:      meta.scope,
-		Driver:     meta.driver,
-		Internal:   meta.internal,
-		EnableIPv6: false,
-		IPAM: networkIPAMJSON{
-			Driver: "default",
-			Config: ipamConfig,
-		},
-		Containers: netContainers,
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -1785,6 +1298,7 @@ func (fd *FakeDaemon) handleMockServiceStateSet(w http.ResponseWriter, r *http.R
 	}
 
 	fd.state.SetService(stack, service, body.Status)
+	fd.world.Reset() // Rebuild world after state change
 
 	containerID := fmt.Sprintf("mock-%s-%s-1", stack, service)
 	switch body.Status {
@@ -1813,6 +1327,7 @@ func (fd *FakeDaemon) handleMockStateSet(w http.ResponseWriter, r *http.Request)
 
 	oldStatus := fd.state.Get(stack)
 	fd.state.Set(stack, body.Status)
+	fd.world.Reset() // Rebuild world after state change
 
 	// Publish events for state transitions
 	services := fd.getServices(stack)
@@ -1845,12 +1360,14 @@ func (fd *FakeDaemon) handleMockStateDelete(w http.ResponseWriter, r *http.Reque
 	}
 
 	fd.state.Remove(stack)
+	fd.world.Reset() // Rebuild world after state change
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
 }
 
 func (fd *FakeDaemon) handleMockReset(w http.ResponseWriter, r *http.Request) {
 	fd.state.Reset()
+	fd.world.Reset() // Rebuild world after state reset
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
 }

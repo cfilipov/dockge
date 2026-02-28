@@ -1,0 +1,61 @@
+status: inactive
+networks:
+  stack-059_app-net:
+    id: "755ffa6ed85d5e7aabf2448112a3e4c4755ffa6ed85d5e7aabf2448112a3e4c4"
+services:
+  alpine-1:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-059_default:
+        ip: "172.63.0.2"
+        mac: "02:42:ac:3f:00:02"
+  golang-2:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-059_default:
+        ip: "172.63.0.3"
+        mac: "02:42:ac:3f:00:03"
+  mysql-5:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-059_default:
+        ip: "172.63.0.4"
+        mac: "02:42:ac:3f:00:04"
+  nginx-4:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-059_default:
+        ip: "172.63.0.5"
+        mac: "02:42:ac:3f:00:05"
+  python-6:
+    command: "python main.py"
+    restart_policy: unless-stopped
+    networks:
+      stack-059_default:
+        ip: "172.63.0.6"
+        mac: "02:42:ac:3f:00:06"
+  rabbitmq-7:
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-059_default:
+        ip: "172.63.0.7"
+        mac: "02:42:ac:3f:00:07"
+  traefik:
+    command: "/entrypoint.sh traefik"
+    restart_policy: unless-stopped
+    networks:
+      stack-059_default:
+        ip: "172.63.0.8"
+        mac: "02:42:ac:3f:00:08"
+  vault-3:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-059_default:
+        ip: "172.63.0.9"
+        mac: "02:42:ac:3f:00:09"

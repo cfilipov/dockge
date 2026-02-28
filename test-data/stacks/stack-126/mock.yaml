@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-126_default:
+    id: "926f2b7dfe11dbbf4cc2959234ef6101926f2b7dfe11dbbf4cc2959234ef6101"
+services:
+  httpd:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-126_default:
+        ip: "172.150.0.2"
+        mac: "02:42:ac:96:00:02"
+  mariadb-1:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-126_default:
+        ip: "172.150.0.3"
+        mac: "02:42:ac:96:00:03"

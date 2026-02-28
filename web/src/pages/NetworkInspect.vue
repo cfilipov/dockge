@@ -54,9 +54,9 @@
                             </div>
 
                             <div class="overview-item">
-                                <div class="overview-label">{{ $t("containerID") }}</div>
+                                <div class="overview-label">{{ $t("networkID") }}</div>
                                 <div class="overview-value">
-                                    <code :title="networkDetail.id">{{ networkDetail.id.substring(0, 12) }}</code>
+                                    <code>{{ networkDetail.id }}</code>
                                 </div>
                             </div>
 

@@ -1,1 +1,19 @@
 status: inactive
+networks:
+  08-env-config_default:
+    id: "3607ea2b8a2c0efee8aa54c440d2b4403607ea2b8a2c0efee8aa54c440d2b440"
+services:
+  app:
+    command: "node server.js"
+    restart_policy: unless-stopped
+    networks:
+      08-env-config_default:
+        ip: "172.27.0.2"
+        mac: "02:42:ac:1b:00:02"
+  db:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      08-env-config_default:
+        ip: "172.27.0.3"
+        mac: "02:42:ac:1b:00:03"

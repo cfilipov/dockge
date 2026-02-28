@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-190_default:
+    id: "8f737b993237fc5a51dec576f8c946e48f737b993237fc5a51dec576f8c946e4"
+services:
+  node:
+    command: "node server.js"
+    restart_policy: unless-stopped
+    networks:
+      stack-190_default:
+        ip: "172.75.0.2"
+        mac: "02:42:ac:4b:00:02"

@@ -392,28 +392,34 @@ func TestDefaultDevStateFromData(t *testing.T) {
 		stackStatuses: map[string]string{
 			"03-monitoring": "exited",
 			"08-env-config": "inactive",
+			"stack-010":     "running",
+			"stack-013":     "exited",
+			"stack-014":     "inactive",
 		},
 	}
 
 	state := DefaultDevStateFromData(data)
 
-	// Featured stacks with mock.yaml overrides
+	// All statuses come from data.stackStatuses
 	if got := state.Get("03-monitoring"); got != "exited" {
 		t.Errorf("03-monitoring = %q, want exited", got)
 	}
 	if got := state.Get("08-env-config"); got != "inactive" {
 		t.Errorf("08-env-config = %q, want inactive", got)
 	}
-
-	// Filler stacks still get default distribution
 	if got := state.Get("stack-010"); got != "running" {
-		t.Errorf("stack-010 = %q, want running (10%%5=0)", got)
+		t.Errorf("stack-010 = %q, want running", got)
 	}
 	if got := state.Get("stack-013"); got != "exited" {
-		t.Errorf("stack-013 = %q, want exited (13%%5=3)", got)
+		t.Errorf("stack-013 = %q, want exited", got)
 	}
 	if got := state.Get("stack-014"); got != "inactive" {
-		t.Errorf("stack-014 = %q, want inactive (14%%5=4)", got)
+		t.Errorf("stack-014 = %q, want inactive", got)
+	}
+
+	// Unknown stacks default to "inactive"
+	if got := state.Get("nonexistent"); got != "inactive" {
+		t.Errorf("nonexistent = %q, want inactive", got)
 	}
 }
 

@@ -1,0 +1,12 @@
+status: exited
+networks:
+  stack-103_default:
+    id: "a1ead1a9c69004e27f476f460c6ebe5ca1ead1a9c69004e27f476f460c6ebe5c"
+services:
+  php:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-103_default:
+        ip: "172.81.0.2"
+        mac: "02:42:ac:51:00:02"

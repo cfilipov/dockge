@@ -1,4 +1,49 @@
 status: running
+networks:
+  05-multi-service_frontend:
+    id: "2970ef02739ffcfdf7dd51edb96146432970ef02739ffcfdf7dd51edb9614643"
+  05-multi-service_backend:
+    id: "4390b7ecd3568b0f9d3d090319a831b14390b7ecd3568b0f9d3d090319a831b1"
 services:
+  app:
+    command: "node server.js"
+    restart_policy: unless-stopped
+    networks:
+      05-multi-service_frontend:
+        ip: "172.22.0.2"
+        mac: "02:42:ac:16:00:02"
+      05-multi-service_backend:
+        ip: "172.23.0.2"
+        mac: "02:42:ac:17:00:02"
+  api:
+    command: "uvicorn main:app"
+    restart_policy: unless-stopped
+    networks:
+      05-multi-service_frontend:
+        ip: "172.22.0.3"
+        mac: "02:42:ac:16:00:03"
+      05-multi-service_backend:
+        ip: "172.23.0.3"
+        mac: "02:42:ac:17:00:03"
   db:
     health: unhealthy
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      05-multi-service_backend:
+        ip: "172.23.0.4"
+        mac: "02:42:ac:17:00:04"
+  redis:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      05-multi-service_backend:
+        ip: "172.23.0.5"
+        mac: "02:42:ac:17:00:05"
+  worker:
+    command: "celery -A tasks worker"
+    restart_policy: unless-stopped
+    networks:
+      05-multi-service_backend:
+        ip: "172.23.0.6"
+        mac: "02:42:ac:17:00:06"

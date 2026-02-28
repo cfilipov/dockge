@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-156_default:
+    id: "86592bca1fd9030058f49525d527b9be86592bca1fd9030058f49525d527b9be"
+services:
+  ruby-1:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-156_default:
+        ip: "172.99.0.2"
+        mac: "02:42:ac:63:00:02"
+  ubuntu:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-156_default:
+        ip: "172.99.0.3"
+        mac: "02:42:ac:63:00:03"

@@ -1,4 +1,27 @@
 status: running
+networks:
+  06-mixed-state_default:
+    id: "4ea80485be0893139005ba6a74f629ad4ea80485be0893139005ba6a74f629ad"
 services:
+  app:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      06-mixed-state_default:
+        ip: "172.24.0.2"
+        mac: "02:42:ac:18:00:02"
   worker:
     state: exited
+    command: "python worker.py"
+    restart_policy: unless-stopped
+    networks:
+      06-mixed-state_default:
+        ip: "172.24.0.3"
+        mac: "02:42:ac:18:00:03"
+  db:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      06-mixed-state_default:
+        ip: "172.24.0.4"
+        mac: "02:42:ac:18:00:04"

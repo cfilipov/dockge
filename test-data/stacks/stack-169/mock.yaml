@@ -1,0 +1,68 @@
+status: inactive
+networks:
+  stack-169_app-net:
+    id: "b6e1fce59ed1b79e684c420a542f0d20b6e1fce59ed1b79e684c420a542f0d20"
+services:
+  caddy-2:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.2"
+        mac: "02:42:ac:87:00:02"
+  consul-5:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.3"
+        mac: "02:42:ac:87:00:03"
+  grafana-1:
+    command: "/run.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.4"
+        mac: "02:42:ac:87:00:04"
+  httpd-8:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.5"
+        mac: "02:42:ac:87:00:05"
+  memcached:
+    command: "memcached"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.6"
+        mac: "02:42:ac:87:00:06"
+  mongo-7:
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.7"
+        mac: "02:42:ac:87:00:07"
+  redis-6:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.8"
+        mac: "02:42:ac:87:00:08"
+  ruby-4:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.9"
+        mac: "02:42:ac:87:00:09"
+  ubuntu-3:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-169_default:
+        ip: "172.135.0.10"
+        mac: "02:42:ac:87:00:0a"

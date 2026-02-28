@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-082_default:
+    id: "47f9bc08d57ba592995402e71f851f2c47f9bc08d57ba592995402e71f851f2c"
+services:
+  minio:
+    command: "minio server /data"
+    restart_policy: unless-stopped
+    networks:
+      stack-082_default:
+        ip: "172.155.0.2"
+        mac: "02:42:ac:9b:00:02"

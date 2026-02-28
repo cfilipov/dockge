@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-157_default:
+    id: "a19a142fd361a1d37f37aac0199f1b6da19a142fd361a1d37f37aac0199f1b6d"
+services:
+  minio:
+    command: "minio server /data"
+    restart_policy: unless-stopped
+    networks:
+      stack-157_default:
+        ip: "172.100.0.2"
+        mac: "02:42:ac:64:00:02"
+  postgres-1:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      stack-157_default:
+        ip: "172.100.0.3"
+        mac: "02:42:ac:64:00:03"

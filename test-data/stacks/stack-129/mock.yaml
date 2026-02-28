@@ -1,0 +1,54 @@
+status: inactive
+networks:
+  stack-129_app-net:
+    id: "37daadce1b1b54aae9771321d1e5ee1437daadce1b1b54aae9771321d1e5ee14"
+services:
+  busybox-4:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-129_default:
+        ip: "172.153.0.2"
+        mac: "02:42:ac:99:00:02"
+  debian-5:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-129_default:
+        ip: "172.153.0.3"
+        mac: "02:42:ac:99:00:03"
+  elasticsearch-3:
+    command: "/usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-129_default:
+        ip: "172.153.0.4"
+        mac: "02:42:ac:99:00:04"
+  mysql:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-129_default:
+        ip: "172.153.0.5"
+        mac: "02:42:ac:99:00:05"
+  php-6:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-129_default:
+        ip: "172.153.0.6"
+        mac: "02:42:ac:99:00:06"
+  python-1:
+    command: "python main.py"
+    restart_policy: unless-stopped
+    networks:
+      stack-129_default:
+        ip: "172.153.0.7"
+        mac: "02:42:ac:99:00:07"
+  rabbitmq-2:
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-129_default:
+        ip: "172.153.0.8"
+        mac: "02:42:ac:99:00:08"

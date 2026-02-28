@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-181_default:
+    id: "ad4a61fadeee207073e7df1514109acead4a61fadeee207073e7df1514109ace"
+services:
+  ubuntu:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-181_default:
+        ip: "172.43.0.2"
+        mac: "02:42:ac:2b:00:02"

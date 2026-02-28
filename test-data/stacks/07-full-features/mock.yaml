@@ -1,20 +1,76 @@
 status: running
+networks:
+  07-full-features_frontend:
+    id: "a7b20c2e317bdcf3791fb2c1fb85664da7b20c2e317bdcf3791fb2c1fb85664d"
+  07-full-features_backend:
+    id: "aa46c4baeebbb9fd74eb7a5524450343aa46c4baeebbb9fd74eb7a5524450343"
 services:
   web:
     health: healthy
     update_available: true
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      07-full-features_frontend:
+        ip: "172.25.0.2"
+        mac: "02:42:ac:19:00:02"
   api:
     health: healthy
+    command: "node server.js"
+    restart_policy: unless-stopped
+    networks:
+      07-full-features_frontend:
+        ip: "172.25.0.3"
+        mac: "02:42:ac:19:00:03"
+      07-full-features_backend:
+        ip: "172.26.0.2"
+        mac: "02:42:ac:1a:00:02"
   db:
     health: healthy
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      07-full-features_backend:
+        ip: "172.26.0.3"
+        mac: "02:42:ac:1a:00:03"
   cache:
     health: healthy
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      07-full-features_backend:
+        ip: "172.26.0.4"
+        mac: "02:42:ac:1a:00:04"
   worker:
     state: exited
+    command: "celery -A tasks worker"
+    restart_policy: unless-stopped
+    networks:
+      07-full-features_backend:
+        ip: "172.26.0.5"
+        mac: "02:42:ac:1a:00:05"
   queue:
     health: unhealthy
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      07-full-features_backend:
+        ip: "172.26.0.6"
+        mac: "02:42:ac:1a:00:06"
   search:
     health: starting
     running_image: "elasticsearch:8.11.0"
+    command: "/bin/tini -- /usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      07-full-features_backend:
+        ip: "172.26.0.7"
+        mac: "02:42:ac:1a:00:07"
   proxy:
     health: healthy
+    command: "/entrypoint.sh traefik"
+    restart_policy: unless-stopped
+    networks:
+      07-full-features_frontend:
+        ip: "172.25.0.4"
+        mac: "02:42:ac:19:00:04"

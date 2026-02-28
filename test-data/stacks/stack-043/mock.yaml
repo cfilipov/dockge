@@ -1,0 +1,12 @@
+status: exited
+networks:
+  stack-043_default:
+    id: "453cd51f1158a7f99b916bf0dba61d47453cd51f1158a7f99b916bf0dba61d47"
+services:
+  redis:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-043_default:
+        ip: "172.174.0.2"
+        mac: "02:42:ac:ae:00:02"

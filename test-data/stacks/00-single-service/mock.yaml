@@ -1,0 +1,8 @@
+status: running
+networks:
+  00-single-service_default:
+    id: "86eea655f60604bc584318ba3cf8be0286eea655f60604bc584318ba3cf8be02"
+services:
+  alpine:
+    command: "sleep infinity"
+    restart_policy: "no"

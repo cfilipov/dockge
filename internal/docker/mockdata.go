@@ -7,7 +7,86 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
+
+// --- YAML unmarshaling types (exported fields required by yaml.v3) ---
+
+// mockYAMLFile is the schema for per-stack mock.yaml files.
+type mockYAMLFile struct {
+	Status   string                          `yaml:"status"`
+	Services map[string]serviceYAMLOverrides `yaml:"services"`
+	Networks map[string]networkYAMLConfig    `yaml:"networks"`
+}
+
+// networkYAMLConfig holds per-stack network config from mock.yaml.
+type networkYAMLConfig struct {
+	ID string `yaml:"id"`
+}
+
+type serviceYAMLOverrides struct {
+	State           string                               `yaml:"state"`
+	Health          string                               `yaml:"health"`
+	RunningImage    string                               `yaml:"running_image"`
+	UpdateAvailable bool                                 `yaml:"update_available"`
+	Command         string                               `yaml:"command"`
+	Args            []string                             `yaml:"args"`
+	Env             []string                             `yaml:"env"`
+	RestartPolicy   string                               `yaml:"restart_policy"`
+	Networks        map[string]networkEndpointYAMLConfig `yaml:"networks"`
+}
+
+type networkEndpointYAMLConfig struct {
+	IP  string `yaml:"ip"`
+	MAC string `yaml:"mac"`
+}
+
+// globalMockYAMLFile is the schema for the root-level mock.yaml.
+type globalMockYAMLFile struct {
+	Networks             map[string]networkDefYAML         `yaml:"networks"`
+	StandaloneContainers []standaloneContainerYAML         `yaml:"standalone_containers"`
+	ExternalStacks       map[string]externalStackYAML      `yaml:"external_stacks"`
+	DanglingImages       []danglingImageYAML               `yaml:"dangling_images"`
+}
+
+type networkDefYAML struct {
+	Driver   string `yaml:"driver"`
+	Internal bool   `yaml:"internal"`
+	Subnet   string `yaml:"subnet"`
+	Gateway  string `yaml:"gateway"`
+	ID       string `yaml:"id"`
+}
+
+type standaloneContainerYAML struct {
+	Name          string `yaml:"name"`
+	Image         string `yaml:"image"`
+	State         string `yaml:"state"`
+	Command       string `yaml:"command"`
+	RestartPolicy string `yaml:"restart_policy"`
+	Network       string `yaml:"network"`
+	IP            string `yaml:"ip"`
+	MAC           string `yaml:"mac"`
+}
+
+type externalStackYAML struct {
+	Services map[string]externalServiceYAML `yaml:"services"`
+}
+
+type externalServiceYAML struct {
+	Image   string   `yaml:"image"`
+	Command string   `yaml:"command"`
+	Ports   []string `yaml:"ports"`
+	Network string   `yaml:"network"`
+	IP      string   `yaml:"ip"`
+	MAC     string   `yaml:"mac"`
+}
+
+type danglingImageYAML struct {
+	ID      string `yaml:"id"`
+	Size    string `yaml:"size"`
+	Created string `yaml:"created"`
+}
 
 // MockData holds all data derived from compose.yaml and mock.yaml files
 // on disk. It is built once at startup and used by the fake daemon to serve
@@ -31,11 +110,22 @@ type MockData struct {
 	runningImages map[string]string // "stackName/svc" → override image
 	updateFlags   map[string]bool   // "stackName/svc" → update available
 
+	// Per-service config from mock.yaml (command, args, env, restart policy)
+	serviceCommands       map[string]string   // "stackName/svc" → command
+	serviceArgs           map[string][]string // "stackName/svc" → args
+	serviceEnv            map[string][]string // "stackName/svc" → env vars
+	serviceRestartPolicy  map[string]string   // "stackName/svc" → restart policy
+	serviceEndpoints      map[string]map[string]endpointConfig // "stackName/svc" → netName → {ip, mac}
+
 	// Standalone containers (not part of any compose project)
 	standalones []standaloneContainer
 
 	// External stacks (have Docker containers but no compose file in stacks dir)
-	externalStacks map[string][]string // stackName → service names
+	externalStacks   map[string][]string // stackName → service names
+	externalServices map[string]externalServiceConfig // "stackName/svc" → config
+
+	// Dangling images
+	danglingImages []danglingImageConfig
 }
 
 type imageMeta struct {
@@ -48,6 +138,9 @@ type networkMeta struct {
 	scope    string
 	internal bool
 	project  string // empty for docker defaults
+	subnet   string // e.g. "172.18.0.0/16"
+	gateway  string // e.g. "172.18.0.1"
+	id       string // 64-char hex hash (from mock.yaml)
 }
 
 type volumeMeta struct {
@@ -63,9 +156,14 @@ type volumeMount struct {
 }
 
 type standaloneContainer struct {
-	name  string
-	image string
-	state string
+	name          string
+	image         string
+	state         string
+	command       string
+	restartPolicy string
+	network       string
+	ip            string
+	mac           string
 }
 
 // composeService holds data extracted from a single service in compose.yaml.
@@ -95,13 +193,17 @@ type composeData struct {
 // in the stacks directory. Defines Docker resources that exist independently
 // of any compose project.
 type globalMockConfig struct {
-	networks map[string]networkMeta // standalone network name → metadata
+	networks    map[string]networkMeta                  // standalone network name → metadata
+	standalones []standaloneContainer                   // standalone containers
+	externals   map[string]map[string]externalServiceConfig // stackName → svc → config
+	danglings   []danglingImageConfig                   // dangling images
 }
 
 // mockOverrides holds data parsed from a per-stack mock.yaml sidecar file.
 type mockOverrides struct {
 	status   string                      // stack-level status
 	services map[string]serviceOverrides // per-service overrides
+	networks map[string]string           // network name → 64-char hex ID
 }
 
 // serviceOverrides holds per-service overrides from mock.yaml.
@@ -110,6 +212,34 @@ type serviceOverrides struct {
 	health          string // "", "unhealthy", "healthy"
 	runningImage    string // override the running image
 	updateAvailable bool   // simulate registry update
+	command         string // override entrypoint command
+	args            []string
+	env             []string
+	restartPolicy   string // "always", "unless-stopped", etc.
+	networks        map[string]endpointConfig // netName → {ip, mac}
+}
+
+// endpointConfig holds network endpoint config from mock.yaml.
+type endpointConfig struct {
+	ip  string
+	mac string
+}
+
+// danglingImageConfig holds dangling image data from mock.yaml.
+type danglingImageConfig struct {
+	id      string
+	size    string
+	created string
+}
+
+// externalServiceConfig holds per-service config for external stacks.
+type externalServiceConfig struct {
+	image   string
+	command string
+	ports   []string
+	network string
+	ip      string
+	mac     string
 }
 
 // BuildMockData scans the stacks directory, parses compose.yaml and mock.yaml
@@ -128,40 +258,84 @@ func BuildMockData(stacksDir string) *MockData {
 		serviceHealth:   make(map[string]string),
 		runningImages:   make(map[string]string),
 		updateFlags:     make(map[string]bool),
+		serviceCommands:      make(map[string]string),
+		serviceArgs:          make(map[string][]string),
+		serviceEnv:           make(map[string][]string),
+		serviceRestartPolicy: make(map[string]string),
+		serviceEndpoints:     make(map[string]map[string]endpointConfig),
+		externalServices:     make(map[string]externalServiceConfig),
 	}
 
-	// Docker default networks
+	// Docker default networks (fallback when global mock.yaml doesn't define them)
 	d.networks["bridge"] = networkMeta{driver: "bridge", scope: "local"}
 	d.networks["host"] = networkMeta{driver: "host", scope: "local"}
 	d.networks["none"] = networkMeta{driver: "null", scope: "local"}
 
 	// Global mock config (root-level mock.yaml in stacks dir)
+	// Overrides defaults with richer metadata (IDs, subnets, etc.)
 	globalCfg := parseGlobalMockYAML(filepath.Join(stacksDir, "mock.yaml"))
 	for name, meta := range globalCfg.networks {
 		d.networks[name] = meta
 	}
 
-	// Standalone containers
-	d.standalones = []standaloneContainer{
-		{name: "portainer", image: "portainer/portainer-ce:latest", state: "running"},
-		{name: "watchtower", image: "containrrr/watchtower:latest", state: "running"},
-		{name: "homeassistant", image: "ghcr.io/home-assistant/home-assistant:stable", state: "exited"},
+	// Standalone containers (from global mock.yaml, with defaults as fallback)
+	if len(globalCfg.standalones) > 0 {
+		d.standalones = globalCfg.standalones
+	} else {
+		d.standalones = []standaloneContainer{
+			{name: "portainer", image: "portainer/portainer-ce:latest", state: "running"},
+			{name: "watchtower", image: "containrrr/watchtower:latest", state: "running"},
+			{name: "homeassistant", image: "ghcr.io/home-assistant/home-assistant:stable", state: "exited"},
+		}
 	}
-
-	// Add standalone images
 	for _, s := range d.standalones {
 		d.addImage(s.image)
 	}
 
-	// External stacks: exist in Docker but not in stacks dir (unmanaged)
-	d.externalStacks = map[string][]string{
-		"10-unmanaged": {"web", "cache"},
+	// External stacks (from global mock.yaml, with defaults as fallback)
+	if len(globalCfg.externals) > 0 {
+		d.externalStacks = make(map[string][]string, len(globalCfg.externals))
+		for stackName, svcs := range globalCfg.externals {
+			var svcNames []string
+			for svcName, svc := range svcs {
+				svcNames = append(svcNames, svcName)
+				key := stackName + "/" + svcName
+				d.serviceImages[key] = svc.image
+				if len(svc.ports) > 0 {
+					d.servicePorts[key] = svc.ports
+				}
+				d.externalServices[key] = svc
+				d.addImage(svc.image)
+			}
+			d.externalStacks[stackName] = svcNames
+		}
+	} else {
+		d.externalStacks = map[string][]string{
+			"10-unmanaged": {"web", "cache"},
+		}
+		d.serviceImages["10-unmanaged/web"] = "nginx:1.25"
+		d.serviceImages["10-unmanaged/cache"] = "redis:7-alpine"
+		d.servicePorts["10-unmanaged/web"] = []string{"8080:80", "8443:443"}
+		d.addImage("nginx:1.25")
+		d.addImage("redis:7-alpine")
 	}
-	d.serviceImages["10-unmanaged/web"] = "nginx:1.25"
-	d.serviceImages["10-unmanaged/cache"] = "redis:7-alpine"
-	d.servicePorts["10-unmanaged/web"] = []string{"8080:80", "8443:443"}
-	d.addImage("nginx:1.25")
-	d.addImage("redis:7-alpine")
+
+	// External stacks default to "running" status
+	for stackName := range d.externalStacks {
+		if _, exists := d.stackStatuses[stackName]; !exists {
+			d.stackStatuses[stackName] = "running"
+		}
+	}
+
+	// Dangling images (from global mock.yaml, with defaults as fallback)
+	if len(globalCfg.danglings) > 0 {
+		d.danglingImages = globalCfg.danglings
+	} else {
+		d.danglingImages = []danglingImageConfig{
+			{id: "sha256:abc123dead", size: "245.3MiB", created: "2025-11-15T04:00:00Z"},
+			{id: "sha256:def456beef", size: "89.7MiB", created: "2025-10-20T02:00:00Z"},
+		}
+	}
 
 	entries, err := os.ReadDir(stacksDir)
 	if err != nil {
@@ -280,12 +454,37 @@ func BuildMockData(stacksDir string) *MockData {
 			if so.updateAvailable {
 				d.updateFlags[key] = true
 			}
+			if so.command != "" {
+				d.serviceCommands[key] = so.command
+			}
+			if len(so.args) > 0 {
+				d.serviceArgs[key] = so.args
+			}
+			if len(so.env) > 0 {
+				d.serviceEnv[key] = so.env
+			}
+			if so.restartPolicy != "" {
+				d.serviceRestartPolicy[key] = so.restartPolicy
+			}
+			if len(so.networks) > 0 {
+				d.serviceEndpoints[key] = so.networks
+			}
+		}
+
+		// Propagate network IDs from per-stack mock.yaml
+		for netName, netID := range overrides.networks {
+			if meta, ok := d.networks[netName]; ok {
+				meta.id = netID
+				d.networks[netName] = meta
+			}
 		}
 	}
 
-	// Add 2 dangling images
-	d.images["<dangling:1>"] = imageMeta{size: "245.3MiB", created: "2025-11-15T04:00:00Z"}
-	d.images["<dangling:2>"] = imageMeta{size: "89.7MiB", created: "2025-10-20T02:00:00Z"}
+	// Add dangling images from global mock.yaml
+	for i, di := range d.danglingImages {
+		key := fmt.Sprintf("<dangling:%d>", i+1)
+		d.images[key] = imageMeta{size: di.size, created: di.created}
+	}
 
 	return d
 }
@@ -389,6 +588,16 @@ func (d *MockData) SortedNetworks() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// NetworkID returns the mock.yaml-driven ID for a network, or falls back
+// to a deterministic 64-char hex hash (matching real Docker network IDs).
+func (d *MockData) NetworkID(name string) string {
+	if meta, ok := d.networks[name]; ok && meta.id != "" {
+		return meta.id
+	}
+	h := mockHash(name)
+	return h + h // 32 + 32 = 64 hex chars
 }
 
 // SortedVolumes returns all volume names sorted.
@@ -642,79 +851,46 @@ func parseVolumeRef(ref string, topLevelVolumes map[string]bool) composeVolumeRe
 // parseMockYAML reads a mock.yaml sidecar file and returns overrides.
 // Returns zero value if file doesn't exist.
 func parseMockYAML(path string) mockOverrides {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return mockOverrides{}
 	}
-	defer f.Close()
 
-	mo := mockOverrides{
-		services: make(map[string]serviceOverrides),
+	var raw mockYAMLFile
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return mockOverrides{}
 	}
 
-	var currentSvc string
-	inServices := false
+	mo := mockOverrides{
+		status:   raw.Status,
+		services: make(map[string]serviceOverrides, len(raw.Services)),
+		networks: make(map[string]string, len(raw.Networks)),
+	}
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		trimmed := strings.TrimRight(line, " \t")
-
-		if trimmed == "" || strings.HasPrefix(strings.TrimSpace(trimmed), "#") {
-			continue
+	for netName, nc := range raw.Networks {
+		if nc.ID != "" {
+			mo.networks[netName] = nc.ID
 		}
+	}
 
-		indent := countIndent(line)
-
-		// Top-level keys
-		if indent == 0 {
-			if strings.HasPrefix(trimmed, "status:") {
-				mo.status = strings.TrimSpace(strings.TrimPrefix(trimmed, "status:"))
-				mo.status = strings.Trim(mo.status, "\"'")
-				inServices = false
-			} else if strings.TrimSpace(trimmed) == "services:" {
-				inServices = true
-			} else {
-				inServices = false
+	for name, svc := range raw.Services {
+		so := serviceOverrides{
+			state:           svc.State,
+			health:          svc.Health,
+			runningImage:    svc.RunningImage,
+			updateAvailable: svc.UpdateAvailable,
+			command:         svc.Command,
+			args:            svc.Args,
+			env:             svc.Env,
+			restartPolicy:   svc.RestartPolicy,
+		}
+		if len(svc.Networks) > 0 {
+			so.networks = make(map[string]endpointConfig, len(svc.Networks))
+			for netName, ep := range svc.Networks {
+				so.networks[netName] = endpointConfig{ip: ep.IP, mac: ep.MAC}
 			}
-			continue
 		}
-
-		if !inServices {
-			continue
-		}
-
-		// Service name (indent 2)
-		if indent == 2 && strings.HasSuffix(trimmed, ":") {
-			currentSvc = strings.TrimSpace(strings.TrimSuffix(trimmed, ":"))
-			if _, ok := mo.services[currentSvc]; !ok {
-				mo.services[currentSvc] = serviceOverrides{}
-			}
-			continue
-		}
-
-		// Service fields (indent 4)
-		if indent == 4 && currentSvc != "" {
-			field := strings.TrimSpace(trimmed)
-			so := mo.services[currentSvc]
-
-			if strings.HasPrefix(field, "state:") {
-				so.state = strings.TrimSpace(strings.TrimPrefix(field, "state:"))
-				so.state = strings.Trim(so.state, "\"'")
-			} else if strings.HasPrefix(field, "health:") {
-				so.health = strings.TrimSpace(strings.TrimPrefix(field, "health:"))
-				so.health = strings.Trim(so.health, "\"'")
-			} else if strings.HasPrefix(field, "running_image:") {
-				so.runningImage = strings.TrimSpace(strings.TrimPrefix(field, "running_image:"))
-				so.runningImage = strings.Trim(so.runningImage, "\"'")
-			} else if strings.HasPrefix(field, "update_available:") {
-				val := strings.TrimSpace(strings.TrimPrefix(field, "update_available:"))
-				val = strings.Trim(val, "\"'")
-				so.updateAvailable = val == "true"
-			}
-
-			mo.services[currentSvc] = so
-		}
+		mo.services[name] = so
 	}
 
 	return mo
@@ -722,65 +898,75 @@ func parseMockYAML(path string) mockOverrides {
 
 // parseGlobalMockYAML reads the root-level mock.yaml in the stacks directory.
 // This defines Docker resources that exist independently of any compose project
-// (standalone networks, etc.). Returns zero value if file doesn't exist.
+// (standalone networks, standalone containers, external stacks, dangling images).
+// Returns zero value if file doesn't exist.
 func parseGlobalMockYAML(path string) globalMockConfig {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return globalMockConfig{}
 	}
-	defer f.Close()
 
-	cfg := globalMockConfig{
-		networks: make(map[string]networkMeta),
+	var raw globalMockYAMLFile
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return globalMockConfig{}
 	}
 
-	var currentNet string
-	inNetworks := false
+	cfg := globalMockConfig{
+		networks: make(map[string]networkMeta, len(raw.Networks)),
+	}
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		trimmed := strings.TrimRight(line, " \t")
-
-		if trimmed == "" || strings.HasPrefix(strings.TrimSpace(trimmed), "#") {
-			continue
+	for name, nd := range raw.Networks {
+		driver := nd.Driver
+		if driver == "" {
+			driver = "bridge"
 		}
-
-		indent := countIndent(line)
-
-		// Top-level keys
-		if indent == 0 {
-			inNetworks = strings.TrimSpace(trimmed) == "networks:"
-			currentNet = ""
-			continue
+		cfg.networks[name] = networkMeta{
+			driver:   driver,
+			scope:    "local",
+			internal: nd.Internal,
+			subnet:   nd.Subnet,
+			gateway:  nd.Gateway,
+			id:       nd.ID,
 		}
+	}
 
-		if !inNetworks {
-			continue
-		}
+	for _, sc := range raw.StandaloneContainers {
+		cfg.standalones = append(cfg.standalones, standaloneContainer{
+			name:          sc.Name,
+			image:         sc.Image,
+			state:         sc.State,
+			command:       sc.Command,
+			restartPolicy: sc.RestartPolicy,
+			network:       sc.Network,
+			ip:            sc.IP,
+			mac:           sc.MAC,
+		})
+	}
 
-		// Network name (indent 2)
-		if indent == 2 && strings.HasSuffix(trimmed, ":") {
-			currentNet = strings.TrimSpace(strings.TrimSuffix(trimmed, ":"))
-			cfg.networks[currentNet] = networkMeta{driver: "bridge", scope: "local"}
-			continue
-		}
-
-		// Network fields (indent 4)
-		if indent == 4 && currentNet != "" {
-			field := strings.TrimSpace(trimmed)
-			meta := cfg.networks[currentNet]
-
-			if strings.HasPrefix(field, "driver:") {
-				meta.driver = strings.TrimSpace(strings.TrimPrefix(field, "driver:"))
-				meta.driver = strings.Trim(meta.driver, "\"'")
-			} else if strings.HasPrefix(field, "internal:") {
-				val := strings.TrimSpace(strings.TrimPrefix(field, "internal:"))
-				meta.internal = strings.Trim(val, "\"'") == "true"
+	if len(raw.ExternalStacks) > 0 {
+		cfg.externals = make(map[string]map[string]externalServiceConfig, len(raw.ExternalStacks))
+		for stackName, es := range raw.ExternalStacks {
+			svcs := make(map[string]externalServiceConfig, len(es.Services))
+			for svcName, svc := range es.Services {
+				svcs[svcName] = externalServiceConfig{
+					image:   svc.Image,
+					command: svc.Command,
+					ports:   svc.Ports,
+					network: svc.Network,
+					ip:      svc.IP,
+					mac:     svc.MAC,
+				}
 			}
-
-			cfg.networks[currentNet] = meta
+			cfg.externals[stackName] = svcs
 		}
+	}
+
+	for _, di := range raw.DanglingImages {
+		cfg.danglings = append(cfg.danglings, danglingImageConfig{
+			id:      di.ID,
+			size:    di.Size,
+			created: di.Created,
+		})
 	}
 
 	return cfg

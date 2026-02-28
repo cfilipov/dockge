@@ -1,0 +1,47 @@
+status: inactive
+networks:
+  stack-019_app-net:
+    id: "b00fec4587d0936e6ea252aa4d2e29d0b00fec4587d0936e6ea252aa4d2e29d0"
+services:
+  caddy-2:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-019_default:
+        ip: "172.81.0.2"
+        mac: "02:42:ac:51:00:02"
+  consul-5:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-019_default:
+        ip: "172.81.0.3"
+        mac: "02:42:ac:51:00:03"
+  grafana-1:
+    command: "/run.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-019_default:
+        ip: "172.81.0.4"
+        mac: "02:42:ac:51:00:04"
+  memcached:
+    command: "memcached"
+    restart_policy: unless-stopped
+    networks:
+      stack-019_default:
+        ip: "172.81.0.5"
+        mac: "02:42:ac:51:00:05"
+  ruby-4:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-019_default:
+        ip: "172.81.0.6"
+        mac: "02:42:ac:51:00:06"
+  ubuntu-3:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-019_default:
+        ip: "172.81.0.7"
+        mac: "02:42:ac:51:00:07"

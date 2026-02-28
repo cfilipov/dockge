@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-105_default:
+    id: "d8f8ff926d6405740655417da79abfcad8f8ff926d6405740655417da79abfca"
+services:
+  mariadb:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-105_default:
+        ip: "172.83.0.2"
+        mac: "02:42:ac:53:00:02"

@@ -1,0 +1,26 @@
+status: exited
+networks:
+  stack-078_app-net:
+    id: "64d18938bd725d83ba7c37d7778ce73d64d18938bd725d83ba7c37d7778ce73d"
+services:
+  minio-1:
+    command: "minio server /data"
+    restart_policy: unless-stopped
+    networks:
+      stack-078_default:
+        ip: "172.128.0.2"
+        mac: "02:42:ac:80:00:02"
+  php:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-078_default:
+        ip: "172.128.0.3"
+        mac: "02:42:ac:80:00:03"
+  postgres-2:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      stack-078_default:
+        ip: "172.128.0.4"
+        mac: "02:42:ac:80:00:04"

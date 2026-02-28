@@ -1,7 +1,8 @@
 package docker
 
 import (
-	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -38,60 +39,38 @@ func NewMockStateFrom(defaults map[string]string) *MockState {
 	return &MockState{stacks: m, services: make(map[string]string), defaults: d}
 }
 
-// defaultDevStateMap returns the default state map for dev/test use.
-// This is the hardcoded fallback; prefer DefaultDevStateFromData when MockData is available.
-func defaultDevStateMap() map[string]string {
-	m := make(map[string]string, 210)
-
-	// Featured stacks
-	m["00-single-service"] = "running"
-	m["01-web-app"] = "running"
-	m["02-blog"] = "running"
-	m["03-monitoring"] = "exited"
-	m["04-database"] = "running"
-	m["05-multi-service"] = "running"
-	m["06-mixed-state"] = "running"
-	m["07-full-features"] = "running"
-	m["08-env-config"] = "inactive"
-	m["09-mega-stack"] = "running"
-	m["10-unmanaged"] = "running"
-	m["test-stack"] = "running"
-
-	// Filler stacks: 60% running, 20% exited, 20% inactive
-	for i := 10; i < 200; i++ {
-		name := fmt.Sprintf("stack-%03d", i)
-		switch i % 5 {
-		case 0, 1, 2:
-			m[name] = "running"
-		case 3:
-			m[name] = "exited"
-		case 4:
-			m[name] = "inactive"
-		}
-	}
-
-	return m
-}
-
-// DefaultDevState returns state for all 200+ test stacks using the hardcoded map.
-// Featured stacks (00–09) get explicit statuses; filler stacks (010–199)
-// are assigned ~60% running, ~20% exited, ~20% inactive based on index.
+// DefaultDevState returns state for all 200+ test stacks by auto-discovering
+// the test-data/stacks directory and reading mock.yaml statuses.
+// Panics if test-data cannot be found (only used from tests/benchmarks).
 func DefaultDevState() *MockState {
-	return NewMockStateFrom(defaultDevStateMap())
+	stacksDir := findStacksDir()
+	data := BuildMockData(stacksDir)
+	return DefaultDevStateFromData(data)
 }
 
 // DefaultDevStateFromData builds the initial state map from MockData.
-// For stacks with mock.yaml status, uses that. For filler stacks without
-// mock.yaml, uses the 60/20/20 distribution based on index.
+// Every stack's status comes from its mock.yaml file (parsed into data.stackStatuses).
 func DefaultDevStateFromData(data *MockData) *MockState {
-	base := defaultDevStateMap()
+	return NewMockStateFrom(data.stackStatuses)
+}
 
-	// Override with mock.yaml statuses
-	for name, status := range data.stackStatuses {
-		base[name] = status
+// findStacksDir walks up from cwd to find test-data/stacks.
+func findStacksDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		panic("mockstate: cannot get cwd: " + err.Error())
 	}
-
-	return NewMockStateFrom(base)
+	for {
+		candidate := filepath.Join(dir, "test-data", "stacks")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			panic("mockstate: test-data/stacks directory not found")
+		}
+		dir = parent
+	}
 }
 
 // Reset restores the mock state to its initial defaults, discarding any
@@ -105,7 +84,7 @@ func (s *MockState) Reset() {
 			s.stacks[k] = v
 		}
 	} else {
-		s.stacks = defaultDevStateMap()
+		s.stacks = make(map[string]string)
 	}
 	s.services = make(map[string]string)
 }

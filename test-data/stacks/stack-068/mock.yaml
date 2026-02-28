@@ -1,4 +1,26 @@
-status: running
+status: exited
+networks:
+  stack-068_app-net:
+    id: "5afafb3e083c4472845745d1c2c2fecc5afafb3e083c4472845745d1c2c2fecc"
 services:
+  httpd-2:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-068_default:
+        ip: "172.95.0.2"
+        mac: "02:42:ac:5f:00:02"
   mongo-1:
-    state: exited
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-068_default:
+        ip: "172.95.0.3"
+        mac: "02:42:ac:5f:00:03"
+  redis:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-068_default:
+        ip: "172.95.0.4"
+        mac: "02:42:ac:5f:00:04"

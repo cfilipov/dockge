@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-116_default:
+    id: "fce62aa2d5f540e4224b944d1f0bfa5afce62aa2d5f540e4224b944d1f0bfa5a"
+services:
+  busybox-1:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-116_default:
+        ip: "172.117.0.2"
+        mac: "02:42:ac:75:00:02"
+  elasticsearch:
+    command: "/usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-116_default:
+        ip: "172.117.0.3"
+        mac: "02:42:ac:75:00:03"

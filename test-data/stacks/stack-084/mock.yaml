@@ -1,0 +1,12 @@
+status: inactive
+networks:
+  stack-084_default:
+    id: "e737e751dd67c124399a59be17997b9ae737e751dd67c124399a59be17997b9a"
+services:
+  traefik:
+    command: "/entrypoint.sh traefik"
+    restart_policy: unless-stopped
+    networks:
+      stack-084_default:
+        ip: "172.157.0.2"
+        mac: "02:42:ac:9d:00:02"

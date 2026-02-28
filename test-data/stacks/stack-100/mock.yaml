@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-100_default:
+    id: "5daa3a99fffaf6db8307847635044c655daa3a99fffaf6db8307847635044c65"
+services:
+  nginx:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-100_default:
+        ip: "172.78.0.2"
+        mac: "02:42:ac:4e:00:02"

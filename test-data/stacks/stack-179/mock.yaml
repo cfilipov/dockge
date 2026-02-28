@@ -1,0 +1,68 @@
+status: inactive
+networks:
+  stack-179_app-net:
+    id: "db46a3ac3748b40b05eb1d43fdb60eb5db46a3ac3748b40b05eb1d43fdb60eb5"
+services:
+  busybox-4:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.2"
+        mac: "02:42:ac:a8:00:02"
+  debian-5:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.3"
+        mac: "02:42:ac:a8:00:03"
+  elasticsearch-3:
+    command: "/usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.4"
+        mac: "02:42:ac:a8:00:04"
+  minio-7:
+    command: "minio server /data"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.5"
+        mac: "02:42:ac:a8:00:05"
+  mysql:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.6"
+        mac: "02:42:ac:a8:00:06"
+  php-6:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.7"
+        mac: "02:42:ac:a8:00:07"
+  postgres-8:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.8"
+        mac: "02:42:ac:a8:00:08"
+  python-1:
+    command: "python main.py"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.9"
+        mac: "02:42:ac:a8:00:09"
+  rabbitmq-2:
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-179_default:
+        ip: "172.168.0.10"
+        mac: "02:42:ac:a8:00:0a"

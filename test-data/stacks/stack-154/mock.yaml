@@ -1,0 +1,12 @@
+status: inactive
+networks:
+  stack-154_default:
+    id: "96d67212da224eba487bccfd10dcf40496d67212da224eba487bccfd10dcf404"
+services:
+  mysql:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-154_default:
+        ip: "172.97.0.2"
+        mac: "02:42:ac:61:00:02"

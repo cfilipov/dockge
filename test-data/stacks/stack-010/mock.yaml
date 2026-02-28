@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-010_default:
+    id: "a3fa959291b4c6f17d572b7d5b4a7c4fa3fa959291b4c6f17d572b7d5b4a7c4f"
+services:
+  ruby:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-010_default:
+        ip: "172.72.0.2"
+        mac: "02:42:ac:48:00:02"

@@ -1,14 +1,851 @@
 status: running
+networks:
+  09-mega-stack_default:
+    id: "e05d581240defd803ef0e6fd8a20473ee05d581240defd803ef0e6fd8a20473e"
 services:
+  svc-000:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.2"
+        mac: "02:42:ac:1c:00:02"
+  svc-001:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.3"
+        mac: "02:42:ac:1c:00:03"
+  svc-002:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.4"
+        mac: "02:42:ac:1c:00:04"
   svc-003:
     state: exited
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.5"
+        mac: "02:42:ac:1c:00:05"
+  svc-004:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.6"
+        mac: "02:42:ac:1c:00:06"
+  svc-005:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.7"
+        mac: "02:42:ac:1c:00:07"
+  svc-006:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.8"
+        mac: "02:42:ac:1c:00:08"
+  svc-007:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.9"
+        mac: "02:42:ac:1c:00:09"
+  svc-008:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.10"
+        mac: "02:42:ac:1c:00:0a"
+  svc-009:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.11"
+        mac: "02:42:ac:1c:00:0b"
+  svc-010:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.12"
+        mac: "02:42:ac:1c:00:0c"
+  svc-011:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.13"
+        mac: "02:42:ac:1c:00:0d"
   svc-012:
     state: exited
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.14"
+        mac: "02:42:ac:1c:00:0e"
+  svc-013:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.15"
+        mac: "02:42:ac:1c:00:0f"
+  svc-014:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.16"
+        mac: "02:42:ac:1c:00:10"
+  svc-015:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.17"
+        mac: "02:42:ac:1c:00:11"
+  svc-016:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.18"
+        mac: "02:42:ac:1c:00:12"
+  svc-017:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.19"
+        mac: "02:42:ac:1c:00:13"
+  svc-018:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.20"
+        mac: "02:42:ac:1c:00:14"
+  svc-019:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.21"
+        mac: "02:42:ac:1c:00:15"
+  svc-020:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.22"
+        mac: "02:42:ac:1c:00:16"
+  svc-021:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.23"
+        mac: "02:42:ac:1c:00:17"
+  svc-022:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.24"
+        mac: "02:42:ac:1c:00:18"
+  svc-023:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.25"
+        mac: "02:42:ac:1c:00:19"
+  svc-024:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.26"
+        mac: "02:42:ac:1c:00:1a"
   svc-025:
     state: exited
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.27"
+        mac: "02:42:ac:1c:00:1b"
+  svc-026:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.28"
+        mac: "02:42:ac:1c:00:1c"
+  svc-027:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.29"
+        mac: "02:42:ac:1c:00:1d"
+  svc-028:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.30"
+        mac: "02:42:ac:1c:00:1e"
+  svc-029:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.31"
+        mac: "02:42:ac:1c:00:1f"
+  svc-030:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.32"
+        mac: "02:42:ac:1c:00:20"
+  svc-031:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.33"
+        mac: "02:42:ac:1c:00:21"
+  svc-032:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.34"
+        mac: "02:42:ac:1c:00:22"
+  svc-033:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.35"
+        mac: "02:42:ac:1c:00:23"
+  svc-034:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.36"
+        mac: "02:42:ac:1c:00:24"
+  svc-035:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.37"
+        mac: "02:42:ac:1c:00:25"
+  svc-036:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.38"
+        mac: "02:42:ac:1c:00:26"
+  svc-037:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.39"
+        mac: "02:42:ac:1c:00:27"
+  svc-038:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.40"
+        mac: "02:42:ac:1c:00:28"
+  svc-039:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.41"
+        mac: "02:42:ac:1c:00:29"
+  svc-040:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.42"
+        mac: "02:42:ac:1c:00:2a"
   svc-041:
     health: unhealthy
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.43"
+        mac: "02:42:ac:1c:00:2b"
+  svc-042:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.44"
+        mac: "02:42:ac:1c:00:2c"
+  svc-043:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.45"
+        mac: "02:42:ac:1c:00:2d"
+  svc-044:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.46"
+        mac: "02:42:ac:1c:00:2e"
+  svc-045:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.47"
+        mac: "02:42:ac:1c:00:2f"
+  svc-046:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.48"
+        mac: "02:42:ac:1c:00:30"
+  svc-047:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.49"
+        mac: "02:42:ac:1c:00:31"
+  svc-048:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.50"
+        mac: "02:42:ac:1c:00:32"
+  svc-049:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.51"
+        mac: "02:42:ac:1c:00:33"
+  svc-050:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.52"
+        mac: "02:42:ac:1c:00:34"
+  svc-051:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.53"
+        mac: "02:42:ac:1c:00:35"
+  svc-052:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.54"
+        mac: "02:42:ac:1c:00:36"
+  svc-053:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.55"
+        mac: "02:42:ac:1c:00:37"
+  svc-054:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.56"
+        mac: "02:42:ac:1c:00:38"
+  svc-055:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.57"
+        mac: "02:42:ac:1c:00:39"
+  svc-056:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.58"
+        mac: "02:42:ac:1c:00:3a"
+  svc-057:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.59"
+        mac: "02:42:ac:1c:00:3b"
+  svc-058:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.60"
+        mac: "02:42:ac:1c:00:3c"
+  svc-059:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.61"
+        mac: "02:42:ac:1c:00:3d"
+  svc-060:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.62"
+        mac: "02:42:ac:1c:00:3e"
+  svc-061:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.63"
+        mac: "02:42:ac:1c:00:3f"
+  svc-062:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.64"
+        mac: "02:42:ac:1c:00:40"
+  svc-063:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.65"
+        mac: "02:42:ac:1c:00:41"
+  svc-064:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.66"
+        mac: "02:42:ac:1c:00:42"
+  svc-065:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.67"
+        mac: "02:42:ac:1c:00:43"
+  svc-066:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.68"
+        mac: "02:42:ac:1c:00:44"
   svc-067:
     health: unhealthy
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.69"
+        mac: "02:42:ac:1c:00:45"
+  svc-068:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.70"
+        mac: "02:42:ac:1c:00:46"
+  svc-069:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.71"
+        mac: "02:42:ac:1c:00:47"
+  svc-070:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.72"
+        mac: "02:42:ac:1c:00:48"
+  svc-071:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.73"
+        mac: "02:42:ac:1c:00:49"
+  svc-072:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.74"
+        mac: "02:42:ac:1c:00:4a"
+  svc-073:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.75"
+        mac: "02:42:ac:1c:00:4b"
+  svc-074:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.76"
+        mac: "02:42:ac:1c:00:4c"
+  svc-075:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.77"
+        mac: "02:42:ac:1c:00:4d"
+  svc-076:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.78"
+        mac: "02:42:ac:1c:00:4e"
+  svc-077:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.79"
+        mac: "02:42:ac:1c:00:4f"
+  svc-078:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.80"
+        mac: "02:42:ac:1c:00:50"
+  svc-079:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.81"
+        mac: "02:42:ac:1c:00:51"
+  svc-080:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.82"
+        mac: "02:42:ac:1c:00:52"
+  svc-081:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.83"
+        mac: "02:42:ac:1c:00:53"
+  svc-082:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.84"
+        mac: "02:42:ac:1c:00:54"
+  svc-083:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.85"
+        mac: "02:42:ac:1c:00:55"
+  svc-084:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.86"
+        mac: "02:42:ac:1c:00:56"
+  svc-085:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.87"
+        mac: "02:42:ac:1c:00:57"
+  svc-086:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.88"
+        mac: "02:42:ac:1c:00:58"
+  svc-087:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.89"
+        mac: "02:42:ac:1c:00:59"
   svc-088:
     state: exited
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.90"
+        mac: "02:42:ac:1c:00:5a"
+  svc-089:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.91"
+        mac: "02:42:ac:1c:00:5b"
+  svc-090:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.92"
+        mac: "02:42:ac:1c:00:5c"
+  svc-091:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.93"
+        mac: "02:42:ac:1c:00:5d"
+  svc-092:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.94"
+        mac: "02:42:ac:1c:00:5e"
+  svc-093:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.95"
+        mac: "02:42:ac:1c:00:5f"
+  svc-094:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.96"
+        mac: "02:42:ac:1c:00:60"
+  svc-095:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.97"
+        mac: "02:42:ac:1c:00:61"
+  svc-096:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.98"
+        mac: "02:42:ac:1c:00:62"
+  svc-097:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.99"
+        mac: "02:42:ac:1c:00:63"
+  svc-098:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.100"
+        mac: "02:42:ac:1c:00:64"
+  svc-099:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.101"
+        mac: "02:42:ac:1c:00:65"
+  svc-100:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.102"
+        mac: "02:42:ac:1c:00:66"
+  svc-101:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.103"
+        mac: "02:42:ac:1c:00:67"
+  svc-102:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.104"
+        mac: "02:42:ac:1c:00:68"
+  svc-103:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.105"
+        mac: "02:42:ac:1c:00:69"
+  svc-104:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.106"
+        mac: "02:42:ac:1c:00:6a"
+  svc-105:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.107"
+        mac: "02:42:ac:1c:00:6b"
+  svc-106:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.108"
+        mac: "02:42:ac:1c:00:6c"
+  svc-107:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.109"
+        mac: "02:42:ac:1c:00:6d"
+  svc-108:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.110"
+        mac: "02:42:ac:1c:00:6e"
+  svc-109:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.111"
+        mac: "02:42:ac:1c:00:6f"
+  svc-110:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.112"
+        mac: "02:42:ac:1c:00:70"
+  svc-111:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.113"
+        mac: "02:42:ac:1c:00:71"
+  svc-112:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.114"
+        mac: "02:42:ac:1c:00:72"
+  svc-113:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.115"
+        mac: "02:42:ac:1c:00:73"
+  svc-114:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.116"
+        mac: "02:42:ac:1c:00:74"
+  svc-115:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.117"
+        mac: "02:42:ac:1c:00:75"
+  svc-116:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.118"
+        mac: "02:42:ac:1c:00:76"
+  svc-117:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.119"
+        mac: "02:42:ac:1c:00:77"
+  svc-118:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.120"
+        mac: "02:42:ac:1c:00:78"
+  svc-119:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      09-mega-stack_default:
+        ip: "172.28.0.121"
+        mac: "02:42:ac:1c:00:79"

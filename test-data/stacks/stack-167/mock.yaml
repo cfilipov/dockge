@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-167_default:
+    id: "1b5f3f4030714968c5f281affa8ff3d61b5f3f4030714968c5f281affa8ff3d6"
+services:
+  golang:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-167_default:
+        ip: "172.133.0.2"
+        mac: "02:42:ac:85:00:02"
+  vault-1:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-167_default:
+        ip: "172.133.0.3"
+        mac: "02:42:ac:85:00:03"

@@ -1,0 +1,12 @@
+status: inactive
+networks:
+  stack-074_default:
+    id: "b4918482933812f76a3c3a6d59c6a849b4918482933812f76a3c3a6d59c6a849"
+services:
+  debian:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-074_default:
+        ip: "172.124.0.2"
+        mac: "02:42:ac:7c:00:02"

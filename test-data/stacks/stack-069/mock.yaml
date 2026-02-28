@@ -1,0 +1,110 @@
+status: inactive
+networks:
+  stack-069_app-net:
+    id: "2e36a96c7c6e7e45f09b1783b690c4fb2e36a96c7c6e7e45f09b1783b690c4fb"
+services:
+  alpine-11:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.2"
+        mac: "02:42:ac:60:00:02"
+  caddy-2:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.3"
+        mac: "02:42:ac:60:00:03"
+  consul-5:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.4"
+        mac: "02:42:ac:60:00:04"
+  golang-12:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.5"
+        mac: "02:42:ac:60:00:05"
+  grafana-1:
+    command: "/run.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.6"
+        mac: "02:42:ac:60:00:06"
+  httpd-8:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.7"
+        mac: "02:42:ac:60:00:07"
+  mariadb-9:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.8"
+        mac: "02:42:ac:60:00:08"
+  memcached:
+    command: "memcached"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.9"
+        mac: "02:42:ac:60:00:09"
+  mongo-7:
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.10"
+        mac: "02:42:ac:60:00:0a"
+  nginx-14:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.11"
+        mac: "02:42:ac:60:00:0b"
+  redis-6:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.12"
+        mac: "02:42:ac:60:00:0c"
+  ruby-4:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.13"
+        mac: "02:42:ac:60:00:0d"
+  traefik-10:
+    command: "/entrypoint.sh traefik"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.14"
+        mac: "02:42:ac:60:00:0e"
+  ubuntu-3:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.15"
+        mac: "02:42:ac:60:00:0f"
+  vault-13:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-069_default:
+        ip: "172.96.0.16"
+        mac: "02:42:ac:60:00:10"

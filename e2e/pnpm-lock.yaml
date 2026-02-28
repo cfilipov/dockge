@@ -14,6 +14,9 @@ importers:
       '@types/node':
         specifier: ^25.3.0
         version: 25.3.0
+      yaml:
+        specifier: ^2.8.2
+        version: 2.8.2
 
 packages:
 
@@ -43,6 +46,11 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
+  yaml@2.8.2:
+    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
 snapshots:
 
   '@playwright/test@1.58.2':
@@ -65,3 +73,5 @@ snapshots:
       fsevents: 2.3.2
 
   undici-types@7.18.2: {}
+
+  yaml@2.8.2: {}

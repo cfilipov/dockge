@@ -1,0 +1,40 @@
+status: exited
+networks:
+  stack-198_app-net:
+    id: "467ea83d4046f62a98d316d28ab84c94467ea83d4046f62a98d316d28ab84c94"
+services:
+  caddy-1:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-198_default:
+        ip: "172.83.0.2"
+        mac: "02:42:ac:53:00:02"
+  consul-4:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-198_default:
+        ip: "172.83.0.3"
+        mac: "02:42:ac:53:00:03"
+  grafana:
+    command: "/run.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-198_default:
+        ip: "172.83.0.4"
+        mac: "02:42:ac:53:00:04"
+  ruby-3:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-198_default:
+        ip: "172.83.0.5"
+        mac: "02:42:ac:53:00:05"
+  ubuntu-2:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-198_default:
+        ip: "172.83.0.6"
+        mac: "02:42:ac:53:00:06"

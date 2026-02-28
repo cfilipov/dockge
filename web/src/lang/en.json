@@ -282,6 +282,7 @@
     "networksNav": "Networks",
     "yes": "Yes",
     "no": "No",
+    "networkID": "Network ID",
     "imageID": "Image ID",
     "imageSize": "Size",
     "imageCreatedAt": "Created",

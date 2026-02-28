@@ -1,4 +1,33 @@
-status: running
+status: exited
+networks:
+  stack-188_app-net:
+    id: "ee5c7bd16201727b30f1c53ea8ffc8c5ee5c7bd16201727b30f1c53ea8ffc8c5"
 services:
+  alpine:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-188_default:
+        ip: "172.50.0.2"
+        mac: "02:42:ac:32:00:02"
   golang-1:
-    state: exited
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-188_default:
+        ip: "172.50.0.3"
+        mac: "02:42:ac:32:00:03"
+  nginx-3:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-188_default:
+        ip: "172.50.0.4"
+        mac: "02:42:ac:32:00:04"
+  vault-2:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-188_default:
+        ip: "172.50.0.5"
+        mac: "02:42:ac:32:00:05"

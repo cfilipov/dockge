@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-152_default:
+    id: "ea992f6bfd38284c3434918437c692f2ea992f6bfd38284c3434918437c692f2"
+services:
+  caddy:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-152_default:
+        ip: "172.95.0.2"
+        mac: "02:42:ac:5f:00:02"

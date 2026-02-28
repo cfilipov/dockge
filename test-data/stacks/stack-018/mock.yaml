@@ -1,0 +1,26 @@
+status: exited
+networks:
+  stack-018_app-net:
+    id: "7a74d48081514871a4d96a6f4baff2cf7a74d48081514871a4d96a6f4baff2cf"
+services:
+  httpd-2:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-018_default:
+        ip: "172.80.0.2"
+        mac: "02:42:ac:50:00:02"
+  mongo-1:
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-018_default:
+        ip: "172.80.0.3"
+        mac: "02:42:ac:50:00:03"
+  redis:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-018_default:
+        ip: "172.80.0.4"
+        mac: "02:42:ac:50:00:04"

@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-086_default:
+    id: "d0d0b429e2ed65fe0e7d0ac62813df40d0d0b429e2ed65fe0e7d0ac62813df40"
+services:
+  node-1:
+    command: "node server.js"
+    restart_policy: unless-stopped
+    networks:
+      stack-086_default:
+        ip: "172.159.0.2"
+        mac: "02:42:ac:9f:00:02"
+  postgres:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      stack-086_default:
+        ip: "172.159.0.3"
+        mac: "02:42:ac:9f:00:03"

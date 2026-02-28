@@ -1,1 +1,12 @@
 status: exited
+networks:
+  03-monitoring_default:
+    id: "7d5d7074fa6b860ba3f0ce9b30953cb57d5d7074fa6b860ba3f0ce9b30953cb5"
+services:
+  grafana:
+    command: "/run.sh"
+    restart_policy: unless-stopped
+    networks:
+      03-monitoring_default:
+        ip: "172.20.0.2"
+        mac: "02:42:ac:14:00:02"

@@ -1,0 +1,110 @@
+status: inactive
+networks:
+  stack-109_app-net:
+    id: "b275cda9702b15d06cd87346bad5af6eb275cda9702b15d06cd87346bad5af6e"
+services:
+  alpine-1:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.2"
+        mac: "02:42:ac:57:00:02"
+  busybox-9:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.3"
+        mac: "02:42:ac:57:00:03"
+  debian-10:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.4"
+        mac: "02:42:ac:57:00:04"
+  elasticsearch-8:
+    command: "/usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.5"
+        mac: "02:42:ac:57:00:05"
+  golang-2:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.6"
+        mac: "02:42:ac:57:00:06"
+  minio-12:
+    command: "minio server /data"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.7"
+        mac: "02:42:ac:57:00:07"
+  mysql-5:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.8"
+        mac: "02:42:ac:57:00:08"
+  nginx-4:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.9"
+        mac: "02:42:ac:57:00:09"
+  node-14:
+    command: "node server.js"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.10"
+        mac: "02:42:ac:57:00:0a"
+  php-11:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.11"
+        mac: "02:42:ac:57:00:0b"
+  postgres-13:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.12"
+        mac: "02:42:ac:57:00:0c"
+  python-6:
+    command: "python main.py"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.13"
+        mac: "02:42:ac:57:00:0d"
+  rabbitmq-7:
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.14"
+        mac: "02:42:ac:57:00:0e"
+  traefik:
+    command: "/entrypoint.sh traefik"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.15"
+        mac: "02:42:ac:57:00:0f"
+  vault-3:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-109_default:
+        ip: "172.87.0.16"
+        mac: "02:42:ac:57:00:10"

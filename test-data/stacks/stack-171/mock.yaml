@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-171_default:
+    id: "16087169629696f3c8a5cf86a8682c4d16087169629696f3c8a5cf86a8682c4d"
+services:
+  vault:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-171_default:
+        ip: "172.160.0.2"
+        mac: "02:42:ac:a0:00:02"

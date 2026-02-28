@@ -1,11 +1,81 @@
 # Global mock configuration — defines Docker resources that exist
-# independently of any compose project (standalone networks, etc.).
+# independently of any compose project.
 # Parsed by BuildMockData at startup.
 
 networks:
+  bridge:
+    driver: bridge
+    id: "9cdc3637e7ce0390427188d82d30b92e9cdc3637e7ce0390427188d82d30b92e"
+  host:
+    driver: host
+    id: "4077f8cc7eaf4d6f9eda4623b451f7d14077f8cc7eaf4d6f9eda4623b451f7d1"
+  none:
+    driver: "null"
+    id: "3c0d17bad169557be2a0a9551b97efc53c0d17bad169557be2a0a9551b97efc5"
   proxy:
     driver: bridge
+    subnet: "172.30.0.0/16"
+    gateway: "172.30.0.1"
+    id: "f91e91246d67f11b27b32fcba7994ba5f91e91246d67f11b27b32fcba7994ba5"
   shared-db:
     driver: bridge
+    subnet: "172.31.0.0/16"
+    gateway: "172.31.0.1"
+    id: "1bfe7d6e9dafaffdc553c381575115431bfe7d6e9dafaffdc553c38157511543"
   monitoring_net:
     driver: bridge
+    subnet: "172.32.0.0/16"
+    gateway: "172.32.0.1"
+    id: "195d20e59cd17ab3c7f09e0a562fc00d195d20e59cd17ab3c7f09e0a562fc00d"
+
+standalone_containers:
+  - name: portainer
+    image: "portainer/portainer-ce:latest"
+    state: running
+    command: "/portainer"
+    restart_policy: always
+    network: bridge
+    ip: "172.17.0.10"
+    mac: "02:42:ac:11:00:0a"
+  - name: watchtower
+    image: "containrrr/watchtower:latest"
+    state: running
+    command: "/watchtower"
+    restart_policy: unless-stopped
+    network: bridge
+    ip: "172.17.0.11"
+    mac: "02:42:ac:11:00:0b"
+  - name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    state: exited
+    command: "python3 -m homeassistant"
+    restart_policy: unless-stopped
+    network: bridge
+    ip: "172.17.0.12"
+    mac: "02:42:ac:11:00:0c"
+
+external_stacks:
+  10-unmanaged:
+    services:
+      web:
+        image: "nginx:1.25"
+        command: "nginx -g 'daemon off;'"
+        ports: ["8080:80", "8443:443"]
+        network: bridge
+        ip: "172.17.0.20"
+        mac: "02:42:ac:11:00:14"
+      cache:
+        image: "redis:7-alpine"
+        command: "redis-server"
+        ports: []
+        network: bridge
+        ip: "172.17.0.21"
+        mac: "02:42:ac:11:00:15"
+
+dangling_images:
+  - id: "sha256:abc123dead"
+    size: "245.3MiB"
+    created: "2025-11-15T04:00:00Z"
+  - id: "sha256:def456beef"
+    size: "89.7MiB"
+    created: "2025-10-20T02:00:00Z"

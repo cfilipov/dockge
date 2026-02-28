@@ -10,6 +10,7 @@ tmp
 # Build artifacts
 /dist
 /dockge
+/gen-mock-yaml
 test-data/bin/
 test-data/e2e-data*/
 test-data/e2e-stacks/

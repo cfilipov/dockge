@@ -1,4 +1,40 @@
-status: running
+status: exited
+networks:
+  stack-148_app-net:
+    id: "25f9d8ec4098a157fb5466038a661be925f9d8ec4098a157fb5466038a661be9"
 services:
   caddy-1:
-    state: exited
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-148_default:
+        ip: "172.68.0.2"
+        mac: "02:42:ac:44:00:02"
+  consul-4:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-148_default:
+        ip: "172.68.0.3"
+        mac: "02:42:ac:44:00:03"
+  grafana:
+    command: "/run.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-148_default:
+        ip: "172.68.0.4"
+        mac: "02:42:ac:44:00:04"
+  ruby-3:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-148_default:
+        ip: "172.68.0.5"
+        mac: "02:42:ac:44:00:05"
+  ubuntu-2:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-148_default:
+        ip: "172.68.0.6"
+        mac: "02:42:ac:44:00:06"

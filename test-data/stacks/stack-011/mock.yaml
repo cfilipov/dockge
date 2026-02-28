@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-011_default:
+    id: "afca0b5066e9acde7167b5bfac171660afca0b5066e9acde7167b5bfac171660"
+services:
+  postgres:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      stack-011_default:
+        ip: "172.73.0.2"
+        mac: "02:42:ac:49:00:02"

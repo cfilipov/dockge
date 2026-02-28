@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-120_default:
+    id: "5168ad3f46036c9d8fc513d08cfdd6235168ad3f46036c9d8fc513d08cfdd623"
+services:
+  busybox:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-120_default:
+        ip: "172.144.0.2"
+        mac: "02:42:ac:90:00:02"

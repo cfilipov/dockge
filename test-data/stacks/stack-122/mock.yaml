@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-122_default:
+    id: "24ac6bd887c23873fa01d5374d3c82cd24ac6bd887c23873fa01d5374d3c82cd"
+services:
+  mongo:
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-122_default:
+        ip: "172.146.0.2"
+        mac: "02:42:ac:92:00:02"

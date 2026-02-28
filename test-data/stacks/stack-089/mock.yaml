@@ -1,0 +1,75 @@
+status: inactive
+networks:
+  stack-089_app-net:
+    id: "737583a7e29dff03add83d48286345bd737583a7e29dff03add83d48286345bd"
+services:
+  alpine-6:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.2"
+        mac: "02:42:ac:a2:00:02"
+  consul:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.3"
+        mac: "02:42:ac:a2:00:03"
+  golang-7:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.4"
+        mac: "02:42:ac:a2:00:04"
+  httpd-3:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.5"
+        mac: "02:42:ac:a2:00:05"
+  mariadb-4:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.6"
+        mac: "02:42:ac:a2:00:06"
+  mongo-2:
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.7"
+        mac: "02:42:ac:a2:00:07"
+  nginx-9:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.8"
+        mac: "02:42:ac:a2:00:08"
+  redis-1:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.9"
+        mac: "02:42:ac:a2:00:09"
+  traefik-5:
+    command: "/entrypoint.sh traefik"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.10"
+        mac: "02:42:ac:a2:00:0a"
+  vault-8:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-089_default:
+        ip: "172.162.0.11"
+        mac: "02:42:ac:a2:00:0b"

@@ -1,0 +1,12 @@
+status: inactive
+networks:
+  stack-114_default:
+    id: "2efe2162c8da84bef0539f8d02243e002efe2162c8da84bef0539f8d02243e00"
+services:
+  consul:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-114_default:
+        ip: "172.115.0.2"
+        mac: "02:42:ac:73:00:02"

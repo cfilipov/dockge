@@ -1,0 +1,145 @@
+status: inactive
+networks:
+  stack-039_app-net:
+    id: "0eb27c0775ed6984d01fc2e8bf13d33a0eb27c0775ed6984d01fc2e8bf13d33a"
+services:
+  alpine-6:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.2"
+        mac: "02:42:ac:93:00:02"
+  busybox-14:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.3"
+        mac: "02:42:ac:93:00:03"
+  consul:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.4"
+        mac: "02:42:ac:93:00:04"
+  debian-15:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.5"
+        mac: "02:42:ac:93:00:05"
+  elasticsearch-13:
+    command: "/usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.6"
+        mac: "02:42:ac:93:00:06"
+  golang-7:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.7"
+        mac: "02:42:ac:93:00:07"
+  httpd-3:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.8"
+        mac: "02:42:ac:93:00:08"
+  mariadb-4:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.9"
+        mac: "02:42:ac:93:00:09"
+  minio-17:
+    command: "minio server /data"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.10"
+        mac: "02:42:ac:93:00:0a"
+  mongo-2:
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.11"
+        mac: "02:42:ac:93:00:0b"
+  mysql-10:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.12"
+        mac: "02:42:ac:93:00:0c"
+  nginx-9:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.13"
+        mac: "02:42:ac:93:00:0d"
+  node-19:
+    command: "node server.js"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.14"
+        mac: "02:42:ac:93:00:0e"
+  php-16:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.15"
+        mac: "02:42:ac:93:00:0f"
+  postgres-18:
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.16"
+        mac: "02:42:ac:93:00:10"
+  python-11:
+    command: "python main.py"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.17"
+        mac: "02:42:ac:93:00:11"
+  rabbitmq-12:
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.18"
+        mac: "02:42:ac:93:00:12"
+  redis-1:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.19"
+        mac: "02:42:ac:93:00:13"
+  traefik-5:
+    command: "/entrypoint.sh traefik"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.20"
+        mac: "02:42:ac:93:00:14"
+  vault-8:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-039_default:
+        ip: "172.147.0.21"
+        mac: "02:42:ac:93:00:15"

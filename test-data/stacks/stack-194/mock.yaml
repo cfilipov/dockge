@@ -1,0 +1,12 @@
+status: inactive
+networks:
+  stack-194_default:
+    id: "fbee7210d351a7662543ccff19af1dd8fbee7210d351a7662543ccff19af1dd8"
+services:
+  memcached:
+    command: "memcached"
+    restart_policy: unless-stopped
+    networks:
+      stack-194_default:
+        ip: "172.79.0.2"
+        mac: "02:42:ac:4f:00:02"

@@ -1,4 +1,13 @@
 status: running
+networks:
+  04-database_default:
+    id: "520bddbf7955f6ff8ca66350b3ab4c41520bddbf7955f6ff8ca66350b3ab4c41"
 services:
   postgres:
     health: healthy
+    command: "postgres"
+    restart_policy: unless-stopped
+    networks:
+      04-database_default:
+        ip: "172.21.0.2"
+        mac: "02:42:ac:15:00:02"

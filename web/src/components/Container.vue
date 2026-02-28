@@ -452,9 +452,11 @@ function updateUrl(key: string, value: string) {
 @import "../styles/vars";
 
 .svg-icon {
-    width: 1em;
+    display: inline-block;
     height: 1em;
     vertical-align: -0.125em;
+    overflow: visible;
+    box-sizing: content-box;
     fill: currentColor;
 }
 

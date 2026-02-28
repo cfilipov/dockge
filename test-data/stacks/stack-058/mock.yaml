@@ -1,0 +1,26 @@
+status: exited
+networks:
+  stack-058_app-net:
+    id: "9f7016b0a06d734d41dda85f6a93c9f39f7016b0a06d734d41dda85f6a93c9f3"
+services:
+  elasticsearch-2:
+    command: "/usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-058_default:
+        ip: "172.62.0.2"
+        mac: "02:42:ac:3e:00:02"
+  python:
+    command: "python main.py"
+    restart_policy: unless-stopped
+    networks:
+      stack-058_default:
+        ip: "172.62.0.3"
+        mac: "02:42:ac:3e:00:03"
+  rabbitmq-1:
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-058_default:
+        ip: "172.62.0.4"
+        mac: "02:42:ac:3e:00:04"

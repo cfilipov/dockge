@@ -1,0 +1,19 @@
+status: running
+networks:
+  stack-187_default:
+    id: "d2ea2f5bd4ded7b60c4791b41e206d08d2ea2f5bd4ded7b60c4791b41e206d08"
+services:
+  elasticsearch-1:
+    command: "/usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-187_default:
+        ip: "172.49.0.2"
+        mac: "02:42:ac:31:00:02"
+  rabbitmq:
+    command: "rabbitmq-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-187_default:
+        ip: "172.49.0.3"
+        mac: "02:42:ac:31:00:03"

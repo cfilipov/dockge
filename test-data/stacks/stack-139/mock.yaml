@@ -1,0 +1,54 @@
+status: inactive
+networks:
+  stack-139_app-net:
+    id: "349dd35b65c442d7ea306db4af3af869349dd35b65c442d7ea306db4af3af869"
+services:
+  alpine-6:
+    command: "sleep infinity"
+    restart_policy: unless-stopped
+    networks:
+      stack-139_default:
+        ip: "172.36.0.2"
+        mac: "02:42:ac:24:00:02"
+  consul:
+    command: "/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-139_default:
+        ip: "172.36.0.3"
+        mac: "02:42:ac:24:00:03"
+  httpd-3:
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      stack-139_default:
+        ip: "172.36.0.4"
+        mac: "02:42:ac:24:00:04"
+  mariadb-4:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      stack-139_default:
+        ip: "172.36.0.5"
+        mac: "02:42:ac:24:00:05"
+  mongo-2:
+    command: "mongod"
+    restart_policy: unless-stopped
+    networks:
+      stack-139_default:
+        ip: "172.36.0.6"
+        mac: "02:42:ac:24:00:06"
+  redis-1:
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      stack-139_default:
+        ip: "172.36.0.7"
+        mac: "02:42:ac:24:00:07"
+  traefik-5:
+    command: "/entrypoint.sh traefik"
+    restart_policy: unless-stopped
+    networks:
+      stack-139_default:
+        ip: "172.36.0.8"
+        mac: "02:42:ac:24:00:08"

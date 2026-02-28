@@ -1,0 +1,12 @@
+status: exited
+networks:
+  stack-173_default:
+    id: "42c4b2d020d7cb1d9c690c3fea2971a342c4b2d020d7cb1d9c690c3fea2971a3"
+services:
+  grafana:
+    command: "/run.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-173_default:
+        ip: "172.162.0.2"
+        mac: "02:42:ac:a2:00:02"

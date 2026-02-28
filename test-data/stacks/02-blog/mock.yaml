@@ -1,5 +1,21 @@
 status: running
+networks:
+  02-blog_default:
+    id: "94a147a2b1ef83ac4a0cf94d7b11391294a147a2b1ef83ac4a0cf94d7b113912"
 services:
   wordpress:
     running_image: "wordpress:6.3"
     update_available: true
+    command: "apache2-foreground"
+    restart_policy: unless-stopped
+    networks:
+      02-blog_default:
+        ip: "172.19.0.2"
+        mac: "02:42:ac:13:00:02"
+  mysql:
+    command: "mysqld"
+    restart_policy: unless-stopped
+    networks:
+      02-blog_default:
+        ip: "172.19.0.3"
+        mac: "02:42:ac:13:00:03"

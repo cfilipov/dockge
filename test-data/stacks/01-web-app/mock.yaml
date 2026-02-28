@@ -1,7 +1,22 @@
 status: running
+networks:
+  01-web-app_default:
+    id: "d2141805e4d2c4550cb9a6ea2e2c7eebd2141805e4d2c4550cb9a6ea2e2c7eeb"
 services:
-  redis:
-    state: exited
   nginx:
     running_image: "nginx:1.24"
     update_available: true
+    command: "nginx -g 'daemon off;'"
+    restart_policy: unless-stopped
+    networks:
+      01-web-app_default:
+        ip: "172.18.0.2"
+        mac: "02:42:ac:12:00:02"
+  redis:
+    state: exited
+    command: "redis-server"
+    restart_policy: unless-stopped
+    networks:
+      01-web-app_default:
+        ip: "172.18.0.3"
+        mac: "02:42:ac:12:00:03"

@@ -1,0 +1,12 @@
+status: exited
+networks:
+  stack-183_default:
+    id: "14427f06c4d6c62acaefc1e90e287c9414427f06c4d6c62acaefc1e90e287c94"
+services:
+  python:
+    command: "python main.py"
+    restart_policy: unless-stopped
+    networks:
+      stack-183_default:
+        ip: "172.45.0.2"
+        mac: "02:42:ac:2d:00:02"

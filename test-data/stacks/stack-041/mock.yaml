@@ -1,0 +1,12 @@
+status: running
+networks:
+  stack-041_default:
+    id: "919757ca061137df4f3ae925ccef8d61919757ca061137df4f3ae925ccef8d61"
+services:
+  elasticsearch:
+    command: "/usr/local/bin/docker-entrypoint.sh"
+    restart_policy: unless-stopped
+    networks:
+      stack-041_default:
+        ip: "172.172.0.2"
+        mac: "02:42:ac:ac:00:02"
