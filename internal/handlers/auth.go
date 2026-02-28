@@ -42,7 +42,7 @@ func RegisterAuthHandlers(app *App) {
 
         // If no users exist, tell the client to show the setup page
         if app.NeedSetup {
-            c.SendEvent("setup")
+            c.SendEvent("setup", nil)
         }
     })
 }
@@ -277,7 +277,7 @@ func (app *App) handleChangePassword(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     // Disconnect all other sessions so they must re-auth with new password
-    app.WS.BroadcastAuthenticated("refresh")
+    app.WS.BroadcastAuthenticated("refresh", nil)
 
     if msg.ID != nil {
         c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Password changed"})
@@ -326,13 +326,8 @@ func (app *App) handleTwoFAStatus(c *ws.Conn, msg *ws.ClientMessage) {
 
 // afterLogin sends initial data to a freshly authenticated connection.
 func (app *App) afterLogin(c *ws.Conn) {
-    // Send server info
-    c.SendEvent("info", map[string]interface{}{
-        "version":       app.Version,
-        "latestVersion": app.Version,
-        "isContainer":   true,
-        "mock":          isMockMode(),
-    })
+    // NOTE: Do NOT send "info" here — it's already sent on connect (before auth).
+    // Sending it again is redundant.
 
     // NOTE: Do NOT send "autoLogin" here. That event is only for when auth is
     // disabled (every connection is auto-authenticated). Sending it after a real
@@ -355,6 +350,9 @@ func (app *App) afterLogin(c *ws.Conn) {
     }
     c.SendEvent("agentList", agentMap)
 
-    // Send cached stack list immediately so the UI populates instantly
+    // Send legacy stack list (for backward compat until frontend is migrated to Pinia)
     app.sendStackListTo(c)
+
+    // Send all 6 broadcast channels to this connection
+    go app.sendAllBroadcastsTo(c)
 }

@@ -7,9 +7,9 @@
                 <div class="col-lg-8">
                     <!-- Containers Card -->
                     <CollapsibleSection>
-                        <template #heading>{{ $t("imageContainers") }} <span class="section-count">({{ imageDetail?.containers?.length ?? 0 }})</span></template>
-                        <div v-if="imageDetail && imageDetail.containers && imageDetail.containers.length > 0">
-                            <div v-for="c in imageDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
+                        <template #heading>{{ $t("imageContainers") }} <span class="section-count">({{ imageContainers.length }})</span></template>
+                        <div v-if="imageContainers.length > 0">
+                            <div v-for="c in imageContainers" :key="c.containerId" class="shadow-box big-padding mb-3">
                                 <h5 class="mb-3">
                                     <span class="badge rounded-pill me-2" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
                                     <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link">{{ c.name }}</router-link>
@@ -125,11 +125,13 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
+import { useContainerStore } from "../stores/containerStore";
 import { ContainerStatusInfo } from "../common/util-common";
 
 const route = useRoute();
 const { t } = useI18n();
 const { emitAgent } = useSocket();
+const containerStore = useContainerStore();
 
 const imageDetail = ref<any>(null);
 const loading = ref(false);
@@ -153,10 +155,13 @@ const displayName = computed(() => {
     return imageRef.value;
 });
 
-const inUse = computed(() => {
-    if (!imageDetail.value) return false;
-    return (imageDetail.value.containers?.length ?? 0) > 0;
+// Get containers using this image from the container store
+const imageContainers = computed(() => {
+    if (!imageDetail.value?.id) return [];
+    return containerStore.byImage(imageDetail.value.id);
 });
+
+const inUse = computed(() => imageContainers.value.length > 0);
 const badgeClass = computed(() => {
     if (!imageDetail.value) return "";
     if (isDangling.value) return "badge rounded-pill bg-secondary";

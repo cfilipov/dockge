@@ -32,9 +32,14 @@ type App struct {
 	refreshMu    sync.Mutex
 	refreshTimer *time.Timer
 
+	// Legacy broadcast dedup (used by BroadcastAll — will be removed in Phase 5)
 	broadcastMu      sync.Mutex
 	lastStackMsg     []byte
 	lastContainerMsg []byte
+
+	// New per-channel broadcast infrastructure
+	bcastState *broadcastState
+	debouncer  *channelDebouncer
 }
 
 // checkLogin verifies that the connection is authenticated.

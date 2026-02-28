@@ -17,11 +17,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed } from "vue";
 import { useActiveScroll } from "../composables/useActiveScroll";
 import ListHeader from "./ListHeader.vue";
 import NetworkListItem from "./NetworkListItem.vue";
-import { useSocket } from "../composables/useSocket";
+import { useNetworkStore } from "../stores/networkStore";
 import { StackFilterCategory } from "../common/util-common";
 import { useFilterParams } from "../composables/useFilterParams";
 
@@ -29,10 +29,9 @@ defineProps<{
     scrollbar?: boolean;
 }>();
 
-const { emitAgent } = useSocket();
+const networkStore = useNetworkStore();
 
 const searchText = ref("");
-const networkList = ref<Record<string, any>[]>([]);
 const listRef = ref<HTMLElement>();
 
 // Two filter categories: Driver and Status (In Use / Unused)
@@ -71,7 +70,7 @@ function driverDisplayName(driver: string): string {
 function updateFilterOptions() {
     // Driver options — collect unique drivers from the data, display "null" as "none"
     const driverOptions: Record<string, string> = {};
-    for (const net of networkList.value) {
+    for (const net of networkStore.networksWithStatus) {
         const d = net.driver || "unknown";
         const label = driverDisplayName(d);
         driverOptions[label] = d;
@@ -86,7 +85,7 @@ function updateFilterOptions() {
 }
 
 const filteredNetworks = computed(() => {
-    let result = [...networkList.value];
+    let result = [...networkStore.networksWithStatus];
 
     updateFilterOptions();
 
@@ -109,9 +108,8 @@ const filteredNetworks = computed(() => {
     // Status filter (In Use / Unused)
     if (networkFilter.status.isFilterSelected()) {
         result = result.filter((n: any) => {
-            const inUse = (n.containers ?? 0) > 0;
-            if (networkFilter.status.selected.has("networkInUse") && inUse) return true;
-            if (networkFilter.status.selected.has("networkUnused") && !inUse) return true;
+            if (networkFilter.status.selected.has("networkInUse") && n.inUse) return true;
+            if (networkFilter.status.selected.has("networkUnused") && !n.inUse) return true;
             return false;
         });
     }
@@ -122,21 +120,9 @@ const filteredNetworks = computed(() => {
     return result;
 });
 
-function fetchNetworks() {
-    emitAgent("", "getDockerNetworkList", (res: any) => {
-        if (res.ok && res.dockerNetworkList) {
-            networkList.value = res.dockerNetworkList;
-        }
-    });
-}
-
 const { scrollToActive } = useActiveScroll(listRef, filteredNetworks);
 
 defineExpose({ scrollToActive });
-
-onMounted(() => {
-    fetchNetworks();
-});
 </script>
 
 <style lang="scss" scoped>

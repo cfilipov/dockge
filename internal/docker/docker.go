@@ -15,6 +15,10 @@ type Client interface {
     // only returns containers belonging to that compose project.
     ContainerList(ctx context.Context, all bool, projectFilter string) ([]Container, error)
 
+    // ContainerBroadcastList returns enriched container data for broadcasting.
+    // Includes networks, mounts, ports, and imageId for cross-store joins.
+    ContainerBroadcastList(ctx context.Context) ([]ContainerBroadcast, error)
+
     // ContainerInspect returns the raw JSON inspect output for a container.
     ContainerInspect(ctx context.Context, id string) (string, error)
 
@@ -53,7 +57,7 @@ type Client interface {
     ImageList(ctx context.Context) ([]ImageSummary, error)
 
     // ImageInspectDetail returns detailed info for a single Docker image,
-    // including layers and containers using it.
+    // including layers.
     ImageInspectDetail(ctx context.Context, imageRef string) (*ImageDetail, error)
 
     // ImagePrune removes unused images. Returns human-readable reclaimed space string.
@@ -65,9 +69,10 @@ type Client interface {
     // VolumeInspect returns detailed info for a single Docker volume.
     VolumeInspect(ctx context.Context, volumeName string) (*VolumeDetail, error)
 
-    // Events returns a channel of container lifecycle events and an error channel.
+    // Events returns a channel of Docker resource lifecycle events and an error channel.
+    // Subscribes to container, network, image, and volume events.
     // The channels are closed when the context is cancelled.
-    Events(ctx context.Context) (<-chan ContainerEvent, <-chan error)
+    Events(ctx context.Context) (<-chan DockerEvent, <-chan error)
 
     // Close releases any resources held by the client.
     Close() error

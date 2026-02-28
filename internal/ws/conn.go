@@ -65,15 +65,9 @@ func (c *Conn) SendAck(id int64, data interface{}) {
     c.writeJSON(AckMessage{ID: id, Data: data})
 }
 
-// SendEvent sends a server push event.
-func (c *Conn) SendEvent(event string, args ...interface{}) {
-    var a interface{}
-    if len(args) == 1 {
-        a = args[0]
-    } else {
-        a = args
-    }
-    c.writeJSON(ServerMessage{Event: event, Args: a})
+// SendEvent sends a server push event with a single data payload.
+func (c *Conn) SendEvent(event string, data interface{}) {
+    c.writeJSON(ServerMessage{Event: event, Data: data})
 }
 
 func (c *Conn) writeJSON(v interface{}) {

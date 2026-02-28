@@ -17,11 +17,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed } from "vue";
 import { useActiveScroll } from "../composables/useActiveScroll";
 import ListHeader from "./ListHeader.vue";
 import VolumeListItem from "./VolumeListItem.vue";
-import { useSocket } from "../composables/useSocket";
+import { useVolumeStore } from "../stores/volumeStore";
 import { StackFilterCategory } from "../common/util-common";
 import { useFilterParams } from "../composables/useFilterParams";
 
@@ -29,10 +29,9 @@ defineProps<{
     scrollbar?: boolean;
 }>();
 
-const { emitAgent } = useSocket();
+const volumeStore = useVolumeStore();
 
 const searchText = ref("");
-const volumeList = ref<Record<string, any>[]>([]);
 const listRef = ref<HTMLElement>();
 
 class VolumeFilter {
@@ -68,7 +67,7 @@ function updateFilterOptions() {
 }
 
 const filteredVolumes = computed(() => {
-    let result = [...volumeList.value];
+    let result = [...volumeStore.volumesWithStatus];
 
     updateFilterOptions();
 
@@ -83,9 +82,8 @@ const filteredVolumes = computed(() => {
     // Status filter (In Use / Unused)
     if (volumeFilter.status.isFilterSelected()) {
         result = result.filter((vol: any) => {
-            const inUse = (vol.containers ?? 0) > 0;
-            if (volumeFilter.status.selected.has("volumeInUse") && inUse) return true;
-            if (volumeFilter.status.selected.has("volumeUnused") && !inUse) return true;
+            if (volumeFilter.status.selected.has("volumeInUse") && vol.inUse) return true;
+            if (volumeFilter.status.selected.has("volumeUnused") && !vol.inUse) return true;
             return false;
         });
     }
@@ -98,21 +96,9 @@ const filteredVolumes = computed(() => {
     return result;
 });
 
-function fetchVolumes() {
-    emitAgent("", "getDockerVolumeList", (res: any) => {
-        if (res.ok && res.dockerVolumeList) {
-            volumeList.value = res.dockerVolumeList;
-        }
-    });
-}
-
 const { scrollToActive } = useActiveScroll(listRef, filteredVolumes);
 
 defineExpose({ scrollToActive });
-
-onMounted(() => {
-    fetchVolumes();
-});
 </script>
 
 <style lang="scss" scoped>

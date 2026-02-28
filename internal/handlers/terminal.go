@@ -781,6 +781,6 @@ func extractCombinedStackName(termName string) string {
 // makeTermWriter creates a WriteFunc that sends terminalWrite events to a connection.
 func makeTermWriter(c *ws.Conn, termName string) terminal.WriteFunc {
     return func(data string) {
-        c.SendEvent("agent", "terminalWrite", termName, data)
+        c.SendEvent("agent", []interface{}{"terminalWrite", termName, data})
     }
 }

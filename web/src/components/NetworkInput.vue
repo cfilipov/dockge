@@ -45,10 +45,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, inject, watch, onMounted, type Ref } from "vue";
-import { useSocket } from "../composables/useSocket";
+import { useNetworkStore } from "../stores/networkStore";
 import { useAppToast } from "../composables/useAppToast";
 
-const { emitAgent } = useSocket();
+const networkStore = useNetworkStore();
 const { toastRes } = useAppToast();
 
 const jsonConfig = inject<Record<string, any>>("jsonConfig")!;
@@ -91,25 +91,20 @@ function loadNetworkList() {
 }
 
 function loadExternalNetworkList() {
-    emitAgent(endpoint.value, "getDockerNetworkList", (res: any) => {
-        if (res.ok) {
-            const names: string[] = res.dockerNetworkList.map((n: any) => typeof n === "string" ? n : n.name);
-            externalNetworkList.value = names.filter((n: string) => {
-                // Filter out this stack networks
-                if (n.startsWith(stack.name + "_")) {
-                    return false;
-                }
-                // They should be not supported.
-                // https://docs.docker.com/compose/compose-file/06-networks/#host-or-none
-                if (n === "none" || n === "host" || n === "bridge") {
-                    return false;
-                }
-                return true;
-            });
-        } else {
-            toastRes(res);
-        }
-    });
+    externalNetworkList.value = networkStore.networks
+        .map(n => n.name)
+        .filter(n => {
+            // Filter out this stack networks
+            if (n.startsWith(stack.name + "_")) {
+                return false;
+            }
+            // They should be not supported.
+            // https://docs.docker.com/compose/compose-file/06-networks/#host-or-none
+            if (n === "none" || n === "host" || n === "bridge") {
+                return false;
+            }
+            return true;
+        });
 }
 
 function addField() {

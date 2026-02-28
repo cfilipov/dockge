@@ -17,11 +17,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed } from "vue";
 import { useActiveScroll } from "../composables/useActiveScroll";
 import ListHeader from "./ListHeader.vue";
 import ImageListItem from "./ImageListItem.vue";
-import { useSocket } from "../composables/useSocket";
+import { useImageStore } from "../stores/imageStore";
 import { StackFilterCategory } from "../common/util-common";
 import { useFilterParams } from "../composables/useFilterParams";
 
@@ -29,10 +29,9 @@ defineProps<{
     scrollbar?: boolean;
 }>();
 
-const { emitAgent } = useSocket();
+const imageStore = useImageStore();
 
 const searchText = ref("");
-const imageList = ref<Record<string, any>[]>([]);
 const listRef = ref<HTMLElement>();
 
 class ImageFilter {
@@ -69,7 +68,7 @@ function updateFilterOptions() {
 }
 
 const filteredImages = computed(() => {
-    let result = [...imageList.value];
+    let result = [...imageStore.imagesWithStatus];
 
     updateFilterOptions();
 
@@ -88,10 +87,9 @@ const filteredImages = computed(() => {
     if (imageFilter.status.isFilterSelected()) {
         result = result.filter((img: any) => {
             const dangling = img.dangling === true;
-            const inUse = (img.containers ?? 0) > 0;
             if (imageFilter.status.selected.has("imageDangling") && dangling) return true;
-            if (imageFilter.status.selected.has("imageInUse") && !dangling && inUse) return true;
-            if (imageFilter.status.selected.has("imageUnused") && !dangling && !inUse) return true;
+            if (imageFilter.status.selected.has("imageInUse") && !dangling && img.inUse) return true;
+            if (imageFilter.status.selected.has("imageUnused") && !dangling && !img.inUse) return true;
             return false;
         });
     }
@@ -109,21 +107,9 @@ const filteredImages = computed(() => {
     return result;
 });
 
-function fetchImages() {
-    emitAgent("", "getDockerImageList", (res: any) => {
-        if (res.ok && res.dockerImageList) {
-            imageList.value = res.dockerImageList;
-        }
-    });
-}
-
 const { scrollToActive } = useActiveScroll(listRef, filteredImages);
 
 defineExpose({ scrollToActive });
-
-onMounted(() => {
-    fetchImages();
-});
 </script>
 
 <style lang="scss" scoped>

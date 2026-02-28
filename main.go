@@ -245,6 +245,9 @@ func main() {
             }
 
             app.BroadcastAll()
+            app.TriggerAllBroadcasts()
+            app.TriggerStacksBroadcast()
+            app.TriggerUpdatesBroadcast()
             slog.Info("mock state reset to default")
             w.WriteHeader(http.StatusOK)
             w.Write([]byte("ok"))
@@ -268,14 +271,19 @@ func main() {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
+    // Initialize broadcast infrastructure
+    app.InitBroadcast()
+
     // Start compose file watcher (fsnotify) — triggers broadcast on file changes
     if err := compose.StartWatcher(ctx, cfg.StacksDir, func(stackName string) {
         app.TriggerRefresh()
+        app.TriggerStacksBroadcast()
     }); err != nil {
         slog.Warn("compose file watcher failed to start", "err", err)
     }
 
     app.StartStackWatcher(ctx)
+    app.StartBroadcastWatcher(ctx)
     app.StartImageUpdateChecker(ctx)
 
     // Start HTTP server

@@ -24,15 +24,15 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { useSocket } from "../composables/useSocket";
+import { useContainerStore } from "../stores/containerStore";
 import { ContainerStatusInfo } from "../common/util-common";
 
 const route = useRoute();
 const { t } = useI18n();
-const { containerList } = useSocket();
+const containerStore = useContainerStore();
 
 const containerInfo = computed(() =>
-    (containerList.value || []).find((c: any) => c.name === containerName.value)
+    containerStore.containers.find(c => c.name === containerName.value)
 );
 const statusInfo = computed(() =>
     containerInfo.value ? ContainerStatusInfo.from(containerInfo.value) : null

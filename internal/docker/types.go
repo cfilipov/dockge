@@ -11,6 +11,43 @@ type Container struct {
     Health  string // healthy, unhealthy, starting, or "" (no healthcheck)
 }
 
+// ContainerBroadcast is the enriched container type sent to the frontend via
+// the "containers" broadcast channel. It includes all fields needed for
+// cross-store joins (networks, mounts, ports, imageId).
+type ContainerBroadcast struct {
+    Name        string                      `json:"name"`
+    ContainerID string                      `json:"containerId"`
+    ServiceName string                      `json:"serviceName"`
+    StackName   string                      `json:"stackName"`
+    State       string                      `json:"state"`
+    Health      string                      `json:"health"`
+    Image       string                      `json:"image"`
+    ImageID     string                      `json:"imageId"`
+    Networks    map[string]ContainerNetwork `json:"networks"`
+    Mounts      []ContainerMount            `json:"mounts"`
+    Ports       []ContainerPort             `json:"ports"`
+}
+
+// ContainerNetwork holds network endpoint info for a container.
+type ContainerNetwork struct {
+    IPv4 string `json:"ipv4"`
+    IPv6 string `json:"ipv6"`
+    MAC  string `json:"mac"`
+}
+
+// ContainerMount holds mount info for a container.
+type ContainerMount struct {
+    Name string `json:"name"`
+    Type string `json:"type"` // "volume", "bind", "tmpfs"
+}
+
+// ContainerPort holds port mapping info for a container.
+type ContainerPort struct {
+    HostPort      uint16 `json:"hostPort"`
+    ContainerPort uint16 `json:"containerPort"`
+    Protocol      string `json:"protocol"` // "tcp", "udp"
+}
+
 // ContainerStat holds formatted resource-usage strings matching the Node.js frontend expectations.
 type ContainerStat struct {
     Name     string `json:"Name"`
@@ -22,24 +59,31 @@ type ContainerStat struct {
     PIDs     string `json:"PIDs"`
 }
 
-// ContainerEvent represents a Docker container lifecycle event.
-type ContainerEvent struct {
-    Action      string // start, stop, die, pause, unpause, health_status, destroy, ...
+// DockerEvent represents a Docker resource lifecycle event.
+// Type indicates the resource kind: "container", "network", "image", "volume".
+type DockerEvent struct {
+    Type   string // "container", "network", "image", "volume"
+    Action string // start, stop, die, create, destroy, connect, disconnect, pull, tag, ...
+    // Container-specific fields (empty for non-container events)
     Project     string // from com.docker.compose.project label
     Service     string // from com.docker.compose.service label
     ContainerID string
 }
 
+// ContainerEvent represents a Docker container lifecycle event.
+// Deprecated: use DockerEvent instead for new code.
+type ContainerEvent = DockerEvent
+
 // NetworkSummary holds basic info for network list display.
 type NetworkSummary struct {
-    Name       string `json:"name"`
-    ID         string `json:"id"`
-    Driver     string `json:"driver"`
-    Scope      string `json:"scope"`
-    Internal   bool   `json:"internal"`
-    Attachable bool   `json:"attachable"`
-    Ingress    bool   `json:"ingress"`
-    Containers int    `json:"containers"`
+    Name       string            `json:"name"`
+    ID         string            `json:"id"`
+    Driver     string            `json:"driver"`
+    Scope      string            `json:"scope"`
+    Internal   bool              `json:"internal"`
+    Attachable bool              `json:"attachable"`
+    Ingress    bool              `json:"ingress"`
+    Labels     map[string]string `json:"labels"`
 }
 
 // NetworkDetail holds full info for a single network.
@@ -75,25 +119,23 @@ type NetworkContainerDetail struct {
 
 // ImageSummary holds basic info for image list display.
 type ImageSummary struct {
-    ID         string   `json:"id"`
-    RepoTags   []string `json:"repoTags"`
-    Size       string   `json:"size"`
-    Created    string   `json:"created"`
-    Containers int      `json:"containers"`
-    Dangling   bool     `json:"dangling"`
+    ID       string   `json:"id"`
+    RepoTags []string `json:"repoTags"`
+    Size     string   `json:"size"`
+    Created  string   `json:"created"`
+    Dangling bool     `json:"dangling"`
 }
 
 // ImageDetail holds full info for a single image.
 type ImageDetail struct {
-    ID           string           `json:"id"`
-    RepoTags     []string         `json:"repoTags"`
-    Size         string           `json:"size"`
-    Created      string           `json:"created"`
-    Architecture string           `json:"architecture"`
-    OS           string           `json:"os"`
-    WorkingDir   string           `json:"workingDir"`
-    Layers       []ImageLayer     `json:"layers"`
-    Containers   []ImageContainer `json:"containers"`
+    ID           string       `json:"id"`
+    RepoTags     []string     `json:"repoTags"`
+    Size         string       `json:"size"`
+    Created      string       `json:"created"`
+    Architecture string       `json:"architecture"`
+    OS           string       `json:"os"`
+    WorkingDir   string       `json:"workingDir"`
+    Layers       []ImageLayer `json:"layers"`
 }
 
 // ImageLayer holds info about a single layer in an image's history.
@@ -113,25 +155,17 @@ type ImageContainer struct {
 
 // VolumeSummary holds basic info for volume list display.
 type VolumeSummary struct {
-    Name       string `json:"name"`
-    Driver     string `json:"driver"`
-    Mountpoint string `json:"mountpoint"`
-    Containers int    `json:"containers"`
+    Name       string            `json:"name"`
+    Driver     string            `json:"driver"`
+    Mountpoint string            `json:"mountpoint"`
+    Labels     map[string]string `json:"labels"`
 }
 
 // VolumeDetail holds full info for a single volume.
 type VolumeDetail struct {
-    Name       string            `json:"name"`
-    Driver     string            `json:"driver"`
-    Mountpoint string            `json:"mountpoint"`
-    Scope      string            `json:"scope"`
-    Created    string            `json:"created"`
-    Containers []VolumeContainer `json:"containers"`
-}
-
-// VolumeContainer holds info about a container using a specific volume.
-type VolumeContainer struct {
-    Name        string `json:"name"`
-    ContainerID string `json:"containerId"`
-    State       string `json:"state"`
+    Name       string `json:"name"`
+    Driver     string `json:"driver"`
+    Mountpoint string `json:"mountpoint"`
+    Scope      string `json:"scope"`
+    Created    string `json:"created"`
 }

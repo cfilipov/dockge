@@ -20,8 +20,10 @@
 import { ref, reactive, computed } from "vue";
 import ListHeader from "./ListHeader.vue";
 import ContainerListItem from "./ContainerListItem.vue";
-import { useSocket } from "../composables/useSocket";
 import { useActiveScroll } from "../composables/useActiveScroll";
+import { useContainerStore } from "../stores/containerStore";
+import { useStackStore } from "../stores/stackStore";
+import { useUpdateStore } from "../stores/updateStore";
 import { StackFilter, ContainerStatusInfo } from "../common/util-common";
 import { useFilterParams } from "../composables/useFilterParams";
 
@@ -29,7 +31,9 @@ defineProps<{
     scrollbar?: boolean;
 }>();
 
-const { containerList } = useSocket();
+const containerStore = useContainerStore();
+const stackStore = useStackStore();
+const updateStore = useUpdateStore();
 
 const searchText = ref("");
 const containerFilter = reactive(new StackFilter());
@@ -54,8 +58,22 @@ function updateFilterOptions() {
     containerFilter.attributes.options = { imageUpdatesAvailable: "imageUpdatesAvailable" };
 }
 
+// Enrich containers with stack-level fields for ContainerListItem
+const enrichedContainers = computed(() => {
+    return containerStore.containers.map(c => {
+        const stackEntry = stackStore.rawStacks.find(s => s.name === c.stackName);
+        const composeImage = stackEntry?.images[c.serviceName];
+        return {
+            ...c,
+            isManagedByDockge: !!stackEntry,
+            recreateNecessary: !!(composeImage && c.image && c.image !== composeImage),
+            imageUpdatesAvailable: updateStore.hasUpdate(`${c.stackName}/${c.serviceName}`),
+        };
+    });
+});
+
 const filteredContainers = computed(() => {
-    let result = [...(containerList.value || [])];
+    let result = [...enrichedContainers.value];
 
     // Populate filter options
     updateFilterOptions();

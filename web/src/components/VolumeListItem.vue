@@ -17,7 +17,7 @@ const props = defineProps<{
     volume: Record<string, any>;
 }>();
 
-const inUse = computed(() => (props.volume.containers ?? 0) > 0);
+const inUse = computed(() => props.volume.inUse ?? (props.volume.containers ?? 0) > 0);
 
 const badgeClass = computed(() => {
     return inUse.value ? "bg-success" : "bg-warning";

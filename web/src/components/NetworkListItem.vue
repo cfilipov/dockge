@@ -17,7 +17,7 @@ const props = defineProps<{
     network: Record<string, any>;
 }>();
 
-const inUse = computed(() => (props.network.containers ?? 0) > 0);
+const inUse = computed(() => props.network.inUse ?? (props.network.containers ?? 0) > 0);
 
 const badgeClass = computed(() => inUse.value ? "bg-success" : "bg-warning");
 const badgeLabel = computed(() => inUse.value ? t("networkInUse") : t("networkUnused"));

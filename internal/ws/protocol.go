@@ -17,9 +17,10 @@ type AckMessage struct {
 }
 
 // ServerMessage is a server-initiated push (no ack expected).
+// Data holds the event payload (a single value of any type).
 type ServerMessage struct {
     Event string      `json:"event"`
-    Args  interface{} `json:"args"`
+    Data  interface{} `json:"data"`
 }
 
 // OkResponse is the standard ack payload for successful operations.

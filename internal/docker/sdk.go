@@ -23,6 +23,26 @@ import (
     "github.com/docker/docker/pkg/stdcopy"
 )
 
+// parseHealthFromStatus extracts the health status from Docker's human-readable
+// Status string (e.g. "Up 2 hours (unhealthy)"). Returns "healthy", "unhealthy",
+// "starting", or "" if no healthcheck is configured.
+func parseHealthFromStatus(state, status string) string {
+	if state != "running" || status == "" {
+		return ""
+	}
+	lower := strings.ToLower(status)
+	if strings.HasSuffix(lower, "(unhealthy)") {
+		return "unhealthy"
+	}
+	if strings.HasSuffix(lower, "(healthy)") {
+		return "healthy"
+	}
+	if strings.HasSuffix(lower, "(health: starting)") {
+		return "starting"
+	}
+	return ""
+}
+
 // SDKClient implements Client using the Docker Engine SDK.
 type SDKClient struct {
     cli *client.Client
@@ -68,18 +88,7 @@ func (s *SDKClient) ContainerList(ctx context.Context, all bool, projectFilter s
             name = strings.TrimPrefix(c.Names[0], "/")
         }
 
-        health := ""
-        if c.State == "running" && c.Status != "" {
-            // Status contains health info like "(healthy)" or "(unhealthy)"
-            lower := strings.ToLower(c.Status)
-            if strings.Contains(lower, "(healthy)") {
-                health = "healthy"
-            } else if strings.Contains(lower, "(unhealthy)") {
-                health = "unhealthy"
-            } else if strings.Contains(lower, "(health: starting)") {
-                health = "starting"
-            }
-        }
+        health := parseHealthFromStatus(c.State, c.Status)
 
         result = append(result, Container{
             ID:      c.ID,
@@ -91,6 +100,80 @@ func (s *SDKClient) ContainerList(ctx context.Context, all bool, projectFilter s
             Health:  health,
         })
     }
+    return result, nil
+}
+
+// ContainerBroadcastList returns enriched container data for the broadcast channel.
+// Includes networks, mounts, ports, and imageId for cross-store joins.
+func (s *SDKClient) ContainerBroadcastList(ctx context.Context) ([]ContainerBroadcast, error) {
+    raw, err := s.cli.ContainerList(ctx, container.ListOptions{All: true})
+    if err != nil {
+        return nil, fmt.Errorf("container broadcast list: %w", err)
+    }
+
+    result := make([]ContainerBroadcast, 0, len(raw))
+    for _, c := range raw {
+        name := ""
+        if len(c.Names) > 0 {
+            name = strings.TrimPrefix(c.Names[0], "/")
+        }
+
+        health := parseHealthFromStatus(c.State, c.Status)
+
+        // Extract network endpoints
+        networks := make(map[string]ContainerNetwork)
+        if c.NetworkSettings != nil {
+            for netName, ep := range c.NetworkSettings.Networks {
+                networks[netName] = ContainerNetwork{
+                    IPv4: ep.IPAddress,
+                    IPv6: ep.GlobalIPv6Address,
+                    MAC:  ep.MacAddress,
+                }
+            }
+        }
+
+        // Extract mounts
+        mounts := make([]ContainerMount, 0, len(c.Mounts))
+        for _, m := range c.Mounts {
+            mounts = append(mounts, ContainerMount{
+                Name: m.Name,
+                Type: string(m.Type),
+            })
+        }
+
+        // Extract ports
+        ports := make([]ContainerPort, 0, len(c.Ports))
+        for _, p := range c.Ports {
+            ports = append(ports, ContainerPort{
+                HostPort:      p.PublicPort,
+                ContainerPort: p.PrivatePort,
+                Protocol:      p.Type,
+            })
+        }
+
+        svc := c.Labels["com.docker.compose.service"]
+        project := c.Labels["com.docker.compose.project"]
+
+        result = append(result, ContainerBroadcast{
+            Name:        name,
+            ContainerID: c.ID,
+            ServiceName: svc,
+            StackName:   project,
+            State:       strings.ToLower(c.State),
+            Health:      strings.ToLower(health),
+            Image:       c.Image,
+            ImageID:     c.ImageID,
+            Networks:    networks,
+            Mounts:      mounts,
+            Ports:       ports,
+        })
+    }
+
+    // Sort by name for deterministic serialization
+    sort.Slice(result, func(i, j int) bool {
+        return result[i].Name < result[j].Name
+    })
+
     return result, nil
 }
 
@@ -313,13 +396,6 @@ func (s *SDKClient) ImageList(ctx context.Context) ([]ImageSummary, error) {
         return nil, fmt.Errorf("image list: %w", err)
     }
 
-    // Count containers per image ID
-    containers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
-    countByID := make(map[string]int, len(containers))
-    for _, c := range containers {
-        countByID[c.ImageID]++
-    }
-
     result := make([]ImageSummary, 0, len(imgs))
     for _, img := range imgs {
         tags := make([]string, 0, len(img.RepoTags))
@@ -330,14 +406,19 @@ func (s *SDKClient) ImageList(ctx context.Context) ([]ImageSummary, error) {
         }
 
         result = append(result, ImageSummary{
-            ID:         img.ID,
-            RepoTags:   tags,
-            Size:       formatBytes(uint64(img.Size)),
-            Created:    time.Unix(img.Created, 0).UTC().Format(time.RFC3339),
-            Containers: countByID[img.ID],
-            Dangling:   len(tags) == 0,
+            ID:       img.ID,
+            RepoTags: tags,
+            Size:     formatBytes(uint64(img.Size)),
+            Created:  time.Unix(img.Created, 0).UTC().Format(time.RFC3339),
+            Dangling: len(tags) == 0,
         })
     }
+
+    // Sort by ID for deterministic serialization
+    sort.Slice(result, func(i, j int) bool {
+        return result[i].ID < result[j].ID
+    })
+
     return result, nil
 }
 
@@ -370,26 +451,6 @@ func (s *SDKClient) ImageInspectDetail(ctx context.Context, imageRef string) (*I
         })
     }
 
-    // Find containers using this image
-    allContainers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
-    var imgContainers []ImageContainer
-    for _, c := range allContainers {
-        if c.ImageID == resp.ID || c.Image == imageRef {
-            name := ""
-            if len(c.Names) > 0 {
-                name = strings.TrimPrefix(c.Names[0], "/")
-            }
-            imgContainers = append(imgContainers, ImageContainer{
-                Name:        name,
-                ContainerID: c.ID,
-                State:       c.State,
-            })
-        }
-    }
-    if imgContainers == nil {
-        imgContainers = []ImageContainer{}
-    }
-
     tags := make([]string, 0, len(resp.RepoTags))
     for _, t := range resp.RepoTags {
         if t != "<none>:<none>" {
@@ -411,7 +472,6 @@ func (s *SDKClient) ImageInspectDetail(ctx context.Context, imageRef string) (*I
         OS:           resp.Os,
         WorkingDir:   workingDir,
         Layers:       layers,
-        Containers:   imgContainers,
     }, nil
 }
 
@@ -433,19 +493,6 @@ func (s *SDKClient) NetworkList(ctx context.Context) ([]NetworkSummary, error) {
         return nil, fmt.Errorf("network list: %w", err)
     }
 
-    // The Docker list API does not populate the Containers field —
-    // only inspect does. Count containers per network from the
-    // container list instead.
-    containers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
-    countByNet := make(map[string]int)
-    for _, c := range containers {
-        if c.NetworkSettings != nil {
-            for netName := range c.NetworkSettings.Networks {
-                countByNet[netName]++
-            }
-        }
-    }
-
     result := make([]NetworkSummary, 0, len(networks))
     for _, n := range networks {
         result = append(result, NetworkSummary{
@@ -456,9 +503,15 @@ func (s *SDKClient) NetworkList(ctx context.Context) ([]NetworkSummary, error) {
             Internal:   n.Internal,
             Attachable: n.Attachable,
             Ingress:    n.Ingress,
-            Containers: countByNet[n.Name],
+            Labels:     n.Labels,
         })
     }
+
+    // Sort by name for deterministic serialization
+    sort.Slice(result, func(i, j int) bool {
+        return result[i].Name < result[j].Name
+    })
+
     return result, nil
 }
 
@@ -476,13 +529,6 @@ func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*Netw
         })
     }
 
-    // Fetch container states to include in the response
-    allContainers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
-    stateByID := make(map[string]string, len(allContainers))
-    for _, c := range allContainers {
-        stateByID[c.ID] = c.State
-    }
-
     containers := make([]NetworkContainerDetail, 0, len(raw.Containers))
     for id, ep := range raw.Containers {
         containers = append(containers, NetworkContainerDetail{
@@ -491,7 +537,6 @@ func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*Netw
             IPv4:        ep.IPv4Address,
             IPv6:        ep.IPv6Address,
             MAC:         ep.MacAddress,
-            State:       stateByID[id],
         })
     }
     sort.Slice(containers, func(i, j int) bool {
@@ -519,26 +564,21 @@ func (s *SDKClient) VolumeList(ctx context.Context) ([]VolumeSummary, error) {
         return nil, fmt.Errorf("volume list: %w", err)
     }
 
-    // Count containers per volume name
-    containers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
-    countByVol := make(map[string]int)
-    for _, c := range containers {
-        for _, m := range c.Mounts {
-            if m.Type == "volume" {
-                countByVol[m.Name]++
-            }
-        }
-    }
-
     result := make([]VolumeSummary, 0, len(volResp.Volumes))
     for _, v := range volResp.Volumes {
         result = append(result, VolumeSummary{
             Name:       v.Name,
             Driver:     v.Driver,
             Mountpoint: v.Mountpoint,
-            Containers: countByVol[v.Name],
+            Labels:     v.Labels,
         })
     }
+
+    // Sort by name for deterministic serialization
+    sort.Slice(result, func(i, j int) bool {
+        return result[i].Name < result[j].Name
+    })
+
     return result, nil
 }
 
@@ -548,46 +588,26 @@ func (s *SDKClient) VolumeInspect(ctx context.Context, volumeName string) (*Volu
         return nil, fmt.Errorf("volume inspect: %w", err)
     }
 
-    // Find containers using this volume
-    allContainers, _ := s.cli.ContainerList(ctx, container.ListOptions{All: true})
-    var volContainers []VolumeContainer
-    for _, c := range allContainers {
-        for _, m := range c.Mounts {
-            if m.Type == "volume" && m.Name == volumeName {
-                name := ""
-                if len(c.Names) > 0 {
-                    name = strings.TrimPrefix(c.Names[0], "/")
-                }
-                volContainers = append(volContainers, VolumeContainer{
-                    Name:        name,
-                    ContainerID: c.ID,
-                    State:       c.State,
-                })
-                break
-            }
-        }
-    }
-    if volContainers == nil {
-        volContainers = []VolumeContainer{}
-    }
-
     return &VolumeDetail{
         Name:       raw.Name,
         Driver:     raw.Driver,
         Mountpoint: raw.Mountpoint,
         Scope:      raw.Scope,
         Created:    raw.CreatedAt,
-        Containers: volContainers,
     }, nil
 }
 
-func (s *SDKClient) Events(ctx context.Context) (<-chan ContainerEvent, <-chan error) {
-    out := make(chan ContainerEvent, 64)
+func (s *SDKClient) Events(ctx context.Context) (<-chan DockerEvent, <-chan error) {
+    out := make(chan DockerEvent, 64)
     outErr := make(chan error, 1)
 
+    // Subscribe to container, network, image, and volume events
     opts := events.ListOptions{
         Filters: filters.NewArgs(
             filters.Arg("type", string(events.ContainerEventType)),
+            filters.Arg("type", string(events.NetworkEventType)),
+            filters.Arg("type", string(events.ImageEventType)),
+            filters.Arg("type", string(events.VolumeEventType)),
         ),
     }
 
@@ -603,25 +623,44 @@ func (s *SDKClient) Events(ctx context.Context) (<-chan ContainerEvent, <-chan e
                 if !ok {
                     return
                 }
-                // Only process relevant actions
-                switch msg.Action {
-                case events.ActionStart, events.ActionStop, events.ActionDie,
-                    events.ActionPause, events.ActionUnPause,
-                    events.ActionDestroy, events.ActionCreate:
-                    // ok
-                default:
-                    // Also handle health_status events
-                    if !strings.HasPrefix(string(msg.Action), "health_status") {
-                        continue
+
+                evtType := string(msg.Type)
+                action := string(msg.Action)
+
+                // Filter to relevant actions per type
+                switch msg.Type {
+                case events.ContainerEventType:
+                    switch msg.Action {
+                    case events.ActionStart, events.ActionStop, events.ActionDie,
+                        events.ActionPause, events.ActionUnPause,
+                        events.ActionDestroy, events.ActionCreate:
+                        // ok
+                    default:
+                        if !strings.HasPrefix(action, "health_status") {
+                            continue
+                        }
                     }
+                case events.NetworkEventType:
+                    // create, destroy, connect, disconnect
+                case events.ImageEventType:
+                    // pull, push, tag, untag, delete, build, import, load
+                case events.VolumeEventType:
+                    // create, destroy, mount, unmount
+                default:
+                    continue
                 }
 
-                evt := ContainerEvent{
-                    Action:      string(msg.Action),
-                    ContainerID: msg.Actor.ID,
-                    Project:     msg.Actor.Attributes["com.docker.compose.project"],
-                    Service:     msg.Actor.Attributes["com.docker.compose.service"],
+                evt := DockerEvent{
+                    Type:   evtType,
+                    Action: action,
                 }
+                // Container-specific fields
+                if msg.Type == events.ContainerEventType {
+                    evt.ContainerID = msg.Actor.ID
+                    evt.Project = msg.Actor.Attributes["com.docker.compose.project"]
+                    evt.Service = msg.Actor.Attributes["com.docker.compose.service"]
+                }
+
                 select {
                 case out <- evt:
                 case <-ctx.Done():

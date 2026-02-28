@@ -124,10 +124,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
 import { statusNameShort } from "../common/util-common";
 import { useSocket } from "../composables/useSocket";
+import { useStackStore } from "../stores/stackStore";
 import { useAppToast } from "../composables/useAppToast";
 
 defineProps<{
@@ -135,14 +136,10 @@ defineProps<{
 }>();
 
 const router = useRouter();
-const { completeStackList, allAgentStackList, agentList, agentStatusList, composeTemplate, getSocket } = useSocket();
+const stackStore = useStackStore();
+const { allAgentStackList, agentList, agentStatusList, composeTemplate, getSocket } = useSocket();
 const { toastRes } = useAppToast();
 
-const page = ref(1);
-const perPage = ref(25);
-const initialPerPage = ref(25);
-const importantHeartBeatListLength = ref(0);
-const displayedRecords = ref<any[]>([]);
 const dockerRunCommand = ref("");
 const showAgentForm = ref(false);
 const showRemoveAgentDialog = reactive<Record<string, boolean>>({});
@@ -159,8 +156,9 @@ const tableContainerRef = ref<HTMLElement>();
 
 const statusCounts = computed(() => {
     const counts: Record<string, number> = { active: 0, partially: 0, unhealthy: 0, down: 0, exited: 0, updateAvailable: 0 };
-    for (const stackName in completeStackList.value) {
-        const stack = (completeStackList.value as any)[stackName];
+
+    // Local stacks from Pinia store
+    for (const stack of stackStore.allStacks) {
         const short = statusNameShort(stack.status);
         if (short in counts) {
             counts[short]++;
@@ -169,6 +167,22 @@ const statusCounts = computed(() => {
             counts.updateAvailable++;
         }
     }
+
+    // Remote agent stacks
+    for (const endpoint in allAgentStackList.value) {
+        const instance = allAgentStackList.value[endpoint];
+        for (const stackName in instance.stackList) {
+            const stack = instance.stackList[stackName];
+            const short = statusNameShort(stack.status);
+            if (short in counts) {
+                counts[short]++;
+            }
+            if (stack.imageUpdatesAvailable) {
+                counts.updateAvailable++;
+            }
+        }
+    }
+
     return counts;
 });
 
@@ -242,67 +256,6 @@ async function convertDockerRun() {
     }
 }
 
-function onNewImportantHeartbeat(heartbeat: any) {
-    if (page.value === 1) {
-        displayedRecords.value.unshift(heartbeat);
-        if (displayedRecords.value.length > perPage.value) {
-            displayedRecords.value.pop();
-        }
-        importantHeartBeatListLength.value += 1;
-    }
-}
-
-function getImportantHeartbeatListLength() {
-    getSocket().emit("monitorImportantHeartbeatListCount", null, (res: any) => {
-        if (res.ok) {
-            importantHeartBeatListLength.value = res.count;
-            getImportantHeartbeatListPaged();
-        }
-    });
-}
-
-function getImportantHeartbeatListPaged() {
-    const offset = (page.value - 1) * perPage.value;
-    getSocket().emit("monitorImportantHeartbeatListPaged", null, offset, perPage.value, (res: any) => {
-        if (res.ok) {
-            displayedRecords.value = res.data;
-        }
-    });
-}
-
-function updatePerPage() {
-    const tableContainer = tableContainerRef.value;
-    if (!tableContainer) return;
-    const tableContainerHeight = tableContainer.offsetHeight;
-    const availableHeight = window.innerHeight - tableContainerHeight;
-    const additionalPerPage = Math.floor(availableHeight / 58);
-
-    if (additionalPerPage > 0) {
-        perPage.value = Math.max(initialPerPage.value, perPage.value + additionalPerPage);
-    } else {
-        perPage.value = initialPerPage.value;
-    }
-}
-
-watch(perPage, () => {
-    nextTick(() => {
-        getImportantHeartbeatListPaged();
-    });
-});
-
-watch(page, () => {
-    getImportantHeartbeatListPaged();
-});
-
-onMounted(() => {
-    initialPerPage.value = perPage.value;
-    window.addEventListener("resize", updatePerPage);
-    updatePerPage();
-});
-
-onBeforeUnmount(() => {
-    window.removeEventListener("resize", updatePerPage);
-});
 </script>
 
 <style lang="scss" scoped>

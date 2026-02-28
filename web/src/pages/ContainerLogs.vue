@@ -47,6 +47,9 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { useSocket } from "../composables/useSocket";
+import { useContainerStore } from "../stores/containerStore";
+import { useStackStore } from "../stores/stackStore";
+import { useUpdateStore } from "../stores/updateStore";
 import { useServiceActions } from "../composables/useServiceActions";
 import { ContainerStatusInfo, getComposeTerminalName } from "../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
@@ -55,10 +58,13 @@ import { ref } from "vue";
 
 const route = useRoute();
 const { t } = useI18n();
-const { emitAgent, containerList, completeStackList } = useSocket();
+const { emitAgent } = useSocket();
+const containerStore = useContainerStore();
+const stackStoreInstance = useStackStore();
+const updateStoreInstance = useUpdateStore();
 
 const containerInfo = computed(() =>
-    (containerList.value || []).find((c: any) => c.name === containerName.value)
+    containerStore.containers.find(c => c.name === containerName.value)
 );
 const statusInfo = computed(() =>
     containerInfo.value ? ContainerStatusInfo.from(containerInfo.value) : null
@@ -76,14 +82,21 @@ const endpoint = computed(() => (route.params.endpoint as string) || "");
 const containerName = computed(() => route.params.containerName as string || "");
 const stackName = computed(() => containerInfo.value?.stackName || "");
 const serviceName = computed(() => containerInfo.value?.serviceName || "");
-const globalStack = computed(() => completeStackList.value[stackName.value + "_" + endpoint.value]);
+const globalStack = computed(() => stackStoreInstance.allStacks.find(s => s.name === stackName.value));
 const stackManaged = computed(() => globalStack.value?.isManagedByDockge ?? false);
 const containerActive = computed(() => {
     const state = containerInfo.value?.state;
     return state === "running";
 });
-const imageUpdatesAvailable = computed(() => containerInfo.value?.imageUpdatesAvailable ?? false);
-const recreateNecessary = computed(() => containerInfo.value?.recreateNecessary ?? false);
+const imageUpdatesAvailable = computed(() => {
+    if (!stackName.value || !serviceName.value) return false;
+    return updateStoreInstance.hasUpdate(`${stackName.value}/${serviceName.value}`);
+});
+const recreateNecessary = computed(() => {
+    if (!containerInfo.value || !globalStack.value?.images) return false;
+    const composeImage = globalStack.value.images[serviceName.value];
+    return !!(composeImage && containerInfo.value.image && containerInfo.value.image !== composeImage);
+});
 const composeTerminalName = computed(() => stackName.value ? getComposeTerminalName(endpoint.value, stackName.value) : "");
 const terminalName = computed(() => "container-log-by-name--" + containerName.value);
 

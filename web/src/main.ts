@@ -2,6 +2,7 @@
 import "./common/util-common";
 
 import { createApp } from "vue";
+import { createPinia } from "pinia";
 import App from "./App.vue";
 import { router } from "./router";
 import { FontAwesomeIcon } from "./icon.js";
@@ -28,7 +29,9 @@ import { useAppToast } from "./composables/useAppToast";
 document.title = document.title + " - " + location.host;
 
 const app = createApp(App);
+const pinia = createPinia();
 
+app.use(pinia);
 app.use(Toast, {
     position: POSITION.BOTTOM_RIGHT,
     showCloseButtonOnHover: true,

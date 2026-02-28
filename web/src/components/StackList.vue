@@ -45,6 +45,7 @@ import Confirm from "../components/Confirm.vue";
 import ListHeader from "./ListHeader.vue";
 import StackListItem from "../components/StackListItem.vue";
 import { useSocket } from "../composables/useSocket";
+import { useStackStore } from "../stores/stackStore";
 import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, RUNNING_AND_EXITED, UNHEALTHY, UNKNOWN, StackFilter, StackStatusInfo } from "../common/util-common";
 import { useFilterParams } from "../composables/useFilterParams";
 
@@ -52,7 +53,8 @@ defineProps<{
     scrollbar?: boolean;
 }>();
 
-const { completeStackList, agentCount, stackList, getSocket } = useSocket();
+const stackStore = useStackStore();
+const { agentCount, allAgentStackList, getSocket } = useSocket();
 
 const searchText = ref("");
 const selectMode = ref(false);
@@ -69,13 +71,25 @@ const closedAgents = reactive(new Map<string, boolean>());
 const stackListRef = ref<HTMLElement>();
 const confirmPauseRef = ref<InstanceType<typeof Confirm>>();
 
+// Combined stack list: local from Pinia store + remote from agent sockets
+const combinedStacks = computed((): any[] => {
+    const result: any[] = [...stackStore.allStacks];
+    for (const endpoint in allAgentStackList.value) {
+        const instance = allAgentStackList.value[endpoint];
+        for (const stackName in instance.stackList) {
+            result.push(instance.stackList[stackName]);
+        }
+    }
+    return result;
+});
+
 // Keep filter options in sync with the stack list (outside computed to avoid side effects)
-watch(completeStackList, (list) => {
-    updateFilterOptions(Object.values(list) as any[]);
+watch(combinedStacks, (list) => {
+    updateFilterOptions(list);
 }, { immediate: true });
 
 const agentStackList = computed(() => {
-    let result = Object.values(completeStackList.value) as any[];
+    let result = [...combinedStacks.value];
 
     // filter
     result = result.filter(stack => {
@@ -226,14 +240,14 @@ function pauseDialog() {
 
 function pauseSelected() {
     Object.keys(selectedStacks.value)
-        .filter(id => (stackList.value as any)[id]?.active)
+        .filter(id => combinedStacks.value.find((s: any) => s.name === id)?.started)
         .forEach(id => getSocket().emit("pauseStack", id, () => {}));
     cancelSelectMode();
 }
 
 function resumeSelected() {
     Object.keys(selectedStacks.value)
-        .filter(id => !(stackList.value as any)[id]?.active)
+        .filter(id => !combinedStacks.value.find((s: any) => s.name === id)?.started)
         .forEach(id => getSocket().emit("resumeStack", id, () => {}));
     cancelSelectMode();
 }

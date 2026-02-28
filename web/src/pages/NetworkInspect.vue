@@ -7,9 +7,9 @@
                 <div class="col-lg-8">
                     <!-- Connected Containers -->
                     <CollapsibleSection>
-                        <template #heading>{{ $t("networkContainers") }} <span class="section-count">({{ networkDetail?.containers?.length ?? 0 }})</span></template>
-                        <div v-if="networkDetail && networkDetail.containers && networkDetail.containers.length > 0">
-                            <div v-for="c in networkDetail.containers" :key="c.containerId" class="shadow-box big-padding mb-3">
+                        <template #heading>{{ $t("networkContainers") }} <span class="section-count">({{ networkContainers.length }})</span></template>
+                        <div v-if="networkContainers.length > 0">
+                            <div v-for="c in networkContainers" :key="c.containerId" class="shadow-box big-padding mb-3">
                                 <h5 class="mb-3">
                                     <span class="badge rounded-pill me-2" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
                                     <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link">{{ c.name }}</router-link>
@@ -21,15 +21,15 @@
                                     </div>
                                     <div class="network-chip">
                                         <span class="chip-label">{{ $t("networkIPv4") }}</span>
-                                        <code>{{ c.ipv4 || '–' }}</code>
+                                        <code>{{ c.networks[networkName]?.ipv4 || '–' }}</code>
                                     </div>
                                     <div class="network-chip">
                                         <span class="chip-label">{{ $t("networkIPv6") }}</span>
-                                        <code>{{ c.ipv6 || '–' }}</code>
+                                        <code>{{ c.networks[networkName]?.ipv6 || '–' }}</code>
                                     </div>
                                     <div class="network-chip">
                                         <span class="chip-label">{{ $t("networkMAC") }}</span>
-                                        <code>{{ c.mac || '–' }}</code>
+                                        <code>{{ c.networks[networkName]?.mac || '–' }}</code>
                                     </div>
                                 </div>
                             </div>
@@ -126,21 +126,25 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
+import { useContainerStore } from "../stores/containerStore";
 import { ContainerStatusInfo } from "../common/util-common";
 
 const route = useRoute();
 const { t } = useI18n();
 const { emitAgent } = useSocket();
+const containerStore = useContainerStore();
 
 const networkDetail = ref<any>(null);
 const loading = ref(false);
 
 const networkName = computed(() => route.params.networkName as string || "");
 
-const inUse = computed(() => {
-    if (!networkDetail.value) return false;
-    return (networkDetail.value.containers?.length ?? 0) > 0;
+const networkContainers = computed(() => {
+    if (!networkName.value) return [];
+    return containerStore.byNetwork(networkName.value);
 });
+
+const inUse = computed(() => networkContainers.value.length > 0);
 const badgeClass = computed(() =>
     networkDetail.value ? `badge rounded-pill ${inUse.value ? "bg-success" : "bg-warning"}` : ""
 );

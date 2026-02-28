@@ -42,7 +42,7 @@ const routeRef = computed(() => {
     return props.image.id || "";
 });
 
-const inUse = computed(() => (props.image.containers ?? 0) > 0);
+const inUse = computed(() => props.image.inUse ?? (props.image.containers ?? 0) > 0);
 
 const badgeClass = computed(() => {
     if (isDangling.value) return "bg-secondary";

@@ -296,7 +296,7 @@ func (app *App) BroadcastAll() {
 	stackJSON := stack.BuildStackListJSON(data.stacks, "", data.updateMap, data.recreateMap)
 	stackMsg, err := json.Marshal(ws.ServerMessage{
 		Event: "agent",
-		Args:  []interface{}{"stackList", stackListResponse{OK: true, StackList: stackJSON}},
+		Data:  []interface{}{"stackList", stackListResponse{OK: true, StackList: stackJSON}},
 	})
 	if err != nil {
 		slog.Error("marshal stackList broadcast", "err", err)
@@ -306,7 +306,7 @@ func (app *App) BroadcastAll() {
 	containerJSON := stack.BuildContainerListJSON(data.byProject, data.stacks, data.serviceUpdates, data.recreateMap, data.imagesByStack)
 	containerMsg, err := json.Marshal(ws.ServerMessage{
 		Event: "agent",
-		Args:  []interface{}{"containerList", containerListResponse{OK: true, ContainerList: containerJSON}},
+		Data:  []interface{}{"containerList", containerListResponse{OK: true, ContainerList: containerJSON}},
 	})
 	if err != nil {
 		slog.Error("marshal containerList broadcast", "err", err)
@@ -378,10 +378,10 @@ func (app *App) sendContainerListTo(c *ws.Conn) {
 		containerJSON = []stack.ContainerSimpleJSON{}
 	}
 
-	c.SendEvent("agent", "containerList", containerListResponse{
+	c.SendEvent("agent", []interface{}{"containerList", containerListResponse{
 		OK:            true,
 		ContainerList: containerJSON,
-	})
+	}})
 }
 
 func (app *App) handleRequestStackList(c *ws.Conn, msg *ws.ClientMessage) {
@@ -405,10 +405,10 @@ func (app *App) sendStackListTo(c *ws.Conn) {
 		listJSON = map[string]stack.StackSimpleJSON{}
 	}
 
-	c.SendEvent("agent", "stackList", stackListResponse{
+	c.SendEvent("agent", []interface{}{"stackList", stackListResponse{
 		OK:        true,
 		StackList: listJSON,
-	})
+	}})
 }
 
 func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -674,6 +674,7 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		app.checkImageUpdatesForStack(stackName)
 		app.BroadcastAll()
+		app.TriggerUpdatesBroadcast()
 	}()
 }
 
@@ -841,6 +842,7 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 	app.Terms.RemoveAfter(termName, 30*time.Second)
 
 	app.TriggerRefresh()
+	app.TriggerAllBroadcasts()
 }
 
 // runDeployWithValidation validates the compose file via `docker compose config`
@@ -896,6 +898,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 	app.Terms.RemoveAfter(termName, 30*time.Second)
 
 	app.TriggerRefresh()
+	app.TriggerAllBroadcasts()
 }
 
 // runDockerCommands runs multiple docker commands sequentially on the same terminal.
@@ -931,6 +934,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
 			}
 			app.TriggerRefresh()
+			app.TriggerAllBroadcasts()
 			return
 		}
 	}
@@ -941,6 +945,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 	app.Terms.RemoveAfter(termName, 30*time.Second)
 
 	app.TriggerRefresh()
+	app.TriggerAllBroadcasts()
 }
 
 // handleComposeYAMLSave handles side effects of saving compose YAML:

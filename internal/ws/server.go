@@ -62,23 +62,23 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Broadcast sends a push event to all connected clients.
-func (s *Server) Broadcast(event string, args ...interface{}) {
+func (s *Server) Broadcast(event string, data interface{}) {
     s.mu.RLock()
     defer s.mu.RUnlock()
 
     for c := range s.conns {
-        c.SendEvent(event, args...)
+        c.SendEvent(event, data)
     }
 }
 
 // BroadcastAuthenticated sends a push event to all authenticated clients.
-func (s *Server) BroadcastAuthenticated(event string, args ...interface{}) {
+func (s *Server) BroadcastAuthenticated(event string, data interface{}) {
     s.mu.RLock()
     defer s.mu.RUnlock()
 
     for c := range s.conns {
         if c.UserID() != 0 {
-            c.SendEvent(event, args...)
+            c.SendEvent(event, data)
         }
     }
 }
@@ -86,15 +86,8 @@ func (s *Server) BroadcastAuthenticated(event string, args ...interface{}) {
 // BroadcastAuthenticatedRaw marshals the event payload once and sends the
 // pre-encoded bytes to all authenticated connections. For N connections this
 // saves (N-1) json.Marshal calls compared to BroadcastAuthenticated.
-func (s *Server) BroadcastAuthenticatedRaw(event string, args ...interface{}) {
-    var a interface{}
-    if len(args) == 1 {
-        a = args[0]
-    } else {
-        a = args
-    }
-
-    data, err := json.Marshal(ServerMessage{Event: event, Args: a})
+func (s *Server) BroadcastAuthenticatedRaw(event string, data interface{}) {
+    payload, err := json.Marshal(ServerMessage{Event: event, Data: data})
     if err != nil {
         slog.Error("ws marshal raw broadcast", "err", err)
         return
@@ -105,7 +98,7 @@ func (s *Server) BroadcastAuthenticatedRaw(event string, args ...interface{}) {
 
     for c := range s.conns {
         if c.UserID() != 0 {
-            c.writeRaw(data)
+            c.writeRaw(payload)
         }
     }
 }

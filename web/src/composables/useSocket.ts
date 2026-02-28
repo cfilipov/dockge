@@ -5,6 +5,12 @@ import { AgentSocket } from "../common/agent-socket";
 import { router } from "../router";
 import { i18n } from "../i18n";
 import type { InfoData, SimpleStackData, AgentData } from "../common/types";
+import { useContainerStore } from "../stores/containerStore";
+import { useStackStore } from "../stores/stackStore";
+import { useNetworkStore } from "../stores/networkStore";
+import { useImageStore } from "../stores/imageStore";
+import { useVolumeStore } from "../stores/volumeStore";
+import { useUpdateStore } from "../stores/updateStore";
 
 // --- Plain WebSocket wrapper (replaces socket.io-client) ---
 
@@ -110,16 +116,10 @@ class DockgeWebSocket {
             return;
         }
 
-        // Server push: has "event" + optional "args"
+        // Server push: has "event" + "data" (single payload value)
         if ("event" in msg) {
             const event = msg.event as string;
-            const args = (msg.args as unknown[]) || [];
-            // Unwrap single-element arrays for consistency with Socket.IO behavior
-            if (Array.isArray(args)) {
-                this.fire(event, ...args);
-            } else {
-                this.fire(event, args);
-            }
+            this.fire(event, msg.data);
         }
     }
 
@@ -176,30 +176,12 @@ const username = ref<string | null>(null);
 const composeTemplate = ref("");
 const envTemplate = ref("");
 
-const stackList = ref<Record<string, SimpleStackData>>({});
-const containerList = ref<Record<string, unknown>[]>([]);
 const allAgentStackList = ref<Record<string, { stackList: Record<string, SimpleStackData> }>>({});
 const agentStatusList = ref<Record<string, string>>({});
 const agentList = ref<Record<string, AgentData>>({});
 
 // Computed
 const agentCount = computed(() => Object.keys(agentList.value).length);
-
-const completeStackList = computed(() => {
-    let list: Record<string, any> = {};
-
-    for (let stackName in stackList.value) {
-        list[stackName + "_"] = stackList.value[stackName];
-    }
-
-    for (let endpoint in allAgentStackList.value) {
-        let instance = allAgentStackList.value[endpoint];
-        for (let stackName in instance.stackList) {
-            list[stackName + "_" + endpoint] = instance.stackList[stackName];
-        }
-    }
-    return list;
-});
 
 const usernameFirstChar = computed(() => {
     if (typeof username.value === "string" && username.value.length >= 1) {
@@ -341,7 +323,8 @@ function clearData() {
 }
 
 function afterLogin() {
-    socket.emit("requestContainerList", () => {});
+    // Broadcasts (stacks, containers, networks, images, volumes, updates)
+    // are sent automatically by the backend on authenticated connect.
 }
 
 function bindTerminal(endpoint: string, terminalName: string, terminal: Terminal) {
@@ -385,7 +368,9 @@ export function initWebSocket() {
 
     // Handling events from agents
     let agentSocket = new AgentSocket();
-    socket.on("agent", (eventName: unknown, ...args: unknown[]) => {
+    socket.on("agent", (data: unknown) => {
+        const arr = data as unknown[];
+        const [eventName, ...args] = arr;
         agentSocket.call(eventName as string, ...args);
     });
 
@@ -462,35 +447,15 @@ export function initWebSocket() {
         terminal.write(data as string);
     });
 
+    // Remote agent stack lists (local stacks handled by "stacks" broadcast channel)
     agentSocket.on("stackList", (res: any) => {
-        if (res.ok) {
-            if (!res.endpoint) {
-                stackList.value = res.stackList;
-            } else {
-                if (!allAgentStackList.value[res.endpoint]) {
-                    allAgentStackList.value[res.endpoint] = {
-                        stackList: {},
-                    };
-                }
-                allAgentStackList.value[res.endpoint].stackList = res.stackList;
+        if (res.ok && res.endpoint) {
+            if (!allAgentStackList.value[res.endpoint]) {
+                allAgentStackList.value[res.endpoint] = {
+                    stackList: {},
+                };
             }
-        }
-    });
-
-    agentSocket.on("containerList", (res: any) => {
-        if (res.ok) {
-            containerList.value = res.containerList;
-        }
-    });
-
-    socket.on("stackStatusList", (res: any) => {
-        if (res.ok) {
-            for (let stackName in res.stackStatusList) {
-                const stackObj = stackList.value[stackName];
-                if (stackObj) {
-                    stackObj.status = res.stackStatusList[stackName];
-                }
-            }
+            allAgentStackList.value[res.endpoint].stackList = res.stackList;
         }
     });
 
@@ -517,6 +482,33 @@ export function initWebSocket() {
         location.reload();
     });
 
+    // --- Broadcast channel listeners (new normalized model) ---
+    // Each channel pushes its data directly to the corresponding Pinia store.
+
+    socket.on("stacks", (data: unknown) => {
+        useStackStore().setStacks(data as any[]);
+    });
+
+    socket.on("containers", (data: unknown) => {
+        useContainerStore().setContainers(data as any[]);
+    });
+
+    socket.on("networks", (data: unknown) => {
+        useNetworkStore().setNetworks(data as any[]);
+    });
+
+    socket.on("images", (data: unknown) => {
+        useImageStore().setImages(data as any[]);
+    });
+
+    socket.on("volumes", (data: unknown) => {
+        useVolumeStore().setVolumes(data as any[]);
+    });
+
+    socket.on("updates", (data: unknown) => {
+        useUpdateStore().setUpdates(data as string[]);
+    });
+
     socket.connect(wsUrl);
 }
 
@@ -533,15 +525,12 @@ export function useSocket() {
         username,
         composeTemplate,
         envTemplate,
-        stackList,
-        containerList,
         allAgentStackList,
         agentStatusList,
         agentList,
 
         // Computed
         agentCount,
-        completeStackList,
         usernameFirstChar,
         frontendVersion,
         isFrontendBackendVersionMatched,
