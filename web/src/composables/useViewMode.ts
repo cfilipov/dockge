@@ -10,7 +10,7 @@ import { ref } from "vue";
  * StackListItem and Layout read isRawMode to build correct URLs.
  */
 
-const isRawMode = ref(location.pathname.includes("/raw"));
+const isRawMode = ref(false);
 
 function setRawMode(raw: boolean) {
     isRawMode.value = raw;

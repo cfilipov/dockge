@@ -13,10 +13,8 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useSocket } from "../composables/useSocket";
-import { useViewMode } from "../composables/useViewMode";
 
 const { agentCount, endpointDisplayFunction } = useSocket();
-const { isRawMode } = useViewMode();
 
 const props = withDefaults(defineProps<{
     stack: Record<string, any>;
@@ -38,12 +36,6 @@ const isCollapsed = ref(true);
 const endpointDisplay = computed(() => endpointDisplayFunction(props.stack.endpoint));
 
 const url = computed(() => {
-    if (isRawMode.value) {
-        if (props.stack.endpoint) {
-            return `/stacks/${props.stack.name}/raw/${props.stack.endpoint}`;
-        }
-        return `/stacks/${props.stack.name}/raw`;
-    }
     if (props.stack.endpoint) {
         return `/stacks/${props.stack.name}/${props.stack.endpoint}`;
     }

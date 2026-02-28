@@ -39,14 +39,6 @@ const routes = [
                                 component: Compose,
                             },
                             {
-                                path: "/stacks/:stackName/raw/:endpoint",
-                                component: Compose,
-                            },
-                            {
-                                path: "/stacks/:stackName/raw",
-                                component: Compose,
-                            },
-                            {
                                 path: "/stacks/:stackName/:endpoint",
                                 component: Compose,
                             },
@@ -229,15 +221,24 @@ const routes = [
     },
     {
         path: "/compose/:stackName/:endpoint",
-        redirect: (to: any) => `/stacks/${to.params.stackName}/raw/${to.params.endpoint}`,
+        redirect: (to: any) => `/stacks/${to.params.stackName}/${to.params.endpoint}`,
     },
     {
         path: "/compose/:stackName",
-        redirect: (to: any) => `/stacks/${to.params.stackName}/raw`,
+        redirect: (to: any) => `/stacks/${to.params.stackName}`,
     },
     {
         path: "/compose",
         redirect: "/stacks",
+    },
+    // Legacy /raw URLs — redirect to non-raw equivalents
+    {
+        path: "/stacks/:stackName/raw/:endpoint",
+        redirect: (to: any) => `/stacks/${to.params.stackName}/${to.params.endpoint}`,
+    },
+    {
+        path: "/stacks/:stackName/raw",
+        redirect: (to: any) => `/stacks/${to.params.stackName}`,
     },
 ];
 

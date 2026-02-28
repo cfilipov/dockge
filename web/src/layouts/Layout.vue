@@ -160,7 +160,7 @@ const {
 
 const containerStore = useContainerStore();
 const stackStore = useStackStore();
-const { isRawMode, setRawMode } = useViewMode();
+const { setRawMode } = useViewMode();
 
 const {
     lastStack,
@@ -254,13 +254,12 @@ const selectedStack = computed(() => (route.params.stackName as string) || "");
 const stacksTabLink = computed(() => {
     // Already on stacks → go to dashboard (resets raw mode via click handler)
     if (route.path.startsWith("/stacks")) return "/stacks";
-    const rawSuffix = isRawMode.value ? "/raw" : "";
     if (lastStack.value && stackExists(lastStack.value)) {
-        return `/stacks/${lastStack.value}${rawSuffix}`;
+        return `/stacks/${lastStack.value}`;
     }
     if (selectedContainer.value) {
         const c = containerStore.containers.find(c => c.name === selectedContainer.value);
-        if (c?.stackName) return `/stacks/${c.stackName}${rawSuffix}`;
+        if (c?.stackName) return `/stacks/${c.stackName}`;
     }
     return "/stacks";
 });

@@ -709,22 +709,8 @@ watch(() => containerStore.byStack(stack.name), (containers) => {
     }
 }, { immediate: true });
 
-// Navigate between parsed / raw view when toggle changes
-watch(viewMode, (mode) => {
-    setRawMode(mode === "raw");
-    if (!stack.name) return;
-    if (mode === "raw") {
-        const rawUrl = stack.endpoint
-            ? `/stacks/${stack.name}/raw/${stack.endpoint}`
-            : `/stacks/${stack.name}/raw`;
-        if (route.path !== rawUrl) router.push(rawUrl);
-    } else {
-        const parsedUrl = stack.endpoint
-            ? `/stacks/${stack.name}/${stack.endpoint}`
-            : `/stacks/${stack.name}`;
-        if (route.path !== parsedUrl) router.push(parsedUrl);
-    }
-});
+// Sync shared view mode when toggle changes (no route navigation needed)
+watch(viewMode, (mode) => setRawMode(mode === "raw"));
 
 // Navigation guards
 onBeforeRouteUpdate((to, from, next) => {
