@@ -14,6 +14,16 @@ services:
       07-full-features_frontend:
         ip: "172.25.0.2"
         mac: "02:42:ac:19:00:02"
+    logs:
+      startup:
+        - "\x1b[32m/docker-entrypoint.sh:\x1b[0m Configuration complete; ready for start up"
+        - "\x1b[32m{{.Timestamp}}\x1b[0m [notice] 1#1: nginx/1.25.4"
+        - "\x1b[32m{{.Timestamp}}\x1b[0m [notice] 1#1: built by gcc 12.2.0"
+      heartbeat:
+        interval: 3s
+        lines:
+          - "\x1b[36m172.17.0.2\x1b[0m - - [{{.Timestamp}}] \"GET / HTTP/1.1\" \x1b[32m200\x1b[0m 1234"
+          - "\x1b[36m172.17.0.2\x1b[0m - - [{{.Timestamp}}] \"GET /api/health HTTP/1.1\" \x1b[32m200\x1b[0m 512"
   api:
     health: healthy
     command: "node server.js"

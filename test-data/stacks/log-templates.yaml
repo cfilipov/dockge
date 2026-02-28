@@ -1,0 +1,371 @@
+# Log templates for mock Docker daemon.
+# Maps image base names to startup/heartbeat/shutdown log lines.
+# Templates use {{.Timestamp}}, {{.N}}, and {{.Image}} placeholders.
+
+base_time: "2026-01-15T10:00:00.000Z"
+
+nginx:
+  startup:
+    - "/docker-entrypoint.sh: Configuration complete; ready for start up"
+    - "{{.Timestamp}} [notice] 1#1: nginx/1.25.4"
+    - "{{.Timestamp}} [notice] 1#1: built by gcc 12.2.0"
+    - "{{.Timestamp}} [notice] 1#1: OS: Linux 6.1.0"
+    - "{{.Timestamp}} [notice] 1#1: getrlimit(RLIMIT_NOFILE): 1048576:1048576"
+  heartbeat:
+    interval: 3s
+    lines:
+      - '172.17.0.2 - - [{{.Timestamp}}] "GET /api/health HTTP/1.1" 200 512'
+      - '172.17.0.2 - - [{{.Timestamp}}] "GET / HTTP/1.1" 200 1234'
+      - '172.17.0.2 - - [{{.Timestamp}}] "POST /api/users HTTP/1.1" 201 89'
+  shutdown:
+    - "{{.Timestamp}} [notice] 1#1: signal 15 (SIGTERM) received, exiting"
+    - "{{.Timestamp}} [notice] 1#1: gracefully shutting down"
+    - "{{.Timestamp}} [notice] 1#1: exiting"
+
+httpd:
+  startup:
+    - "[{{.Timestamp}}] [core:notice] AH00094: Command line: 'httpd -D FOREGROUND'"
+    - "[{{.Timestamp}}] [mpm_event:notice] AH00489: Apache/2.4.58 configured -- resuming normal operations"
+    - "[{{.Timestamp}}] [core:notice] AH00094: Server built: 2024-01-01"
+  heartbeat:
+    interval: 3s
+    lines:
+      - '172.17.0.1 - - [{{.Timestamp}}] "GET / HTTP/1.1" 200 45'
+      - '172.17.0.1 - - [{{.Timestamp}}] "GET /server-status HTTP/1.1" 200 1024'
+  shutdown:
+    - "[{{.Timestamp}}] [mpm_event:notice] AH00491: caught SIGTERM, shutting down"
+
+redis:
+  startup:
+    - "1:C {{.Timestamp}} * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo"
+    - "1:C {{.Timestamp}} * Redis version=7.2.4, bits=64, commit=00000000, modified=0, pid=1"
+    - "1:M {{.Timestamp}} * Running mode=standalone, port=6379."
+    - "1:M {{.Timestamp}} # Server initialized"
+    - "1:M {{.Timestamp}} * Ready to accept connections tcp"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "1:M {{.Timestamp}} * DB saved on disk"
+      - "1:M {{.Timestamp}} * 10 changes in 300 seconds. Saving..."
+      - "1:M {{.Timestamp}} * Background saving started by pid 42"
+  shutdown:
+    - "1:M {{.Timestamp}} # User requested shutdown..."
+    - "1:M {{.Timestamp}} * Saving the final RDB snapshot"
+    - "1:M {{.Timestamp}} * DB saved on disk"
+    - "1:M {{.Timestamp}} # Redis is now ready to exit, bye bye..."
+
+postgres:
+  startup:
+    - "PostgreSQL init process complete; ready for start up."
+    - "{{.Timestamp}} UTC [1] LOG:  starting PostgreSQL 16.2 on x86_64-pc-linux-gnu"
+    - "{{.Timestamp}} UTC [1] LOG:  listening on IPv4 address \"0.0.0.0\", port 5432"
+    - "{{.Timestamp}} UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\""
+    - "{{.Timestamp}} UTC [1] LOG:  database system is ready to accept connections"
+  heartbeat:
+    interval: 4s
+    lines:
+      - "{{.Timestamp}} UTC [50] LOG:  connection received: host=172.17.0.3 port=40000"
+      - "{{.Timestamp}} UTC [51] LOG:  connection authorized: user=app database=app"
+      - "{{.Timestamp}} UTC [52] LOG:  checkpoint starting: time"
+  shutdown:
+    - "{{.Timestamp}} UTC [1] LOG:  received fast shutdown request"
+    - "{{.Timestamp}} UTC [1] LOG:  aborting any active transactions"
+    - "{{.Timestamp}} UTC [1] LOG:  database system is shut down"
+
+mysql:
+  startup:
+    - "{{.Timestamp}} 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.0.36) starting as process 1"
+    - "{{.Timestamp}} 0 [System] [MY-013576] [InnoDB] InnoDB initialization has started."
+    - "{{.Timestamp}} 0 [System] [MY-013577] [InnoDB] InnoDB initialization has ended."
+    - "{{.Timestamp}} 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: '::' port: 33060"
+    - "{{.Timestamp}} 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Port: 3306"
+  heartbeat:
+    interval: 4s
+    lines:
+      - "{{.Timestamp}} 100 [Note] Access granted for user 'app'@'172.17.0.3'"
+      - "{{.Timestamp}} 0 [Note] InnoDB: Buffer pool(s) load completed"
+  shutdown:
+    - "{{.Timestamp}} 0 [System] [MY-010910] [Server] /usr/sbin/mysqld: Shutdown complete (mysqld 8.0.36)"
+
+mariadb:
+  startup:
+    - "{{.Timestamp}} 0 [Note] [MY-011323] [Server] Plugin ready for connections. Port: 3306"
+    - "{{.Timestamp}} 0 [Note] InnoDB: Buffer pool initialized"
+    - "{{.Timestamp}} 0 [Note] Server: ready for connections. Version: 11.2.2-MariaDB"
+  heartbeat:
+    interval: 4s
+    lines:
+      - "{{.Timestamp}} 0 [Note] InnoDB: Buffer pool(s) load completed"
+      - "{{.Timestamp}} 50 [Note] Access granted for user 'app'@'172.17.0.3'"
+  shutdown:
+    - "{{.Timestamp}} 0 [Note] Server: Shutdown complete"
+
+node:
+  startup:
+    - "[{{.Timestamp}}] INFO  Server starting..."
+    - "[{{.Timestamp}}] INFO  Connected to database"
+    - "[{{.Timestamp}}] INFO  Redis connection established"
+    - "[{{.Timestamp}}] INFO  Listening on port 3000"
+  heartbeat:
+    interval: 3s
+    lines:
+      - "[{{.Timestamp}}] INFO  GET /api/health 200 12ms"
+      - "[{{.Timestamp}}] INFO  GET /api/users 200 45ms"
+      - "[{{.Timestamp}}] INFO  POST /api/orders 201 89ms"
+  shutdown:
+    - "[{{.Timestamp}}] INFO  Received SIGTERM, shutting down gracefully"
+    - "[{{.Timestamp}}] INFO  Server closed"
+
+python:
+  startup:
+    - "{{.Timestamp}} [INFO] Starting worker process [1]"
+    - "{{.Timestamp}} [INFO] Worker ready, listening for tasks"
+    - "{{.Timestamp}} [INFO] Connected to message broker"
+  heartbeat:
+    interval: 3s
+    lines:
+      - "{{.Timestamp}} [INFO] Task process_order completed in 120ms"
+      - "{{.Timestamp}} [INFO] Health check: OK"
+      - "{{.Timestamp}} [DEBUG] Processing batch of 25 items"
+  shutdown:
+    - "{{.Timestamp}} [INFO] Received shutdown signal"
+    - "{{.Timestamp}} [INFO] Worker stopped"
+
+grafana:
+  startup:
+    - "t={{.Timestamp}} level=info msg=\"Starting Grafana\" version=10.3.1"
+    - "t={{.Timestamp}} level=info msg=\"Config loaded from\" file=/etc/grafana/grafana.ini"
+    - "t={{.Timestamp}} level=info msg=\"HTTP Server Listen\" address=[::]:3000 protocol=http"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "t={{.Timestamp}} level=info msg=\"Request Completed\" method=GET path=/api/dashboards/home status=200"
+      - "t={{.Timestamp}} level=info msg=\"Datasource request\" datasource=Prometheus path=/api/v1/query"
+  shutdown:
+    - "t={{.Timestamp}} level=info msg=\"Shutting down\""
+
+ruby:
+  startup:
+    - "[{{.Timestamp}}] INFO  WEBrick::HTTPServer#start: pid=1 port=3000"
+    - "[{{.Timestamp}}] INFO  Puma starting in cluster mode..."
+    - "[{{.Timestamp}}] INFO  * Listening on http://0.0.0.0:3000"
+  heartbeat:
+    interval: 3s
+    lines:
+      - "[{{.Timestamp}}] INFO  GET /health 200 8ms"
+      - "[{{.Timestamp}}] INFO  POST /api/data 201 42ms"
+  shutdown:
+    - "[{{.Timestamp}}] INFO  Gracefully stopping workers..."
+    - "[{{.Timestamp}}] INFO  Goodbye!"
+
+golang:
+  startup:
+    - "{{.Timestamp}} [INFO] Starting server..."
+    - "{{.Timestamp}} [INFO] Listening on :8080"
+  heartbeat:
+    interval: 3s
+    lines:
+      - "{{.Timestamp}} [INFO] GET /healthz 200 1ms"
+      - "{{.Timestamp}} [INFO] GET /api/v1/status 200 3ms"
+  shutdown:
+    - "{{.Timestamp}} [INFO] Shutting down server..."
+    - "{{.Timestamp}} [INFO] Server stopped"
+
+php:
+  startup:
+    - "[{{.Timestamp}}] NOTICE: fpm is running, pid 1"
+    - "[{{.Timestamp}}] NOTICE: ready to handle connections"
+  heartbeat:
+    interval: 3s
+    lines:
+      - "172.17.0.1 - - [{{.Timestamp}}] \"GET /index.php HTTP/1.1\" 200 4523"
+      - "172.17.0.1 - - [{{.Timestamp}}] \"POST /wp-admin/admin-ajax.php HTTP/1.1\" 200 128"
+  shutdown:
+    - "[{{.Timestamp}}] NOTICE: Terminating ..."
+    - "[{{.Timestamp}}] NOTICE: exiting, bye-bye!"
+
+alpine:
+  startup:
+    - "{{.Image}} container started"
+    - "Running entrypoint script..."
+  heartbeat:
+    interval: 5s
+    lines:
+      - "[INFO] Health check OK"
+  shutdown:
+    - "Received SIGTERM, exiting"
+
+busybox:
+  startup:
+    - "{{.Image}} container started"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "[INFO] Alive"
+  shutdown:
+    - "Exiting"
+
+debian:
+  startup:
+    - "{{.Image}} container started"
+    - "Running entrypoint script..."
+  heartbeat:
+    interval: 5s
+    lines:
+      - "[INFO] Health check OK"
+  shutdown:
+    - "Received SIGTERM, exiting"
+
+ubuntu:
+  startup:
+    - "{{.Image}} container started"
+    - "Running entrypoint script..."
+  heartbeat:
+    interval: 5s
+    lines:
+      - "[INFO] Health check OK"
+  shutdown:
+    - "Received SIGTERM, exiting"
+
+caddy:
+  startup:
+    - "{{.Timestamp}} INFO\tusing provided configuration"
+    - "{{.Timestamp}} INFO\tserving initial configuration"
+    - "{{.Timestamp}} INFO\ttls.obtain\tobtaining certificate"
+  heartbeat:
+    interval: 4s
+    lines:
+      - "{{.Timestamp}} INFO\thttp.log.access\thandled request {\"method\": \"GET\", \"uri\": \"/\", \"status\": 200}"
+  shutdown:
+    - "{{.Timestamp}} INFO\tshutting down"
+    - "{{.Timestamp}} INFO\tbye"
+
+mongo:
+  startup:
+    - "{\"t\":{\"$date\":\"{{.Timestamp}}\"},\"msg\":\"MongoDB starting\",\"attr\":{\"pid\":1,\"port\":27017}}"
+    - "{\"t\":{\"$date\":\"{{.Timestamp}}\"},\"msg\":\"Waiting for connections\",\"attr\":{\"port\":27017}}"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "{\"t\":{\"$date\":\"{{.Timestamp}}\"},\"msg\":\"Connection accepted\",\"attr\":{\"remote\":\"172.17.0.3:40000\"}}"
+  shutdown:
+    - "{\"t\":{\"$date\":\"{{.Timestamp}}\"},\"msg\":\"Shutting down\"}"
+
+elasticsearch:
+  startup:
+    - "[{{.Timestamp}}][INFO ][o.e.n.Node] [node-1] version[8.12.0], pid[1]"
+    - "[{{.Timestamp}}][INFO ][o.e.n.Node] [node-1] initialized"
+    - "[{{.Timestamp}}][INFO ][o.e.n.Node] [node-1] started"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "[{{.Timestamp}}][INFO ][o.e.c.m.MetadataIndexTemplateService] [node-1] adding template [.monitoring]"
+      - "[{{.Timestamp}}][INFO ][o.e.c.r.a.AllocationService] [node-1] Cluster health status changed from [YELLOW] to [GREEN]"
+  shutdown:
+    - "[{{.Timestamp}}][INFO ][o.e.n.Node] [node-1] stopping ..."
+    - "[{{.Timestamp}}][INFO ][o.e.n.Node] [node-1] closed"
+
+rabbitmq:
+  startup:
+    - "{{.Timestamp}} [info] <0.1.0> RabbitMQ 3.13.0 is starting"
+    - "{{.Timestamp}} [info] <0.1.0> node           : rabbit@{{.Image}}"
+    - "{{.Timestamp}} [info] <0.1.0> Ready to accept connections"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "{{.Timestamp}} [info] <0.500.0> connection <0.500.0> (172.17.0.3:40000 -> 172.17.0.2:5672): user 'guest' authenticated"
+  shutdown:
+    - "{{.Timestamp}} [info] <0.1.0> Stopping RabbitMQ application"
+    - "{{.Timestamp}} [info] <0.1.0> Stopped RabbitMQ application"
+
+traefik:
+  startup:
+    - "{{.Timestamp}} INF Traefik version 3.0.0 built on 2024-04-29"
+    - "{{.Timestamp}} INF Starting provider aggregator"
+    - "{{.Timestamp}} INF Starting server on :8080"
+  heartbeat:
+    interval: 4s
+    lines:
+      - "{{.Timestamp}} INF Refreshing provider \"docker\""
+      - "{{.Timestamp}} DBG healthcheck status=\"UP\" url=\"http://api:3000\""
+  shutdown:
+    - "{{.Timestamp}} INF Shutting down"
+    - "{{.Timestamp}} INF Server stopped"
+
+vault:
+  startup:
+    - "{{.Timestamp}} [INFO]  core: vault server starting"
+    - "{{.Timestamp}} [INFO]  core: seal configuration missing, not initialized"
+    - "{{.Timestamp}} [INFO]  core: Listener 1: tcp (addr: \"0.0.0.0:8200\")"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "{{.Timestamp}} [INFO]  core: seal status: sealed=false"
+  shutdown:
+    - "{{.Timestamp}} [INFO]  core: vault is shutting down"
+
+consul:
+  startup:
+    - "{{.Timestamp}} [INFO]  agent: Starting Consul agent"
+    - "{{.Timestamp}} [INFO]  agent: Consul agent running!"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "{{.Timestamp}} [INFO]  agent: Synced service: service=web"
+  shutdown:
+    - "{{.Timestamp}} [INFO]  agent: Requesting shutdown"
+    - "{{.Timestamp}} [INFO]  agent: Shutdown complete"
+
+memcached:
+  startup:
+    - "<{{.N}}> slab class   1: chunk size 96 perslab 10922"
+    - "<{{.N}}> max bytes limit reached, evictions enabled"
+    - "<{{.N}}> server listening (TCP): 0.0.0.0:11211"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "<{{.N}}> >28 sending key items"
+      - "<{{.N}}> items evicted: 0"
+  shutdown:
+    - "<{{.N}}> signal_handler: received signal 15"
+
+minio:
+  startup:
+    - "MinIO Object Storage Server"
+    - "Version: RELEASE.2024-01-01"
+    - "API: http://0.0.0.0:9000"
+    - "WebUI: http://0.0.0.0:9001"
+  heartbeat:
+    interval: 5s
+    lines:
+      - "{{.Timestamp}} [INFO] S3.GetObject /bucket/key 200"
+      - "{{.Timestamp}} [INFO] S3.PutObject /bucket/key 200"
+  shutdown:
+    - "{{.Timestamp}} [INFO] Shutting down MinIO server"
+
+wordpress:
+  startup:
+    - "WordPress not found in /var/www/html - copying now..."
+    - "Complete! WordPress has been successfully copied to /var/www/html"
+    - "[{{.Timestamp}}] [core:notice] Apache/2.4.58 configured -- resuming normal operations"
+  heartbeat:
+    interval: 3s
+    lines:
+      - '172.17.0.1 - - [{{.Timestamp}}] "GET /wp-admin/ HTTP/1.1" 200 15234'
+      - '172.17.0.1 - - [{{.Timestamp}}] "GET /wp-cron.php HTTP/1.1" 200 0'
+  shutdown:
+    - "[{{.Timestamp}}] [mpm_event:notice] AH00491: caught SIGTERM, shutting down"
+
+default:
+  startup:
+    - "{{.Image}} service starting"
+    - "Configuration loaded"
+    - "Service ready"
+  heartbeat:
+    interval: 3s
+    lines:
+      - "[INFO] Health check OK"
+      - "[INFO] Request processed #{{.N}}"
+  shutdown:
+    - "[INFO] Shutting down gracefully"
+    - "[INFO] Goodbye"

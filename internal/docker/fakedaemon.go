@@ -149,6 +149,7 @@ func (fd *FakeDaemon) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /_mock/state/{stack}", fd.handleMockStateSet)
 	mux.HandleFunc("DELETE /_mock/state/{stack}", fd.handleMockStateDelete)
 	mux.HandleFunc("POST /_mock/reset", fd.handleMockReset)
+	mux.HandleFunc("GET /_mock/logs/{stack}/{service}", fd.handleMockLogs)
 }
 
 // handleImageRoute routes GET /images/{name}/json and GET /images/{name}/history
@@ -523,57 +524,71 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 	id := r.PathValue("id")
 	follow := r.URL.Query().Get("follow") == "1" || r.URL.Query().Get("follow") == "true"
 
-	// Determine image type for realistic log content
-	imageBase := "generic"
-	if c, ok := fd.world.GetContainer(id); ok {
-		imageBase = extractImageBase(c.Image)
+	c, ok := fd.world.GetContainer(id)
+	if !ok {
+		http.NotFound(w, r)
+		return
 	}
+
+	logs := fd.data.GetServiceLogs(c.StackName, c.ServiceName)
+	imageBase := extractImageBase(c.Image)
 
 	// Docker logs use stdcopy multiplexing for non-TTY containers.
 	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
 	w.WriteHeader(http.StatusOK)
 
-	// Generate deterministic log lines based on image type
-	h := simpleHash(id)
-	lines := generateLogLines(imageBase, h)
-	for _, line := range lines {
-		writeStdcopyLine(w, line+"\n")
+	// Emit startup lines
+	for i, line := range logs.Startup {
+		expanded := ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
+		writeStdcopyLine(w, expanded+"\n")
 	}
 
-	if follow {
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
-		// Vary interval 2-5s per container for realism
-		intervalSec := 2 + int(h%4)
-		ticker := time.NewTicker(time.Duration(intervalSec) * time.Second)
-		defer ticker.Stop()
-		lineNum := len(lines)
-		for {
-			select {
-			case <-r.Context().Done():
-				return
-			case t := <-ticker.C:
-				ts := t.Format("2006/01/02 15:04:05")
-				var line string
-				switch imageBase {
-				case "nginx", "httpd":
-					status := []int{200, 200, 200, 200, 304, 301, 404}[lineNum%7]
-					line = fmt.Sprintf("172.17.0.1 - - [%s] \"GET /api/health HTTP/1.1\" %d 0 \"-\" \"curl/8.5.0\"", ts, status)
-				case "postgres":
-					line = fmt.Sprintf("%s UTC [%d] LOG:  checkpoint complete: wrote 42 buffers (0.3%%)", ts, 1+lineNum)
-				case "redis":
-					line = fmt.Sprintf("%d:M %s * DB saved on disk", 1, ts)
-				default:
-					line = fmt.Sprintf("%s [INFO] Request processed #%d", ts, lineNum)
-				}
-				lineNum++
-				if err := writeStdcopyLine(w, line+"\n"); err != nil {
-					return
+	if !follow {
+		return
+	}
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	// Subscribe to events for shutdown detection
+	subID, eventCh := fd.subscribeEvents()
+	defer fd.unsubscribeEvents(subID)
+
+	interval := logs.Interval
+	if interval == 0 {
+		interval = 3 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	n := 0
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case evt := <-eventCh:
+			if evt.ID == id && evt.Action == "die" {
+				for i, line := range logs.Shutdown {
+					expanded := ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
+					writeStdcopyLine(w, expanded+"\n")
 				}
 				if f, ok := w.(http.Flusher); ok {
 					f.Flush()
 				}
+				return
+			}
+		case <-ticker.C:
+			if len(logs.Heartbeat) == 0 {
+				continue
+			}
+			line := logs.Heartbeat[n%len(logs.Heartbeat)]
+			expanded := ExpandLogTemplate(line, n, logs.BaseTime, interval, imageBase)
+			n++
+			if err := writeStdcopyLine(w, expanded+"\n"); err != nil {
+				return
+			}
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
 			}
 		}
 	}
@@ -591,296 +606,6 @@ func extractImageBase(imageRef string) string {
 	return name
 }
 
-// generateLogLines produces realistic log output based on image type.
-// Uses deterministic seed so output is stable across test runs.
-func generateLogLines(imageBase string, seed uint64) []string {
-	switch imageBase {
-	case "nginx", "httpd":
-		return generateNginxLogs(seed)
-	case "postgres":
-		return generatePostgresLogs(seed)
-	case "mysql", "mariadb":
-		return generateMysqlLogs(seed)
-	case "redis":
-		return generateRedisLogs(seed)
-	case "node":
-		return generateNodeLogs(seed)
-	case "python":
-		return generatePythonLogs(seed)
-	case "grafana":
-		return generateGrafanaLogs(seed)
-	case "wordpress":
-		return generateNginxLogs(seed) // Apache-style logs
-	default:
-		return generateGenericLogs(imageBase, seed)
-	}
-}
-
-func generateNginxLogs(seed uint64) []string {
-	baseTime := time.Date(2026, 2, 27, 10, 0, 0, 0, time.UTC)
-	paths := []string{"/", "/api/v1/health", "/static/app.js", "/images/logo.png", "/api/v1/users", "/favicon.ico", "/login", "/dashboard"}
-	methods := []string{"GET", "GET", "GET", "POST", "GET", "GET", "PUT", "DELETE"}
-	statuses := []int{200, 200, 200, 304, 201, 404, 200, 200, 200, 301, 200, 200, 500, 200, 200, 403}
-	agents := []string{"Mozilla/5.0", "curl/8.5.0", "Go-http-client/2.0", "python-requests/2.31"}
-	count := 25 + int(seed%15) // 25-39 lines
-
-	lines := make([]string, 0, count)
-	lines = append(lines, "/docker-entrypoint.sh: Configuration complete; ready for start up")
-	lines = append(lines, fmt.Sprintf("%s [notice] 1#1: nginx/1.25.4", baseTime.Format("2006/01/02 15:04:05")))
-	lines = append(lines, fmt.Sprintf("%s [notice] 1#1: built by gcc 12.2.0", baseTime.Format("2006/01/02 15:04:05")))
-
-	for i := 3; i < count; i++ {
-		ts := baseTime.Add(time.Duration(i*30+int(seed%10)) * time.Second)
-		path := paths[(seed/uint64(i+1))%uint64(len(paths))]
-		method := methods[(seed/uint64(i+2))%uint64(len(methods))]
-		status := statuses[(seed+uint64(i))%uint64(len(statuses))]
-		size := 200 + (seed+uint64(i*100))%50000
-		agent := agents[(seed/uint64(i+3))%uint64(len(agents))]
-		ip := fmt.Sprintf("172.17.0.%d", 2+(seed+uint64(i))%10)
-		lines = append(lines, fmt.Sprintf("%s - - [%s] \"%s %s HTTP/1.1\" %d %d \"-\" \"%s\"",
-			ip, ts.Format("02/Jan/2006:15:04:05 +0000"), method, path, status, size, agent))
-	}
-	return lines
-}
-
-func generatePostgresLogs(seed uint64) []string {
-	baseTime := time.Date(2026, 2, 27, 10, 0, 0, 0, time.UTC)
-	count := 20 + int(seed%10)
-	lines := make([]string, 0, count)
-
-	lines = append(lines,
-		"PostgreSQL init process complete; ready for start up.",
-		fmt.Sprintf("%s UTC [1] LOG:  starting PostgreSQL 16.2 on x86_64-pc-linux-gnu", baseTime.Format("2006-01-02 15:04:05.000")),
-		fmt.Sprintf("%s UTC [1] LOG:  listening on IPv4 address \"0.0.0.0\", port 5432", baseTime.Format("2006-01-02 15:04:05.000")),
-		fmt.Sprintf("%s UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"", baseTime.Format("2006-01-02 15:04:05.000")),
-		fmt.Sprintf("%s UTC [1] LOG:  database system is ready to accept connections", baseTime.Add(time.Second).Format("2006-01-02 15:04:05.000")),
-	)
-
-	for i := 5; i < count; i++ {
-		ts := baseTime.Add(time.Duration(i*60) * time.Second)
-		pid := 50 + i
-		switch (seed + uint64(i)) % 5 {
-		case 0:
-			lines = append(lines, fmt.Sprintf("%s UTC [%d] LOG:  connection received: host=172.17.0.%d port=%d",
-				ts.Format("2006-01-02 15:04:05.000"), pid, 2+(seed+uint64(i))%10, 40000+seed%20000))
-		case 1:
-			lines = append(lines, fmt.Sprintf("%s UTC [%d] LOG:  connection authorized: user=app database=app",
-				ts.Format("2006-01-02 15:04:05.000"), pid))
-		case 2:
-			dur := 0.5 + float64((seed+uint64(i))%1000)/100.0
-			lines = append(lines, fmt.Sprintf("%s UTC [%d] LOG:  duration: %.3f ms  statement: SELECT * FROM users WHERE active = true",
-				ts.Format("2006-01-02 15:04:05.000"), pid, dur))
-		case 3:
-			lines = append(lines, fmt.Sprintf("%s UTC [%d] LOG:  checkpoint starting: time",
-				ts.Format("2006-01-02 15:04:05.000"), pid))
-		case 4:
-			buffers := 10 + (seed+uint64(i))%100
-			lines = append(lines, fmt.Sprintf("%s UTC [%d] LOG:  checkpoint complete: wrote %d buffers (%.1f%%)",
-				ts.Format("2006-01-02 15:04:05.000"), pid, buffers, float64(buffers)/10.0))
-		}
-	}
-	return lines
-}
-
-func generateMysqlLogs(seed uint64) []string {
-	baseTime := time.Date(2026, 2, 27, 10, 0, 0, 0, time.UTC)
-	count := 20 + int(seed%10)
-	lines := make([]string, 0, count)
-
-	lines = append(lines,
-		fmt.Sprintf("%s 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.0.36) starting as process 1", baseTime.Format("2006-01-02T15:04:05.000000Z")),
-		fmt.Sprintf("%s 0 [System] [MY-013576] [InnoDB] InnoDB initialization has started.", baseTime.Format("2006-01-02T15:04:05.000000Z")),
-		fmt.Sprintf("%s 0 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.", baseTime.Add(2*time.Second).Format("2006-01-02T15:04:05.000000Z")),
-		fmt.Sprintf("%s 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: '::' port: 33060", baseTime.Add(3*time.Second).Format("2006-01-02T15:04:05.000000Z")),
-		fmt.Sprintf("%s 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Port: 3306", baseTime.Add(3*time.Second).Format("2006-01-02T15:04:05.000000Z")),
-	)
-
-	for i := 5; i < count; i++ {
-		ts := baseTime.Add(time.Duration(i*45) * time.Second)
-		connID := 100 + i
-		switch (seed + uint64(i)) % 4 {
-		case 0:
-			lines = append(lines, fmt.Sprintf("%s %d [Note] Access granted for user 'app'@'172.17.0.%d'",
-				ts.Format("2006-01-02T15:04:05.000000Z"), connID, 2+(seed+uint64(i))%10))
-		case 1:
-			dur := 0.001 + float64((seed+uint64(i))%500)/10000.0
-			lines = append(lines, fmt.Sprintf("%s %d [Note] Slow query (%.4fs): SELECT * FROM orders WHERE status = 'pending'",
-				ts.Format("2006-01-02T15:04:05.000000Z"), connID, dur))
-		case 2:
-			lines = append(lines, fmt.Sprintf("%s 0 [Note] InnoDB: Buffer pool(s) load completed",
-				ts.Format("2006-01-02T15:04:05.000000Z")))
-		case 3:
-			lines = append(lines, fmt.Sprintf("%s %d [Note] Aborted connection (Got timeout)",
-				ts.Format("2006-01-02T15:04:05.000000Z"), connID))
-		}
-	}
-	return lines
-}
-
-func generateRedisLogs(seed uint64) []string {
-	baseTime := time.Date(2026, 2, 27, 10, 0, 0, 0, time.UTC)
-	count := 20 + int(seed%10)
-	lines := make([]string, 0, count)
-
-	lines = append(lines,
-		fmt.Sprintf("1:C %s * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo", baseTime.Format("02 Jan 2006 15:04:05.000")),
-		fmt.Sprintf("1:C %s * Redis version=7.2.4, bits=64, commit=00000000, modified=0, pid=1", baseTime.Format("02 Jan 2006 15:04:05.000")),
-		fmt.Sprintf("1:M %s * Running mode=standalone, port=6379.", baseTime.Format("02 Jan 2006 15:04:05.000")),
-		fmt.Sprintf("1:M %s # Server initialized", baseTime.Format("02 Jan 2006 15:04:05.000")),
-		fmt.Sprintf("1:M %s * Ready to accept connections tcp", baseTime.Format("02 Jan 2006 15:04:05.000")),
-	)
-
-	ops := []string{"GET", "SET", "DEL", "HGET", "HSET", "LPUSH", "RPOP", "EXPIRE", "INCR", "SADD"}
-	keys := []string{"user:1001", "session:abc123", "cache:products", "queue:jobs", "config:app", "counter:visits"}
-
-	for i := 5; i < count; i++ {
-		ts := baseTime.Add(time.Duration(i*30) * time.Second)
-		switch (seed + uint64(i)) % 5 {
-		case 0:
-			clients := 1 + (seed+uint64(i))%20
-			mem := 1.5 + float64((seed+uint64(i))%500)/100.0
-			lines = append(lines, fmt.Sprintf("1:M %s * %d clients connected (%d slaves), %.2f MB in use",
-				ts.Format("02 Jan 2006 15:04:05.000"), clients, 0, mem))
-		case 1:
-			op := ops[(seed+uint64(i))%uint64(len(ops))]
-			key := keys[(seed+uint64(i))%uint64(len(keys))]
-			lines = append(lines, fmt.Sprintf("1:M %s * Processed: %s %s",
-				ts.Format("02 Jan 2006 15:04:05.000"), op, key))
-		case 2:
-			changes := 5 + (seed+uint64(i))%50
-			lines = append(lines, fmt.Sprintf("1:M %s * %d changes in 300 seconds. Saving...",
-				ts.Format("02 Jan 2006 15:04:05.000"), changes))
-		case 3:
-			lines = append(lines, fmt.Sprintf("1:M %s * Background saving started by pid 42",
-				ts.Format("02 Jan 2006 15:04:05.000")))
-		case 4:
-			lines = append(lines, fmt.Sprintf("1:M %s * DB saved on disk",
-				ts.Format("02 Jan 2006 15:04:05.000")))
-		}
-	}
-	return lines
-}
-
-func generateNodeLogs(seed uint64) []string {
-	baseTime := time.Date(2026, 2, 27, 10, 0, 0, 0, time.UTC)
-	count := 22 + int(seed%12)
-	lines := make([]string, 0, count)
-
-	port := 3000 + int(seed%5)*1000
-	lines = append(lines,
-		fmt.Sprintf("[%s] INFO  Server starting...", baseTime.Format("2006-01-02T15:04:05.000Z")),
-		fmt.Sprintf("[%s] INFO  Connected to database", baseTime.Add(500*time.Millisecond).Format("2006-01-02T15:04:05.000Z")),
-		fmt.Sprintf("[%s] INFO  Redis connection established", baseTime.Add(600*time.Millisecond).Format("2006-01-02T15:04:05.000Z")),
-		fmt.Sprintf("[%s] INFO  Listening on port %d", baseTime.Add(time.Second).Format("2006-01-02T15:04:05.000Z"), port),
-	)
-
-	endpoints := []string{"/api/health", "/api/users", "/api/orders", "/api/products", "/api/auth/login"}
-	statuses := []int{200, 200, 200, 201, 404, 200, 500, 200, 200, 304}
-
-	for i := 4; i < count; i++ {
-		ts := baseTime.Add(time.Duration(i*15) * time.Second)
-		endpoint := endpoints[(seed+uint64(i))%uint64(len(endpoints))]
-		status := statuses[(seed+uint64(i))%uint64(len(statuses))]
-		dur := 1 + (seed+uint64(i))%200
-		level := "INFO"
-		if status >= 500 {
-			level = "ERROR"
-		}
-		lines = append(lines, fmt.Sprintf("[%s] %s  %s %s %d %dms",
-			ts.Format("2006-01-02T15:04:05.000Z"), level, "GET", endpoint, status, dur))
-	}
-	return lines
-}
-
-func generatePythonLogs(seed uint64) []string {
-	baseTime := time.Date(2026, 2, 27, 10, 0, 0, 0, time.UTC)
-	count := 20 + int(seed%10)
-	lines := make([]string, 0, count)
-
-	lines = append(lines,
-		fmt.Sprintf("%s [INFO] Starting worker process [1]", baseTime.Format("2006-01-02 15:04:05")),
-		fmt.Sprintf("%s [INFO] Worker ready, listening for tasks", baseTime.Add(time.Second).Format("2006-01-02 15:04:05")),
-		fmt.Sprintf("%s [INFO] Connected to message broker", baseTime.Add(2*time.Second).Format("2006-01-02 15:04:05")),
-	)
-
-	tasks := []string{"process_order", "send_email", "generate_report", "sync_inventory", "cleanup_sessions"}
-	for i := 3; i < count; i++ {
-		ts := baseTime.Add(time.Duration(i*20) * time.Second)
-		task := tasks[(seed+uint64(i))%uint64(len(tasks))]
-		dur := 50 + (seed+uint64(i))%5000
-		switch (seed + uint64(i)) % 4 {
-		case 0:
-			lines = append(lines, fmt.Sprintf("%s [INFO] Task %s received", ts.Format("2006-01-02 15:04:05"), task))
-		case 1:
-			lines = append(lines, fmt.Sprintf("%s [INFO] Task %s completed in %dms", ts.Format("2006-01-02 15:04:05"), task, dur))
-		case 2:
-			lines = append(lines, fmt.Sprintf("%s [DEBUG] Processing batch of %d items", ts.Format("2006-01-02 15:04:05"), 10+(seed+uint64(i))%100))
-		case 3:
-			lines = append(lines, fmt.Sprintf("%s [INFO] Health check: OK (uptime: %ds)", ts.Format("2006-01-02 15:04:05"), i*20))
-		}
-	}
-	return lines
-}
-
-func generateGrafanaLogs(seed uint64) []string {
-	baseTime := time.Date(2026, 2, 27, 10, 0, 0, 0, time.UTC)
-	count := 20 + int(seed%8)
-	lines := make([]string, 0, count)
-
-	lines = append(lines,
-		fmt.Sprintf("t=%s level=info msg=\"Starting Grafana\" version=10.3.1", baseTime.Format("2006-01-02T15:04:05+0000")),
-		fmt.Sprintf("t=%s level=info msg=\"Config loaded from\" file=/etc/grafana/grafana.ini", baseTime.Format("2006-01-02T15:04:05+0000")),
-		fmt.Sprintf("t=%s level=info msg=\"HTTP Server Listen\" address=[::]:3000 protocol=http", baseTime.Add(2*time.Second).Format("2006-01-02T15:04:05+0000")),
-	)
-
-	for i := 3; i < count; i++ {
-		ts := baseTime.Add(time.Duration(i*30) * time.Second)
-		switch (seed + uint64(i)) % 4 {
-		case 0:
-			lines = append(lines, fmt.Sprintf("t=%s level=info msg=\"Request Completed\" method=GET path=/api/dashboards/home status=200 remote_addr=172.17.0.1",
-				ts.Format("2006-01-02T15:04:05+0000")))
-		case 1:
-			lines = append(lines, fmt.Sprintf("t=%s level=info msg=\"Datasource request\" datasource=Prometheus path=/api/v1/query",
-				ts.Format("2006-01-02T15:04:05+0000")))
-		case 2:
-			lines = append(lines, fmt.Sprintf("t=%s level=info msg=\"Alerting rule evaluated\" rule_uid=abc%d state=Normal",
-				ts.Format("2006-01-02T15:04:05+0000"), i))
-		case 3:
-			dur := 5 + (seed+uint64(i))%100
-			lines = append(lines, fmt.Sprintf("t=%s level=info msg=\"Dashboard rendered\" dashboard=Main panels=8 duration=%dms",
-				ts.Format("2006-01-02T15:04:05+0000"), dur))
-		}
-	}
-	return lines
-}
-
-func generateGenericLogs(imageBase string, seed uint64) []string {
-	baseTime := time.Date(2026, 2, 27, 10, 0, 0, 0, time.UTC)
-	count := 20 + int(seed%10)
-	lines := make([]string, 0, count)
-
-	lines = append(lines,
-		fmt.Sprintf("%s [INFO] %s service starting", baseTime.Format("2006-01-02 15:04:05"), imageBase),
-		fmt.Sprintf("%s [INFO] Configuration loaded", baseTime.Add(200*time.Millisecond).Format("2006-01-02 15:04:05")),
-		fmt.Sprintf("%s [INFO] Service ready", baseTime.Add(time.Second).Format("2006-01-02 15:04:05")),
-	)
-
-	for i := 3; i < count; i++ {
-		ts := baseTime.Add(time.Duration(i*25) * time.Second)
-		switch (seed + uint64(i)) % 4 {
-		case 0:
-			lines = append(lines, fmt.Sprintf("%s [INFO] Request processed #%d", ts.Format("2006-01-02 15:04:05"), i))
-		case 1:
-			lines = append(lines, fmt.Sprintf("%s [DEBUG] Health check OK", ts.Format("2006-01-02 15:04:05")))
-		case 2:
-			dur := 1 + (seed+uint64(i))%100
-			lines = append(lines, fmt.Sprintf("%s [INFO] Operation completed in %dms", ts.Format("2006-01-02 15:04:05"), dur))
-		case 3:
-			lines = append(lines, fmt.Sprintf("%s [INFO] Active connections: %d", ts.Format("2006-01-02 15:04:05"), 1+(seed+uint64(i))%50))
-		}
-	}
-	return lines
-}
 
 // writeStdcopyLine writes a line with Docker stdcopy multiplexing header.
 // Format: [stream_type(1 byte)][0 0 0][size(4 bytes big-endian)][payload]
@@ -1370,6 +1095,45 @@ func (fd *FakeDaemon) handleMockReset(w http.ResponseWriter, r *http.Request) {
 	fd.world.Reset() // Rebuild world after state reset
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
+}
+
+// mockLogsJSON is the JSON response for /_mock/logs/{stack}/{service}.
+type mockLogsJSON struct {
+	BaseTime  string   `json:"base_time"`
+	Startup   []string `json:"startup"`
+	Heartbeat []string `json:"heartbeat"`
+	Interval  string   `json:"interval"`
+	Shutdown  []string `json:"shutdown"`
+}
+
+func (fd *FakeDaemon) handleMockLogs(w http.ResponseWriter, r *http.Request) {
+	stack := r.PathValue("stack")
+	service := r.PathValue("service")
+
+	logs := fd.data.GetServiceLogs(stack, service)
+	imageBase := "unknown"
+	if img, ok := fd.data.serviceImages[stack+"/"+service]; ok {
+		imageBase = extractImageBase(img)
+	}
+
+	// Expand startup and shutdown lines
+	startup := make([]string, len(logs.Startup))
+	for i, line := range logs.Startup {
+		startup[i] = ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
+	}
+	shutdown := make([]string, len(logs.Shutdown))
+	for i, line := range logs.Shutdown {
+		shutdown[i] = ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
+	}
+
+	resp := mockLogsJSON{
+		BaseTime:  logs.BaseTime.Format(time.RFC3339Nano),
+		Startup:   startup,
+		Heartbeat: logs.Heartbeat, // heartbeat lines stay as templates (expanded per-tick)
+		Interval:  logs.Interval.String(),
+		Shutdown:  shutdown,
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // --- Helpers ---

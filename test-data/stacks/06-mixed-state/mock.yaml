@@ -10,6 +10,11 @@ services:
       06-mixed-state_default:
         ip: "172.24.0.2"
         mac: "02:42:ac:18:00:02"
+    logs:
+      startup:
+        - "/docker-entrypoint.sh: Configuration complete; ready for start up"
+        - "{{.Timestamp}} [notice] 1#1: nginx/1.25.4"
+        - "{{.Timestamp}} [notice] 1#1: ready to serve requests"
   worker:
     state: exited
     command: "python worker.py"
@@ -18,6 +23,12 @@ services:
       06-mixed-state_default:
         ip: "172.24.0.3"
         mac: "02:42:ac:18:00:03"
+    logs:
+      startup:
+        - "{{.Timestamp}} [INFO] Starting worker process [1]"
+        - "{{.Timestamp}} [INFO] Worker ready"
+      shutdown:
+        - "{{.Timestamp}} [ERROR] Worker exited unexpectedly (exit code 137)"
   db:
     command: "postgres"
     restart_policy: unless-stopped

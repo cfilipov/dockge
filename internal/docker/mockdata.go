@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -35,6 +37,29 @@ type serviceYAMLOverrides struct {
 	Env             []string                             `yaml:"env"`
 	RestartPolicy   string                               `yaml:"restart_policy"`
 	Networks        map[string]networkEndpointYAMLConfig `yaml:"networks"`
+	Logs            serviceLogsYAML                      `yaml:"logs"`
+}
+
+// serviceLogsYAML is the YAML schema for per-service log definitions.
+type serviceLogsYAML struct {
+	BaseTime  string        `yaml:"base_time"`
+	Startup   []string      `yaml:"startup"`
+	Heartbeat heartbeatYAML `yaml:"heartbeat"`
+	Shutdown  []string      `yaml:"shutdown"`
+}
+
+type heartbeatYAML struct {
+	Interval string   `yaml:"interval"`
+	Lines    []string `yaml:"lines"`
+}
+
+// ServiceLogs is the resolved, ready-to-use log definition for a service.
+type ServiceLogs struct {
+	BaseTime  time.Time
+	Startup   []string
+	Heartbeat []string
+	Interval  time.Duration
+	Shutdown  []string
 }
 
 type networkEndpointYAMLConfig struct {
@@ -116,6 +141,10 @@ type MockData struct {
 	serviceEnv            map[string][]string // "stackName/svc" → env vars
 	serviceRestartPolicy  map[string]string   // "stackName/svc" → restart policy
 	serviceEndpoints      map[string]map[string]endpointConfig // "stackName/svc" → netName → {ip, mac}
+
+	// Log templates and per-service resolved logs
+	logTemplates map[string]*ServiceLogs // image base → default logs
+	serviceLogs  map[string]*ServiceLogs // "stack/svc" → resolved logs
 
 	// Standalone containers (not part of any compose project)
 	standalones []standaloneContainer
@@ -217,6 +246,7 @@ type serviceOverrides struct {
 	env             []string
 	restartPolicy   string // "always", "unless-stopped", etc.
 	networks        map[string]endpointConfig // netName → {ip, mac}
+	logs            serviceLogsYAML           // per-service log overrides
 }
 
 // endpointConfig holds network endpoint config from mock.yaml.
@@ -264,6 +294,8 @@ func BuildMockData(stacksDir string) *MockData {
 		serviceRestartPolicy: make(map[string]string),
 		serviceEndpoints:     make(map[string]map[string]endpointConfig),
 		externalServices:     make(map[string]externalServiceConfig),
+		logTemplates:         make(map[string]*ServiceLogs),
+		serviceLogs:          make(map[string]*ServiceLogs),
 	}
 
 	// Docker default networks (fallback when global mock.yaml doesn't define them)
@@ -336,6 +368,9 @@ func BuildMockData(stacksDir string) *MockData {
 			{id: "sha256:def456beef", size: "89.7MiB", created: "2025-10-20T02:00:00Z"},
 		}
 	}
+
+	// Parse log templates (log-templates.yaml in stacks dir)
+	d.logTemplates = parseLogTemplates(filepath.Join(stacksDir, "log-templates.yaml"))
 
 	entries, err := os.ReadDir(stacksDir)
 	if err != nil {
@@ -468,6 +503,26 @@ func BuildMockData(stacksDir string) *MockData {
 			}
 			if len(so.networks) > 0 {
 				d.serviceEndpoints[key] = so.networks
+			}
+			if so.logs.hasContent() {
+				d.serviceLogs[key] = so.logs.resolve()
+			}
+		}
+
+		// Resolve logs for all services in this stack
+		for _, svc := range cd.services {
+			key := stackName + "/" + svc.name
+			if _, ok := d.serviceLogs[key]; ok {
+				continue // already has per-service override
+			}
+			// Look up image-based template
+			img := svc.image
+			if img == "" {
+				img = "mock-image:latest"
+			}
+			imageBase := extractImageBaseName(img)
+			if tmpl, ok := d.logTemplates[imageBase]; ok {
+				d.serviceLogs[key] = tmpl
 			}
 		}
 
@@ -883,6 +938,7 @@ func parseMockYAML(path string) mockOverrides {
 			args:            svc.Args,
 			env:             svc.Env,
 			restartPolicy:   svc.RestartPolicy,
+			logs:            svc.Logs,
 		}
 		if len(svc.Networks) > 0 {
 			so.networks = make(map[string]endpointConfig, len(svc.Networks))
@@ -1072,4 +1128,140 @@ func workingDirForImage(imageRef string) string {
 		return dir
 	}
 	return ""
+}
+
+// --- Log Template Parsing ---
+
+// defaultBaseTime is the hardcoded fallback when no base_time is specified.
+var defaultBaseTime = time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+
+// hasContent returns true if the YAML has any log content defined.
+func (s serviceLogsYAML) hasContent() bool {
+	return len(s.Startup) > 0 || len(s.Heartbeat.Lines) > 0 || len(s.Shutdown) > 0 || s.BaseTime != ""
+}
+
+// resolve converts a serviceLogsYAML into a ready-to-use ServiceLogs.
+func (s serviceLogsYAML) resolve() *ServiceLogs {
+	sl := &ServiceLogs{
+		BaseTime:  defaultBaseTime,
+		Startup:   s.Startup,
+		Heartbeat: s.Heartbeat.Lines,
+		Shutdown:  s.Shutdown,
+		Interval:  3 * time.Second,
+	}
+	if s.BaseTime != "" {
+		if t, err := time.Parse(time.RFC3339Nano, s.BaseTime); err == nil {
+			sl.BaseTime = t
+		} else if t, err := time.Parse("2006-01-02T15:04:05.000Z", s.BaseTime); err == nil {
+			sl.BaseTime = t
+		}
+	}
+	if s.Heartbeat.Interval != "" {
+		if d, err := time.ParseDuration(s.Heartbeat.Interval); err == nil {
+			sl.Interval = d
+		}
+	}
+	return sl
+}
+
+// parseLogTemplates parses log-templates.yaml into a map of image base → ServiceLogs.
+// The file uses a two-level structure: a top-level "base_time" string, and all other
+// top-level keys are image names mapping to serviceLogsYAML.
+func parseLogTemplates(path string) map[string]*ServiceLogs {
+	templates := make(map[string]*ServiceLogs)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return templates
+	}
+
+	// First pass: unmarshal into map[string]yaml.Node to get all keys
+	var raw map[string]yaml.Node
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return templates
+	}
+
+	// Extract global base_time
+	globalBaseTime := defaultBaseTime
+	if node, ok := raw["base_time"]; ok {
+		var btStr string
+		if err := node.Decode(&btStr); err == nil {
+			if t, err := time.Parse(time.RFC3339Nano, btStr); err == nil {
+				globalBaseTime = t
+			} else if t, err := time.Parse("2006-01-02T15:04:05.000Z", btStr); err == nil {
+				globalBaseTime = t
+			}
+		}
+	}
+
+	// Second pass: decode each image template
+	for key, node := range raw {
+		if key == "base_time" {
+			continue
+		}
+		var sly serviceLogsYAML
+		if err := node.Decode(&sly); err != nil {
+			continue
+		}
+		sl := sly.resolve()
+		// Apply per-template base_time override, falling back to global
+		if sly.BaseTime == "" {
+			sl.BaseTime = globalBaseTime
+		}
+		templates[key] = sl
+	}
+
+	return templates
+}
+
+// extractImageBaseName returns the base name of a Docker image ref.
+// "grafana/grafana:latest" → "grafana", "nginx:1.25" → "nginx"
+func extractImageBaseName(imageRef string) string {
+	name := imageRef
+	if idx := strings.LastIndex(name, "/"); idx >= 0 {
+		name = name[idx+1:]
+	}
+	if idx := strings.Index(name, ":"); idx >= 0 {
+		name = name[:idx]
+	}
+	return name
+}
+
+// GetServiceLogs returns the resolved log definition for a service.
+// Resolution order: per-service override → image template → default template.
+func (d *MockData) GetServiceLogs(stackName, svc string) *ServiceLogs {
+	key := stackName + "/" + svc
+	if sl, ok := d.serviceLogs[key]; ok {
+		return sl
+	}
+	// Fall back to image template
+	if img, ok := d.serviceImages[key]; ok {
+		imageBase := extractImageBaseName(img)
+		if tmpl, ok := d.logTemplates[imageBase]; ok {
+			return tmpl
+		}
+	}
+	// Fall back to default template
+	if tmpl, ok := d.logTemplates["default"]; ok {
+		return tmpl
+	}
+	// Absolute fallback
+	return &ServiceLogs{
+		BaseTime: defaultBaseTime,
+		Startup:  []string{"Service starting", "Service ready"},
+		Interval: 3 * time.Second,
+	}
+}
+
+// ExpandLogTemplate expands template variables in a log line.
+// Variables: {{.Timestamp}}, {{.N}}, {{.Image}}
+func ExpandLogTemplate(s string, n int, baseTime time.Time, interval time.Duration, imageBase string) string {
+	if !strings.ContainsRune(s, '{') {
+		return s // fast path
+	}
+	ts := baseTime.Add(time.Duration(n) * interval).Format("2006-01-02T15:04:05.000Z")
+	s = strings.ReplaceAll(s, "{{.Timestamp}}", ts)
+	s = strings.ReplaceAll(s, "{{.N}}", strconv.Itoa(n))
+	s = strings.ReplaceAll(s, "{{.Image}}", imageBase)
+	return s
 }

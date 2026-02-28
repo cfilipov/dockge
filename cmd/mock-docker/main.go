@@ -365,6 +365,8 @@ func composeLogs(args []string) {
 		return
 	}
 
+	stackName := filepath.Base(mustGetwd())
+
 	// logColors mirrors docker compose's service name color palette.
 	logColors := []string{
 		"\033[36m", "\033[33m", "\033[32m", "\033[35m", "\033[34m",
@@ -378,17 +380,13 @@ func composeLogs(args []string) {
 		}
 	}
 
-	// Use a fixed base time so log output is deterministic across runs
-	// (avoids screenshot test flakiness from changing timestamps).
-	baseTime := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
-
 	var buf bytes.Buffer
 	for i, svc := range services {
 		color := logColors[i%len(logColors)]
 		padded := fmt.Sprintf("%-*s", maxLen, svc)
 		prefix := color + padded + " | " + "\033[0m"
 
-		lines := composeMockLogLines(svc, i, baseTime)
+		lines := fetchServiceStartupLogs(stackName, svc)
 		for _, line := range lines {
 			fmt.Fprintf(&buf, "%s%s\n", prefix, line)
 		}
@@ -401,57 +399,52 @@ func composeLogs(args []string) {
 	}
 }
 
-// composeMockLogLines generates 15 realistic log lines per service.
-func composeMockLogLines(svc string, idx int, base time.Time) []string {
-	lines := make([]string, 0, 15)
-	svcLower := strings.ToLower(svc)
+// mockLogsResponse matches the JSON from /_mock/logs/{stack}/{service}.
+type mockLogsResponse struct {
+	Startup   []string `json:"startup"`
+	Heartbeat []string `json:"heartbeat"`
+	Interval  string   `json:"interval"`
+	Shutdown  []string `json:"shutdown"`
+}
 
-	for i := 0; i < 15; i++ {
-		ts := base.Add(time.Duration(i*40+idx*5) * time.Second)
-		tsStr := ts.Format("2006-01-02T15:04:05.000Z")
-
-		switch {
-		case strings.Contains(svcLower, "nginx") || strings.Contains(svcLower, "web"):
-			paths := []string{"/", "/api/health", "/static/app.js", "/images/logo.png", "/api/users"}
-			statuses := []int{200, 200, 304, 200, 404, 200, 200, 301, 200, 200}
-			lines = append(lines, fmt.Sprintf("172.17.0.%d - - [%s] \"GET %s HTTP/1.1\" %d %d",
-				2+idx, tsStr, paths[i%len(paths)], statuses[i%len(statuses)], 200+i*100))
-
-		case strings.Contains(svcLower, "postgres") || strings.Contains(svcLower, "db"):
-			msgs := []string{
-				"LOG:  database system is ready to accept connections",
-				"LOG:  connection received: host=172.17.0.3",
-				"LOG:  connection authorized: user=app database=app",
-				"LOG:  duration: 1.234 ms  statement: SELECT 1",
-				"LOG:  checkpoint starting: time",
-			}
-			lines = append(lines, fmt.Sprintf("%s [%d] %s", tsStr, 50+i, msgs[i%len(msgs)]))
-
-		case strings.Contains(svcLower, "redis") || strings.Contains(svcLower, "cache"):
-			msgs := []string{
-				"Ready to accept connections tcp",
-				"* DB saved on disk",
-				"* 10 changes in 300 seconds. Saving...",
-				"* Background saving started by pid 42",
-				"* RDB: 0 MB of memory used by copy-on-write",
-			}
-			lines = append(lines, fmt.Sprintf("1:M %s %s", tsStr, msgs[i%len(msgs)]))
-
-		case strings.Contains(svcLower, "mysql") || strings.Contains(svcLower, "maria"):
-			msgs := []string{
-				"[Server] /usr/sbin/mysqld: ready for connections. Port: 3306",
-				"[InnoDB] Buffer pool(s) load completed",
-				"[Note] Access granted for user 'app'@'172.17.0.3'",
-				"[Note] Event Scheduler: Loaded 0 events",
-				"[Server] mysqld: ready for connections.",
-			}
-			lines = append(lines, fmt.Sprintf("%s 0 [System] %s", tsStr, msgs[i%len(msgs)]))
-
-		default:
-			lines = append(lines, fmt.Sprintf("%s [INFO] %s: request processed #%d", tsStr, svc, i+1))
-		}
+// fetchServiceStartupLogs fetches the resolved startup log lines from the FakeDaemon.
+// Falls back to generic output if the daemon is unavailable.
+func fetchServiceStartupLogs(stackName, service string) []string {
+	dockerHost := os.Getenv("DOCKER_HOST")
+	if dockerHost == "" || !strings.HasPrefix(dockerHost, "unix://") {
+		return []string{"[INFO] " + service + " started"}
 	}
-	return lines
+	socketPath := strings.TrimPrefix(dockerHost, "unix://")
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", socketPath, 2*time.Second)
+			},
+		},
+		Timeout: 5 * time.Second,
+	}
+
+	url := fmt.Sprintf("http://docker/_mock/logs/%s/%s", stackName, service)
+	resp, err := client.Get(url)
+	if err != nil {
+		return []string{"[INFO] " + service + " started"}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return []string{"[INFO] " + service + " started"}
+	}
+
+	var logs mockLogsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&logs); err != nil {
+		return []string{"[INFO] " + service + " started"}
+	}
+
+	if len(logs.Startup) > 0 {
+		return logs.Startup
+	}
+	return []string{"[INFO] " + service + " started"}
 }
 
 // --- Mock State Communication ---
