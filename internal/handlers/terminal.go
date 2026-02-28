@@ -611,6 +611,12 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
         }
     }
 
+    // Start the flusher BEFORE spawning readers — it drains lineCh and writes
+    // to the terminal. Must be a goroutine because the spawning loop below
+    // calls injectBanner synchronously, which writes to lineCh. Without the
+    // flusher running, the channel fills up and deadlocks the loop.
+    go flushLogLines(ctx, term, lineCh)
+
     // Spawn initial readers with banners (tail=100 for history)
     for _, c := range containers {
         injectBanner(c.ID, c.Service)
@@ -628,40 +634,35 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
     // Event-spawned readers use tail="0" to avoid re-fetching historical lines
     // that the previous reader already streamed.
     eventCh, _ := app.Docker.Events(ctx)
-    go func() {
-        for {
-            select {
-            case evt, ok := <-eventCh:
-                if !ok {
-                    return
-                }
-                if evt.Project != stackName || evt.Action != "start" {
-                    continue
-                }
-                idx, known := colorMap[evt.Service]
-                if !known {
-                    idx = len(colorMap)
-                    colorMap[evt.Service] = idx
-                    if len(evt.Service) > maxLen {
-                        maxLen = len(evt.Service)
-                    }
-                }
-                injectBanner(evt.ContainerID, evt.Service)
-                // Spawn reader only for new container IDs (recreated containers)
-                if _, loaded := activeReaders.LoadOrStore(evt.ContainerID, struct{}{}); !loaded {
-                    go func(id, svc string, ci int) {
-                        defer activeReaders.Delete(id)
-                        app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", lineCh)
-                    }(evt.ContainerID, evt.Service, idx)
-                }
-            case <-ctx.Done():
+    for {
+        select {
+        case evt, ok := <-eventCh:
+            if !ok {
                 return
             }
+            if evt.Project != stackName || evt.Action != "start" {
+                continue
+            }
+            idx, known := colorMap[evt.Service]
+            if !known {
+                idx = len(colorMap)
+                colorMap[evt.Service] = idx
+                if len(evt.Service) > maxLen {
+                    maxLen = len(evt.Service)
+                }
+            }
+            injectBanner(evt.ContainerID, evt.Service)
+            // Spawn reader only for new container IDs (recreated containers)
+            if _, loaded := activeReaders.LoadOrStore(evt.ContainerID, struct{}{}); !loaded {
+                go func(id, svc string, ci int) {
+                    defer activeReaders.Delete(id)
+                    app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", lineCh)
+                }(evt.ContainerID, evt.Service, idx)
+            }
+        case <-ctx.Done():
+            return
         }
-    }()
-
-    // Flusher blocks until ctx is cancelled
-    flushLogLines(ctx, term, lineCh)
+    }
 }
 
 // readContainerLogs streams logs for a single container, prefixing each line
