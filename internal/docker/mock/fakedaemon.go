@@ -595,6 +595,16 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 	logs := fd.data.GetServiceLogs(c.StackName, c.ServiceName)
 	imageBase := extractImageBase(c.Image)
 
+	isRunning := fd.world.GetContainerState(containerID) == "running"
+
+	// Real Docker returns 409 when following logs of a non-running container.
+	if follow && !isRunning {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		fmt.Fprintf(w, `{"message":"container %s is not running"}`, containerID)
+		return
+	}
+
 	// Docker logs use stdcopy multiplexing for non-TTY containers.
 	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
 	w.WriteHeader(http.StatusOK)
@@ -603,6 +613,15 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 	for i, line := range logs.Startup {
 		expanded := ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
 		writeStdcopyLine(w, expanded+"\n")
+	}
+
+	// If the container is already exited, emit shutdown logs too.
+	if !isRunning {
+		for i, line := range logs.Shutdown {
+			expanded := ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
+			writeStdcopyLine(w, expanded+"\n")
+		}
+		return
 	}
 
 	if !follow {
