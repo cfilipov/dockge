@@ -1,21 +1,21 @@
 <template>
     <div class="btn-group me-2" role="group" aria-label="Service actions">
-        <button v-if="!active" class="btn btn-primary" :disabled="processing" :title="$t('tooltipServiceStart', [serviceName])" @click="startService">
+        <button v-if="!active" class="btn btn-primary" :disabled="processing" :title="tooltipStart" @click="startService">
             <font-awesome-icon icon="play" class="me-1" />
             {{ $t("startStack") }}
         </button>
 
-        <button v-if="active" class="btn btn-normal" :disabled="processing" :title="$t('tooltipServiceRestart', [serviceName])" @click="restartService">
+        <button v-if="active" class="btn btn-normal" :disabled="processing" :title="tooltipRestart" @click="restartService">
             <font-awesome-icon icon="rotate" class="me-1" />
             {{ $t("restartStack") }}
         </button>
 
-        <button class="btn" :class="recreateNecessary ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipServiceRecreate', [serviceName])" @click="recreateService">
+        <button class="btn" :class="recreateNecessary ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="tooltipRecreate" @click="recreateService">
             <font-awesome-icon icon="rocket" class="me-1" />
             <span class="d-none d-xl-inline">{{ $t("recreate") }}</span>
         </button>
 
-        <button class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipServiceUpdate', [serviceName])" @click="showDialog = true">
+        <button class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="tooltipUpdate" @click="showDialog = true">
             <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
             <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
         </button>
@@ -27,7 +27,7 @@
             @update="doUpdate"
         />
 
-        <button v-if="active" class="btn btn-normal" :disabled="processing" :title="$t('tooltipServiceStop', [serviceName])" @click="stopService">
+        <button v-if="active" class="btn btn-normal" :disabled="processing" :title="tooltipStop" @click="stopService">
             <font-awesome-icon icon="stop" class="me-1" />
             {{ $t("stopStack") }}
         </button>
@@ -42,9 +42,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import UpdateDialog from "./UpdateDialog.vue";
+
+const { t } = useI18n();
 
 const props = defineProps<{
     active: boolean;
@@ -53,7 +56,26 @@ const props = defineProps<{
     recreateNecessary: boolean;
     stackName: string;
     serviceName: string;
+    containerName?: string;
+    imageName?: string;
+    isManaged?: boolean;
 }>();
+
+const tooltipStart = computed(() => props.isManaged !== false
+    ? t("tooltipServiceStart", [props.serviceName])
+    : t("tooltipContainerStart", [props.containerName || props.serviceName]));
+const tooltipStop = computed(() => props.isManaged !== false
+    ? t("tooltipServiceStop", [props.serviceName])
+    : t("tooltipContainerStop", [props.containerName || props.serviceName]));
+const tooltipRestart = computed(() => props.isManaged !== false
+    ? t("tooltipServiceRestart", [props.serviceName])
+    : t("tooltipContainerRestart", [props.containerName || props.serviceName]));
+const tooltipRecreate = computed(() => props.isManaged !== false
+    ? t("tooltipServiceRecreate", [props.serviceName])
+    : t("tooltipContainerRecreate", [props.containerName || props.serviceName]));
+const tooltipUpdate = computed(() => props.isManaged !== false
+    ? t("tooltipServiceUpdate", [props.serviceName])
+    : t("tooltipContainerUpdate", [props.imageName || props.serviceName, props.containerName || props.serviceName]));
 
 const emit = defineEmits<{
     start: [];

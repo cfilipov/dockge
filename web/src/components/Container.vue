@@ -33,11 +33,11 @@
                 <router-link class="btn btn-sm btn-normal" :title="$t('tooltipServiceTerminal', [name])" :aria-label="$t('tooltipServiceTerminal', [name])" :to="terminalRouteLink" :disabled="processing"><svg class="svg-icon" :viewBox="icons.terminal.viewBox"><path fill="currentColor" :d="icons.terminal.path" /></svg></router-link>
             </div>
             <div class="btn-group service-actions ms-2" role="group">
-                <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="$t('tooltipServiceStart', [name])" :aria-label="$t('tooltipServiceStart', [name])" :disabled="processing" @click="startService"><svg class="svg-icon" :viewBox="icons.play.viewBox"><path fill="currentColor" :d="icons.play.path" /></svg></button>
-                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceRestart', [name])" :aria-label="$t('tooltipServiceRestart', [name])" :disabled="processing" @click="restartService"><svg class="svg-icon" :viewBox="icons.rotate.viewBox"><path fill="currentColor" :d="icons.rotate.path" /></svg></button>
-                <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceRecreate', [name])" :aria-label="$t('tooltipServiceRecreate', [name])" :disabled="processing" @click="recreateService"><svg class="svg-icon" :viewBox="icons.rocket.viewBox"><path fill="currentColor" :d="icons.rocket.path" /></svg></button>
-                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="$t('tooltipServiceUpdate', [name])" :aria-label="$t('tooltipServiceUpdate', [name])" :disabled="processing" @click="emit('update-service', name)"><svg class="svg-icon" :viewBox="icons['cloud-arrow-down'].viewBox"><path fill="currentColor" :d="icons['cloud-arrow-down'].path" /></svg></button>
-                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="$t('tooltipServiceStop', [name])" :aria-label="$t('tooltipServiceStop', [name])" :disabled="processing" @click="stopService"><svg class="svg-icon" :viewBox="icons.stop.viewBox"><path fill="currentColor" :d="icons.stop.path" /></svg></button>
+                <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="tooltipStart" :aria-label="tooltipStart" :disabled="processing" @click="startService"><svg class="svg-icon" :viewBox="icons.play.viewBox"><path fill="currentColor" :d="icons.play.path" /></svg></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="tooltipRestart" :aria-label="tooltipRestart" :disabled="processing" @click="restartService"><svg class="svg-icon" :viewBox="icons.rotate.viewBox"><path fill="currentColor" :d="icons.rotate.path" /></svg></button>
+                <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="tooltipRecreate" :aria-label="tooltipRecreate" :disabled="processing" @click="recreateService"><svg class="svg-icon" :viewBox="icons.rocket.viewBox"><path fill="currentColor" :d="icons.rocket.path" /></svg></button>
+                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="tooltipUpdate" :aria-label="tooltipUpdate" :disabled="processing" @click="emit('update-service', name)"><svg class="svg-icon" :viewBox="icons['cloud-arrow-down'].viewBox"><path fill="currentColor" :d="icons['cloud-arrow-down'].path" /></svg></button>
+                <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="tooltipStop" :aria-label="tooltipStop" :disabled="processing" @click="stopService"><svg class="svg-icon" :viewBox="icons.stop.viewBox"><path fill="currentColor" :d="icons.stop.path" /></svg></button>
             </div>
         </div>
 
@@ -195,11 +195,13 @@ import { LABEL_STATUS_IGNORE, LABEL_IMAGEUPDATES_CHECK, LABEL_IMAGEUPDATES_CHANG
 import { BFormCheckbox } from "bootstrap-vue-next";
 import ArrayInput from "./ArrayInput.vue";
 import ArraySelect from "./ArraySelect.vue";
+import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
 
 const icons = containerIcons;
 
+const { t } = useI18n();
 const { info } = useSocket();
 const { toastRes } = useAppToast();
 
@@ -219,6 +221,7 @@ const props = defineProps<{
     serviceRecreateNecessary?: boolean;
     ports?: any[];
     processing?: boolean;
+    isManaged?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -393,6 +396,23 @@ const status = computed(() => {
     if (c.health === "healthy") return "healthy";
     return c.state || "N/A";
 });
+
+// Tooltips: show the actual docker command that will run
+const tooltipStart = computed(() => props.isManaged !== false
+    ? t("tooltipServiceStart", [props.name])
+    : t("tooltipContainerStart", [containerName.value]));
+const tooltipStop = computed(() => props.isManaged !== false
+    ? t("tooltipServiceStop", [props.name])
+    : t("tooltipContainerStop", [containerName.value]));
+const tooltipRestart = computed(() => props.isManaged !== false
+    ? t("tooltipServiceRestart", [props.name])
+    : t("tooltipContainerRestart", [containerName.value]));
+const tooltipRecreate = computed(() => props.isManaged !== false
+    ? t("tooltipServiceRecreate", [props.name])
+    : t("tooltipContainerRecreate", [containerName.value]));
+const tooltipUpdate = computed(() => props.isManaged !== false
+    ? t("tooltipServiceUpdate", [props.name])
+    : t("tooltipContainerUpdate", [imageRef.value, containerName.value]));
 
 // Methods
 function parsePort(port: any) {

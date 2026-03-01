@@ -4,7 +4,7 @@
             <h1 class="mb-3"><span v-if="badgeLabel" :class="badgeClass">{{ badgeLabel }}</span> {{ containerName }}</h1>
 
             <div class="d-flex align-items-center justify-content-between mb-3">
-                <div v-if="stackName && stackManaged" class="d-flex align-items-center">
+                <div v-if="stackName" class="d-flex align-items-center">
                     <ServiceActionBar
                         :active="containerActive"
                         :processing="processing"
@@ -12,6 +12,9 @@
                         :recreate-necessary="recreateNecessary"
                         :stack-name="stackName"
                         :service-name="serviceName"
+                        :container-name="containerName"
+                        :image-name="containerInfo?.image"
+                        :is-managed="stackManaged"
                         @start="startService"
                         @stop="stopService"
                         @restart="restartService"

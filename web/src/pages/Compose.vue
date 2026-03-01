@@ -165,6 +165,7 @@
                                     v-if="index < renderedCount"
                                     :name="name"
                                     :is-edit-mode="isEditMode"
+                                    :is-managed="isManaged !== false"
                                     :first="index === 0"
                                     :serviceStatus="serviceStatusList[name]"
                                     :serviceImageUpdateAvailable="serviceUpdateStatus[name] || false"
