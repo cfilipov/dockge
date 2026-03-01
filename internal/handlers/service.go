@@ -26,6 +26,7 @@ func RegisterServiceHandlers(app *App) {
 	app.WS.Handle("startService", app.handleStartService)
 	app.WS.Handle("stopService", app.handleStopService)
 	app.WS.Handle("restartService", app.handleRestartService)
+	app.WS.Handle("recreateService", app.handleRecreateService)
 	app.WS.Handle("updateService", app.handleUpdateService)
 	app.WS.Handle("checkImageUpdates", app.handleCheckImageUpdates)
 }
@@ -91,6 +92,27 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	go app.runServiceAction(stackName, serviceName, "restart", "restart", serviceName)
+}
+
+func (app *App) handleRecreateService(c *ws.Conn, msg *ws.ClientMessage) {
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	stackName := argString(args, 0)
+	serviceName := argString(args, 1)
+	if stackName == "" || serviceName == "" {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+		}
+		return
+	}
+
+	if msg.ID != nil {
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Recreated"})
+	}
+
+	go app.runServiceAction(stackName, serviceName, "recreate", "up", "-d", "--force-recreate", serviceName)
 }
 
 func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {

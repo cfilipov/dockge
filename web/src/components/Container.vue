@@ -224,6 +224,7 @@ const emit = defineEmits<{
     (e: "start-service", name: string): void;
     (e: "stop-service", name: string): void;
     (e: "restart-service", name: string): void;
+    (e: "recreate-service", name: string): void;
     (e: "update-service", name: string): void;
     (e: "scroll-to-service", name: string): void;
 }>();
@@ -414,7 +415,7 @@ function restartService() {
 }
 
 function recreateService() {
-    emit("restart-service", props.name);
+    emit("recreate-service", props.name);
 }
 
 function ensureLabels() {

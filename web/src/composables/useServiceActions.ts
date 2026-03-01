@@ -49,7 +49,7 @@ export function useServiceActions(
 
     function recreateService() {
         startComposeAction();
-        emit("restartService", stackName.value, serviceName.value, (res: any) => {
+        emit("recreateService", stackName.value, serviceName.value, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });

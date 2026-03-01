@@ -173,6 +173,7 @@
                                     @start-service="startService"
                                     @stop-service="stopService"
                                     @restart-service="restartService"
+                                    @recreate-service="recreateService"
                                     @update-service="updateService"
                                     @scroll-to-service="scrollToService"
                                 />
@@ -923,6 +924,15 @@ function restartService(serviceName: string) {
     startComposeAction();
 
     emit("restartService", stack.name, serviceName, (res: any) => {
+        stopComposeAction();
+        toastRes(res);
+    });
+}
+
+function recreateService(serviceName: string) {
+    startComposeAction();
+
+    emit("recreateService", stack.name, serviceName, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
