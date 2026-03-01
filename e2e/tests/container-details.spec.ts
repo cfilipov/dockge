@@ -103,9 +103,96 @@ test.describe("Container Log Lifecycle Banners", () => {
         // We can't easily count occurrences, but the heartbeat log confirms the stream reconnected.
         await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
 
+        // Dismiss progress terminal so screenshots are deterministic
+        await page.getByRole("region", { name: "Progress" }).getByTitle("Close").click();
+
         // Screenshot after full stop/start cycle
         await expect(page).toHaveScreenshot("container-log-lifecycle.png");
         await takeLightScreenshot(page, "container-log-lifecycle-light.png");
+    });
+
+    test("restart triggers banners and logs", async ({ page, request }) => {
+        await request.post("/api/mock/reset");
+        await page.goto("/logs/00-single-service-alpine-1");
+        await waitForApp(page);
+
+        const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
+        await expect(logTerminal).toBeVisible({ timeout: 10000 });
+        await expect(logTerminal).toContainText("alpine container started", { timeout: 10000 });
+
+        const restartBtn = page.getByRole("button", { name: "Restart", exact: true });
+        await expect(restartBtn).toBeVisible({ timeout: 10000 });
+        await restartBtn.evaluate((el: HTMLElement) => el.click());
+
+        const progressTerm = page.locator(".progress-terminal .xterm-rows");
+        await expect(progressTerm).toContainText("Started", { timeout: 15000 });
+
+        await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
+        await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
+        await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
+        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
+
+        await page.getByRole("region", { name: "Progress" }).getByTitle("Close").click();
+        await expect(page).toHaveScreenshot("container-log-restart.png");
+        await takeLightScreenshot(page, "container-log-restart-light.png");
+    });
+
+    test("recreate triggers banners and logs", async ({ page, request }) => {
+        await request.post("/api/mock/reset");
+        await page.goto("/logs/00-single-service-alpine-1");
+        await waitForApp(page);
+
+        const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
+        await expect(logTerminal).toBeVisible({ timeout: 10000 });
+        await expect(logTerminal).toContainText("alpine container started", { timeout: 10000 });
+
+        const recreateBtn = page.getByRole("button", { name: "Recreate", exact: true });
+        await expect(recreateBtn).toBeVisible({ timeout: 10000 });
+        await recreateBtn.evaluate((el: HTMLElement) => el.click());
+
+        const progressTerm = page.locator(".progress-terminal .xterm-rows");
+        await expect(progressTerm).toContainText("Started", { timeout: 15000 });
+
+        await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
+        await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
+        await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
+        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
+
+        await page.getByRole("region", { name: "Progress" }).getByTitle("Close").click();
+        await expect(page).toHaveScreenshot("container-log-recreate.png");
+        await takeLightScreenshot(page, "container-log-recreate-light.png");
+    });
+
+    test("update triggers banners and logs", async ({ page, request }) => {
+        await request.post("/api/mock/reset");
+        await page.goto("/logs/00-single-service-alpine-1");
+        await waitForApp(page);
+
+        const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
+        await expect(logTerminal).toBeVisible({ timeout: 10000 });
+        await expect(logTerminal).toContainText("alpine container started", { timeout: 10000 });
+
+        // Click "Update" button to open the dialog
+        const updateBtn = page.getByRole("button", { name: "Update", exact: true });
+        await expect(updateBtn).toBeVisible({ timeout: 10000 });
+        await updateBtn.evaluate((el: HTMLElement) => el.click());
+
+        // Confirm the update in the dialog
+        const dialogUpdateBtn = page.locator(".modal-footer").getByRole("button", { name: "Update" });
+        await expect(dialogUpdateBtn).toBeVisible({ timeout: 5000 });
+        await dialogUpdateBtn.evaluate((el: HTMLElement) => el.click());
+
+        const progressTerm = page.locator(".progress-terminal .xterm-rows");
+        await expect(progressTerm).toContainText("Started", { timeout: 15000 });
+
+        await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
+        await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
+        await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
+        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
+
+        await page.getByRole("region", { name: "Progress" }).getByTitle("Close").click();
+        await expect(page).toHaveScreenshot("container-log-update.png");
+        await takeLightScreenshot(page, "container-log-update-light.png");
     });
 });
 

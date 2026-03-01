@@ -87,11 +87,12 @@ func handleCompose(args []string) {
 		allServices := getServicesFromCompose()
 		svc := findServiceArg(restArgs)
 		isWholeStack := svc == ""
+		forceRecreate := hasFlag(restArgs, "--force-recreate")
 		services := allServices
 		if svc != "" {
 			services = []string{svc}
 		}
-		composeUp(stackName, services, isWholeStack)
+		composeUp(stackName, services, isWholeStack, forceRecreate)
 	case "stop":
 		services := getServicesFromCompose()
 		svc := findServiceArg(restArgs)
@@ -190,7 +191,7 @@ func execShell(shell string) {
 
 // --- Compose Commands ---
 
-func composeUp(stackName string, services []string, isWholeStack bool) {
+func composeUp(stackName string, services []string, isWholeStack, forceRecreate bool) {
 	var tasks []progressTask
 	if isWholeStack {
 		tasks = append(tasks, progressTask{
@@ -198,13 +199,31 @@ func composeUp(stackName string, services []string, isWholeStack bool) {
 		})
 	}
 	for _, svc := range services {
-		tasks = append(tasks,
-			progressTask{name: fmt.Sprintf("Container %s-%s-1", stackName, svc), action: "Creating", done: "Created"},
-			progressTask{name: fmt.Sprintf("Container %s-%s-1", stackName, svc), action: "Starting", done: "Started"},
-		)
+		if forceRecreate {
+			tasks = append(tasks,
+				progressTask{name: fmt.Sprintf("Container %s-%s-1", stackName, svc), action: "Recreating", done: "Recreated"},
+				progressTask{name: fmt.Sprintf("Container %s-%s-1", stackName, svc), action: "Starting", done: "Started"},
+			)
+		} else {
+			tasks = append(tasks,
+				progressTask{name: fmt.Sprintf("Container %s-%s-1", stackName, svc), action: "Creating", done: "Created"},
+				progressTask{name: fmt.Sprintf("Container %s-%s-1", stackName, svc), action: "Starting", done: "Started"},
+			)
+		}
 	}
 
 	renderProgress(os.Stdout, "Running", tasks)
+	// When force-recreating, transition through exited→running so the daemon
+	// publishes die+start events for log banner injection.
+	if forceRecreate {
+		if isWholeStack {
+			setMockState(stackName, "exited")
+		} else {
+			for _, svc := range services {
+				setMockServiceState(stackName, svc, "exited")
+			}
+		}
+	}
 	if isWholeStack {
 		setMockState(stackName, "running")
 	} else {
@@ -265,10 +284,14 @@ func composeRestart(stackName string, services []string, isWholeStack bool) {
 	}
 
 	renderProgress(os.Stdout, "Restarting", tasks)
+	// Transition through exited→running so the daemon publishes die+start events.
+	// Without this, setting "running" on an already-running container is a no-op.
 	if isWholeStack {
+		setMockState(stackName, "exited")
 		setMockState(stackName, "running")
 	} else {
 		for _, svc := range services {
+			setMockServiceState(stackName, svc, "exited")
 			setMockServiceState(stackName, svc, "running")
 		}
 	}

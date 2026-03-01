@@ -135,7 +135,7 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 
 	go func() {
 		app.runServiceAction(stackName, serviceName, "pull", "pull", serviceName)
-		app.runServiceAction(stackName, serviceName, "up", "up", "-d", serviceName)
+		app.runServiceAction(stackName, serviceName, "up", "up", "-d", "--force-recreate", serviceName)
 		// Clear stale "update available" cache and re-check with new images
 		if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
 			slog.Warn("clear image update cache", "stack", stackName, "err", err)
