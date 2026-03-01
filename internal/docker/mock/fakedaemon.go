@@ -587,6 +587,11 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Resolve the canonical container ID for event matching.
+	// The URL path may contain the container name (e.g. "stack-svc-1")
+	// but events use the container ID (e.g. "mock-stack-svc-1").
+	containerID := c.ID
+
 	logs := fd.data.GetServiceLogs(c.StackName, c.ServiceName)
 	imageBase := extractImageBase(c.Image)
 
@@ -624,7 +629,7 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 		case <-r.Context().Done():
 			return
 		case evt := <-eventCh:
-			if evt.ID == id && evt.Action == "die" {
+			if evt.ID == containerID && evt.Action == "die" {
 				for i, line := range logs.Shutdown {
 					expanded := ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
 					writeStdcopyLine(w, expanded+"\n")
@@ -635,6 +640,11 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 				return
 			}
 		case <-ticker.C:
+			// Skip heartbeat if the container is no longer running —
+			// the "die" event handler above will emit shutdown logs and return.
+			if fd.world.GetContainerState(containerID) != "running" {
+				continue
+			}
 			if len(logs.Heartbeat) == 0 {
 				continue
 			}

@@ -378,35 +378,8 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
     ctx, cancel := context.WithCancel(context.Background())
     term.SetCancel(cancel)
 
-    // Find the container ID for this service in this stack
-    go func() {
-        defer app.Terms.RemoveAfter(termName, 30*time.Second)
-
-        containerID, err := app.findContainerID(ctx, stackName, serviceName)
-        if err != nil {
-            slog.Warn("joinContainerLog: find container", "err", err, "stack", stackName, "service", serviceName)
-            term.Write([]byte("[Error] Could not find container for " + serviceName + "\r\n"))
-            return
-        }
-
-        stream, _, err := app.Docker.ContainerLogs(ctx, containerID, "100", true)
-        if err != nil {
-            if ctx.Err() == nil {
-                slog.Warn("container log stream", "err", err, "stack", stackName, "service", serviceName)
-                term.Write([]byte("[Error] " + err.Error() + "\r\n"))
-            }
-            return
-        }
-        defer stream.Close()
-
-        // Pipe log stream into the terminal
-        scanner := bufio.NewScanner(stream)
-        scanner.Buffer(make([]byte, 64*1024), 64*1024)
-        for scanner.Scan() {
-            b := scanner.Bytes()
-            term.Write(append(b, '\n'))
-        }
-    }()
+    // Stream logs, reconnecting on container restart.
+    go app.runContainerLogLoop(ctx, term, termName, stackName, serviceName)
 
     // Register client for live updates (may already be carried over from Recreate)
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
@@ -450,27 +423,8 @@ func (app *App) handleJoinContainerLogByName(c *ws.Conn, msg *ws.ClientMessage) 
     ctx, cancel := context.WithCancel(context.Background())
     term.SetCancel(cancel)
 
-    go func() {
-        defer app.Terms.RemoveAfter(termName, 30*time.Second)
-
-        // Docker accepts container name directly — no need to resolve an ID
-        stream, _, err := app.Docker.ContainerLogs(ctx, containerName, "100", true)
-        if err != nil {
-            if ctx.Err() == nil {
-                slog.Warn("container log by name", "err", err, "container", containerName)
-                term.Write([]byte("[Error] " + err.Error() + "\r\n"))
-            }
-            return
-        }
-        defer stream.Close()
-
-        scanner := bufio.NewScanner(stream)
-        scanner.Buffer(make([]byte, 64*1024), 64*1024)
-        for scanner.Scan() {
-            b := scanner.Bytes()
-            term.Write(append(b, '\n'))
-        }
-    }()
+    // Stream logs, reconnecting on container restart.
+    go app.runContainerLogByNameLoop(ctx, term, termName, containerName)
 
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
@@ -530,16 +484,137 @@ func coloredPrefix(service string, maxLen int, colorIdx int) string {
     return fmt.Sprintf("%s%-*s |%s ", color, maxLen, service, colorReset)
 }
 
-// runBanner returns a bold purple banner line marking a container start boundary.
+// runBanner returns a bold banner line marking a container start boundary.
 // Returns empty string if startedAt is zero (mock mode / unknown).
 func runBanner(service string, startedAt time.Time) string {
     if startedAt.IsZero() {
         return ""
     }
-    ts := startedAt.Local().Format("15:04:05")
-    // Bold, black text (38;2;0;0;0) on purple background (48;2;199;166;255) — #c7a6ff
-    return fmt.Sprintf("\n\033[1;38;2;0;0;0;48;2;199;166;255m \u25B6 CONTAINER START \u2014 %s (%s) \033[0m\n\n",
-        service, ts)
+    // Bold, black text (38;2;0;0;0) on primary-blue background (48;2;116;194;255) — #74c2ff
+    return "\n\033[1;38;2;0;0;0;48;2;116;194;255m \u25B6 CONTAINER START \u2014 " + service + " \033[0m\n\n"
+}
+
+// stopBanner returns a bold banner line marking a container stop boundary.
+func stopBanner(service string) string {
+    // Bold, black text (38;2;0;0;0) on warning-yellow background (48;2;248;163;6) — #f8a306
+    return "\n\033[1;38;2;0;0;0;48;2;248;163;6m \u25FC CONTAINER STOP \u2014 " + service + " \033[0m\n\n"
+}
+
+// runContainerLogLoop streams logs for a single container (by stack+service),
+// reconnecting after stop/start cycles. It watches Docker events to inject
+// start/stop banners and to re-open the log stream when the container restarts.
+func (app *App) runContainerLogLoop(ctx context.Context, term *terminal.Terminal, termName, stackName, serviceName string) {
+    defer app.Terms.RemoveAfter(termName, 30*time.Second)
+
+    containerID, err := app.findContainerID(ctx, stackName, serviceName)
+    if err != nil {
+        slog.Warn("joinContainerLog: find container", "err", err, "stack", stackName, "service", serviceName)
+        term.Write([]byte("[Error] Could not find container for " + serviceName + "\r\n"))
+        return
+    }
+
+    tail := "100"
+    eventCh, _ := app.Docker.Events(ctx)
+
+    for {
+        // Stream logs until EOF (container stopped or stream closed)
+        app.streamContainerLogs(ctx, term, containerID, tail)
+
+        // After the first stream, only fetch new lines on reconnect
+        tail = "0"
+
+        // Wait for the next start event to reconnect
+        for {
+            select {
+            case evt, ok := <-eventCh:
+                if !ok {
+                    return
+                }
+                if evt.Project != stackName || evt.Service != serviceName {
+                    continue
+                }
+                switch evt.Action {
+                case "die":
+                    term.Write([]byte(stopBanner(serviceName)))
+                case "start":
+                    startedAt, _ := app.Docker.ContainerStartedAt(ctx, evt.ContainerID)
+                    if banner := runBanner(serviceName, startedAt); banner != "" {
+                        term.Write([]byte(banner))
+                    }
+                    // Re-resolve container ID (may have changed after recreate)
+                    containerID = evt.ContainerID
+                    goto reconnect
+                }
+            case <-ctx.Done():
+                return
+            }
+        }
+    reconnect:
+    }
+}
+
+// runContainerLogByNameLoop streams logs for a single container (by name),
+// reconnecting after stop/start cycles.
+func (app *App) runContainerLogByNameLoop(ctx context.Context, term *terminal.Terminal, termName, containerName string) {
+    defer app.Terms.RemoveAfter(termName, 30*time.Second)
+
+    tail := "100"
+    eventCh, _ := app.Docker.Events(ctx)
+
+    for {
+        app.streamContainerLogs(ctx, term, containerName, tail)
+        tail = "0"
+
+        for {
+            select {
+            case evt, ok := <-eventCh:
+                if !ok {
+                    return
+                }
+                evtName := evt.Project + "-" + evt.Service + "-1"
+                if evtName != containerName {
+                    continue
+                }
+                switch evt.Action {
+                case "die":
+                    term.Write([]byte(stopBanner(containerName)))
+                case "start":
+                    startedAt, _ := app.Docker.ContainerStartedAt(ctx, containerName)
+                    if banner := runBanner(containerName, startedAt); banner != "" {
+                        term.Write([]byte(banner))
+                    }
+                    goto reconnect
+                }
+            case <-ctx.Done():
+                return
+            }
+        }
+    reconnect:
+    }
+}
+
+// streamContainerLogs opens a log stream for a container and pipes it to the
+// terminal until the stream ends or ctx is cancelled.
+func (app *App) streamContainerLogs(ctx context.Context, term *terminal.Terminal, containerID, tail string) {
+    stream, _, err := app.Docker.ContainerLogs(ctx, containerID, tail, true)
+    if err != nil {
+        if ctx.Err() == nil {
+            slog.Warn("container log stream", "err", err, "container", containerID)
+            term.Write([]byte("[Error] " + err.Error() + "\r\n"))
+        }
+        return
+    }
+    defer stream.Close()
+
+    scanner := bufio.NewScanner(stream)
+    scanner.Buffer(make([]byte, 64*1024), 64*1024)
+    for scanner.Scan() {
+        if ctx.Err() != nil {
+            return
+        }
+        b := scanner.Bytes()
+        term.Write(append(b, '\n'))
+    }
 }
 
 // startCombinedLogs creates a combined log terminal for a stack and starts
@@ -617,9 +692,8 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
     // flusher running, the channel fills up and deadlocks the loop.
     go flushLogLines(ctx, term, lineCh)
 
-    // Spawn initial readers with banners (tail=100 for history)
+    // Spawn initial readers (tail=100 for history)
     for _, c := range containers {
-        injectBanner(c.ID, c.Service)
         activeReaders.Store(c.ID, struct{}{})
         go func(id, svc string, idx int) {
             defer activeReaders.Delete(id)
@@ -640,24 +714,29 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
             if !ok {
                 return
             }
-            if evt.Project != stackName || evt.Action != "start" {
+            if evt.Project != stackName {
                 continue
             }
-            idx, known := colorMap[evt.Service]
-            if !known {
-                idx = len(colorMap)
-                colorMap[evt.Service] = idx
-                if len(evt.Service) > maxLen {
-                    maxLen = len(evt.Service)
+            switch evt.Action {
+            case "start":
+                idx, known := colorMap[evt.Service]
+                if !known {
+                    idx = len(colorMap)
+                    colorMap[evt.Service] = idx
+                    if len(evt.Service) > maxLen {
+                        maxLen = len(evt.Service)
+                    }
                 }
-            }
-            injectBanner(evt.ContainerID, evt.Service)
-            // Spawn reader only for new container IDs (recreated containers)
-            if _, loaded := activeReaders.LoadOrStore(evt.ContainerID, struct{}{}); !loaded {
-                go func(id, svc string, ci int) {
-                    defer activeReaders.Delete(id)
-                    app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", lineCh)
-                }(evt.ContainerID, evt.Service, idx)
+                injectBanner(evt.ContainerID, evt.Service)
+                // Spawn reader only for new container IDs (recreated containers)
+                if _, loaded := activeReaders.LoadOrStore(evt.ContainerID, struct{}{}); !loaded {
+                    go func(id, svc string, ci int) {
+                        defer activeReaders.Delete(id)
+                        app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", lineCh)
+                    }(evt.ContainerID, evt.Service, idx)
+                }
+            // "die" stop banners are injected by readContainerLogs after it
+            // finishes draining shutdown logs, ensuring correct ordering.
             }
         case <-ctx.Done():
             return
@@ -667,8 +746,10 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
 
 // readContainerLogs streams logs for a single container, prefixing each line
 // with a colored service name. Runs until the stream closes or ctx is cancelled.
-// Banners are injected by the caller, not here. Use tail="100" for initial
-// readers (show history) and tail="0" for event-spawned readers (follow only).
+// Start banners are injected by the caller. Stop banners are injected here
+// after the stream ends (ensuring they appear after all shutdown log output).
+// Use tail="100" for initial readers (show history) and tail="0" for
+// event-spawned readers (follow only).
 func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, tail string, lineCh chan<- []byte) {
     stream, _, err := app.Docker.ContainerLogs(ctx, containerID, tail, true)
     if err != nil {
@@ -693,6 +774,15 @@ func (app *App) readContainerLogs(ctx context.Context, containerID, service stri
         case lineCh <- line:
         case <-ctx.Done():
             return
+        }
+    }
+
+    // Stream ended naturally (container stopped) — inject stop banner after
+    // all shutdown log output has been sent, guaranteeing correct ordering.
+    if ctx.Err() == nil {
+        select {
+        case lineCh <- []byte(stopBanner(service)):
+        case <-ctx.Done():
         }
     }
 }
