@@ -400,19 +400,19 @@ const status = computed(() => {
 // Tooltips: show the actual docker command that will run
 const tooltipStart = computed(() => props.isManaged !== false
     ? t("tooltipServiceStart", [props.name])
-    : t("tooltipContainerStart", [containerName.value]));
+    : t("tooltipContainerStart", [stackName.value, props.name]));
 const tooltipStop = computed(() => props.isManaged !== false
     ? t("tooltipServiceStop", [props.name])
-    : t("tooltipContainerStop", [containerName.value]));
+    : t("tooltipContainerStop", [stackName.value, props.name]));
 const tooltipRestart = computed(() => props.isManaged !== false
     ? t("tooltipServiceRestart", [props.name])
-    : t("tooltipContainerRestart", [containerName.value]));
+    : t("tooltipContainerRestart", [stackName.value, props.name]));
 const tooltipRecreate = computed(() => props.isManaged !== false
     ? t("tooltipServiceRecreate", [props.name])
-    : t("tooltipContainerRecreate", [containerName.value]));
+    : t("tooltipContainerRecreate", [stackName.value, props.name]));
 const tooltipUpdate = computed(() => props.isManaged !== false
     ? t("tooltipServiceUpdate", [props.name])
-    : t("tooltipContainerUpdate", [imageRef.value, containerName.value]));
+    : t("tooltipContainerUpdate", [stackName.value, props.name]));
 
 // Methods
 function parsePort(port: any) {

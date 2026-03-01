@@ -56,26 +56,24 @@ const props = defineProps<{
     recreateNecessary: boolean;
     stackName: string;
     serviceName: string;
-    containerName?: string;
-    imageName?: string;
     isManaged?: boolean;
 }>();
 
 const tooltipStart = computed(() => props.isManaged !== false
     ? t("tooltipServiceStart", [props.serviceName])
-    : t("tooltipContainerStart", [props.containerName || props.serviceName]));
+    : t("tooltipContainerStart", [props.stackName, props.serviceName]));
 const tooltipStop = computed(() => props.isManaged !== false
     ? t("tooltipServiceStop", [props.serviceName])
-    : t("tooltipContainerStop", [props.containerName || props.serviceName]));
+    : t("tooltipContainerStop", [props.stackName, props.serviceName]));
 const tooltipRestart = computed(() => props.isManaged !== false
     ? t("tooltipServiceRestart", [props.serviceName])
-    : t("tooltipContainerRestart", [props.containerName || props.serviceName]));
+    : t("tooltipContainerRestart", [props.stackName, props.serviceName]));
 const tooltipRecreate = computed(() => props.isManaged !== false
     ? t("tooltipServiceRecreate", [props.serviceName])
-    : t("tooltipContainerRecreate", [props.containerName || props.serviceName]));
+    : t("tooltipContainerRecreate", [props.stackName, props.serviceName]));
 const tooltipUpdate = computed(() => props.isManaged !== false
     ? t("tooltipServiceUpdate", [props.serviceName])
-    : t("tooltipContainerUpdate", [props.imageName || props.serviceName, props.containerName || props.serviceName]));
+    : t("tooltipContainerUpdate", [props.stackName, props.serviceName]));
 
 const emit = defineEmits<{
     start: [];

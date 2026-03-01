@@ -59,12 +59,18 @@ func main() {
 }
 
 func handleCompose(args []string) {
-	// Skip --env-file flags to get to the subcommand
+	// Skip --env-file and -p/--project-name flags to get to the subcommand
 	var envArgs []string
+	projectName := "" // set by -p flag
 	subcmdIdx := 0
 	for subcmdIdx < len(args) {
 		if args[subcmdIdx] == "--env-file" && subcmdIdx+1 < len(args) {
 			envArgs = append(envArgs, args[subcmdIdx], args[subcmdIdx+1])
+			subcmdIdx += 2
+			continue
+		}
+		if (args[subcmdIdx] == "-p" || args[subcmdIdx] == "--project-name") && subcmdIdx+1 < len(args) {
+			projectName = args[subcmdIdx+1]
 			subcmdIdx += 2
 			continue
 		}
@@ -79,8 +85,11 @@ func handleCompose(args []string) {
 	subcmd := args[subcmdIdx]
 	restArgs := args[subcmdIdx+1:]
 
-	// Determine stack name from working directory
-	stackName := filepath.Base(mustGetwd())
+	// Determine stack name: prefer -p flag, fall back to working directory
+	stackName := projectName
+	if stackName == "" {
+		stackName = filepath.Base(mustGetwd())
+	}
 
 	switch subcmd {
 	case "up":

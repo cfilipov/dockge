@@ -52,7 +52,7 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
 	if app.isStackManaged(stackName) {
 		go app.runServiceAction(stackName, serviceName, "up", "up", "-d", serviceName)
 	} else {
-		go app.runContainerAction(stackName, serviceName, "start")
+		go app.runUnmanagedServiceAction(stackName, serviceName, "up", "up", "-d", serviceName)
 	}
 }
 
@@ -77,7 +77,7 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
 	if app.isStackManaged(stackName) {
 		go app.runServiceAction(stackName, serviceName, "stop", "stop", serviceName)
 	} else {
-		go app.runContainerAction(stackName, serviceName, "stop")
+		go app.runUnmanagedServiceAction(stackName, serviceName, "stop", "stop", serviceName)
 	}
 }
 
@@ -102,7 +102,7 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
 	if app.isStackManaged(stackName) {
 		go app.runServiceAction(stackName, serviceName, "restart", "restart", serviceName)
 	} else {
-		go app.runContainerAction(stackName, serviceName, "restart")
+		go app.runUnmanagedServiceAction(stackName, serviceName, "restart", "restart", serviceName)
 	}
 }
 
@@ -128,7 +128,7 @@ func (app *App) handleRecreateService(c *ws.Conn, msg *ws.ClientMessage) {
 		go app.runServiceAction(stackName, serviceName, "recreate", "up", "-d", "--force-recreate", serviceName)
 	} else {
 		// No compose file — restart is the closest equivalent
-		go app.runContainerAction(stackName, serviceName, "restart")
+		go app.runUnmanagedServiceAction(stackName, serviceName, "restart", "restart", serviceName)
 	}
 }
 
@@ -161,7 +161,10 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 			app.checkImageUpdatesForStack(stackName)
 		}()
 	} else {
-		go app.runContainerPullAndRestart(stackName, serviceName)
+		go func() {
+			app.runUnmanagedServiceAction(stackName, serviceName, "pull", "pull", serviceName)
+			app.runUnmanagedServiceAction(stackName, serviceName, "up", "up", "-d", "--force-recreate", serviceName)
+		}()
 	}
 }
 
@@ -203,38 +206,13 @@ func (app *App) isStackManaged(stackName string) bool {
 	return compose.FindComposeFile(app.StacksDir, stackName) != ""
 }
 
-// findContainerName looks up the actual container name from Docker by project+service labels.
-func (app *App) findContainerName(stackName, serviceName string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	containers, err := app.Docker.ContainerList(ctx, true, stackName)
-	if err != nil {
-		return "", fmt.Errorf("container list: %w", err)
-	}
-	for _, c := range containers {
-		if c.Service == serviceName {
-			return c.Name, nil
-		}
-	}
-	return "", fmt.Errorf("container not found for %s/%s", stackName, serviceName)
-}
-
-// runContainerAction runs a plain docker command (stop/start/restart) for an
-// unmanaged container, streaming output to the stack's terminal.
-func (app *App) runContainerAction(stackName, serviceName, action string) {
+// runUnmanagedServiceAction runs a compose command for an unmanaged container
+// using "docker compose -p <project>" (no project directory or env files).
+// Docker Compose v2 discovers containers by their project label, so this works
+// without a compose file and produces the same animated progress output.
+func (app *App) runUnmanagedServiceAction(stackName, serviceName, action string, composeArgs ...string) {
 	termName := "compose-" + stackName
-
-	containerName, err := app.findContainerName(stackName, serviceName)
-	if err != nil {
-		term := app.Terms.Recreate(termName, terminal.TypePTY)
-		errMsg := fmt.Sprintf("[Error] %s\r\n", err.Error())
-		term.Write([]byte(errMsg))
-		slog.Error("container action", "action", action, "stack", stackName, "service", serviceName, "err", err)
-		return
-	}
-
-	cmdDisplay := fmt.Sprintf("$ docker %s %s\r\n", action, containerName)
+	cmdDisplay := fmt.Sprintf("$ docker compose -p %s %s\r\n", stackName, strings.Join(composeArgs, " "))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -242,79 +220,15 @@ func (app *App) runContainerAction(stackName, serviceName, action string) {
 	term := app.Terms.Recreate(termName, terminal.TypePTY)
 	term.Write([]byte(cmdDisplay))
 
-	cmd := exec.CommandContext(ctx, "docker", action, containerName)
+	cmdArgs := []string{"compose", "-p", stackName}
+	cmdArgs = append(cmdArgs, composeArgs...)
+	cmd := exec.CommandContext(ctx, "docker", cmdArgs...)
+
 	if err := term.RunPTY(cmd); err != nil {
 		if ctx.Err() == nil {
 			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
 			term.Write([]byte(errMsg))
-			slog.Error("container action", "action", action, "stack", stackName, "service", serviceName, "err", err)
-		}
-	} else {
-		term.Write([]byte("\r\n[Done]\r\n"))
-	}
-}
-
-// runContainerPullAndRestart pulls the latest image for an unmanaged container
-// and restarts it. This is the unmanaged equivalent of "update".
-func (app *App) runContainerPullAndRestart(stackName, serviceName string) {
-	termName := "compose-" + stackName
-
-	containerName, err := app.findContainerName(stackName, serviceName)
-	if err != nil {
-		term := app.Terms.Recreate(termName, terminal.TypePTY)
-		errMsg := fmt.Sprintf("[Error] %s\r\n", err.Error())
-		term.Write([]byte(errMsg))
-		return
-	}
-
-	// Get the image name from the container's inspect data
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	containers, err := app.Docker.ContainerList(ctx, true, stackName)
-	if err != nil {
-		term := app.Terms.Recreate(termName, terminal.TypePTY)
-		errMsg := fmt.Sprintf("[Error] %s\r\n", err.Error())
-		term.Write([]byte(errMsg))
-		return
-	}
-	var imageName string
-	for _, c := range containers {
-		if c.Service == serviceName {
-			imageName = c.Image
-			break
-		}
-	}
-	if imageName == "" {
-		term := app.Terms.Recreate(termName, terminal.TypePTY)
-		term.Write([]byte("[Error] could not determine image for container\r\n"))
-		return
-	}
-
-	// Pull the image
-	term := app.Terms.Recreate(termName, terminal.TypePTY)
-	pullDisplay := fmt.Sprintf("$ docker pull %s\r\n", imageName)
-	term.Write([]byte(pullDisplay))
-
-	pullCmd := exec.CommandContext(ctx, "docker", "pull", imageName)
-	if err := term.RunPTY(pullCmd); err != nil {
-		if ctx.Err() == nil {
-			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-			term.Write([]byte(errMsg))
-		}
-		return
-	}
-	term.Write([]byte("\r\n[Done]\r\n"))
-
-	// Restart the container
-	restartDisplay := fmt.Sprintf("$ docker restart %s\r\n", containerName)
-	term.Write([]byte(restartDisplay))
-
-	restartCmd := exec.CommandContext(ctx, "docker", "restart", containerName)
-	if err := term.RunPTY(restartCmd); err != nil {
-		if ctx.Err() == nil {
-			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
-			term.Write([]byte(errMsg))
+			slog.Error("unmanaged service action", "action", action, "stack", stackName, "service", serviceName, "err", err)
 		}
 	} else {
 		term.Write([]byte("\r\n[Done]\r\n"))
