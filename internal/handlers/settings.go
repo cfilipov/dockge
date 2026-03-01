@@ -27,7 +27,7 @@ func (app *App) handleGetSettings(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil {
         slog.Error("get settings", "err", err)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to load settings"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to load settings"})
         }
         return
     }
@@ -44,7 +44,7 @@ func (app *App) handleGetSettings(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
+        ws.SendAck(c, *msg.ID, map[string]interface{}{
             "ok":   true,
             "data": settings,
         })
@@ -60,7 +60,7 @@ func (app *App) handleSetSettings(c *ws.Conn, msg *ws.ClientMessage) {
     var data map[string]interface{}
     if !argObject(args, 0, &data) {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Invalid arguments"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Invalid arguments"})
         }
         return
     }
@@ -112,7 +112,7 @@ func (app *App) handleSetSettings(c *ws.Conn, msg *ws.ClientMessage) {
     app.Settings.InvalidateCache()
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Saved"})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Saved"})
     }
 }
 
@@ -124,13 +124,13 @@ func (app *App) handleDisconnectOthers(c *ws.Conn, msg *ws.ClientMessage) {
     app.WS.DisconnectOthers(c)
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
 // handleStubOk silently acknowledges events that are not applicable.
 func (app *App) handleStubOk(c *ws.Conn, msg *ws.ClientMessage) {
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }

@@ -39,13 +39,13 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
 	serviceName := argString(args, 1)
 	if stackName == "" || serviceName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
 	go app.runServiceAction(stackName, serviceName, "up", "up", "-d", serviceName)
@@ -60,13 +60,13 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
 	serviceName := argString(args, 1)
 	if stackName == "" || serviceName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
 	}
 
 	go app.runServiceAction(stackName, serviceName, "stop", "stop", serviceName)
@@ -81,13 +81,13 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
 	serviceName := argString(args, 1)
 	if stackName == "" || serviceName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
 	}
 
 	go app.runServiceAction(stackName, serviceName, "restart", "restart", serviceName)
@@ -102,13 +102,13 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 	serviceName := argString(args, 1)
 	if stackName == "" || serviceName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
 	}
 
 	go func() {
@@ -164,7 +164,7 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
@@ -176,7 +176,7 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
 
 	// Ack immediately — the check runs asynchronously
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, map[string]interface{}{
+		ws.SendAck(c, *msg.ID, map[string]interface{}{
 			"ok":      true,
 			"updated": true,
 		})

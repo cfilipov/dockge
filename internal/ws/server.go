@@ -62,23 +62,23 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Broadcast sends a push event to all connected clients.
-func (s *Server) Broadcast(event string, data interface{}) {
+func Broadcast[T any](s *Server, event string, data T) {
     s.mu.RLock()
     defer s.mu.RUnlock()
 
     for c := range s.conns {
-        c.SendEvent(event, data)
+        SendEvent(c, event, data)
     }
 }
 
 // BroadcastAuthenticated sends a push event to all authenticated clients.
-func (s *Server) BroadcastAuthenticated(event string, data interface{}) {
+func BroadcastAuthenticated[T any](s *Server, event string, data T) {
     s.mu.RLock()
     defer s.mu.RUnlock()
 
     for c := range s.conns {
         if c.UserID() != 0 {
-            c.SendEvent(event, data)
+            SendEvent(c, event, data)
         }
     }
 }
@@ -86,8 +86,8 @@ func (s *Server) BroadcastAuthenticated(event string, data interface{}) {
 // BroadcastAuthenticatedRaw marshals the event payload once and sends the
 // pre-encoded bytes to all authenticated connections. For N connections this
 // saves (N-1) json.Marshal calls compared to BroadcastAuthenticated.
-func (s *Server) BroadcastAuthenticatedRaw(event string, data interface{}) {
-    payload, err := json.Marshal(ServerMessage{Event: event, Data: data})
+func BroadcastAuthenticatedRaw[T any](s *Server, event string, data T) {
+    payload, err := json.Marshal(ServerMessage[T]{Event: event, Data: data})
     if err != nil {
         slog.Error("ws marshal raw broadcast", "err", err)
         return
@@ -190,7 +190,7 @@ func (s *Server) Dispatch(c *Conn, msg *ClientMessage) {
     if !ok {
         slog.Warn("ws unknown event", "event", msg.Event)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ErrorResponse{OK: false, Msg: "unknown event: " + msg.Event})
+            SendAck(c, *msg.ID, ErrorResponse{OK: false, Msg: "unknown event: " + msg.Event})
         }
         return
     }
@@ -219,4 +219,3 @@ func (s *Server) HandleConnect(fn func(c *Conn)) {
         fn(c)
     }
 }
-

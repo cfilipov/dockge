@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"hash/fnv"
 	"log/slog"
 	"os"
@@ -75,27 +76,33 @@ func (d *channelDebouncer) stop() {
 type broadcastState struct {
 	mu       sync.Mutex
 	lastHash map[string]uint64
+	hasher   hash.Hash64
 }
 
 func newBroadcastState() *broadcastState {
 	return &broadcastState{
 		lastHash: make(map[string]uint64),
+		hasher:   fnv.New64a(),
 	}
 }
 
 // broadcastIfChanged marshals data, computes FNV-1a hash, and broadcasts
 // to all authenticated connections only if the hash differs from the last
 // broadcast on this channel. Returns true if a broadcast was sent.
-func (bs *broadcastState) broadcastIfChanged(wss *ws.Server, channel string, data interface{}) bool {
-	payload, err := json.Marshal(data)
+func (bs *broadcastState) broadcastIfChanged(wss *ws.Server, channel string, data any) bool {
+	// Marshal the full envelope once — used for both hashing and sending.
+	msg, err := json.Marshal(ws.ServerMessage[any]{
+		Event: channel,
+		Data:  data,
+	})
 	if err != nil {
 		slog.Error("broadcast marshal", "channel", channel, "err", err)
 		return false
 	}
 
-	h := fnv.New64a()
-	h.Write(payload)
-	hash := h.Sum64()
+	bs.hasher.Reset()
+	bs.hasher.Write(msg)
+	hash := bs.hasher.Sum64()
 
 	bs.mu.Lock()
 	old := bs.lastHash[channel]
@@ -110,24 +117,14 @@ func (bs *broadcastState) broadcastIfChanged(wss *ws.Server, channel string, dat
 		return false
 	}
 
-	// Wrap in the standard server message format
-	msg, err := json.Marshal(ws.ServerMessage{
-		Event: channel,
-		Data:  data,
-	})
-	if err != nil {
-		slog.Error("broadcast wrap", "channel", channel, "err", err)
-		return false
-	}
-
 	wss.BroadcastAuthenticatedBytes(msg)
 	slog.Debug("broadcast sent", "channel", channel, "bytes", len(msg))
 	return true
 }
 
 // sendToConn sends channel data to a single connection (used for initial connect).
-func sendToConn(c *ws.Conn, channel string, data interface{}) {
-	c.SendEvent(channel, data)
+func sendToConn(c *ws.Conn, channel string, data any) {
+	ws.SendEvent(c, channel, data)
 }
 
 // broadcastStacks scans the stacks directory and broadcasts compose file metadata.

@@ -4,6 +4,7 @@ import (
     "bufio"
     "bytes"
     "context"
+    "encoding/json"
     "fmt"
     "log/slog"
     "os"
@@ -47,7 +48,7 @@ func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
     termName := argString(args, 0)
     if termName == "" {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Terminal name required"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Terminal name required"})
         }
         return
     }
@@ -80,7 +81,7 @@ func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, struct {
+        ws.SendAck(c, *msg.ID, struct {
             OK     bool   `json:"ok"`
             Buffer string `json:"buffer"`
         }{
@@ -103,7 +104,7 @@ func (app *App) handleTerminalInput(c *ws.Conn, msg *ws.ClientMessage) {
     term := app.Terms.Get(termName)
     if term == nil {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Terminal not found"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Terminal not found"})
         }
         return
     }
@@ -113,7 +114,7 @@ func (app *App) handleTerminalInput(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
@@ -136,7 +137,7 @@ func (app *App) handleTerminalResize(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
@@ -157,7 +158,7 @@ func (app *App) handleMainTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     if existing != nil && existing.IsRunning() {
         existing.AddWriter(c.ID(), makeTermWriter(c, termName))
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+            ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
         }
         return
     }
@@ -181,7 +182,7 @@ func (app *App) handleMainTerminal(c *ws.Conn, msg *ws.ClientMessage) {
         slog.Error("main terminal start", "err", err)
         app.Terms.Remove(termName)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to start terminal: " + err.Error()})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to start terminal: " + err.Error()})
         }
         return
     }
@@ -194,7 +195,7 @@ func (app *App) handleMainTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     slog.Info("main terminal started", "name", termName)
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
@@ -217,7 +218,7 @@ func (app *App) handleCheckMainTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, struct {
+        ws.SendAck(c, *msg.ID, struct {
             OK        bool `json:"ok"`
             IsRunning bool `json:"isRunning"`
         }{
@@ -240,7 +241,7 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
 
     if stackName == "" || serviceName == "" {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and service name required"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and service name required"})
         }
         return
     }
@@ -268,7 +269,7 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
         slog.Error("interactive terminal start", "err", err, "stack", stackName, "service", serviceName)
         app.Terms.Remove(termName)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to start terminal: " + err.Error()})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to start terminal: " + err.Error()})
         }
         return
     }
@@ -281,7 +282,7 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     slog.Info("interactive terminal started", "name", termName, "stack", stackName, "service", serviceName)
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
@@ -299,7 +300,7 @@ func (app *App) handleContainerExec(c *ws.Conn, msg *ws.ClientMessage) {
 
     if containerName == "" {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
         }
         return
     }
@@ -314,7 +315,7 @@ func (app *App) handleContainerExec(c *ws.Conn, msg *ws.ClientMessage) {
     if existing != nil && existing.IsRunning() {
         existing.AddWriter(c.ID(), makeTermWriter(c, termName))
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+            ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
         }
         return
     }
@@ -329,7 +330,7 @@ func (app *App) handleContainerExec(c *ws.Conn, msg *ws.ClientMessage) {
         slog.Error("container exec start", "err", err, "container", containerName)
         app.Terms.Remove(termName)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to start terminal: " + err.Error()})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to start terminal: " + err.Error()})
         }
         return
     }
@@ -342,7 +343,7 @@ func (app *App) handleContainerExec(c *ws.Conn, msg *ws.ClientMessage) {
     slog.Info("container exec started", "name", termName, "container", containerName)
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
@@ -359,7 +360,7 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
 
     if stackName == "" || serviceName == "" {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
         }
         return
     }
@@ -411,7 +412,7 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, struct {
+        ws.SendAck(c, *msg.ID, struct {
             OK     bool   `json:"ok"`
             Buffer string `json:"buffer"`
         }{
@@ -433,7 +434,7 @@ func (app *App) handleJoinContainerLogByName(c *ws.Conn, msg *ws.ClientMessage) 
 
     if containerName == "" {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
         }
         return
     }
@@ -474,7 +475,7 @@ func (app *App) handleJoinContainerLogByName(c *ws.Conn, msg *ws.ClientMessage) 
     term.AddWriter(c.ID(), makeTermWriter(c, termName))
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, struct {
+        ws.SendAck(c, *msg.ID, struct {
             OK     bool   `json:"ok"`
             Buffer string `json:"buffer"`
         }{
@@ -507,7 +508,7 @@ func (app *App) handleLeaveCombinedTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
@@ -771,9 +772,21 @@ func extractCombinedStackName(termName string) string {
     return strings.TrimPrefix(termName, "combined-")
 }
 
+// terminalWritePayload is sent as the data field of terminalWrite events.
+// Custom MarshalJSON outputs a JSON array [name, data] to match the wire format
+// expected by the frontend, avoiding []interface{} allocation and interface boxing.
+type terminalWritePayload struct {
+    Name string
+    Data string
+}
+
+func (p terminalWritePayload) MarshalJSON() ([]byte, error) {
+    return json.Marshal([2]string{p.Name, p.Data})
+}
+
 // makeTermWriter creates a WriteFunc that sends terminalWrite events to a connection.
 func makeTermWriter(c *ws.Conn, termName string) terminal.WriteFunc {
     return func(data string) {
-        c.SendEvent("terminalWrite", []interface{}{termName, data})
+        ws.SendEvent(c, "terminalWrite", terminalWritePayload{Name: termName, Data: data})
     }
 }

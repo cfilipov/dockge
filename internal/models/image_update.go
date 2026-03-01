@@ -41,13 +41,22 @@ type imageUpdateRecord struct {
 }
 
 // compoundKey returns "stackName/serviceName" as the bbolt key.
+// Builds []byte directly to avoid an intermediate string allocation.
 func compoundKey(stackName, serviceName string) []byte {
-	return []byte(stackName + "/" + serviceName)
+	b := make([]byte, 0, len(stackName)+1+len(serviceName))
+	b = append(b, stackName...)
+	b = append(b, '/')
+	b = append(b, serviceName...)
+	return b
 }
 
 // stackPrefix returns "stackName/" for prefix scanning.
+// Builds []byte directly to avoid an intermediate string allocation.
 func stackPrefix(stackName string) []byte {
-	return []byte(stackName + "/")
+	b := make([]byte, 0, len(stackName)+1)
+	b = append(b, stackName...)
+	b = append(b, '/')
+	return b
 }
 
 // GetAll returns all cached image update entries.
@@ -73,18 +82,23 @@ func (s *ImageUpdateStore) GetAll() ([]ImageUpdateEntry, error) {
 	return entries, nil
 }
 
+// hasUpdateTrue is a byte pattern for pre-filtering BoltDB values
+// without full JSON unmarshal.
+var hasUpdateTrue = []byte(`"hasUpdate":true`)
+
 // StackHasUpdates returns a map of stack name → true if any service has an update.
-// Scans BoltDB directly (~0.5ms, memory-mapped).
+// Scans BoltDB directly (~0.5ms, memory-mapped). Uses byte-level pre-filter
+// to skip full JSON unmarshal for entries without updates.
 func (s *ImageUpdateStore) StackHasUpdates() (map[string]bool, error) {
 	result := make(map[string]bool)
 	err := s.db.View(func(tx *bolt.Tx) error {
 		return tx.Bucket(db.BucketImageUpdates).ForEach(func(k, v []byte) error {
-			var rec imageUpdateRecord
-			if err := json.Unmarshal(v, &rec); err != nil {
-				return nil // skip corrupt entries
+			if !bytes.Contains(v, hasUpdateTrue) {
+				return nil // skip — no update
 			}
-			if rec.HasUpdate {
-				result[rec.StackName] = true
+			// Extract stack name from key ("stackName/serviceName")
+			if i := bytes.IndexByte(k, '/'); i >= 0 {
+				result[string(k[:i])] = true
 			}
 			return nil
 		})
@@ -96,18 +110,17 @@ func (s *ImageUpdateStore) StackHasUpdates() (map[string]bool, error) {
 }
 
 // AllServiceUpdates returns a map of "stackName/serviceName" → true for services
-// with available image updates. Scans BoltDB directly.
+// with available image updates. Scans BoltDB directly. Uses byte-level pre-filter
+// to skip full JSON unmarshal for entries without updates.
 func (s *ImageUpdateStore) AllServiceUpdates() (map[string]bool, error) {
 	result := make(map[string]bool)
 	err := s.db.View(func(tx *bolt.Tx) error {
 		return tx.Bucket(db.BucketImageUpdates).ForEach(func(k, v []byte) error {
-			var rec imageUpdateRecord
-			if err := json.Unmarshal(v, &rec); err != nil {
-				return nil // skip corrupt entries
+			if !bytes.Contains(v, hasUpdateTrue) {
+				return nil // skip — no update
 			}
-			if rec.HasUpdate {
-				result[rec.StackName+"/"+rec.ServiceName] = true
-			}
+			// Use BoltDB key directly — it's already "stackName/serviceName"
+			result[string(k)] = true
 			return nil
 		})
 	})
@@ -231,11 +244,9 @@ func (s *ImageUpdateStore) ServiceUpdatesForStack(stackName string) (map[string]
 	err := s.db.View(func(tx *bolt.Tx) error {
 		c := tx.Bucket(db.BucketImageUpdates).Cursor()
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
-			var rec imageUpdateRecord
-			if err := json.Unmarshal(v, &rec); err != nil {
-				return fmt.Errorf("unmarshal image update %q: %w", string(k), err)
-			}
-			result[rec.ServiceName] = rec.HasUpdate
+			// Extract service name from key suffix (key is "stackName/serviceName")
+			svcName := string(k[len(prefix):])
+			result[svcName] = bytes.Contains(v, hasUpdateTrue)
 		}
 		return nil
 	})

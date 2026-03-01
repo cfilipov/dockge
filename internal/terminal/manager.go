@@ -22,6 +22,7 @@ const (
 type WriteFunc func(data string)
 
 // Terminal represents a streaming I/O channel backed by either a pipe or a PTY.
+// Fields are ordered to minimize struct padding.
 type Terminal struct {
     Name string
     Type TerminalType
@@ -29,7 +30,6 @@ type Terminal struct {
     mu      sync.Mutex
     buffer  *bytes.Buffer
     writers map[string]WriteFunc // connID → writer
-    closed  bool
 
     // Process tracking
     cmd    *exec.Cmd
@@ -38,6 +38,7 @@ type Terminal struct {
 
     // PTY master fd (nil for pipe-based terminals)
     ptyFile *os.File
+    closed  bool
 }
 
 // Manager tracks all active terminals.

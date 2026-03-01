@@ -11,16 +11,16 @@ type ClientMessage struct {
 }
 
 // AckMessage is sent from the server to the client in response to a request with an ID.
-type AckMessage struct {
-    ID   int64       `json:"id"`
-    Data interface{} `json:"data"`
+type AckMessage[T any] struct {
+    ID   int64 `json:"id"`
+    Data T     `json:"data"`
 }
 
 // ServerMessage is a server-initiated push (no ack expected).
 // Data holds the event payload (a single value of any type).
-type ServerMessage struct {
-    Event string      `json:"event"`
-    Data  interface{} `json:"data"`
+type ServerMessage[T any] struct {
+    Event string `json:"event"`
+    Data  T      `json:"data"`
 }
 
 // OkResponse is the standard ack payload for successful operations.

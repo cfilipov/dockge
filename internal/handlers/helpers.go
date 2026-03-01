@@ -39,7 +39,7 @@ type App struct {
 func checkLogin(c *ws.Conn, msg *ws.ClientMessage) int {
 	uid := c.UserID()
 	if uid == 0 && msg.ID != nil {
-		c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Not logged in"})
+		ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Not logged in"})
 	}
 	return uid
 }

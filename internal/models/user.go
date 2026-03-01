@@ -195,12 +195,13 @@ func VerifyPassword(password, hash string) bool {
 
 // CreateJWT creates an HS256 JWT token for the user.
 func CreateJWT(user *User, secret string) (string, error) {
+    now := time.Now()
     claims := JWTClaims{
         Username: user.Username,
         H:        Shake256Hex(user.Password, shake256Length),
         RegisteredClaims: jwt.RegisteredClaims{
-            ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpiration)),
-            IssuedAt:  jwt.NewNumericDate(time.Now()),
+            ExpiresAt: jwt.NewNumericDate(now.Add(jwtExpiration)),
+            IssuedAt:  jwt.NewNumericDate(now),
         },
     }
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

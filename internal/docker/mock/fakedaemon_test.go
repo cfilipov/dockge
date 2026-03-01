@@ -1,4 +1,4 @@
-package docker
+package mock
 
 import (
 	"context"
@@ -6,11 +6,13 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/cfilipov/dockge/internal/docker"
 )
 
 // setupFakeDaemon creates test stacks, builds MockData, starts a FakeDaemon,
-// and returns an SDKClient connected to it plus a cleanup function.
-func setupFakeDaemon(t *testing.T) (*SDKClient, func()) {
+// and returns an docker.SDKClient connected to it plus a cleanup function.
+func setupFakeDaemon(t *testing.T) (*docker.SDKClient, func()) {
 	t.Helper()
 
 	// Create temp stacks directory with a test stack
@@ -34,7 +36,7 @@ func setupFakeDaemon(t *testing.T) (*SDKClient, func()) {
 		t.Fatalf("start fake daemon: %v", err)
 	}
 
-	client, err := NewSDKClientWithHost("unix://" + sockPath)
+	client, err := docker.NewSDKClientWithHost("unix://" + sockPath)
 	if err != nil {
 		cleanup()
 		t.Fatalf("new sdk client: %v", err)
@@ -371,7 +373,7 @@ func TestFakeDaemon_Events(t *testing.T) {
 	}
 	defer cleanup()
 
-	client, err := NewSDKClientWithHost("unix://" + sockPath)
+	client, err := docker.NewSDKClientWithHost("unix://" + sockPath)
 	if err != nil {
 		t.Fatalf("new sdk client: %v", err)
 	}

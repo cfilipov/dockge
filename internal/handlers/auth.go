@@ -25,7 +25,7 @@ func RegisterAuthHandlers(app *App) {
 
     app.WS.HandleConnect(func(c *ws.Conn) {
         // Send server info on every new connection
-        c.SendEvent("info", map[string]interface{}{
+        ws.SendEvent(c, "info", map[string]interface{}{
             "version":       app.Version,
             "latestVersion": app.Version,
             "isContainer":   true,
@@ -34,7 +34,7 @@ func RegisterAuthHandlers(app *App) {
 
         // If no users exist, tell the client to show the setup page
         if app.NeedSetup {
-            c.SendEvent("setup", nil)
+            ws.SendEvent[any](c, "setup", nil)
         }
     })
 }
@@ -43,7 +43,7 @@ func (app *App) handleLogin(c *ws.Conn, msg *ws.ClientMessage) {
     args := parseArgs(msg)
     if len(args) == 0 {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Invalid arguments"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Invalid arguments"})
         }
         return
     }
@@ -69,7 +69,7 @@ func (app *App) handleLogin(c *ws.Conn, msg *ws.ClientMessage) {
 
     if username == "" || password == "" {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "authIncorrectCreds", MsgI18n: true})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "authIncorrectCreds", MsgI18n: true})
         }
         return
     }
@@ -78,14 +78,14 @@ func (app *App) handleLogin(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil {
         slog.Error("login lookup", "err", err)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
         }
         return
     }
 
     if user == nil || !models.VerifyPassword(password, user.Password) {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "authIncorrectCreds", MsgI18n: true})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "authIncorrectCreds", MsgI18n: true})
         }
         return
     }
@@ -94,7 +94,7 @@ func (app *App) handleLogin(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil {
         slog.Error("create jwt", "err", err)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
         }
         return
     }
@@ -103,7 +103,7 @@ func (app *App) handleLogin(c *ws.Conn, msg *ws.ClientMessage) {
     app.afterLogin(c)
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Token: token})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Token: token})
     }
 
     slog.Info("user logged in", "username", username)
@@ -114,7 +114,7 @@ func (app *App) handleLoginByToken(c *ws.Conn, msg *ws.ClientMessage) {
     token := argString(args, 0)
     if token == "" {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "authInvalidToken", MsgI18n: true})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "authInvalidToken", MsgI18n: true})
         }
         return
     }
@@ -123,7 +123,7 @@ func (app *App) handleLoginByToken(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil {
         slog.Debug("token verify failed", "err", err)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "authInvalidToken", MsgI18n: true})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "authInvalidToken", MsgI18n: true})
         }
         return
     }
@@ -132,14 +132,14 @@ func (app *App) handleLoginByToken(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil {
         slog.Error("token user lookup", "err", err)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
         }
         return
     }
 
     if user == nil {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "authUserInactiveOrDeleted", MsgI18n: true})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "authUserInactiveOrDeleted", MsgI18n: true})
         }
         return
     }
@@ -147,7 +147,7 @@ func (app *App) handleLoginByToken(c *ws.Conn, msg *ws.ClientMessage) {
     // Password change detection: compare shake256(storedPassword) with token's h claim
     if claims.H != models.Shake256Hex(user.Password, 16) {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "authInvalidToken", MsgI18n: true})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "authInvalidToken", MsgI18n: true})
         }
         return
     }
@@ -156,7 +156,7 @@ func (app *App) handleLoginByToken(c *ws.Conn, msg *ws.ClientMessage) {
     app.afterLogin(c)
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 
     slog.Debug("token login", "username", claims.Username)
@@ -169,14 +169,14 @@ func (app *App) handleSetup(c *ws.Conn, msg *ws.ClientMessage) {
 
     if username == "" || password == "" {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Username and password required"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Username and password required"})
         }
         return
     }
 
     if len(password) < 6 {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Password is too weak. It should be at least 6 characters."})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Password is too weak. It should be at least 6 characters."})
         }
         return
     }
@@ -186,13 +186,13 @@ func (app *App) handleSetup(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil {
         slog.Error("setup count", "err", err)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
         }
         return
     }
     if count > 0 {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Dockge has already been set up"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Dockge has already been set up"})
         }
         return
     }
@@ -201,7 +201,7 @@ func (app *App) handleSetup(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil {
         slog.Error("setup create user", "err", err)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to create user"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to create user"})
         }
         return
     }
@@ -209,7 +209,7 @@ func (app *App) handleSetup(c *ws.Conn, msg *ws.ClientMessage) {
     app.NeedSetup = false
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
+        ws.SendAck(c, *msg.ID, map[string]interface{}{
             "ok":      true,
             "msg":     "successAdded",
             "msgi18n": true,
@@ -232,7 +232,7 @@ func (app *App) handleChangePassword(c *ws.Conn, msg *ws.ClientMessage) {
     }
     if !argObject(args, 0, &data) {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Invalid arguments"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Invalid arguments"})
         }
         return
     }
@@ -242,20 +242,20 @@ func (app *App) handleChangePassword(c *ws.Conn, msg *ws.ClientMessage) {
     if err != nil || user == nil {
         slog.Error("change password lookup", "err", err, "uid", uid)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Internal error"})
         }
         return
     }
     if !models.VerifyPassword(data.CurrentPassword, user.Password) {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "authIncorrectCreds", MsgI18n: true})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "authIncorrectCreds", MsgI18n: true})
         }
         return
     }
 
     if len(data.NewPassword) < 6 {
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Password too weak"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Password too weak"})
         }
         return
     }
@@ -263,29 +263,29 @@ func (app *App) handleChangePassword(c *ws.Conn, msg *ws.ClientMessage) {
     if err := app.Users.ChangePassword(uid, data.NewPassword); err != nil {
         slog.Error("change password", "err", err)
         if msg.ID != nil {
-            c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to change password"})
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to change password"})
         }
         return
     }
 
     // Disconnect all other sessions so they must re-auth with new password
-    app.WS.BroadcastAuthenticated("refresh", nil)
+    ws.BroadcastAuthenticated[any](app.WS, "refresh", nil)
 
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Password changed"})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Password changed"})
     }
 }
 
 func (app *App) handleGetTurnstileSiteKey(c *ws.Conn, msg *ws.ClientMessage) {
     // Turnstile/CAPTCHA not configured in self-hosted mode
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
 func (app *App) handleNeedSetup(c *ws.Conn, msg *ws.ClientMessage) {
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
+        ws.SendAck(c, *msg.ID, map[string]interface{}{
             "ok":        true,
             "needSetup": app.NeedSetup,
         })
@@ -295,21 +295,21 @@ func (app *App) handleNeedSetup(c *ws.Conn, msg *ws.ClientMessage) {
 func (app *App) handleLogout(c *ws.Conn, msg *ws.ClientMessage) {
     c.SetUser(0)
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.OkResponse{OK: true})
+        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
 // handleStub2FA returns a "not supported" error for 2FA operations.
 func (app *App) handleStub2FA(c *ws.Conn, msg *ws.ClientMessage) {
     if msg.ID != nil {
-        c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "2FA is not yet supported"})
+        ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "2FA is not yet supported"})
     }
 }
 
 // handleTwoFAStatus returns that 2FA is not enabled.
 func (app *App) handleTwoFAStatus(c *ws.Conn, msg *ws.ClientMessage) {
     if msg.ID != nil {
-        c.SendAck(*msg.ID, map[string]interface{}{
+        ws.SendAck(c, *msg.ID, map[string]interface{}{
             "ok":     true,
             "status": false,
         })

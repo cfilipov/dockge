@@ -13,6 +13,7 @@ import (
 
     "github.com/cfilipov/dockge/internal/db"
     "github.com/cfilipov/dockge/internal/docker"
+    "github.com/cfilipov/dockge/internal/docker/mock"
     "github.com/cfilipov/dockge/internal/handlers"
     "github.com/cfilipov/dockge/internal/models"
     "github.com/cfilipov/dockge/internal/terminal"
@@ -30,7 +31,7 @@ type TestEnv struct {
     WSServer  *ws.Server
     StacksDir string
     DataDir   string
-    State     *docker.MockState
+    State     *mock.MockState
     cancel    context.CancelFunc
 }
 
@@ -102,9 +103,9 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     }
 
     // Start fake Docker daemon with shared in-memory state
-    state := docker.NewMockState()
-    data := docker.BuildMockData(stacksDir)
-    sockPath, daemonCleanup, err := docker.StartFakeDaemon(state, data, stacksDir, "")
+    state := mock.NewMockState()
+    data := mock.BuildMockData(stacksDir)
+    sockPath, daemonCleanup, err := mock.StartFakeDaemon(state, data, stacksDir, "")
     if err != nil {
         t.Fatal("start fake daemon:", err)
     }

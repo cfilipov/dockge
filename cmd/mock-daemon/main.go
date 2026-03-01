@@ -18,7 +18,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cfilipov/dockge/internal/docker"
+	"github.com/cfilipov/dockge/internal/docker/mock"
 )
 
 func main() {
@@ -50,11 +50,11 @@ func main() {
 	}
 
 	// Build mock data from stacks directory
-	mockData := docker.BuildMockData(stacksDir)
-	mockState := docker.DefaultDevStateFromData(mockData)
+	mockData := mock.BuildMockData(stacksDir)
+	mockState := mock.DefaultDevStateFromData(mockData)
 
 	// Start fake daemon on the specified socket
-	cleanup, err := docker.StartFakeDaemonOnSocket(mockState, mockData, stacksDir, stacksSource, socketPath)
+	cleanup, err := mock.StartFakeDaemonOnSocket(mockState, mockData, stacksDir, stacksSource, socketPath)
 	if err != nil {
 		slog.Error("start fake daemon", "err", err)
 		os.Exit(1)

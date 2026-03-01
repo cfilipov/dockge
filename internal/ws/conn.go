@@ -3,8 +3,8 @@ package ws
 import (
     "context"
     "encoding/json"
-    "fmt"
     "log/slog"
+    "strconv"
     "sync"
     "sync/atomic"
     "time"
@@ -21,20 +21,20 @@ var connIDCounter uint64
 
 // Conn wraps a single WebSocket connection.
 type Conn struct {
-    id     string
-    ws     *websocket.Conn
-    server *Server
-    userID int // 0 = unauthenticated
-
-    mu      sync.Mutex
-    closed  bool
+    ws      *websocket.Conn
+    server  *Server
     closeCh chan struct{}
+
+    mu     sync.Mutex
+    id     string
+    userID int // 0 = unauthenticated
+    closed bool
 }
 
 func newConn(ws *websocket.Conn, server *Server) *Conn {
     id := atomic.AddUint64(&connIDCounter, 1)
     return &Conn{
-        id:      fmt.Sprintf("c%d", id),
+        id:      "c" + strconv.FormatUint(id, 10),
         ws:      ws,
         server:  server,
         closeCh: make(chan struct{}),
@@ -61,16 +61,18 @@ func (c *Conn) UserID() int {
 }
 
 // SendAck sends an ack response for a client request.
-func (c *Conn) SendAck(id int64, data interface{}) {
-    c.writeJSON(AckMessage{ID: id, Data: data})
+// Generic to avoid interface boxing — json.Marshal sees the concrete type directly.
+func SendAck[T any](c *Conn, id int64, data T) {
+    writeJSON(c, AckMessage[T]{ID: id, Data: data})
 }
 
 // SendEvent sends a server push event with a single data payload.
-func (c *Conn) SendEvent(event string, data interface{}) {
-    c.writeJSON(ServerMessage{Event: event, Data: data})
+// Generic to avoid interface boxing — json.Marshal sees the concrete type directly.
+func SendEvent[T any](c *Conn, event string, data T) {
+    writeJSON(c, ServerMessage[T]{Event: event, Data: data})
 }
 
-func (c *Conn) writeJSON(v interface{}) {
+func writeJSON[T any](c *Conn, v T) {
     // Marshal outside the lock — this is CPU work, not I/O
     data, err := json.Marshal(v)
     if err != nil {

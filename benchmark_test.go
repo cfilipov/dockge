@@ -8,7 +8,7 @@ import (
     "runtime/pprof"
     "testing"
 
-    "github.com/cfilipov/dockge/internal/docker"
+    "github.com/cfilipov/dockge/internal/docker/mock"
     "github.com/cfilipov/dockge/internal/testutil"
 )
 
@@ -165,7 +165,7 @@ func BenchmarkGetStack200(b *testing.B) {
     env.SeedAdmin(b)
 
     // Set all stacks to their default states
-    state := docker.DefaultDevState()
+    state := mock.DefaultDevState()
     for name, status := range state.All() {
         env.State.Set(name, status)
     }
@@ -188,7 +188,7 @@ func BenchmarkGetStack200_HeapProfile(b *testing.B) {
     env := testutil.SetupFull(b)
     env.SeedAdmin(b)
 
-    state := docker.DefaultDevState()
+    state := mock.DefaultDevState()
     for name, status := range state.All() {
         env.State.Set(name, status)
     }

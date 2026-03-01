@@ -49,7 +49,7 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
@@ -62,7 +62,7 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
 	if err != nil {
 		slog.Warn("serviceStatusList", "err", err, "stack", stackName)
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, serviceStatusResponse{
+			ws.SendAck(c, *msg.ID, serviceStatusResponse{
 				OK:                    true,
 				ServiceStatusList:     map[string][]ServiceEntry{},
 				ServiceUpdateStatus:   map[string]bool{},
@@ -103,7 +103,7 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, serviceStatusResponse{
+		ws.SendAck(c, *msg.ID, serviceStatusResponse{
 			OK:                    true,
 			ServiceStatusList:     serviceStatusList,
 			ServiceUpdateStatus:   serviceUpdateStatus,
@@ -181,7 +181,7 @@ func (app *App) handleDockerStats(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK          bool                            `json:"ok"`
 			DockerStats map[string]docker.ContainerStat `json:"dockerStats"`
 		}{
@@ -201,7 +201,7 @@ func (app *App) handleContainerInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	containerName := argString(args, 0)
 	if containerName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
 		}
 		return
 	}
@@ -213,13 +213,13 @@ func (app *App) handleContainerInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	if err != nil {
 		slog.Warn("containerInspect", "err", err, "container", containerName)
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK          bool   `json:"ok"`
 			InspectData string `json:"inspectData"`
 		}{
@@ -239,7 +239,7 @@ func (app *App) handleContainerTop(c *ws.Conn, msg *ws.ClientMessage) {
 	containerName := argString(args, 0)
 	if containerName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
 		}
 		return
 	}
@@ -251,13 +251,13 @@ func (app *App) handleContainerTop(c *ws.Conn, msg *ws.ClientMessage) {
 	if err != nil {
 		slog.Warn("containerTop", "err", err, "container", containerName)
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK        bool       `json:"ok"`
 			Titles    []string   `json:"titles"`
 			Processes [][]string `json:"processes"`
@@ -285,7 +285,7 @@ func (app *App) handleGetDockerNetworkList(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK                bool                   `json:"ok"`
 			DockerNetworkList []docker.NetworkSummary `json:"dockerNetworkList"`
 		}{
@@ -305,7 +305,7 @@ func (app *App) handleNetworkInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	networkName := argString(args, 0)
 	if networkName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Network name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Network name required"})
 		}
 		return
 	}
@@ -317,13 +317,13 @@ func (app *App) handleNetworkInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	if err != nil {
 		slog.Warn("networkInspect", "err", err, "network", networkName)
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK            bool                 `json:"ok"`
 			NetworkDetail *docker.NetworkDetail `json:"networkDetail"`
 		}{
@@ -349,7 +349,7 @@ func (app *App) handleGetDockerImageList(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK              bool                 `json:"ok"`
 			DockerImageList []docker.ImageSummary `json:"dockerImageList"`
 		}{
@@ -369,7 +369,7 @@ func (app *App) handleImageInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	imageRef := argString(args, 0)
 	if imageRef == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Image reference required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Image reference required"})
 		}
 		return
 	}
@@ -381,13 +381,13 @@ func (app *App) handleImageInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	if err != nil {
 		slog.Warn("imageInspect", "err", err, "image", imageRef)
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK          bool                `json:"ok"`
 			ImageDetail *docker.ImageDetail `json:"imageDetail"`
 		}{
@@ -413,7 +413,7 @@ func (app *App) handleGetDockerVolumeList(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK               bool                  `json:"ok"`
 			DockerVolumeList []docker.VolumeSummary `json:"dockerVolumeList"`
 		}{
@@ -433,7 +433,7 @@ func (app *App) handleVolumeInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	volumeName := argString(args, 0)
 	if volumeName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Volume name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Volume name required"})
 		}
 		return
 	}
@@ -445,13 +445,13 @@ func (app *App) handleVolumeInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	if err != nil {
 		slog.Warn("volumeInspect", "err", err, "volume", volumeName)
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK           bool                 `json:"ok"`
 			VolumeDetail *docker.VolumeDetail `json:"volumeDetail"`
 		}{

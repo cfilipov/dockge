@@ -232,9 +232,10 @@ func (s *SDKClient) ContainerStats(ctx context.Context, projectFilter string) (m
                 return
             }
 
-            var stats container.StatsResponse
-            if err := json.NewDecoder(statsResp.Body).Decode(&stats); err != nil {
+            stats := statsResponsePool.Get().(*container.StatsResponse)
+            if err := json.NewDecoder(statsResp.Body).Decode(stats); err != nil {
                 statsResp.Body.Close()
+                statsResponsePool.Put(stats)
                 ch <- statResult{}
                 return
             }
@@ -274,18 +275,33 @@ func (s *SDKClient) ContainerStats(ctx context.Context, projectFilter string) (m
                 }
             }
 
+            // Build stat strings using AppendFloat to avoid intermediate allocations
+            buf := make([]byte, 0, 16)
+            buf = strconv.AppendFloat(buf, cpuPerc, 'f', 2, 64)
+            buf = append(buf, '%')
+            cpuStr := string(buf)
+
+            buf = buf[:0]
+            buf = strconv.AppendFloat(buf, memPerc, 'f', 2, 64)
+            buf = append(buf, '%')
+            memPercStr := string(buf)
+
             ch <- statResult{
                 name: name,
                 stat: ContainerStat{
                     Name:     name,
-                    CPUPerc:  strconv.FormatFloat(cpuPerc, 'f', 2, 64) + "%",
-                    MemPerc:  strconv.FormatFloat(memPerc, 'f', 2, 64) + "%",
-                    MemUsage: formatBytes(memUsage) + " / " + formatBytes(memLimit),
-                    NetIO:    formatBytes(netRx) + " / " + formatBytes(netTx),
-                    BlockIO:  formatBytes(blkRead) + " / " + formatBytes(blkWrite),
+                    CPUPerc:  cpuStr,
+                    MemPerc:  memPercStr,
+                    MemUsage: formatBytesPair(memUsage, memLimit),
+                    NetIO:    formatBytesPair(netRx, netTx),
+                    BlockIO:  formatBytesPair(blkRead, blkWrite),
                     PIDs:     strconv.FormatUint(stats.PidsStats.Current, 10),
                 },
             }
+
+            // Zero and return stats to pool
+            *stats = container.StatsResponse{}
+            statsResponsePool.Put(stats)
         }()
     }
 
@@ -687,6 +703,12 @@ func (s *SDKClient) Close() error {
     return s.cli.Close()
 }
 
+// statsResponsePool reuses container.StatsResponse structs to avoid
+// repeated allocation of the ~2KB struct with nested maps.
+var statsResponsePool = sync.Pool{
+    New: func() any { return new(container.StatsResponse) },
+}
+
 // formatBytes formats a byte count as a human-readable string.
 func formatBytes(b uint64) string {
     const unit = 1024
@@ -699,6 +721,17 @@ func formatBytes(b uint64) string {
         exp++
     }
     return strconv.FormatFloat(float64(b)/float64(div), 'f', 1, 64) + string("KMGTPE"[exp]) + "iB"
+}
+
+// formatBytesPair formats two byte values as "a / b" using a strings.Builder
+// to avoid intermediate string allocations from + concatenation.
+func formatBytesPair(a, b uint64) string {
+    var sb strings.Builder
+    sb.Grow(32) // enough for two formatted values + " / "
+    sb.WriteString(formatBytes(a))
+    sb.WriteString(" / ")
+    sb.WriteString(formatBytes(b))
+    return sb.String()
 }
 
 // Ensure SDKClient implements Client at compile time.

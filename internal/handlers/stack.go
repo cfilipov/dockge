@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -116,7 +115,7 @@ func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
@@ -156,7 +155,7 @@ func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
 	recreateMap := computeRecreateMap(stacks, byProject, imagesByStack)
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, struct {
+		ws.SendAck(c, *msg.ID, struct {
 			OK    bool               `json:"ok"`
 			Stack stack.StackFullJSON `json:"stack"`
 		}{
@@ -180,7 +179,7 @@ func (app *App) handleSaveStack(c *ws.Conn, msg *ws.ClientMessage) {
 
 	if stackName == "" || composeYAML == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and compose YAML required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and compose YAML required"})
 		}
 		return
 	}
@@ -195,7 +194,7 @@ func (app *App) handleSaveStack(c *ws.Conn, msg *ws.ClientMessage) {
 	if err := s.SaveToDisk(app.StacksDir); err != nil {
 		slog.Error("save stack", "err", err, "stack", stackName)
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
@@ -204,7 +203,7 @@ func (app *App) handleSaveStack(c *ws.Conn, msg *ws.ClientMessage) {
 	app.handleComposeYAMLSave(stackName, composeYAML)
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Saved"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Saved"})
 	}
 }
 
@@ -222,7 +221,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
 
 	if stackName == "" || composeYAML == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and compose YAML required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name and compose YAML required"})
 		}
 		return
 	}
@@ -237,7 +236,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
 	if err := s.SaveToDisk(app.StacksDir); err != nil {
 		slog.Error("deploy stack save", "err", err, "stack", stackName)
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
@@ -247,7 +246,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
 
 	// Return immediately — validation and deploy run in background
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deployed"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Deployed"})
 	}
 
 	// Validate then deploy in background; errors stream to the terminal
@@ -262,13 +261,13 @@ func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
 	go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
@@ -282,13 +281,13 @@ func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
 	}
 
 	go app.runComposeAction(stackName, "stop", "stop")
@@ -302,13 +301,13 @@ func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
 	}
 
 	go app.runComposeAction(stackName, "restart", "restart")
@@ -322,13 +321,13 @@ func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
 	}
 
 	go app.runComposeAction(stackName, "down", "down")
@@ -342,13 +341,13 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
 	}
 
 	go func() {
@@ -385,13 +384,13 @@ func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
 	}
 
 	go func() {
@@ -428,13 +427,13 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
 	}
 
 	go func() {
@@ -465,13 +464,13 @@ func (app *App) handlePauseStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
 	go app.runComposeAction(stackName, "pause", "pause")
@@ -485,13 +484,13 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
 	stackName := argString(args, 0)
 	if stackName == "" {
 		if msg.ID != nil {
-			c.SendAck(*msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack name required"})
 		}
 		return
 	}
 
 	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
 	go app.runComposeAction(stackName, "unpause", "unpause")
@@ -504,7 +503,7 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 	termName := "compose-" + stackName
 	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
 	displayParts := append(envArgs, composeArgs...)
-	cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(displayParts, " "))
+	cmdDisplay := "$ docker compose " + strings.Join(displayParts, " ") + "\r\n"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -521,7 +520,7 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 
 	if err := term.RunPTY(cmd); err != nil {
 		if ctx.Err() == nil {
-			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+			errMsg := "\r\n[Error] " + err.Error() + "\r\n"
 			term.Write([]byte(errMsg))
 			slog.Error("compose action", "action", action, "stack", stackName, "err", err)
 		}
@@ -550,7 +549,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 	dir := filepath.Join(app.StacksDir, stackName)
 
 	// Step 1: Validate
-	term.Write([]byte(fmt.Sprintf("$ docker compose %sconfig --dry-run\r\n", envDisplay)))
+	term.Write([]byte("$ docker compose " + envDisplay + "config --dry-run\r\n"))
 	validateArgs := []string{"compose"}
 	validateArgs = append(validateArgs, envArgs...)
 	validateArgs = append(validateArgs, "config", "--dry-run")
@@ -558,7 +557,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 	validateCmd.Dir = dir
 	if err := term.RunPTY(validateCmd); err != nil {
 		if ctx.Err() == nil {
-			errMsg := fmt.Sprintf("\r\n[Error] Validation failed: %s\r\n", err.Error())
+			errMsg := "\r\n[Error] Validation failed: " + err.Error() + "\r\n"
 			term.Write([]byte(errMsg))
 			slog.Warn("deploy validation failed", "stack", stackName, "err", err)
 		}
@@ -568,7 +567,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 	}
 
 	// Step 2: Deploy
-	term.Write([]byte(fmt.Sprintf("$ docker compose %sup -d --remove-orphans\r\n", envDisplay)))
+	term.Write([]byte("$ docker compose " + envDisplay + "up -d --remove-orphans\r\n"))
 	upArgs := []string{"compose"}
 	upArgs = append(upArgs, envArgs...)
 	upArgs = append(upArgs, "up", "-d", "--remove-orphans")
@@ -576,7 +575,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 	upCmd.Dir = dir
 	if err := term.RunPTY(upCmd); err != nil {
 		if ctx.Err() == nil {
-			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+			errMsg := "\r\n[Error] " + err.Error() + "\r\n"
 			term.Write([]byte(errMsg))
 			slog.Error("compose action", "action", "deploy", "stack", stackName, "err", err)
 		}
@@ -600,7 +599,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 	dir := filepath.Join(app.StacksDir, stackName)
 
 	for _, dockerArgs := range argSets {
-		cmdDisplay := fmt.Sprintf("$ docker %s\r\n", strings.Join(composeEnvDisplay(dockerArgs, envArgs), " "))
+		cmdDisplay := "$ docker " + strings.Join(composeEnvDisplay(dockerArgs, envArgs), " ") + "\r\n"
 		term.Write([]byte(cmdDisplay))
 
 		var cmd *exec.Cmd
@@ -616,7 +615,7 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 
 		if err := term.RunPTY(cmd); err != nil {
 			if ctx.Err() == nil {
-				errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+				errMsg := "\r\n[Error] " + err.Error() + "\r\n"
 				term.Write([]byte(errMsg))
 				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
 			}

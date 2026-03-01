@@ -1,4 +1,4 @@
-package docker
+package mock
 
 import (
 	"context"
@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cfilipov/dockge/internal/docker"
 )
 
 // FakeDaemon is an HTTP server on a Unix socket that implements the Docker
@@ -1370,11 +1372,11 @@ func mockHash(s string) string {
 }
 
 // generateLayers creates mock image layers for image detail responses.
-func generateLayers(imageRef, topID, created string) []ImageLayer {
+func generateLayers(imageRef, topID, created string) []docker.ImageLayer {
 	h := simpleHash(imageRef)
 	numLayers := 2 + int(h%3)
 
-	layers := make([]ImageLayer, 0, numLayers)
+	layers := make([]docker.ImageLayer, 0, numLayers)
 
 	cmd := "CMD [\"/bin/sh\"]"
 	baseName := imageRef
@@ -1409,7 +1411,7 @@ func generateLayers(imageRef, topID, created string) []ImageLayer {
 		cmd = `CMD ["rabbitmq-server"]`
 	}
 
-	layers = append(layers, ImageLayer{
+	layers = append(layers, docker.ImageLayer{
 		ID:      topID,
 		Created: created,
 		Size:    "0B",
@@ -1418,7 +1420,7 @@ func generateLayers(imageRef, topID, created string) []ImageLayer {
 
 	for i := 1; i < numLayers-1; i++ {
 		layerSize := fmt.Sprintf("%.1fMiB", float64(1+h%200)+float64(i)*10)
-		layers = append(layers, ImageLayer{
+		layers = append(layers, docker.ImageLayer{
 			ID:      "<missing>",
 			Created: created,
 			Size:    layerSize,
@@ -1427,7 +1429,7 @@ func generateLayers(imageRef, topID, created string) []ImageLayer {
 	}
 
 	baseSize := fmt.Sprintf("%.1fMiB", float64(5+h%500))
-	layers = append(layers, ImageLayer{
+	layers = append(layers, docker.ImageLayer{
 		ID:      "<missing>",
 		Created: created,
 		Size:    baseSize,
