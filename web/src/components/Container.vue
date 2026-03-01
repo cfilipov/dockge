@@ -3,7 +3,8 @@
         <!-- Container name with status badge -->
         <h5 class="mb-3">
             <span v-if="!isEditMode" class="badge rounded-pill me-2" :class="bgStyle">{{ $t(containerStatusInfo.label) }}</span>
-            <router-link v-if="!isEditMode" :to="inspectRouteLink" class="stack-link">{{ containerName }}</router-link>
+            <router-link v-if="!isEditMode && containerExists" :to="inspectRouteLink" class="stack-link">{{ containerName }}</router-link>
+            <span v-else-if="!isEditMode">{{ containerName }}</span>
             <template v-else>{{ name }}</template>
         </h5>
 
@@ -323,6 +324,7 @@ const containerStatusInfo = computed(() => {
 });
 
 const bgStyle = computed(() => `bg-${containerStatusInfo.value.badgeColor}`);
+const containerExists = computed(() => !!props.serviceStatus?.[0]);
 
 const logRouteLink = computed(() => {
     return {
