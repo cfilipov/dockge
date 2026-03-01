@@ -198,15 +198,25 @@ func computeRecreateMap(stacks map[string]*stack.Stack, byProject map[string][]d
 // StartStackWatcher starts a background goroutine that:
 // 1. Does an initial broadcast with fresh data
 // 2. Subscribes to Docker Events to react to container lifecycle changes
-// 3. Falls back to polling if events become unavailable
+// 3. Retries on error; exits the process after repeated failures
 func (app *App) StartStackWatcher(ctx context.Context) {
 	// Initial broadcast
 	app.BroadcastAll()
 
-	// Subscribe to Docker events
-	eventCh, errCh := app.Docker.Events(ctx)
+	go app.runStackWatcherLoop(ctx)
+}
 
-	go func() {
+// runStackWatcherLoop subscribes to Docker events and broadcasts on changes.
+// On error or channel close, it retries with exponential backoff up to
+// maxRetries times, then exits the process.
+func (app *App) runStackWatcherLoop(ctx context.Context) {
+	const maxRetries = 5
+	failures := 0
+	backoff := 1 * time.Second
+
+	for {
+		eventCh, errCh := app.Docker.Events(ctx)
+
 		// Debounce: batch events that arrive within 500ms into a single refresh.
 		var debounceTimer *time.Timer
 		var debounceMu sync.Mutex
@@ -222,50 +232,54 @@ func (app *App) StartStackWatcher(ctx context.Context) {
 			})
 		}
 
-		for {
-			select {
-			case <-ctx.Done():
-				debounceMu.Lock()
-				if debounceTimer != nil {
-					debounceTimer.Stop()
-				}
-				debounceMu.Unlock()
-				return
+		err := app.consumeEvents(ctx, eventCh, errCh, func(evt docker.DockerEvent) {
+			triggerDebounced()
+		})
 
-			case evt, ok := <-eventCh:
-				if !ok {
-					// Event channel closed — fall back to polling only
-					slog.Warn("docker events channel closed, falling back to polling")
-					app.runPollingFallback(ctx)
-					return
-				}
-				slog.Debug("docker event", "action", evt.Action, "project", evt.Project, "service", evt.Service)
-				triggerDebounced()
-
-			case err, ok := <-errCh:
-				if !ok {
-					continue
-				}
-				slog.Warn("docker events error", "err", err)
-				// Reconnect: fall back to polling
-				app.runPollingFallback(ctx)
-				return
-			}
+		debounceMu.Lock()
+		if debounceTimer != nil {
+			debounceTimer.Stop()
 		}
-	}()
-}
+		debounceMu.Unlock()
 
-// runPollingFallback runs a simple 60s polling loop when events are unavailable.
-func (app *App) runPollingFallback(ctx context.Context) {
-	ticker := time.NewTicker(60 * time.Second)
-	defer ticker.Stop()
+		if ctx.Err() != nil {
+			return // clean shutdown
+		}
 
-	for {
+		failures++
+		if failures > maxRetries {
+			slog.Error("docker events: too many failures, exiting", "failures", failures, "lastErr", err)
+			os.Exit(1)
+		}
+
+		slog.Warn("docker events: retrying", "attempt", failures, "backoff", backoff, "err", err)
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			app.BroadcastAll()
+		case <-time.After(backoff):
+		}
+		backoff = min(backoff*2, 30*time.Second)
+	}
+}
+
+// consumeEvents reads from event/error channels until one closes or errors.
+// Calls onEvent for each received event. Returns the error (or nil if channel closed).
+func (app *App) consumeEvents(ctx context.Context, eventCh <-chan docker.DockerEvent, errCh <-chan error, onEvent func(docker.DockerEvent)) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case evt, ok := <-eventCh:
+			if !ok {
+				return fmt.Errorf("docker events channel closed")
+			}
+			slog.Debug("docker event (legacy)", "action", evt.Action, "project", evt.Project, "service", evt.Service)
+			onEvent(evt)
+		case err, ok := <-errCh:
+			if !ok {
+				continue
+			}
+			return fmt.Errorf("docker events error: %w", err)
 		}
 	}
 }
@@ -340,22 +354,7 @@ func (app *App) BroadcastAll() {
 	}
 }
 
-// TriggerRefresh broadcasts fresh data after a short delay to let Docker state settle.
-// Uses a trailing-edge debounce: each call resets the 500ms timer so the broadcast
-// fires 500ms after the *last* call, not 500ms after the first.
-func (app *App) TriggerRefresh() {
-	app.refreshMu.Lock()
-	defer app.refreshMu.Unlock()
-	if app.refreshTimer != nil {
-		app.refreshTimer.Stop()
-	}
-	app.refreshTimer = time.AfterFunc(500*time.Millisecond, func() {
-		app.refreshMu.Lock()
-		app.refreshTimer = nil
-		app.refreshMu.Unlock()
-		app.BroadcastAll()
-	})
-}
+
 
 func (app *App) handleRequestContainerList(c *ws.Conn, msg *ws.ClientMessage) {
 	if checkLogin(c, msg) == 0 {
@@ -506,8 +505,6 @@ func (app *App) handleSaveStack(c *ws.Conn, msg *ws.ClientMessage) {
 
 	// Handle imageupdates.check transitions
 	app.handleComposeYAMLSave(stackName, composeYAML)
-
-	app.TriggerRefresh()
 
 	if msg.ID != nil {
 		c.SendAck(*msg.ID, ws.OkResponse{OK: true, Msg: "Saved"})
@@ -723,7 +720,7 @@ func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 			}
 		}
 
-		app.TriggerRefresh()
+	
 		slog.Info("stack deleted", "stack", stackName)
 	}()
 }
@@ -761,7 +758,7 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 			slog.Error("force delete stack", "err", err, "stack", stackName)
 		}
 
-		app.TriggerRefresh()
+	
 		slog.Info("stack force deleted", "stack", stackName)
 	}()
 }
@@ -841,8 +838,8 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 	// Schedule terminal cleanup after a grace period
 	app.Terms.RemoveAfter(termName, 30*time.Second)
 
-	app.TriggerRefresh()
-	app.TriggerAllBroadcasts()
+
+
 }
 
 // runDeployWithValidation validates the compose file via `docker compose config`
@@ -874,6 +871,8 @@ func (app *App) runDeployWithValidation(stackName string) {
 			term.Write([]byte(errMsg))
 			slog.Warn("deploy validation failed", "stack", stackName, "err", err)
 		}
+		// The compose file was already saved to disk — fsnotify detects the
+		// new directory and triggers the stacks broadcast automatically.
 		return
 	}
 
@@ -897,8 +896,8 @@ func (app *App) runDeployWithValidation(stackName string) {
 	// Schedule terminal cleanup after a grace period
 	app.Terms.RemoveAfter(termName, 30*time.Second)
 
-	app.TriggerRefresh()
-	app.TriggerAllBroadcasts()
+
+
 }
 
 // runDockerCommands runs multiple docker commands sequentially on the same terminal.
@@ -933,8 +932,8 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 				term.Write([]byte(errMsg))
 				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
 			}
-			app.TriggerRefresh()
-			app.TriggerAllBroadcasts()
+		
+		
 			return
 		}
 	}
@@ -944,8 +943,8 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 	// Schedule terminal cleanup after a grace period
 	app.Terms.RemoveAfter(termName, 30*time.Second)
 
-	app.TriggerRefresh()
-	app.TriggerAllBroadcasts()
+
+
 }
 
 // handleComposeYAMLSave handles side effects of saving compose YAML:

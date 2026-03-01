@@ -9,7 +9,7 @@
                 </span>
             </h1>
 
-            <div v-if="stack.isManagedByDockge" class="d-flex align-items-center justify-content-between mb-3">
+            <div v-if="isManaged || isAdd" class="d-flex align-items-center justify-content-between mb-3">
                 <div class="d-flex align-items-center">
                     <div class="btn-group me-2" role="group">
                         <button v-if="isEditMode" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackDeploy')" @click="deployStack">
@@ -127,12 +127,12 @@
                 :rows="progressTerminalRows"
             />
 
-            <div v-if="!stack.isManagedByDockge && !processing" class="unmanaged-banner mb-3">
+            <div v-if="isManaged === false && !isAdd && !processing" class="unmanaged-banner mb-3">
                 <font-awesome-icon icon="info-circle" class="me-1" />
                 {{ $t("stackNotManagedByDockgeMsg") }}
             </div>
 
-            <div v-if="stack.isManagedByDockge !== undefined || isAdd" class="row">
+            <div v-if="isManaged !== undefined || isAdd" class="row">
                 <div v-show="viewMode === 'parsed' || isAdd" :class="viewMode === 'raw' ? 'col-12' : 'col-lg-6'">
                     <!-- General -->
                     <div v-if="isAdd">
@@ -161,7 +161,7 @@
                     <CollapsibleSection>
                         <template #heading>{{ $tc("container", 2) }} <span class="section-count">({{ Object.keys(jsonConfig.services || {}).length }})</span></template>
 
-                        <div v-if="isEditMode && stack.isManagedByDockge" class="input-group mb-3">
+                        <div v-if="isEditMode && (isManaged || isAdd)" class="input-group mb-3">
                             <input
                                 v-model="newContainerName"
                                 :placeholder="$t(`New Container Name...`)"
@@ -221,7 +221,7 @@
                         ></Terminal>
                     </div>
                 </div>
-                <div v-if="stack.isManagedByDockge" :class="viewMode === 'raw' && !isAdd ? 'col-12' : 'col-lg-6'">
+                <div v-if="isManaged || isAdd" :class="viewMode === 'raw' && !isAdd ? 'col-12' : 'col-lg-6'">
                     <!-- Override YAML editor (only show if file exists) -->
                     <div v-if="stack.composeOverrideYAML && stack.composeOverrideYAML.trim() !== ''">
                     <h4 class="mb-3">{{ stack.composeOverrideFileName || 'compose.override.yaml' }}</h4>
@@ -589,6 +589,15 @@ const urls = computed(() => {
 
 const isAdd = computed(() => route.path === "/stacks/new" && !submitted.value);
 
+// Stores must be loaded before we can determine management status
+const storesReady = computed(() => !stackStoreInstance.loading && !containerStore.loading);
+
+// Reactively derived from the store — updates when broadcasts arrive
+const isManaged = computed(() => {
+    if (!storesReady.value || !stack.name) return undefined; // unknown yet
+    return stackStoreInstance.rawStacks.some(s => s.name === stack.name);
+});
+
 const globalStack = computed(() => stackStoreInstance.allStacks.find(s => s.name === stack.name) ?? null);
 
 const active = computed(() => globalStack.value?.started ?? false);
@@ -689,7 +698,7 @@ watch(jsonConfig, () => {
 
 // For unmanaged stacks, synthesize services from container store
 watch(() => containerStore.byStack(stack.name), (containers) => {
-    if (!stack.name || stack.isManagedByDockge) return;
+    if (!stack.name || isManaged.value) return;
     if (!jsonConfig.services || Object.keys(jsonConfig.services).length === 0) {
         const synth: Record<string, any> = {};
         for (const c of containers) {
@@ -1019,31 +1028,26 @@ onMounted(() => {
 
     } else {
         stack.name = route.params.stackName as string;
-        initStack();
+
+        // Reactively watch isManaged — triggers loadStack() the first time
+        // the stack appears in the store (handles both initial load and
+        // delayed broadcasts after deploy).
+        let loaded = false;
+        const stopManaged = watch(isManaged, (managed) => {
+            if (managed === undefined) return; // stores not ready yet
+            if (managed && !loaded) {
+                loaded = true;
+                loadStack();
+            } else if (!managed) {
+                // Unmanaged: services come from container store watcher
+                processing.value = false;
+            }
+        }, { immediate: true });
+
+        // Clean up watcher when component unmounts
+        onUnmounted(stopManaged);
     }
 });
-
-function initStack() {
-    if (!stackStoreInstance.loading) {
-        // Store is ready — check if this stack is managed
-        const isManaged = stackStoreInstance.rawStacks.some(s => s.name === stack.name);
-        if (isManaged) {
-            loadStack();
-        } else {
-            // Unmanaged: no getStack call, services come from container store watcher
-            stack.isManagedByDockge = false;
-            processing.value = false;
-        }
-    } else {
-        // Store still loading — wait for it, then decide
-        const stop = watch(() => stackStoreInstance.loading, (loading) => {
-            if (!loading) {
-                stop();
-                initStack();
-            }
-        });
-    }
-}
 
 onUnmounted(() => {
     cancelAnimationFrame(renderRAF);

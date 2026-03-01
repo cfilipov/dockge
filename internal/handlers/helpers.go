@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/cfilipov/dockge/internal/docker"
 	"github.com/cfilipov/dockge/internal/models"
@@ -28,9 +27,6 @@ type App struct {
 	Version          string
 	StacksDir        string
 	MainTerminalName string // tracked for checkMainTerminal
-
-	refreshMu    sync.Mutex
-	refreshTimer *time.Timer
 
 	// Legacy broadcast dedup (used by BroadcastAll — will be removed in Phase 5)
 	broadcastMu      sync.Mutex

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"hash/fnv"
 	"log/slog"
 	"os"
@@ -328,7 +329,8 @@ func (app *App) InitBroadcast() {
 
 // StartBroadcastWatcher starts the event-driven broadcast system.
 // It subscribes to Docker events and dispatches to per-channel broadcast
-// functions via a debouncer. Also starts the fsnotify watcher for stacks.
+// functions via a debouncer. On error it retries with exponential backoff;
+// after repeated failures it exits the process.
 func (app *App) StartBroadcastWatcher(ctx context.Context) {
 	debouncer := newChannelDebouncer()
 	app.debouncer = debouncer
@@ -343,70 +345,77 @@ func (app *App) StartBroadcastWatcher(ctx context.Context) {
 		app.broadcastUpdates()
 	}
 
-	// Subscribe to Docker events
-	eventCh, errCh := app.Docker.Events(ctx)
-
-	go func() {
-		defer debouncer.stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-
-			case evt, ok := <-eventCh:
-				if !ok {
-					slog.Warn("docker events channel closed, falling back to polling")
-					app.runBroadcastPollingFallback(ctx, debouncer)
-					return
-				}
-				slog.Debug("docker event", "type", evt.Type, "action", evt.Action)
-
-				if !app.WS.HasAuthenticatedConns() {
-					continue
-				}
-
-				// Dispatch to the appropriate channel's debouncer
-				switch evt.Type {
-				case "container":
-					debouncer.trigger(chanContainers, app.broadcastContainers)
-				case "network":
-					debouncer.trigger(chanNetworks, app.broadcastNetworks)
-				case "image":
-					debouncer.trigger(chanImages, app.broadcastImages)
-				case "volume":
-					debouncer.trigger(chanVolumes, app.broadcastVolumes)
-				}
-
-			case err, ok := <-errCh:
-				if !ok {
-					continue
-				}
-				slog.Warn("docker events error", "err", err)
-				app.runBroadcastPollingFallback(ctx, debouncer)
-				return
-			}
-		}
-	}()
+	go app.runBroadcastWatcherLoop(ctx, debouncer)
 }
 
-// runBroadcastPollingFallback polls all channels every 60s when events are unavailable.
-func (app *App) runBroadcastPollingFallback(ctx context.Context, debouncer *channelDebouncer) {
-	ticker := time.NewTicker(60 * time.Second)
-	defer ticker.Stop()
+// runBroadcastWatcherLoop subscribes to Docker events and dispatches to
+// per-channel broadcasters. On error or channel close, it retries with
+// exponential backoff up to maxRetries times, then exits the process.
+func (app *App) runBroadcastWatcherLoop(ctx context.Context, debouncer *channelDebouncer) {
+	defer debouncer.stop()
+
+	const maxRetries = 5
+	failures := 0
+	backoff := 1 * time.Second
 
 	for {
+		eventCh, errCh := app.Docker.Events(ctx)
+
+		err := app.consumeBroadcastEvents(ctx, eventCh, errCh, debouncer)
+		if ctx.Err() != nil {
+			return // clean shutdown
+		}
+
+		failures++
+		if failures > maxRetries {
+			slog.Error("docker events (broadcast): too many failures, exiting", "failures", failures, "lastErr", err)
+			os.Exit(1)
+		}
+
+		slog.Warn("docker events (broadcast): retrying", "attempt", failures, "backoff", backoff, "err", err)
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-time.After(backoff):
+		}
+		backoff = min(backoff*2, 30*time.Second)
+	}
+}
+
+// consumeBroadcastEvents reads Docker events and dispatches to per-channel
+// broadcasters until the channel closes or errors.
+func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docker.DockerEvent, errCh <-chan error, debouncer *channelDebouncer) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
+		case evt, ok := <-eventCh:
+			if !ok {
+				return fmt.Errorf("docker events channel closed")
+			}
+			slog.Debug("docker event", "type", evt.Type, "action", evt.Action)
+
 			if !app.WS.HasAuthenticatedConns() {
 				continue
 			}
-			app.broadcastContainers()
-			app.broadcastNetworks()
-			app.broadcastImages()
-			app.broadcastVolumes()
+
+			switch evt.Type {
+			case "container":
+				debouncer.trigger(chanContainers, app.broadcastContainers)
+			case "network":
+				debouncer.trigger(chanNetworks, app.broadcastNetworks)
+			case "image":
+				debouncer.trigger(chanImages, app.broadcastImages)
+			case "volume":
+				debouncer.trigger(chanVolumes, app.broadcastVolumes)
+			}
+
+		case err, ok := <-errCh:
+			if !ok {
+				continue
+			}
+			return fmt.Errorf("docker events error: %w", err)
 		}
 	}
 }
@@ -425,16 +434,25 @@ func (app *App) TriggerContainersBroadcast() {
 	}
 }
 
-// TriggerAllBroadcasts triggers debounced broadcasts on all Docker channels.
-// Used after compose operations (up, down, etc.) that may change multiple resource types.
-func (app *App) TriggerAllBroadcasts() {
-	if app.debouncer == nil {
-		return
+// TriggerNetworksBroadcast triggers a debounced networks broadcast.
+func (app *App) TriggerNetworksBroadcast() {
+	if app.debouncer != nil {
+		app.debouncer.trigger(chanNetworks, app.broadcastNetworks)
 	}
-	app.debouncer.trigger(chanContainers, app.broadcastContainers)
-	app.debouncer.trigger(chanNetworks, app.broadcastNetworks)
-	app.debouncer.trigger(chanImages, app.broadcastImages)
-	app.debouncer.trigger(chanVolumes, app.broadcastVolumes)
+}
+
+// TriggerImagesBroadcast triggers a debounced images broadcast.
+func (app *App) TriggerImagesBroadcast() {
+	if app.debouncer != nil {
+		app.debouncer.trigger(chanImages, app.broadcastImages)
+	}
+}
+
+// TriggerVolumesBroadcast triggers a debounced volumes broadcast.
+func (app *App) TriggerVolumesBroadcast() {
+	if app.debouncer != nil {
+		app.debouncer.trigger(chanVolumes, app.broadcastVolumes)
+	}
 }
 
 // TriggerUpdatesBroadcast triggers a debounced updates broadcast.

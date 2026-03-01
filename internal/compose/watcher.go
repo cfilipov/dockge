@@ -2,6 +2,7 @@ package compose
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -13,23 +14,66 @@ import (
 
 // StartWatcher watches the stacks directory tree for compose file changes.
 // On change, calls onChange(stackName) so the caller can broadcast fresh data.
+// On error it retries with exponential backoff; after repeated failures it
+// exits the process.
 func StartWatcher(ctx context.Context, stacksDir string, onChange func(stackName string)) error {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
+	// Verify the directory exists before starting
+	if _, err := os.Stat(stacksDir); err != nil {
 		return err
 	}
 
+	go runWatcherLoop(ctx, stacksDir, onChange)
+	return nil
+}
+
+// runWatcherLoop creates an fsnotify watcher and processes events.
+// On error or channel close, it retries with exponential backoff up to
+// maxRetries times, then exits the process.
+func runWatcherLoop(ctx context.Context, stacksDir string, onChange func(stackName string)) {
+	const maxRetries = 5
+	failures := 0
+	backoff := 1 * time.Second
+
+	for {
+		err := runWatcher(ctx, stacksDir, onChange)
+		if ctx.Err() != nil {
+			return // clean shutdown
+		}
+
+		failures++
+		if failures > maxRetries {
+			slog.Error("compose file watcher: too many failures, exiting", "failures", failures, "lastErr", err)
+			os.Exit(1)
+		}
+
+		slog.Warn("compose file watcher: retrying", "attempt", failures, "backoff", backoff, "err", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		backoff = min(backoff*2, 30*time.Second)
+	}
+}
+
+// runWatcher creates an fsnotify watcher, processes events until an error
+// occurs or a channel closes, then returns the error.
+func runWatcher(ctx context.Context, stacksDir string, onChange func(stackName string)) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("create watcher: %w", err)
+	}
+	defer watcher.Close()
+
 	// Watch the top-level stacks directory (for new/removed stack subdirs)
 	if err := watcher.Add(stacksDir); err != nil {
-		watcher.Close()
-		return err
+		return fmt.Errorf("watch stacks dir: %w", err)
 	}
 
 	// Watch each existing stack subdirectory
 	entries, err := os.ReadDir(stacksDir)
 	if err != nil {
-		watcher.Close()
-		return err
+		return fmt.Errorf("read stacks dir: %w", err)
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -40,25 +84,7 @@ func StartWatcher(ctx context.Context, stacksDir string, onChange func(stackName
 		}
 	}
 
-	go runWatcher(ctx, watcher, stacksDir, onChange)
-
 	slog.Info("compose file watcher started", "dir", stacksDir)
-	return nil
-}
-
-// isComposeFile checks if a filename matches any accepted compose file name.
-func isComposeFile(name string) bool {
-	for _, accepted := range acceptedComposeFileNames {
-		if name == accepted {
-			return true
-		}
-	}
-	return false
-}
-
-// runWatcher is the main loop for the fsnotify watcher.
-func runWatcher(ctx context.Context, watcher *fsnotify.Watcher, stacksDir string, onChange func(stackName string)) {
-	defer watcher.Close()
 
 	// Debounce: coalesce events for the same stack within 200ms
 	var debounceMu sync.Mutex
@@ -84,20 +110,24 @@ func runWatcher(ctx context.Context, watcher *fsnotify.Watcher, stacksDir string
 		})
 	}
 
+	cancelPending := func() {
+		debounceMu.Lock()
+		for _, t := range pending {
+			t.Stop()
+		}
+		debounceMu.Unlock()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
-			// Cancel all pending timers
-			debounceMu.Lock()
-			for _, t := range pending {
-				t.Stop()
-			}
-			debounceMu.Unlock()
-			return
+			cancelPending()
+			return ctx.Err()
 
 		case event, ok := <-watcher.Events:
 			if !ok {
-				return
+				cancelPending()
+				return fmt.Errorf("fsnotify events channel closed")
 			}
 
 			name := filepath.Base(event.Name)
@@ -144,9 +174,20 @@ func runWatcher(ctx context.Context, watcher *fsnotify.Watcher, stacksDir string
 
 		case err, ok := <-watcher.Errors:
 			if !ok {
-				return
+				cancelPending()
+				return fmt.Errorf("fsnotify errors channel closed")
 			}
 			slog.Warn("compose watcher error", "err", err)
 		}
 	}
+}
+
+// isComposeFile checks if a filename matches any accepted compose file name.
+func isComposeFile(name string) bool {
+	for _, accepted := range acceptedComposeFileNames {
+		if name == accepted {
+			return true
+		}
+	}
+	return false
 }

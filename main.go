@@ -230,9 +230,11 @@ func main() {
 
             // Restore stacks directory from source to undo any filesystem
             // changes made by tests (deploy creating dirs, delete removing dirs).
+            // Clear contents instead of removing the directory itself so the
+            // fsnotify watcher (which watches this inode) stays valid.
             if info, err := os.Stat(stacksSource); err == nil && info.IsDir() {
-                if err := os.RemoveAll(cfg.StacksDir); err != nil {
-                    slog.Error("mock reset: remove stacks dir", "err", err)
+                if err := clearDirContents(cfg.StacksDir); err != nil {
+                    slog.Error("mock reset: clear stacks dir", "err", err)
                 }
                 if err := copyDirRecursive(stacksSource, cfg.StacksDir); err != nil {
                     slog.Error("mock reset: copy stacks dir", "err", err)
@@ -244,9 +246,14 @@ func main() {
                 slog.Error("mock reset: clear agents", "err", err)
             }
 
+            // Mock reset bypasses Docker commands, so no events fire.
+            // Trigger all broadcasts explicitly.
             app.BroadcastAll()
-            app.TriggerAllBroadcasts()
             app.TriggerStacksBroadcast()
+            app.TriggerContainersBroadcast()
+            app.TriggerNetworksBroadcast()
+            app.TriggerImagesBroadcast()
+            app.TriggerVolumesBroadcast()
             app.TriggerUpdatesBroadcast()
             slog.Info("mock state reset to default")
             w.WriteHeader(http.StatusOK)
@@ -276,7 +283,6 @@ func main() {
 
     // Start compose file watcher (fsnotify) — triggers broadcast on file changes
     if err := compose.StartWatcher(ctx, cfg.StacksDir, func(stackName string) {
-        app.TriggerRefresh()
         app.TriggerStacksBroadcast()
     }); err != nil {
         slog.Warn("compose file watcher failed to start", "err", err)
@@ -452,6 +458,21 @@ func seedDevStacks(stacksDir string) {
     // Write marker
     os.WriteFile(marker, []byte("seeded by dockge dev mode\n"), 0644)
     slog.Info("dev mode: seeded test stacks", "count", count)
+}
+
+// clearDirContents removes all entries inside dir without removing dir itself.
+// This preserves the directory inode so fsnotify watchers remain valid.
+func clearDirContents(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // copyDirRecursive copies all files from src to dst recursively.

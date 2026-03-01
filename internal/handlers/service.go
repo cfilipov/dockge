@@ -154,7 +154,7 @@ func (app *App) runServiceAction(stackName, serviceName, action string, composeA
 		term.Write([]byte("\r\n[Done]\r\n"))
 	}
 
-	app.TriggerRefresh()
+
 }
 
 func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {

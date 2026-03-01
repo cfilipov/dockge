@@ -535,10 +535,11 @@ func (w *MockWorld) ContainerList(all bool, projectFilter string) []containerJSO
 		// Resolve effective state dynamically from MockState
 		state := w.effectiveState(c)
 
-		// Skip inactive stacks entirely (they have no running Docker containers)
+		// Skip inactive stacks entirely — after `docker compose down`, containers
+		// are removed, so they should not appear even with all=true.
 		if !c.IsStandalone {
 			stackStatus := w.state.Get(c.StackName)
-			if stackStatus == "inactive" && !all {
+			if stackStatus == "inactive" {
 				continue
 			}
 		}
