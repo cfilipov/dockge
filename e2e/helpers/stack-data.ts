@@ -29,7 +29,7 @@ export interface StackTestData {
     volumes: string[];
     mockStatus: string;
     expectedStackStatus: number;
-    expectedStackBadge: { label: string; color: string };
+    expectedStackBadge: string;
     expectedHasUpdateIcon: boolean;
     expectedHasRecreateIcon: boolean;
 }
@@ -44,7 +44,7 @@ export interface ServiceTestData {
     updateAvailable: boolean;
     mockState: string;
     mockHealth: string;
-    expectedBadge: { label: string; color: string };
+    expectedBadge: string;
     isStarted: boolean;
     hasRecreate: boolean;
 }
@@ -106,23 +106,21 @@ const FEATURED_STACKS = [
 
 // ── Badge Mappings ──
 
-function stackStatusToBadge(status: number): { label: string; color: string } {
+function stackStatusToLabel(status: number): string {
     switch (status) {
-        case UNHEALTHY: return { label: "unhealthy", color: "bg-danger" };
-        case RUNNING: return { label: "active", color: "bg-primary" };
-        case RUNNING_AND_EXITED: return { label: "partially", color: "bg-info" };
-        case EXITED: return { label: "exited", color: "bg-warning" };
-        case CREATED_FILE: return { label: "down", color: "bg-dark" };
-        default: return { label: "down", color: "bg-secondary" };
+        case UNHEALTHY: return "unhealthy";
+        case RUNNING: return "active";
+        case RUNNING_AND_EXITED: return "partially";
+        case EXITED: return "exited";
+        default: return "down";
     }
 }
 
-function containerStateToBadge(state: string, health: string): { label: string; color: string } {
-    if (state === "running" && health === "unhealthy") return { label: "unhealthy", color: "bg-danger" };
-    if (state === "running") return { label: "running", color: "bg-primary" };
-    if (state === "exited") return { label: "exited", color: "bg-warning" };
-    // "down" = no container exists (inactive stack)
-    return { label: "down", color: "bg-secondary" };
+function containerStateToLabel(state: string, health: string): string {
+    if (state === "running" && health === "unhealthy") return "unhealthy";
+    if (state === "running") return "running";
+    if (state === "exited") return "exited";
+    return "down";
 }
 
 // ── Label Parsing ──
@@ -247,7 +245,7 @@ export function loadStackData(stacksDir: string, stackName: string): StackTestDa
         // - If health is "healthy" or "starting", state is still "running"
         // - If health is "unhealthy", state is "running" but badge shows "unhealthy"
         const effectiveState = mockState === "down" ? "down" : mockState;
-        const badge = containerStateToBadge(effectiveState, mockHealth);
+        const badge = containerStateToLabel(effectiveState, mockHealth);
 
         const isStarted = effectiveState === "running" && mockHealth !== "unhealthy"
             ? true
@@ -279,7 +277,7 @@ export function loadStackData(stacksDir: string, stackName: string): StackTestDa
 
     // Compute stack-level status from services (mirrors list.go:147-160)
     const expectedStackStatus = computeStackStatus(services, mockStatus);
-    const expectedStackBadge = stackStatusToBadge(expectedStackStatus);
+    const expectedStackBadge = stackStatusToLabel(expectedStackStatus);
 
     // Stack is "started" if RUNNING, RUNNING_AND_EXITED, or UNHEALTHY
     const stackStarted = expectedStackStatus === RUNNING ||

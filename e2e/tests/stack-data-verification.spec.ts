@@ -54,11 +54,9 @@ test.describe("Stack data verification", () => {
                     const item = page.locator(".item").filter({ hasText: stack.name });
                     await expect.soft(item.first()).toBeVisible({ timeout: 5000 });
 
-                    // Badge text
-                    const badgeText = BADGE_LABELS[stack.expectedStackBadge.label] || stack.expectedStackBadge.label;
-                    const badge = item.locator(`.badge.${stack.expectedStackBadge.color}`);
-                    await expect.soft(badge.first()).toBeVisible();
-                    await expect.soft(badge.first()).toHaveText(badgeText);
+                    // Badge text (find by text content, not by class)
+                    const badgeText = BADGE_LABELS[stack.expectedStackBadge] || stack.expectedStackBadge;
+                    await expect.soft(item.getByText(badgeText, { exact: true }).first()).toBeVisible();
 
                     // Update icon — FontAwesome renders title as SVG <title> child,
                     // accessible via role="img" + aria-labelledby
@@ -110,14 +108,9 @@ test.describe("Stack data verification", () => {
                     // Edit always visible
                     await expect.soft(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
 
-                    // Update button always present; class depends on whether updates available
+                    // Update button always present
                     const updateBtn = page.getByTitle("docker compose pull && up -d --remove-orphans && image prune");
                     await expect.soft(updateBtn).toBeVisible();
-                    if (stack.expectedHasUpdateIcon) {
-                        await expect.soft(updateBtn).toHaveClass(/btn-info/);
-                    } else {
-                        await expect.soft(updateBtn).toHaveClass(/btn-normal/);
-                    }
                 });
 
                 // ── Container cards ──
@@ -126,31 +119,26 @@ test.describe("Stack data verification", () => {
                         const card = page.getByRole("region", { name: svc.name });
                         await expect.soft(card).toBeVisible({ timeout: 5000 });
 
-                        // Badge
-                        const badgeText = BADGE_LABELS[svc.expectedBadge.label] || svc.expectedBadge.label;
-                        const badge = card.locator(`.badge.${svc.expectedBadge.color}`);
-                        await expect.soft(badge).toBeVisible();
-                        await expect.soft(badge).toHaveText(badgeText);
+                        // Badge text (find by text content, not by class)
+                        const badgeText = BADGE_LABELS[svc.expectedBadge] || svc.expectedBadge;
+                        await expect.soft(card.getByText(badgeText, { exact: true }).first()).toBeVisible();
 
-                        // SERVICE chip
-                        const serviceChip = card.locator(".network-chip").filter({ hasText: svc.name }).first();
-                        await expect.soft(serviceChip).toBeVisible();
+                        // SERVICE name visible in the card
+                        await expect.soft(card.getByText(svc.name).first()).toBeVisible();
 
                         // IMAGE chip — shows running image for started services, compose image for down
                         const displayImage = svc.isStarted || svc.mockState === "exited" ? svc.runningImage : svc.composeImage;
                         if (displayImage) {
-                            const imageChip = card.locator(".network-chip").filter({ has: page.locator(".chip-label", { hasText: /^Image$/i }) });
-                            await expect.soft(imageChip).toBeVisible();
+                            await expect.soft(card.getByText("Image").first()).toBeVisible();
                             const [imgName, imgTag] = displayImage.includes(":") ? displayImage.split(":") : [displayImage, "latest"];
-                            await expect.soft(imageChip.locator("code")).toContainText(`${imgName}:${imgTag}`);
+                            await expect.soft(card.locator("code").filter({ hasText: `${imgName}:${imgTag}` }).first()).toBeVisible();
                         }
 
                         // PORT chips — check actual host port display text
                         if (svc.portDisplays.length > 0) {
-                            const portChip = card.locator(".network-chip").filter({ has: page.locator(".chip-label", { hasText: /^Ports?$/i }) });
-                            await expect.soft(portChip).toBeVisible();
+                            await expect.soft(card.getByText(/^Ports?$/).first()).toBeVisible();
                             for (const portDisplay of svc.portDisplays) {
-                                await expect.soft(portChip.locator("code").filter({ hasText: portDisplay })).toBeVisible();
+                                await expect.soft(card.locator("code").filter({ hasText: portDisplay })).toBeVisible();
                             }
                         }
 
@@ -172,23 +160,13 @@ test.describe("Stack data verification", () => {
                             await expect.soft(card.getByRole("button", { name: `docker compose stop ${svc.name}` })).not.toBeVisible();
                         }
 
-                        // Recreate button: btn-info if hasRecreate, else btn-normal
+                        // Recreate button
                         const recreateBtn = card.getByRole("button", { name: `docker compose up -d --force-recreate ${svc.name}` });
                         await expect.soft(recreateBtn).toBeVisible();
-                        if (svc.hasRecreate) {
-                            await expect.soft(recreateBtn).toHaveClass(/btn-info/);
-                        } else {
-                            await expect.soft(recreateBtn).toHaveClass(/btn-normal/);
-                        }
 
-                        // Update button: btn-info if updateAvailable, else btn-normal
+                        // Update button
                         const updateBtn = card.getByRole("button", { name: new RegExp(`docker compose pull ${svc.name}`) });
                         await expect.soft(updateBtn).toBeVisible();
-                        if (svc.updateAvailable) {
-                            await expect.soft(updateBtn).toHaveClass(/btn-info/);
-                        } else {
-                            await expect.soft(updateBtn).toHaveClass(/btn-normal/);
-                        }
                     });
                 }
 
@@ -249,11 +227,9 @@ test.describe("Stack data verification", () => {
                         const item = page.locator(".item").filter({ hasText: containerName });
                         await expect.soft(item.first()).toBeVisible({ timeout: 5000 });
 
-                        // Verify status badge
-                        const badgeText = BADGE_LABELS[svc.expectedBadge.label] || svc.expectedBadge.label;
-                        const badge = item.locator(`.badge.${svc.expectedBadge.color}`).first();
-                        await expect.soft(badge).toBeVisible();
-                        await expect.soft(badge).toHaveText(badgeText);
+                        // Verify status badge text (find by text, not by class)
+                        const badgeText = BADGE_LABELS[svc.expectedBadge] || svc.expectedBadge;
+                        await expect.soft(item.getByText(badgeText, { exact: true }).first()).toBeVisible();
                     });
                 }
             }

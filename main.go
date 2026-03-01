@@ -129,16 +129,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Dev mode: auto-seed admin user
-	if cfg.Dev && userCount == 0 {
-		if _, err := users.Create("admin", "testpass123"); err != nil {
-			slog.Error("dev seed", "err", err)
-		} else {
-			slog.Info("dev mode: seeded admin user")
-			userCount = 1
-		}
-	}
-
 	// Docker client — connects to whatever DOCKER_HOST points to.
 	// In dev+mock environments, the external mock-daemon sets DOCKER_HOST
 	// to its Unix socket. In production, it connects to the real Docker daemon.
@@ -193,6 +183,12 @@ func main() {
 				if err := imageUpdates.SeedFromMock(resp.UpdateFlags); err != nil {
 					slog.Error("seed image updates on mock reset", "err", err)
 				}
+			}
+
+			// Re-stamp last check time so the background checker doesn't
+			// race with tests after a reset.
+			if err := imageUpdates.SetLastCheckTime(time.Now()); err != nil {
+				slog.Error("set last check time on mock reset", "err", err)
 			}
 
 			// Mock reset bypasses Docker commands, so no events fire.
