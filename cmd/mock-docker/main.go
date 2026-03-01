@@ -44,7 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Route: "compose ...", "exec ...", "image ..."
+	// Route: "compose ...", "exec ...", "image ...", "start/stop/restart ..."
 	switch args[0] {
 	case "compose":
 		handleCompose(args[1:])
@@ -52,6 +52,8 @@ func main() {
 		handleExec(args[1:])
 	case "image":
 		handleImage(args[1:])
+	case "start", "stop", "restart":
+		handleContainerAction(args[0], args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "[mock-docker] unsupported command: %s\n", args[0])
 		os.Exit(0)
@@ -172,6 +174,17 @@ func handleImage(args []string) {
 	if len(args) >= 1 && args[0] == "prune" {
 		fmt.Println("Total reclaimed space: 0B")
 	}
+}
+
+// handleContainerAction handles plain docker start/stop/restart <container>.
+// Output mirrors the real docker CLI: prints the container name on success.
+func handleContainerAction(action string, args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "[mock-docker] %s: container name required\n", action)
+		os.Exit(1)
+	}
+	containerName := args[0]
+	fmt.Println(containerName)
 }
 
 // --- Exec Helper ---

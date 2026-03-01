@@ -21,6 +21,22 @@
                         @check-updates="checkImageUpdates"
                     />
                 </div>
+                <div v-else-if="containerName" class="d-flex align-items-center">
+                    <div class="btn-group me-2" role="group" aria-label="Container actions">
+                        <button v-if="!containerActive" class="btn btn-primary" :disabled="standaloneProcessing" :title="$t('tooltipStandaloneStart', [containerName])" @click="standaloneStart">
+                            <font-awesome-icon icon="play" class="me-1" />
+                            {{ $t("startStack") }}
+                        </button>
+                        <button v-if="containerActive" class="btn btn-normal" :disabled="standaloneProcessing" :title="$t('tooltipStandaloneRestart', [containerName])" @click="standaloneRestart">
+                            <font-awesome-icon icon="rotate" class="me-1" />
+                            {{ $t("restartStack") }}
+                        </button>
+                        <button v-if="containerActive" class="btn btn-normal" :disabled="standaloneProcessing" :title="$t('tooltipStandaloneStop', [containerName])" @click="standaloneStop">
+                            <font-awesome-icon icon="stop" class="me-1" />
+                            {{ $t("stopStack") }}
+                        </button>
+                    </div>
+                </div>
                 <div v-else></div>
 
                 <!-- Parsed / Raw toggle -->
@@ -435,13 +451,47 @@ const recreateNecessary = computed(() => {
     const composeImage = globalStack.value.images[serviceName.value];
     return !!(composeImage && containerInfo.value.image && containerInfo.value.image !== composeImage);
 });
-const terminalName = computed(() => stackName.value ? getComposeTerminalName(stackName.value) : "");
+const terminalName = computed(() => {
+    if (stackName.value) return getComposeTerminalName(stackName.value);
+    if (containerName.value) return "container-" + containerName.value;
+    return "";
+});
 
 const {
     processing, showUpdateDialog,
     startService, stopService, restartService, recreateService,
     doUpdate, checkImageUpdates,
 } = useServiceActions(stackName, serviceName, progressTerminalRef);
+
+// Standalone container actions (no compose project)
+const standaloneProcessing = ref(false);
+
+function standaloneStart() {
+    standaloneProcessing.value = true;
+    progressTerminalRef.value?.show();
+    emit("startContainer", containerName.value, (res: any) => {
+        standaloneProcessing.value = false;
+        toastRes(res);
+    });
+}
+
+function standaloneStop() {
+    standaloneProcessing.value = true;
+    progressTerminalRef.value?.show();
+    emit("stopContainer", containerName.value, (res: any) => {
+        standaloneProcessing.value = false;
+        toastRes(res);
+    });
+}
+
+function standaloneRestart() {
+    standaloneProcessing.value = true;
+    progressTerminalRef.value?.show();
+    emit("restartContainer", containerName.value, (res: any) => {
+        standaloneProcessing.value = false;
+        toastRes(res);
+    });
+}
 
 const parsed = computed(() => inspectObj.value);
 

@@ -29,6 +29,11 @@ func RegisterServiceHandlers(app *App) {
 	app.WS.Handle("recreateService", app.handleRecreateService)
 	app.WS.Handle("updateService", app.handleUpdateService)
 	app.WS.Handle("checkImageUpdates", app.handleCheckImageUpdates)
+
+	// Standalone container actions (no compose project label)
+	app.WS.Handle("startContainer", app.handleStartContainer)
+	app.WS.Handle("stopContainer", app.handleStopContainer)
+	app.WS.Handle("restartContainer", app.handleRestartContainer)
 }
 
 func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
@@ -229,6 +234,92 @@ func (app *App) runUnmanagedServiceAction(stackName, serviceName, action string,
 			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
 			term.Write([]byte(errMsg))
 			slog.Error("unmanaged service action", "action", action, "stack", stackName, "service", serviceName, "err", err)
+		}
+	} else {
+		term.Write([]byte("\r\n[Done]\r\n"))
+	}
+}
+
+// --- Standalone container actions (no compose project) ---
+
+func (app *App) handleStartContainer(c *ws.Conn, msg *ws.ClientMessage) {
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	containerName := argString(args, 0)
+	if containerName == "" {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+		}
+		return
+	}
+
+	if msg.ID != nil {
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+	}
+
+	go app.runContainerAction(containerName, "start")
+}
+
+func (app *App) handleStopContainer(c *ws.Conn, msg *ws.ClientMessage) {
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	containerName := argString(args, 0)
+	if containerName == "" {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+		}
+		return
+	}
+
+	if msg.ID != nil {
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
+	}
+
+	go app.runContainerAction(containerName, "stop")
+}
+
+func (app *App) handleRestartContainer(c *ws.Conn, msg *ws.ClientMessage) {
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+	args := parseArgs(msg)
+	containerName := argString(args, 0)
+	if containerName == "" {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
+		}
+		return
+	}
+
+	if msg.ID != nil {
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
+	}
+
+	go app.runContainerAction(containerName, "restart")
+}
+
+// runContainerAction runs a plain docker command (start/stop/restart) for a
+// standalone container that has no compose project association.
+func (app *App) runContainerAction(containerName, action string) {
+	termName := "container-" + containerName
+	cmdDisplay := fmt.Sprintf("$ docker %s %s\r\n", action, containerName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	term := app.Terms.Recreate(termName, terminal.TypePTY)
+	term.Write([]byte(cmdDisplay))
+
+	cmd := exec.CommandContext(ctx, "docker", action, containerName)
+	if err := term.RunPTY(cmd); err != nil {
+		if ctx.Err() == nil {
+			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
+			term.Write([]byte(errMsg))
+			slog.Error("container action", "action", action, "container", containerName, "err", err)
 		}
 	} else {
 		term.Write([]byte("\r\n[Done]\r\n"))
