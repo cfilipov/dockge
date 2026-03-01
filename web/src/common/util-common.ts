@@ -203,7 +203,7 @@ export class ContainerStatusInfo {
     static readonly PAUSED = new ContainerStatusInfo("paused", "info");
     static readonly CREATED = new ContainerStatusInfo("created", "dark");
     static readonly DEAD = new ContainerStatusInfo("dead", "dark");
-    static readonly UNKNOWN = new ContainerStatusInfo("down", "secondary");
+    static readonly UNKNOWN = new ContainerStatusInfo("down", "dark");
 
     static ALL = [this.RUNNING, this.UNHEALTHY, this.EXITED, this.PAUSED, this.CREATED, this.DEAD];
 
