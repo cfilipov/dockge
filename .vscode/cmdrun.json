@@ -46,8 +46,7 @@
       "name": "dev mode with mock data",
       "group": "Run",
       "commands": [
-        "go build -o dockge .",
-        "./dockge --dev --mock --port 5001 --data-dir test-data --stacks-dir test-data/stacks"
+        "task dev-go"
       ]
     },
     {

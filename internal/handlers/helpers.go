@@ -19,6 +19,7 @@ type App struct {
 	Docker       docker.Client
 	Terms        *terminal.Manager
 	NoAuth       bool // Skip authentication checks (all endpoints open)
+	Dev          bool // Development mode (enables mock reset proxy, etc.)
 
 	JWTSecret        string
 	NeedSetup        bool

@@ -21,12 +21,13 @@ import (
 // Engine API using in-memory MockState + MockData. This allows the real
 // SDKClient to connect to it exactly as it would to a real Docker daemon.
 type FakeDaemon struct {
-	state     *MockState
-	data      *MockData
-	world     *MockWorld
-	stacksDir string
-	listener  net.Listener
-	server    *http.Server
+	state        *MockState
+	data         *MockData
+	world        *MockWorld
+	stacksDir    string
+	stacksSource string // pristine source dir for reset file restoration (empty = no file reset)
+	listener     net.Listener
+	server       *http.Server
 
 	// Events infrastructure: subscribers receive state-change notifications.
 	eventsMu    sync.Mutex
@@ -51,8 +52,10 @@ type eventActor struct {
 }
 
 // StartFakeDaemon creates and starts a fake Docker daemon on a Unix socket.
+// stacksSource is the pristine source directory for file restoration on reset
+// (pass "" to skip file restoration, e.g. in unit tests).
 // Returns the socket path for DOCKER_HOST, a cleanup function, and any error.
-func StartFakeDaemon(state *MockState, data *MockData, stacksDir string) (socketPath string, cleanup func(), err error) {
+func StartFakeDaemon(state *MockState, data *MockData, stacksDir, stacksSource string) (socketPath string, cleanup func(), err error) {
 	// Create temp directory for the socket
 	tmpDir, err := os.MkdirTemp("", "dockge-mock-*")
 	if err != nil {
@@ -69,12 +72,13 @@ func StartFakeDaemon(state *MockState, data *MockData, stacksDir string) (socket
 	world := BuildMockWorld(data, state, stacksDir)
 
 	fd := &FakeDaemon{
-		state:     state,
-		data:      data,
-		world:     world,
-		stacksDir: stacksDir,
-		listener:  listener,
-		eventSubs: make(map[int]chan eventMessage),
+		state:        state,
+		data:         data,
+		world:        world,
+		stacksDir:    stacksDir,
+		stacksSource: stacksSource,
+		listener:     listener,
+		eventSubs:    make(map[int]chan eventMessage),
 	}
 
 	mux := http.NewServeMux()
@@ -95,6 +99,57 @@ func StartFakeDaemon(state *MockState, data *MockData, stacksDir string) (socket
 	}
 
 	return sockPath, cleanupFn, nil
+}
+
+// StartFakeDaemonOnSocket creates and starts a fake Docker daemon on a
+// caller-specified Unix socket path. Used by cmd/mock-daemon for external
+// daemon operation. Returns a cleanup function and any error.
+func StartFakeDaemonOnSocket(state *MockState, data *MockData, stacksDir, stacksSource, sockPath string) (cleanup func(), err error) {
+	// Ensure parent directory exists
+	if dir := filepath.Dir(sockPath); dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("create socket dir: %w", err)
+		}
+	}
+
+	// Remove stale socket file if it exists
+	os.Remove(sockPath)
+
+	listener, err := net.Listen("unix", sockPath)
+	if err != nil {
+		return nil, fmt.Errorf("listen unix: %w", err)
+	}
+
+	world := BuildMockWorld(data, state, stacksDir)
+
+	fd := &FakeDaemon{
+		state:        state,
+		data:         data,
+		world:        world,
+		stacksDir:    stacksDir,
+		stacksSource: stacksSource,
+		listener:     listener,
+		eventSubs:    make(map[int]chan eventMessage),
+	}
+
+	mux := http.NewServeMux()
+	fd.registerRoutes(mux)
+
+	fd.server = &http.Server{Handler: fd.stripVersionPrefix(mux)}
+
+	go func() {
+		if err := fd.server.Serve(listener); err != nil && err != http.ErrServerClosed {
+			slog.Error("fake daemon serve", "err", err)
+		}
+	}()
+
+	cleanupFn := func() {
+		fd.server.Close()
+		listener.Close()
+		os.Remove(sockPath)
+	}
+
+	return cleanupFn, nil
 }
 
 // stripVersionPrefix returns middleware that strips /v{version}/ prefix from requests.
@@ -1092,9 +1147,37 @@ func (fd *FakeDaemon) handleMockStateDelete(w http.ResponseWriter, r *http.Reque
 
 func (fd *FakeDaemon) handleMockReset(w http.ResponseWriter, r *http.Request) {
 	fd.state.Reset()
-	fd.world.Reset() // Rebuild world after state reset
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+
+	// Restore stacks directory from pristine source (if configured and
+	// source differs from working dir — when they're the same, file
+	// restoration would wipe the stacks).
+	if fd.stacksSource != "" && !samePath(fd.stacksSource, fd.stacksDir) {
+		if info, err := os.Stat(fd.stacksSource); err == nil && info.IsDir() {
+			// Clear contents instead of removing the directory itself so any
+			// fsnotify watcher (which watches this inode) stays valid.
+			if err := ClearDirContents(fd.stacksDir); err != nil {
+				slog.Error("mock reset: clear stacks dir", "err", err)
+			}
+			if err := CopyDirRecursive(fd.stacksSource, fd.stacksDir); err != nil {
+				slog.Error("mock reset: copy stacks dir", "err", err)
+			}
+		}
+	}
+
+	// Rebuild mock data from (restored) stacks and reset world.
+	fd.data = BuildMockData(fd.stacksDir)
+	fd.state = DefaultDevStateFromData(fd.data)
+	fd.world = BuildMockWorld(fd.data, fd.state, fd.stacksDir)
+
+	// Return updateFlags so the caller can seed BoltDB image updates.
+	resp := struct {
+		OK          bool            `json:"ok"`
+		UpdateFlags map[string]bool `json:"updateFlags,omitempty"`
+	}{
+		OK:          true,
+		UpdateFlags: fd.data.UpdateFlags(),
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // mockLogsJSON is the JSON response for /_mock/logs/{stack}/{service}.

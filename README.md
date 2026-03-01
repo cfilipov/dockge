@@ -76,8 +76,7 @@ The Go backend is configured via CLI flags or environment variables. Environment
 | `--data-dir` | `./data` | `DOCKGE_DATA_DIR` | Path to data directory (BoltDB) |
 | `--log-level` | `info` | `DOCKGE_LOG_LEVEL` | Log level: `debug`, `info`, `warn`, or `error` |
 | `--no-auth` | `false` | `DOCKGE_NO_AUTH=1` | Disable authentication — all endpoints open without login |
-| `--dev` | `false` | — | Development mode (serves frontend from disk, enables pprof) |
-| `--mock` | `false` | `DOCKGE_MOCK=1` | Use mock Docker (no daemon needed, for development) |
+| `--dev` | `false` | — | Development mode (serves frontend from disk, seeds admin user, enables pprof and mock reset proxy) |
 
 ---
 

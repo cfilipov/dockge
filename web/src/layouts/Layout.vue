@@ -47,7 +47,7 @@
                             </button>
                         </li>
 
-                        <li v-if="info.mock">
+                        <li v-if="info.dev">
                             <button class="dropdown-item" @click="resetMockState">
                                 <font-awesome-icon icon="undo" /> {{ $t("resetMockState") }}
                             </button>

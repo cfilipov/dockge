@@ -104,7 +104,7 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     // Start fake Docker daemon with shared in-memory state
     state := docker.NewMockState()
     data := docker.BuildMockData(stacksDir)
-    sockPath, daemonCleanup, err := docker.StartFakeDaemon(state, data, stacksDir)
+    sockPath, daemonCleanup, err := docker.StartFakeDaemon(state, data, stacksDir, "")
     if err != nil {
         t.Fatal("start fake daemon:", err)
     }

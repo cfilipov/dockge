@@ -72,7 +72,7 @@ task dev                         # Go backend (5001) + Vite HMR (5000)
 
 Ctrl+C stops both. Use port 5000 for development — Vite proxies `/ws` to the backend automatically.
 
-No real Docker daemon is needed. The `--mock` flag provides in-memory Docker state with four seeded stacks. Dev data (BoltDB) is stored in `test-data/`.
+No real Docker daemon is needed. `task dev` starts a standalone mock daemon that provides in-memory Docker state with four seeded stacks. Dev data (BoltDB) is stored in `test-data/`.
 
 ## Task targets
 
@@ -114,8 +114,7 @@ The task targets handle these, but for reference:
 | `--port` | `5001` | `DOCKGE_PORT` | HTTP server port |
 | `--stacks-dir` | `/opt/stacks` | `DOCKGE_STACKS_DIR` | Path to stacks directory |
 | `--data-dir` | `./data` | `DOCKGE_DATA_DIR` | Path to BoltDB data. Dev uses `test-data/`. |
-| `--dev` | `false` | — | Serve frontend from `dist/` on disk. With `--mock`, seeds admin user (`admin`/`testpass123`). Enables pprof. |
-| `--mock` | `false` | `DOCKGE_MOCK=1` | In-memory mock Docker — no daemon needed. State is lost on restart. |
+| `--dev` | `false` | — | Serve frontend from `dist/` on disk. Seeds admin user (`admin`/`testpass123`). Enables pprof and mock reset proxy. |
 | `--log-level` | `info` | `DOCKGE_LOG_LEVEL` | `debug`, `info`, `warn`, or `error` |
 | `--no-auth` | `false` | `DOCKGE_NO_AUTH=1` | Disable authentication |
 

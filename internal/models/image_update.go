@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 
@@ -189,6 +191,36 @@ func (s *ImageUpdateStore) SeedFromMock(flags map[string]bool) error {
 			}
 		}
 		return nil
+	})
+}
+
+// lastCheckKey is the BoltDB key under the settings bucket that stores the
+// Unix timestamp of the last background image update check.
+var lastCheckKey = []byte("imageUpdateLastCheck")
+
+// GetLastCheckTime returns the time of the last background image update check.
+// Returns zero time if never checked.
+func (s *ImageUpdateStore) GetLastCheckTime() (time.Time, error) {
+	var t time.Time
+	err := s.db.View(func(tx *bolt.Tx) error {
+		v := tx.Bucket(db.BucketSettings).Get(lastCheckKey)
+		if v == nil {
+			return nil
+		}
+		unix, err := strconv.ParseInt(string(v), 10, 64)
+		if err != nil {
+			return nil // treat corrupt value as never checked
+		}
+		t = time.Unix(unix, 0)
+		return nil
+	})
+	return t, err
+}
+
+// SetLastCheckTime records the current time as the last background image update check.
+func (s *ImageUpdateStore) SetLastCheckTime(t time.Time) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(db.BucketSettings).Put(lastCheckKey, []byte(strconv.FormatInt(t.Unix(), 10)))
 	})
 }
 

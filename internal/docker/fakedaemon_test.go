@@ -29,7 +29,7 @@ func setupFakeDaemon(t *testing.T) (*SDKClient, func()) {
 		"test-app": "running",
 	})
 
-	sockPath, cleanup, err := StartFakeDaemon(state, data, stacksDir)
+	sockPath, cleanup, err := StartFakeDaemon(state, data, stacksDir, "")
 	if err != nil {
 		t.Fatalf("start fake daemon: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestFakeDaemon_Events(t *testing.T) {
 	data := BuildMockData(stacksDir)
 	state := NewMockStateFrom(map[string]string{"evt-test": "running"})
 
-	sockPath, cleanup, err := StartFakeDaemon(state, data, stacksDir)
+	sockPath, cleanup, err := StartFakeDaemon(state, data, stacksDir, "")
 	if err != nil {
 		t.Fatalf("start fake daemon: %v", err)
 	}

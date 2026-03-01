@@ -27,7 +27,6 @@ tasks:
 
   build-go:
     desc: Build Go backend
-    deps: [build-mock-docker]
     cmd: go build -o {{.BINARY}} .
     sources:
       - '**/*.go'
@@ -37,7 +36,7 @@ tasks:
       - ./{{.BINARY}}
 
   build-mock-docker:
-    desc: Build mock docker binary for --mock mode
+    desc: Build mock docker binary for dev/test
     cmd: go build -o test-data/bin/docker ./cmd/mock-docker
     sources:
       - cmd/mock-docker/**/*.go
@@ -45,14 +44,33 @@ tasks:
     generates:
       - test-data/bin/docker
 
+  build-mock-daemon:
+    desc: Build mock daemon binary for dev/test
+    cmd: go build -o test-data/bin/mock-daemon ./cmd/mock-daemon
+    sources:
+      - cmd/mock-daemon/**/*.go
+      - internal/docker/**/*.go
+      - go.mod
+    generates:
+      - test-data/bin/mock-daemon
+
   dev:
-    desc: Run Go backend + Vite HMR (ports 5001 + 5000)
-    deps: [build-go]
+    desc: Run mock daemon + Go backend + Vite HMR (ports 5001 + 5000)
+    deps: [build-go, build-mock-daemon, build-mock-docker]
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
-          cd web && pnpm run dev &
-          ./{{.BINARY}} --dev --mock --port 5001 --data-dir test-data --stacks-dir test-data/stacks &
+          MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
+          mkdir -p "$(dirname "$MOCK_SOCK")"
+          ./test-data/bin/mock-daemon \
+            --socket "$MOCK_SOCK" \
+            --stacks-source test-data/stacks \
+            --stacks-dir test-data/stacks &
+          for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
+          export DOCKER_HOST="unix://$MOCK_SOCK"
+          export PATH="$(pwd)/test-data/bin:$PATH"
+          (cd web && pnpm run dev) &
+          ./{{.BINARY}} --dev --port 5001 --data-dir test-data --stacks-dir test-data/stacks &
           wait
 
   dev-web:
@@ -61,9 +79,41 @@ tasks:
     cmd: pnpm run dev
 
   dev-go:
-    desc: Run Go backend only in dev+mock mode (port 5001)
-    deps: [build-go]
-    cmd: ./{{.BINARY}} --dev --mock --port 5001 --data-dir test-data --stacks-dir test-data/stacks
+    desc: Run mock daemon + Go backend only (port 5001)
+    deps: [build-go, build-mock-daemon, build-mock-docker]
+    cmds:
+      - cmd: |
+          trap 'kill 0' EXIT
+          MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
+          mkdir -p "$(dirname "$MOCK_SOCK")"
+          ./test-data/bin/mock-daemon \
+            --socket "$MOCK_SOCK" \
+            --stacks-source test-data/stacks \
+            --stacks-dir test-data/stacks &
+          for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
+          export DOCKER_HOST="unix://$MOCK_SOCK"
+          export PATH="$(pwd)/test-data/bin:$PATH"
+          ./{{.BINARY}} --dev --port 5001 --data-dir test-data --stacks-dir test-data/stacks
+
+  start-mock-env:
+    desc: Start mock daemon + dockge for dev/test
+    deps: [build-go, build-mock-daemon, build-mock-docker]
+    vars:
+      PORT: '{{.PORT | default "5001"}}'
+      STACKS_DIR: '{{.STACKS_DIR | default "test-data/stacks"}}'
+      DATA_DIR: '{{.DATA_DIR | default "test-data"}}'
+    cmds:
+      - cmd: |
+          trap 'kill 0' EXIT
+          MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
+          mkdir -p "$(dirname "$MOCK_SOCK")"
+          ./test-data/bin/mock-daemon \
+            --socket "$MOCK_SOCK" \
+            --stacks-source test-data/stacks \
+            --stacks-dir {{.STACKS_DIR}} &
+          for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
+          DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/test-data/bin:$PATH" \
+            exec ./{{.BINARY}} --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
 
   kill:
     desc: Kill any running dockge backend or Vite dev server
@@ -72,6 +122,8 @@ tasks:
       - cmd: pkill -f './{{.BINARY}}' 2>/dev/null
         ignore_error: true
       - cmd: pkill -f 'node.*vite' 2>/dev/null
+        ignore_error: true
+      - cmd: pkill -f 'mock-daemon' 2>/dev/null
         ignore_error: true
 
   clean:
@@ -107,7 +159,7 @@ tasks:
 
   test-e2e:
     desc: Run Playwright E2E tests
-    deps: [build-web, build-go]
+    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
     dir: e2e
     cmd: E2E_PORT=5052 pnpm test
 
@@ -118,13 +170,13 @@ tasks:
 
   update-screenshots:
     desc: Update E2E golden screenshots
-    deps: [build-web, build-go]
+    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
     dir: e2e
     cmd: E2E_PORT=5052 pnpm run test:update-screenshots
 
   test-e2e-trace:
     desc: Run E2E test with tracing (use -- <test-file>)
-    deps: [build-web, build-go]
+    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
     dir: e2e
     cmd: E2E_PORT=5052 npx playwright test {{.CLI_ARGS}} --trace on
 

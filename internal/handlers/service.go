@@ -283,28 +283,53 @@ func (app *App) isImageUpdateCheckEnabled() bool {
 // all stacks for image updates. Respects the imageUpdateCheckEnabled and
 // imageUpdateCheckInterval settings, re-reading them on each tick so changes
 // take effect without a restart.
+//
+// On startup, reads the last check timestamp from BoltDB. If the interval has
+// elapsed (or no check has ever been done), runs immediately. This is
+// mode-agnostic: against a fresh mock environment there's no stored timestamp
+// so it checks right away; against a real daemon after a restart it skips if
+// it checked recently.
 func (app *App) StartImageUpdateChecker(ctx context.Context) {
 	go func() {
 		// Short delay on startup so the stack list loads first
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(30 * time.Second):
+		case <-time.After(5 * time.Second):
 		}
 
+		interval := app.getImageUpdateInterval()
+
+		// Check if enough time has elapsed since the last check
+		lastCheck, _ := app.ImageUpdates.GetLastCheckTime()
+		elapsed := time.Since(lastCheck)
+		if elapsed < interval {
+			// Wait for the remaining time before the first check
+			remaining := interval - elapsed
+			slog.Debug("image update checker: deferring first check", "remaining", remaining)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(remaining):
+			}
+		}
+
+		// Run the first check
 		if app.isImageUpdateCheckEnabled() {
 			app.checkAllImageUpdates()
+			app.ImageUpdates.SetLastCheckTime(time.Now())
 			app.TriggerUpdatesBroadcast()
 		}
 
 		for {
-			interval := app.getImageUpdateInterval()
+			interval = app.getImageUpdateInterval()
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(interval):
 				if app.isImageUpdateCheckEnabled() {
 					app.checkAllImageUpdates()
+					app.ImageUpdates.SetLastCheckTime(time.Now())
 					app.TriggerUpdatesBroadcast()
 				}
 			}

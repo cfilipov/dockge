@@ -13,7 +13,6 @@ type Config struct {
     StacksDir string
     DataDir   string
     Dev       bool
-    Mock      bool       // Use mock Docker CLI instead of SDK (for dev without Docker socket)
     LogLevel  slog.Level // Parsed log level (debug, info, warn, error)
     NoAuth    bool       // Skip authentication (all endpoints open)
     Pprof     bool       // Enable /debug/pprof/ endpoints
@@ -27,7 +26,6 @@ func Parse() *Config {
     flag.StringVar(&cfg.StacksDir, "stacks-dir", "/opt/stacks", "Path to stacks directory")
     flag.StringVar(&cfg.DataDir, "data-dir", "./data", "Path to data directory (SQLite DB)")
     flag.BoolVar(&cfg.Dev, "dev", false, "Development mode (serve frontend from filesystem)")
-    flag.BoolVar(&cfg.Mock, "mock", false, "Use mock Docker CLI instead of SDK")
     flag.StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
     flag.BoolVar(&cfg.NoAuth, "no-auth", false, "Disable authentication (all endpoints open)")
     flag.Parse()
@@ -43,9 +41,6 @@ func Parse() *Config {
     }
     if v := os.Getenv("DOCKGE_DATA_DIR"); v != "" {
         cfg.DataDir = v
-    }
-    if v := os.Getenv("DOCKGE_MOCK"); v == "1" || v == "true" {
-        cfg.Mock = true
     }
     if v := os.Getenv("DOCKGE_LOG_LEVEL"); v != "" {
         logLevel = v
