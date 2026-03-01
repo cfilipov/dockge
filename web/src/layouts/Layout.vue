@@ -159,7 +159,8 @@ const {
 
 const containerStore = useContainerStore();
 const stackStore = useStackStore();
-const { setRawMode } = useViewMode();
+const { setRawMode: setStacksRawMode } = useViewMode("stacks");
+const { setRawMode: setContainersRawMode } = useViewMode("containers");
 
 const {
     lastStack,
@@ -180,13 +181,13 @@ function stackExists(name: string): boolean {
 // Reset raw mode when clicking a tab you're already on (going to its list view)
 function onStacksTabClick() {
     if (route.path.startsWith("/stacks")) {
-        setRawMode(false);
+        setStacksRawMode(false);
     }
 }
 
 function onContainersTabClick() {
     if (route.path.startsWith("/containers")) {
-        setRawMode(false);
+        setContainersRawMode(false);
     }
 }
 

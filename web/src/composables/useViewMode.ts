@@ -1,21 +1,22 @@
 import { ref } from "vue";
 
 /**
- * Shared view mode preference — singleton state across all components.
+ * Per-tab view mode preference — stacks and containers each remember their
+ * own parsed/raw toggle independently.
  *
- * When the user toggles "Show UI" / "Show YAML" on any page (stacks or
- * containers), the preference persists until they toggle again.
- *
- * Compose.vue calls setRawMode() when the toggle changes.
- * StackListItem and Layout read isRawMode to build correct URLs.
+ * Compose.vue uses the "stacks" scope; ContainerInspect.vue uses "containers".
+ * Layout reads the appropriate scope to reset on tab re-click.
  */
 
-const isRawMode = ref(false);
+const stacksRawMode = ref(false);
+const containersRawMode = ref(false);
 
-function setRawMode(raw: boolean) {
-    isRawMode.value = raw;
-}
+export function useViewMode(scope: "stacks" | "containers" = "stacks") {
+    const isRawMode = scope === "stacks" ? stacksRawMode : containersRawMode;
 
-export function useViewMode() {
+    function setRawMode(raw: boolean) {
+        isRawMode.value = raw;
+    }
+
     return { isRawMode, setRawMode };
 }

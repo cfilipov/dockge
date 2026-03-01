@@ -394,7 +394,7 @@ const badgeLabel = computed(() =>
     statusInfo.value ? t(statusInfo.value.label) : ""
 );
 
-const { isRawMode, setRawMode } = useViewMode();
+const { isRawMode, setRawMode } = useViewMode("containers");
 const viewMode = ref<"parsed" | "raw">(isRawMode.value ? "raw" : "parsed");
 watch(viewMode, (mode) => setRawMode(mode === "raw"));
 const inspectData = ref("fetching ...");
