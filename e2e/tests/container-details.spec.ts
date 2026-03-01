@@ -48,6 +48,67 @@ test.describe("Container Log", () => {
     });
 });
 
+test.describe("Container Log Lifecycle Banners", () => {
+    // This test modifies mock state (stop/start), so reset before and after.
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+    test.afterAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
+    test("shows shutdown logs, stop banner, start banner, and startup logs", async ({ page }) => {
+        // Navigate to the individual log view for alpine (running in DefaultDevState)
+        await page.goto("/logs/00-single-service-alpine-1");
+        await waitForApp(page);
+
+        // The page has two Terminal regions: the progress terminal (inside
+        // .progress-terminal) and the log terminal (with class .terminal).
+        // Scope to the log terminal's .xterm-rows.
+        const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
+        await expect(logTerminal).toBeVisible({ timeout: 10000 });
+
+        // Verify initial startup logs from log-templates.yaml (alpine)
+        await expect(logTerminal).toContainText("alpine container started", { timeout: 10000 });
+        await expect(logTerminal).toContainText("Running entrypoint script...", { timeout: 10000 });
+
+        // Stop the container
+        const stopBtn = page.getByRole("button", { name: "Stop", exact: true });
+        await expect(stopBtn).toBeVisible({ timeout: 10000 });
+        await stopBtn.evaluate((el: HTMLElement) => el.click());
+
+        // Wait for the progress terminal to show the stop command completed
+        const progressTerm = page.locator(".progress-terminal .xterm-rows");
+        await expect(progressTerm).toContainText("[Done]", { timeout: 15000 });
+
+        // Verify shutdown log appears (from log-templates.yaml alpine.shutdown)
+        await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
+
+        // Verify stop banner appears
+        await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
+
+        // Start the container back up
+        const startBtn = page.getByRole("button", { name: "Start", exact: true });
+        await expect(startBtn).toBeVisible({ timeout: 10000 });
+        await startBtn.evaluate((el: HTMLElement) => el.click());
+
+        // Wait for start to complete
+        await expect(progressTerm).toContainText("Started", { timeout: 15000 });
+
+        // Verify start banner appears
+        await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
+
+        // Verify startup logs appear again after restart (from log-templates.yaml alpine.startup)
+        // The startup logs should appear twice now — once from initial load, once after restart.
+        // We can't easily count occurrences, but the heartbeat log confirms the stream reconnected.
+        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
+
+        // Screenshot after full stop/start cycle
+        await expect(page).toHaveScreenshot("container-log-lifecycle.png");
+        await takeLightScreenshot(page, "container-log-lifecycle-light.png");
+    });
+});
+
 test.describe("Container Terminal", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/terminal/01-web-app/nginx/bash");
