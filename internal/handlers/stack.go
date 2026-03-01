@@ -501,7 +501,7 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
 // to a PTY terminal that fans out to WebSocket clients.
 // In mock mode, exec.Command resolves to the mock docker binary via PATH.
 func (app *App) runComposeAction(stackName, action string, composeArgs ...string) {
-	termName := "compose--" + stackName
+	termName := "compose-" + stackName
 	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
 	displayParts := append(envArgs, composeArgs...)
 	cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(displayParts, " "))
@@ -536,7 +536,7 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 // runDeployWithValidation validates the compose file via `docker compose config`
 // and then runs `docker compose up -d --remove-orphans`.
 func (app *App) runDeployWithValidation(stackName string) {
-	termName := "compose--" + stackName
+	termName := "compose-" + stackName
 	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
 	envDisplay := ""
 	if len(envArgs) > 0 {
@@ -590,7 +590,7 @@ func (app *App) runDeployWithValidation(stackName string) {
 
 // runDockerCommands runs multiple docker commands sequentially on the same terminal.
 func (app *App) runDockerCommands(stackName, action string, argSets [][]string) {
-	termName := "compose--" + stackName
+	termName := "compose-" + stackName
 	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)

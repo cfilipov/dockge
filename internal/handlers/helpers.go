@@ -14,7 +14,6 @@ import (
 type App struct {
 	Users        *models.UserStore
 	Settings     *models.SettingStore
-	Agents       *models.AgentStore
 	ImageUpdates *models.ImageUpdateStore
 	WS           *ws.Server
 	Docker       docker.Client

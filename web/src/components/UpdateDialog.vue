@@ -39,7 +39,6 @@ import yamlLib from "yaml";
 const props = withDefaults(defineProps<{
     modelValue: boolean;
     stackName: string;
-    endpoint: string;
     serviceName?: string;
     composeYaml?: string;
     showIgnore?: boolean;
@@ -53,7 +52,7 @@ const emit = defineEmits<{
     (e: "ignore"): void;
 }>();
 
-const { emitAgent } = useSocket();
+const { emit: socketEmit } = useSocket();
 
 const visible = computed({
     get: () => props.modelValue,
@@ -107,7 +106,7 @@ function onShow() {
     fetchedYAML.value = "";
 
     if (!props.composeYaml && props.stackName) {
-        emitAgent(props.endpoint, "getStack", props.stackName, (res: any) => {
+        socketEmit("getStack", props.stackName, (res: any) => {
             if (res.ok && res.stack) {
                 fetchedYAML.value = res.stack.composeYAML || "";
             }

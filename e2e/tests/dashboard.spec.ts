@@ -15,7 +15,6 @@ test.describe("Dashboard Home", () => {
         await expect.soft(page.locator(".item").first()).toBeVisible({ timeout: 10000 });
         await expect.soft(page.getByRole("heading", { name: "Docker Run" })).toBeVisible();
         await expect.soft(page.getByRole("button", { name: /Convert/i })).toBeVisible();
-        await expect.soft(page.getByText("Dockge Agent")).toBeVisible();
     });
 
     test("screenshot: dashboard home", async ({ page }) => {

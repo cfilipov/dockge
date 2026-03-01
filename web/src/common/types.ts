@@ -27,7 +27,6 @@ export type SimpleStackData = {
     tags: string[],
     isManagedByDockge: boolean,
     composeFileName: string,
-    endpoint: string
 }
 
 export type StackData = SimpleStackData & {
@@ -35,14 +34,6 @@ export type StackData = SimpleStackData & {
     composeENV: string,
     primaryHostname: string,
     services: Record<string, ServiceData>
-}
-
-export type AgentData = {
-    url: string,
-    username: string,
-    password: string,
-    endpoint: string,
-    name: string
 }
 
 export enum DockerArtefactAction {
@@ -99,7 +90,6 @@ export type ApiResponse<T = undefined> = {
 
 export type StackListResponse = ApiResponse<{
     stackList: Record<string, SimpleStackData>,
-    endpoint?: string,
 }>
 
 export type ServiceStatusResponse = ApiResponse<{

@@ -87,7 +87,6 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     // Create stores
     users := models.NewUserStore(database)
     settings := models.NewSettingStore(database)
-    agents := models.NewAgentStore(database)
     imageUpdates := models.NewImageUpdateStore(database)
 
     // Ensure JWT secret
@@ -129,7 +128,6 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     app := &handlers.App{
         Users:        users,
         Settings:     settings,
-        Agents:       agents,
         ImageUpdates: imageUpdates,
         WS:           wss,
         Docker:       dockerClient,
@@ -143,7 +141,6 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     // Register all handlers
     handlers.RegisterAuthHandlers(app)
     handlers.RegisterSettingsHandlers(app)
-    handlers.RegisterAgentHandlers(app)
     handlers.RegisterStackHandlers(app)
     handlers.RegisterTerminalHandlers(app)
     handlers.RegisterDockerHandlers(app)

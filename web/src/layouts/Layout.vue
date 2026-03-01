@@ -135,7 +135,6 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { compareVersions } from "compare-versions";
-import { ALL_ENDPOINTS } from "../common/util-common";
 import Login from "../components/Login.vue";
 import { useSocket } from "../composables/useSocket";
 import { useTheme } from "../composables/useTheme";
@@ -154,7 +153,7 @@ const {
     username,
     usernameFirstChar,
     info,
-    emitAgent,
+    emit,
     logout,
 } = useSocket();
 
@@ -308,7 +307,7 @@ const hasNewVersion = computed(() => {
 });
 
 function scanFolder() {
-    emitAgent(ALL_ENDPOINTS, "requestStackList", (res: any) => {
+    emit("requestStackList", (res: any) => {
         toastRes(res);
     });
 }
@@ -318,7 +317,7 @@ async function resetMockState() {
         const resp = await fetch("/api/mock/reset", { method: "POST" });
         if (resp.ok) {
             toastRes({ ok: true, msg: "Mock state reset" });
-            emitAgent(ALL_ENDPOINTS, "requestStackList", () => {});
+            emit("requestStackList", () => {});
         } else {
             toastRes({ ok: false, msg: "Failed to reset mock state" });
         }

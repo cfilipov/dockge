@@ -11,7 +11,6 @@
                         :image-updates-available="imageUpdatesAvailable"
                         :recreate-necessary="recreateNecessary"
                         :stack-name="stackName"
-                        :endpoint="endpoint"
                         :service-name="serviceName"
                         @start="startService"
                         @stop="stopService"
@@ -58,7 +57,6 @@
                 ref="progressTerminalRef"
                 class="mb-3"
                 :name="terminalName"
-                :endpoint="endpoint"
             />
 
             <!-- Metrics Card -->
@@ -377,7 +375,7 @@ import { useViewMode } from "../composables/useViewMode";
 const route = useRoute();
 const { t } = useI18n();
 const { isDark } = useTheme();
-const { emitAgent } = useSocket();
+const { emit } = useSocket();
 const containerStore = useContainerStore();
 const stackStoreInstance = useStackStore();
 const updateStoreInstance = useUpdateStore();
@@ -417,7 +415,6 @@ const extensionsYAML = computed(() => [
     lineNumbers(),
 ]);
 
-const endpoint = computed(() => (route.params.endpoint as string) || "");
 const containerName = computed(() => route.params.containerName as string || "");
 const stackName = computed(() => containerInfo.value?.stackName || "");
 const serviceName = computed(() => containerInfo.value?.serviceName || "");
@@ -437,13 +434,13 @@ const recreateNecessary = computed(() => {
     const composeImage = globalStack.value.images[serviceName.value];
     return !!(composeImage && containerInfo.value.image && containerInfo.value.image !== composeImage);
 });
-const terminalName = computed(() => stackName.value ? getComposeTerminalName(endpoint.value, stackName.value) : "");
+const terminalName = computed(() => stackName.value ? getComposeTerminalName(stackName.value) : "");
 
 const {
     processing, showUpdateDialog,
     startService, stopService, restartService, recreateService,
     doUpdate, checkImageUpdates,
-} = useServiceActions(endpoint, stackName, serviceName, progressTerminalRef);
+} = useServiceActions(stackName, serviceName, progressTerminalRef);
 
 const parsed = computed(() => inspectObj.value);
 
@@ -453,12 +450,7 @@ const fullImageRef = computed(() => {
     return img;
 });
 
-const stackLink = computed(() => {
-    if (endpoint.value) {
-        return `/stacks/${stackName.value}/${endpoint.value}`;
-    }
-    return `/stacks/${stackName.value}`;
-});
+const stackLink = computed(() => `/stacks/${stackName.value}`);
 
 const commandStr = computed(() => {
     if (!parsed.value) return "";
@@ -513,7 +505,7 @@ const netParts = computed(() => splitPair(containerStat.value?.NetIO));
 
 function requestDockerStats() {
     if (!containerName.value) return;
-    emitAgent(endpoint.value, "dockerStats", stackName.value, (res: any) => {
+    emit("dockerStats", stackName.value, (res: any) => {
         if (res.ok) {
             dockerStats.value = res.dockerStats || {};
         }
@@ -605,7 +597,7 @@ const uptimeStr = computed(() => {
 
 function fetchProcesses() {
     if (!containerName.value) return;
-    emitAgent(endpoint.value, "containerTop", containerName.value, (res: any) => {
+    emit("containerTop", containerName.value, (res: any) => {
         if (res.ok && res.processes) {
             // Map columns by title position (PID, USER, COMMAND)
             const titles: string[] = res.titles || [];
@@ -624,7 +616,7 @@ function fetchProcesses() {
 
 onMounted(() => {
     if (containerName.value) {
-        emitAgent(endpoint.value, "containerInspect", containerName.value, (res: any) => {
+        emit("containerInspect", containerName.value, (res: any) => {
             if (res.ok) {
                 const data = JSON.parse(res.inspectData);
                 if (Array.isArray(data) && data.length > 0) {

@@ -126,7 +126,7 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 // stack's compose terminal (same terminal used by stack-level actions).
 // In mock mode, exec.Command resolves to the mock docker binary via PATH.
 func (app *App) runServiceAction(stackName, serviceName, action string, composeArgs ...string) {
-	termName := "compose--" + stackName
+	termName := "compose-" + stackName
 	envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
 	displayParts := append(envArgs, composeArgs...)
 	cmdDisplay := fmt.Sprintf("$ docker compose %s\r\n", strings.Join(displayParts, " "))

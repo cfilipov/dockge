@@ -3,7 +3,7 @@
         <div v-if="!processing">
             <h1 class="mb-3">{{ $t("console") }}</h1>
 
-            <Terminal v-if="enableConsole" class="terminal" :rows="20" mode="interactive" :mainTerminal="true" name="console" :endpoint="endpoint"></Terminal>
+            <Terminal v-if="enableConsole" class="terminal" :rows="20" mode="interactive" :mainTerminal="true" name="console"></Terminal>
 
             <div v-else class="alert alert-warning shadow-box" role="alert">
                 <h4 class="alert-heading">{{ $t("Console is not enabled") }}</h4>
@@ -16,20 +16,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
-import { useRoute } from "vue-router";
+import { ref, onMounted } from "vue";
 import { useSocket } from "../composables/useSocket";
 
-const route = useRoute();
-const { emitAgent } = useSocket();
+const { emit } = useSocket();
 
 const processing = ref(true);
 const enableConsole = ref(false);
 
-const endpoint = computed(() => (route.params.endpoint as string) || "");
-
 onMounted(() => {
-    emitAgent(endpoint.value, "checkMainTerminal", (res: any) => {
+    emit("checkMainTerminal", (res: any) => {
         enableConsole.value = res.ok;
         processing.value = false;
     });

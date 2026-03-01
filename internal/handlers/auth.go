@@ -334,22 +334,6 @@ func (app *App) afterLogin(c *ws.Conn) {
     // login causes the frontend to overwrite the JWT token with "autoLogin",
     // breaking token-based re-auth on subsequent page loads.
 
-    // Send agent list
-    agents, err := app.Agents.GetAll()
-    if err != nil {
-        slog.Error("get agents", "err", err)
-        agents = nil
-    }
-    agentMap := make(map[string]interface{})
-    for _, a := range agents {
-        agentMap[a.URL] = map[string]interface{}{
-            "url":    a.URL,
-            "name":   a.Name,
-            "active": a.Active,
-        }
-    }
-    c.SendEvent("agentList", agentMap)
-
     // Send all 6 broadcast channels to this connection
     go app.sendAllBroadcastsTo(c)
 }

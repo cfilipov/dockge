@@ -10,7 +10,6 @@
                     :image-updates-available="imageUpdatesAvailable"
                     :recreate-necessary="recreateNecessary"
                     :stack-name="stackName"
-                    :endpoint="endpoint"
                     :service-name="serviceName"
                     @start="startService"
                     @stop="stopService"
@@ -26,11 +25,10 @@
                 ref="progressTerminalRef"
                 class="mb-3"
                 :name="composeTerminalName"
-                :endpoint="endpoint"
             />
 
             <Terminal class="terminal flex-grow-1" :rows="20" mode="displayOnly"
-                :name="terminalName" :endpoint="endpoint" />
+                :name="terminalName" />
         </div>
         <div v-else>
             <h1 class="mb-3">{{ $t("logs") }}</h1>
@@ -58,7 +56,7 @@ import { ref } from "vue";
 
 const route = useRoute();
 const { t } = useI18n();
-const { emitAgent } = useSocket();
+const { emit } = useSocket();
 const containerStore = useContainerStore();
 const stackStoreInstance = useStackStore();
 const updateStoreInstance = useUpdateStore();
@@ -78,7 +76,6 @@ const badgeLabel = computed(() =>
 
 const progressTerminalRef = ref<InstanceType<typeof ProgressTerminal>>();
 
-const endpoint = computed(() => (route.params.endpoint as string) || "");
 const containerName = computed(() => route.params.containerName as string || "");
 const stackName = computed(() => containerInfo.value?.stackName || "");
 const serviceName = computed(() => containerInfo.value?.serviceName || "");
@@ -97,18 +94,18 @@ const recreateNecessary = computed(() => {
     const composeImage = globalStack.value.images[serviceName.value];
     return !!(composeImage && containerInfo.value.image && containerInfo.value.image !== composeImage);
 });
-const composeTerminalName = computed(() => stackName.value ? getComposeTerminalName(endpoint.value, stackName.value) : "");
-const terminalName = computed(() => "container-log-by-name--" + containerName.value);
+const composeTerminalName = computed(() => stackName.value ? getComposeTerminalName(stackName.value) : "");
+const terminalName = computed(() => "container-log-by-name-" + containerName.value);
 
 const {
     processing, showUpdateDialog,
     startService, stopService, restartService, recreateService,
     doUpdate, checkImageUpdates,
-} = useServiceActions(endpoint, stackName, serviceName, progressTerminalRef);
+} = useServiceActions(stackName, serviceName, progressTerminalRef);
 
 onMounted(() => {
     if (containerName.value) {
-        emitAgent(endpoint.value, "joinContainerLogByName", containerName.value, () => {});
+        emit("joinContainerLogByName", containerName.value, () => {});
     }
 });
 </script>

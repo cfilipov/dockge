@@ -54,7 +54,6 @@ const { toastRes } = useAppToast();
 const jsonConfig = inject<Record<string, any>>("jsonConfig")!;
 const stack = inject<Record<string, any>>("composeStack")!;
 const editorFocus = inject<Ref<boolean>>("editorFocus")!;
-const endpoint = inject<Ref<string>>("composeEndpoint")!;
 
 const networkList = ref<Array<{ key: string; value: any }>>([]);
 const externalList = reactive<Record<string, any>>({});

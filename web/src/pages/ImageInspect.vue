@@ -130,7 +130,7 @@ import { ContainerStatusInfo } from "../common/util-common";
 
 const route = useRoute();
 const { t } = useI18n();
-const { emitAgent } = useSocket();
+const { emit } = useSocket();
 const containerStore = useContainerStore();
 
 const imageDetail = ref<any>(null);
@@ -206,7 +206,7 @@ function fetchDetail() {
         return;
     }
     loading.value = true;
-    emitAgent("", "imageInspect", imageRef.value, (res: any) => {
+    emit("imageInspect", imageRef.value, (res: any) => {
         loading.value = false;
         if (res.ok && res.imageDetail) {
             imageDetail.value = res.imageDetail;

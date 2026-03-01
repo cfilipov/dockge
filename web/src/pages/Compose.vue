@@ -4,9 +4,6 @@
             <h1 v-if="isAdd" class="mb-3">{{ $t("compose") }}</h1>
             <h1 v-else class="mb-3">
                 <Uptime :stack="globalStack" :pill="true" /> {{ stack.name }}
-                <span v-if="agentCount > 1" class="agent-name">
-                    ({{ endpointDisplay }})
-                </span>
             </h1>
 
             <div v-if="isManaged || isAdd" class="d-flex align-items-center justify-content-between mb-3">
@@ -45,7 +42,6 @@
                         <UpdateDialog
                             v-model="showUpdateDialog"
                             :stack-name="stack.name"
-                            :endpoint="endpoint"
                             :compose-yaml="stack.composeYAML"
                             @update="doUpdateStack"
                         />
@@ -123,7 +119,6 @@
                 ref="progressTerminalRef"
                 class="mb-3"
                 :name="terminalName"
-                :endpoint="endpoint"
                 :rows="progressTerminalRows"
             />
 
@@ -145,15 +140,6 @@
                                 <div class="form-text">{{ $t("Lowercase only") }}</div>
                             </div>
 
-                            <!-- Endpoint -->
-                            <div class="mt-3">
-                                <label for="name" class="form-label">{{ $t("dockgeAgent") }}</label>
-                                <select v-model="stack.endpoint" class="form-select">
-                                    <option v-for="(agent, ep) in agentList" :key="ep" :value="ep" :disabled="agentStatusList[ep] != 'online'">
-                                        ({{ agentStatusList[ep] }}) {{ (agent.name !== '') ? agent.name : agent.url || $t("Controller") }}
-                                    </option>
-                                </select>
-                            </div>
                         </div>
                     </div>
 
@@ -200,7 +186,6 @@
                         v-if="showServiceUpdateDialog"
                         v-model="showServiceUpdateDialog"
                         :stack-name="stack.name"
-                        :endpoint="endpoint"
                         :service-name="serviceUpdateTarget"
                         :show-ignore="true"
                         @update="doServiceUpdate"
@@ -214,7 +199,6 @@
                             ref="combinedTerminal"
                             class="mb-3 terminal"
                             :name="combinedTerminalName"
-                            :endpoint="endpoint"
                             :rows="combinedTerminalRows"
                             :cols="combinedTerminalCols"
                             style="height: 315px;"
@@ -433,7 +417,7 @@ import { useViewMode } from "../composables/useViewMode";
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-const { emitAgent, agentCount, agentList, agentStatusList, composeTemplate, envTemplate, endpointDisplayFunction, info } = useSocket();
+const { emit, composeTemplate, envTemplate, info } = useSocket();
 const containerStore = useContainerStore();
 const stackStoreInstance = useStackStore();
 const updateStoreInstance = useUpdateStore();
@@ -554,8 +538,6 @@ function scheduleProgressiveRender(total: number) {
 }
 
 // Computed
-const endpointDisplay = computed(() => endpointDisplayFunction(endpoint.value));
-
 const urls = computed(() => {
     const result: { display: string; url: string }[] = [];
     const services = envsubstJSONConfig.services;
@@ -606,26 +588,19 @@ const terminalName = computed(() => {
     if (!stack.name) {
         return "";
     }
-    return getComposeTerminalName(endpoint.value, stack.name);
+    return getComposeTerminalName(stack.name);
 });
 
 const combinedTerminalName = computed(() => {
     if (!stack.name) {
         return "";
     }
-    return getCombinedTerminalName(endpoint.value, stack.name);
+    return getCombinedTerminalName(stack.name);
 });
 
 const networks = computed(() => jsonConfig.networks);
 
-const endpoint = computed(() => stack.endpoint || (route.params.endpoint as string) || "");
-
-const url = computed(() => {
-    if (stack.endpoint) {
-        return `/stacks/${stack.name}/${stack.endpoint}`;
-    }
-    return `/stacks/${stack.name}`;
-});
+const url = computed(() => `/stacks/${stack.name}`);
 
 const {
     processing,
@@ -644,7 +619,7 @@ const {
     deleteDialog,
     forceDeleteDialog,
     checkImageUpdates: checkImageUpdatesRaw,
-} = useStackActions(endpoint, stack, progressTerminalRef);
+} = useStackActions(stack, progressTerminalRef);
 
 function checkImageUpdates() {
     checkImageUpdatesRaw();
@@ -654,7 +629,6 @@ function checkImageUpdates() {
 provide("jsonConfig", jsonConfig);
 provide("envsubstJSONConfig", envsubstJSONConfig);
 provide("composeStack", stack);
-provide("composeEndpoint", computed(() => endpoint.value));
 provide("editorFocus", editorFocus);
 provide("startComposeAction", startComposeAction);
 provide("stopComposeAction", stopComposeAction);
@@ -747,8 +721,8 @@ function exitConfirm(next: (val?: boolean | undefined) => void) {
 
 function exitAction() {
     console.debug("exitAction");
-    console.debug("leaveCombinedTerminal", endpoint.value, stack.name);
-    emitAgent(endpoint.value, "leaveCombinedTerminal", stack.name, () => {});
+    console.debug("leaveCombinedTerminal", stack.name);
+    emit("leaveCombinedTerminal", stack.name, () => {});
 }
 
 function bindTerminal() {
@@ -757,7 +731,7 @@ function bindTerminal() {
 
 function loadStack() {
     processing.value = true;
-    emitAgent(endpoint.value, "getStack", stack.name, (res: any) => {
+    emit("getStack", stack.name, (res: any) => {
         if (res.ok) {
             // Suppress the jsonConfig → YAML deep watcher during initial load.
             // yamlCodeChange() sets jsonConfig from YAML; the watcher would
@@ -806,7 +780,7 @@ function deployStack() {
     startComposeAction();
     submitted.value = true;
 
-    emitAgent(stack.endpoint, "deployStack", stack.name, stack.composeYAML, stack.composeENV, stack.composeOverrideYAML || "", isAdd.value, (res: any) => {
+    emit("deployStack", stack.name, stack.composeYAML, stack.composeENV, stack.composeOverrideYAML || "", isAdd.value, (res: any) => {
         stopComposeAction();
         toastRes(res);
 
@@ -820,7 +794,7 @@ function deployStack() {
 function saveStack() {
     processing.value = true;
 
-    emitAgent(stack.endpoint, "saveStack", stack.name, stack.composeYAML, stack.composeENV, stack.composeOverrideYAML || "", isAdd.value, (res: any) => {
+    emit("saveStack", stack.name, stack.composeYAML, stack.composeENV, stack.composeOverrideYAML || "", isAdd.value, (res: any) => {
         processing.value = false;
         toastRes(res);
 
@@ -930,7 +904,7 @@ function stackNameToLowercase() {
 function startService(serviceName: string) {
     startComposeAction();
 
-    emitAgent(endpoint.value, "startService", stack.name, serviceName, (res: any) => {
+    emit("startService", stack.name, serviceName, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
@@ -939,7 +913,7 @@ function startService(serviceName: string) {
 function stopService(serviceName: string) {
     startComposeAction();
 
-    emitAgent(endpoint.value, "stopService", stack.name, serviceName, (res: any) => {
+    emit("stopService", stack.name, serviceName, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
@@ -948,7 +922,7 @@ function stopService(serviceName: string) {
 function restartService(serviceName: string) {
     startComposeAction();
 
-    emitAgent(endpoint.value, "restartService", stack.name, serviceName, (res: any) => {
+    emit("restartService", stack.name, serviceName, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
@@ -988,7 +962,7 @@ function doServiceUpdate(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate:
     if (!serviceName) return;
 
     startComposeAction();
-    emitAgent(endpoint.value, "updateService", stack.name, serviceName, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
+    emit("updateService", stack.name, serviceName, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
         stopComposeAction();
         toastRes(res);
     });
@@ -1021,7 +995,6 @@ onMounted(() => {
             composeYAML,
             composeENV,
             isManagedByDockge: true,
-            endpoint: "",
         });
 
         yamlCodeChange();

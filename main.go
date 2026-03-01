@@ -113,7 +113,6 @@ func main() {
     // Models
     users := models.NewUserStore(database)
     settings := models.NewSettingStore(database)
-    agents := models.NewAgentStore(database)
 
     // JWT secret (auto-generated on first run)
     jwtSecret, err := settings.EnsureJWTSecret()
@@ -195,7 +194,6 @@ func main() {
     app := &handlers.App{
         Users:        users,
         Settings:     settings,
-        Agents:       agents,
         ImageUpdates: imageUpdates,
         WS:           wss,
         Docker:       dockerClient,
@@ -208,7 +206,6 @@ func main() {
     }
     handlers.RegisterAuthHandlers(app)
     handlers.RegisterSettingsHandlers(app)
-    handlers.RegisterAgentHandlers(app)
     handlers.RegisterStackHandlers(app)
     handlers.RegisterTerminalHandlers(app)
     handlers.RegisterDockerHandlers(app)
@@ -239,11 +236,6 @@ func main() {
                 if err := copyDirRecursive(stacksSource, cfg.StacksDir); err != nil {
                     slog.Error("mock reset: copy stacks dir", "err", err)
                 }
-            }
-
-            // Clear any test-created agents from BoltDB
-            if err := app.Agents.ClearAll(); err != nil {
-                slog.Error("mock reset: clear agents", "err", err)
             }
 
             // Mock reset bypasses Docker commands, so no events fire.

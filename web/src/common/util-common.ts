@@ -33,8 +33,6 @@ function randomBytes(numBytes: number): Uint8Array {
     return bytes;
 }
 
-export const ALL_ENDPOINTS = "##ALL_DOCKGE_ENDPOINTS##";
-
 // Stack Status
 export const UNKNOWN = 0;
 export const CREATED_FILE = 1;
@@ -80,11 +78,10 @@ export class StackStatusInfo {
  * Stack filter state for the dashboard stack list
  */
 export class StackFilter {
-    agents = new StackFilterCategory<string>("agent");
     status = new StackFilterCategory<string>("status");
     attributes = new StackFilterCategory<string>("attribute");
 
-    categories = [ this.agents, this.status, this.attributes ];
+    categories = [ this.status, this.attributes ];
 
     isFilterSelected() {
         for (const category of this.categories) {
@@ -356,24 +353,24 @@ export function getCryptoRandomInt(min: number, max: number):number {
     }
 }
 
-export function getComposeTerminalName(endpoint : string, stack : string) {
-    return "compose-" + endpoint + "-" + stack;
+export function getComposeTerminalName(stack : string) {
+    return "compose-" + stack;
 }
 
-export function getCombinedTerminalName(endpoint : string, stack : string) {
-    return "combined-" + endpoint + "-" + stack;
+export function getCombinedTerminalName(stack : string) {
+    return "combined-" + stack;
 }
 
-export function getContainerTerminalName(endpoint : string, stackName : string, container : string, shell: string, index : number) {
-    return "container-terminal-" + endpoint + "-" + stackName + "-" + container + "-" + shell + "-" + index;
+export function getContainerTerminalName(stackName : string, container : string, shell: string, index : number) {
+    return "container-terminal-" + stackName + "-" + container + "-" + shell + "-" + index;
 }
 
-export function getContainerExecTerminalName(endpoint : string, stackName : string, container : string, index : number) {
-    return "container-exec-" + endpoint + "-" + stackName + "-" + container + "-" + index;
+export function getContainerExecTerminalName(stackName : string, container : string, index : number) {
+    return "container-exec-" + stackName + "-" + container + "-" + index;
 }
 
-export function getContainerLogName(endpoint : string, stackName : string, container : string, index : number) {
-    return "container-log-" + endpoint + "-" + container;
+export function getContainerLogName(stackName : string, container : string) {
+    return "container-log-" + container;
 }
 
 export function copyYAMLComments(doc : Document, src : Document) {

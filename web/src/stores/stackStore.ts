@@ -31,7 +31,6 @@ export interface EnrichedStack {
     recreateNecessary: boolean;
     imageUpdatesAvailable: boolean;
     tags: string[];
-    endpoint: string;
 }
 
 /** Derive stack status from container states. */
@@ -133,7 +132,6 @@ export const useStackStore = defineStore("stacks", () => {
                 recreateNecessary,
                 imageUpdatesAvailable,
                 tags: [],
-                endpoint: "",
             };
         });
     });
@@ -169,7 +167,6 @@ export const useStackStore = defineStore("stacks", () => {
                 recreateNecessary: false,
                 imageUpdatesAvailable: false,
                 tags: [],
-                endpoint: "",
             });
         }
         return result;

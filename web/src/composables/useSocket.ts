@@ -1,10 +1,9 @@
 import { reactive, ref, computed, watch } from "vue";
 import jwtDecode from "jwt-decode";
 import { Terminal } from "@xterm/xterm";
-import { AgentSocket } from "../common/agent-socket";
 import { router } from "../router";
 import { i18n } from "../i18n";
-import type { InfoData, SimpleStackData, AgentData } from "../common/types";
+import type { InfoData } from "../common/types";
 import { useContainerStore } from "../stores/containerStore";
 import { useStackStore } from "../stores/stackStore";
 import { useNetworkStore } from "../stores/networkStore";
@@ -176,13 +175,6 @@ const username = ref<string | null>(null);
 const composeTemplate = ref("");
 const envTemplate = ref("");
 
-const allAgentStackList = ref<Record<string, { stackList: Record<string, SimpleStackData> }>>({});
-const agentStatusList = ref<Record<string, string>>({});
-const agentList = ref<Record<string, AgentData>>({});
-
-// Computed
-const agentCount = computed(() => Object.keys(agentList.value).length);
-
 const usernameFirstChar = computed(() => {
     if (typeof username.value === "string" && username.value.length >= 1) {
         return username.value.charAt(0).toUpperCase();
@@ -204,14 +196,6 @@ const isFrontendBackendVersionMatched = computed(() => {
 });
 
 // Watchers
-watch(() => socketIO.connected, () => {
-    if (socketIO.connected) {
-        agentStatusList.value[""] = "online";
-    } else {
-        agentStatusList.value[""] = "offline";
-    }
-});
-
 watch(remember, () => {
     localStorage.remember = remember.value ? "1" : "0";
 });
@@ -232,21 +216,8 @@ function getSocket(): DockgeWebSocket {
     return socket;
 }
 
-function emitAgent(endpoint: string, eventName: string, ...args: unknown[]) {
-    getSocket().emit("agent", endpoint, eventName, ...args);
-}
-
-function endpointDisplayFunction(endpoint: string) {
-    for (const [k, v] of Object.entries(agentList.value)) {
-        if (endpoint) {
-            if (endpoint === (v as any)["endpoint"] && (v as any)["name"] !== "") {
-                return (v as any)["name"];
-            }
-            if (endpoint === (v as any)["endpoint"] && (v as any)["name"] === "") {
-                return endpoint;
-            }
-        }
-    }
+function emit(eventName: string, ...args: unknown[]) {
+    getSocket().emit(eventName, ...args);
 }
 
 function getJWTPayload() {
@@ -327,9 +298,9 @@ function afterLogin() {
     // are sent automatically by the backend on authenticated connect.
 }
 
-function bindTerminal(endpoint: string, terminalName: string, terminal: Terminal) {
+function bindTerminal(terminalName: string, terminal: Terminal) {
     // Load terminal, get terminal screen
-    emitAgent(endpoint, "terminalJoin", terminalName, (res: any) => {
+    emit("terminalJoin", terminalName, (res: any) => {
         if (res.ok) {
             terminal.write(res.buffer);
             terminalMap.set(terminalName, terminal);
@@ -365,14 +336,6 @@ export function initWebSocket() {
     }, 1500);
 
     socket = new DockgeWebSocket();
-
-    // Handling events from agents
-    let agentSocket = new AgentSocket();
-    socket.on("agent", (data: unknown) => {
-        const arr = data as unknown[];
-        const [eventName, ...args] = arr;
-        agentSocket.call(eventName as string, ...args);
-    });
 
     socket.on("connect", () => {
         console.debug("Connected to the socket server");
@@ -439,43 +402,14 @@ export function initWebSocket() {
         router.push("/setup");
     });
 
-    agentSocket.on("terminalWrite", (terminalName: unknown, data: unknown) => {
+    socket.on("terminalWrite", (data: unknown) => {
+        const arr = data as unknown[];
+        const [terminalName, termData] = arr;
         const terminal = terminalMap.get(terminalName as string);
         if (!terminal) {
             return;
         }
-        terminal.write(data as string);
-    });
-
-    // Remote agent stack lists (local stacks handled by "stacks" broadcast channel)
-    agentSocket.on("stackList", (res: any) => {
-        if (res.ok && res.endpoint) {
-            if (!allAgentStackList.value[res.endpoint]) {
-                allAgentStackList.value[res.endpoint] = {
-                    stackList: {},
-                };
-            }
-            allAgentStackList.value[res.endpoint].stackList = res.stackList;
-        }
-    });
-
-    socket.on("agentStatus", (res: any) => {
-        agentStatusList.value[res.endpoint] = res.status;
-
-        if (res.msg) {
-            import("./useAppToast").then(({ useAppToast }) => {
-                useAppToast().toastError(res.msg);
-            });
-        }
-    });
-
-    socket.on("agentList", (res: any) => {
-        if (res.ok) {
-            agentList.value = res.agentList;
-        } else if (res) {
-            // Go backend sends agentList directly (not wrapped in {ok, agentList})
-            agentList.value = res;
-        }
+        terminal.write(termData as string);
     });
 
     socket.on("refresh", () => {
@@ -525,21 +459,16 @@ export function useSocket() {
         username,
         composeTemplate,
         envTemplate,
-        allAgentStackList,
-        agentStatusList,
-        agentList,
 
         // Computed
-        agentCount,
         usernameFirstChar,
         frontendVersion,
         isFrontendBackendVersionMatched,
 
         // Methods
-        endpointDisplayFunction,
         storage,
         getSocket,
-        emitAgent,
+        emit,
         getJWTPayload,
         getTurnstileSiteKey,
         login,

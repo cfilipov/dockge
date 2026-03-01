@@ -7,7 +7,6 @@
             <Terminal
                 ref="progressTerminal"
                 :name="name"
-                :endpoint="endpoint"
                 :rows="rows"
             ></Terminal>
         </div>
@@ -20,7 +19,6 @@ import { PROGRESS_TERMINAL_ROWS } from "../common/util-common";
 
 const props = withDefaults(defineProps<{
     name: string;
-    endpoint: string;
     rows?: number;
 }>(), {
     rows: PROGRESS_TERMINAL_ROWS,
@@ -32,7 +30,7 @@ const progressTerminal = ref<InstanceType<any>>();
 function show() {
     const term = progressTerminal.value;
     if (term) {
-        term.bind(props.endpoint, props.name);
+        term.bind(props.name);
         if (term.terminal) {
             term.terminal.clear();
         }

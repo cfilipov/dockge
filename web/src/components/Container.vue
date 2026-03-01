@@ -199,14 +199,13 @@ import { useAppToast } from "../composables/useAppToast";
 
 const icons = containerIcons;
 
-const { emitAgent, info } = useSocket();
+const { info } = useSocket();
 const { toastRes } = useAppToast();
 
 // Injected from Compose.vue
 const jsonConfig = inject<Record<string, any>>("jsonConfig")!;
 const envsubstJSONConfig = inject<Record<string, any>>("envsubstJSONConfig")!;
 const composeStack = inject<Record<string, any>>("composeStack")!;
-const composeEndpoint = inject<Ref<string>>("composeEndpoint")!;
 const startComposeAction = inject<() => void>("startComposeAction")!;
 const stopComposeAction = inject<() => void>("stopComposeAction")!;
 
@@ -232,7 +231,6 @@ const emit = defineEmits<{
 const showConfig = ref(false);
 
 // Computed from injected state
-const endpoint = computed(() => composeEndpoint.value);
 const stackName = computed(() => composeStack.name);
 
 const service = computed(() => {
@@ -395,9 +393,6 @@ const status = computed(() => {
 
 // Methods
 function parsePort(port: any) {
-    if (composeStack.endpoint) {
-        return parseDockerPort(port, composeStack.primaryHostname);
-    }
     const hostname = info.value.primaryHostname || location.hostname;
     return parseDockerPort(port, hostname);
 }

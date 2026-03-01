@@ -4,12 +4,11 @@ import { useAppToast } from "./useAppToast";
 import type ProgressTerminal from "../components/ProgressTerminal.vue";
 
 export function useServiceActions(
-    endpoint: Ref<string>,
     stackName: Ref<string>,
     serviceName: Ref<string>,
     progressTerminalRef: Ref<InstanceType<typeof ProgressTerminal> | undefined>,
 ) {
-    const { emitAgent } = useSocket();
+    const { emit } = useSocket();
     const { toastRes } = useAppToast();
 
     const processing = ref(false);
@@ -26,7 +25,7 @@ export function useServiceActions(
 
     function startService() {
         startComposeAction();
-        emitAgent(endpoint.value, "startService", stackName.value, serviceName.value, (res: any) => {
+        emit("startService", stackName.value, serviceName.value, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -34,7 +33,7 @@ export function useServiceActions(
 
     function stopService() {
         startComposeAction();
-        emitAgent(endpoint.value, "stopService", stackName.value, serviceName.value, (res: any) => {
+        emit("stopService", stackName.value, serviceName.value, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -42,7 +41,7 @@ export function useServiceActions(
 
     function restartService() {
         startComposeAction();
-        emitAgent(endpoint.value, "restartService", stackName.value, serviceName.value, (res: any) => {
+        emit("restartService", stackName.value, serviceName.value, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -50,7 +49,7 @@ export function useServiceActions(
 
     function recreateService() {
         startComposeAction();
-        emitAgent(endpoint.value, "restartService", stackName.value, serviceName.value, (res: any) => {
+        emit("restartService", stackName.value, serviceName.value, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -58,7 +57,7 @@ export function useServiceActions(
 
     function doUpdate(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }) {
         startComposeAction();
-        emitAgent(endpoint.value, "updateService", stackName.value, serviceName.value, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
+        emit("updateService", stackName.value, serviceName.value, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -66,7 +65,7 @@ export function useServiceActions(
 
     function checkImageUpdates() {
         processing.value = true;
-        emitAgent(endpoint.value, "checkImageUpdates", stackName.value, (res: any) => {
+        emit("checkImageUpdates", stackName.value, (res: any) => {
             processing.value = false;
             toastRes(res);
         });

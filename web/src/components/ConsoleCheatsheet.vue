@@ -42,20 +42,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
-import { useRoute } from "vue-router";
 import { useSocket } from "../composables/useSocket";
 
-const route = useRoute();
-const { emitAgent } = useSocket();
-
-const endpoint = computed(() => (route.params.endpoint as string) || "");
+const { emit } = useSocket();
 
 function insertCommand(event: MouseEvent) {
     const code = (event.target as HTMLElement).closest("code");
     if (!code) return;
     const text = code.textContent || "";
-    emitAgent(endpoint.value, "terminalInput", "console", text);
+    emit("terminalInput", "console", text);
 }
 </script>
 

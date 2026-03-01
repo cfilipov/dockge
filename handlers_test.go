@@ -617,34 +617,6 @@ func TestSetSettings(t *testing.T) {
     }
 }
 
-func TestAddAndRemoveAgent(t *testing.T) {
-    env := testutil.Setup(t)
-    env.SeedAdmin(t)
-
-    conn := env.DialWS(t)
-    env.Login(t, conn)
-
-    // Add agent
-    agentData := map[string]string{
-        "url":      "https://agent1.example.com",
-        "username": "admin",
-        "password": "secret",
-        "name":     "Test Agent",
-    }
-    resp := env.SendAndReceive(t, conn, "addAgent", agentData)
-    ok, _ := resp["ok"].(bool)
-    if !ok {
-        t.Fatalf("addAgent failed: %v", resp)
-    }
-
-    // Remove agent
-    resp = env.SendAndReceive(t, conn, "removeAgent", "https://agent1.example.com")
-    ok, _ = resp["ok"].(bool)
-    if !ok {
-        t.Fatalf("removeAgent failed: %v", resp)
-    }
-}
-
 func TestServiceMissingArgs(t *testing.T) {
     env := testutil.Setup(t)
     env.SeedAdmin(t)
@@ -664,34 +636,6 @@ func TestServiceMissingArgs(t *testing.T) {
     ok, _ = resp["ok"].(bool)
     if ok {
         t.Error("expected stopService to fail with empty stack name")
-    }
-}
-
-func TestUpdateAgent(t *testing.T) {
-    env := testutil.Setup(t)
-    env.SeedAdmin(t)
-
-    conn := env.DialWS(t)
-    env.Login(t, conn)
-
-    // Add agent first
-    agentData := map[string]string{
-        "url":      "https://agent2.example.com",
-        "username": "admin",
-        "password": "secret",
-        "name":     "Original Name",
-    }
-    resp := env.SendAndReceive(t, conn, "addAgent", agentData)
-    ok, _ := resp["ok"].(bool)
-    if !ok {
-        t.Fatalf("addAgent failed: %v", resp)
-    }
-
-    // Update agent name
-    resp = env.SendAndReceive(t, conn, "updateAgent", "https://agent2.example.com", "New Name")
-    ok, _ = resp["ok"].(bool)
-    if !ok {
-        t.Fatalf("updateAgent failed: %v", resp)
     }
 }
 

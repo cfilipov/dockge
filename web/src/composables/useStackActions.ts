@@ -5,12 +5,11 @@ import { useAppToast } from "./useAppToast";
 import type ProgressTerminal from "../components/ProgressTerminal.vue";
 
 export function useStackActions(
-    endpoint: Ref<string>,
     stack: Record<string, any>,
     progressTerminalRef: Ref<InstanceType<typeof ProgressTerminal> | undefined>,
 ) {
     const router = useRouter();
-    const { emitAgent } = useSocket();
+    const { emit } = useSocket();
     const { toastRes } = useAppToast();
 
     const processing = ref(true);
@@ -31,7 +30,7 @@ export function useStackActions(
 
     function startStack() {
         startComposeAction();
-        emitAgent(endpoint.value, "startStack", stack.name, (res: any) => {
+        emit("startStack", stack.name, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -39,7 +38,7 @@ export function useStackActions(
 
     function stopStack() {
         startComposeAction();
-        emitAgent(endpoint.value, "stopStack", stack.name, (res: any) => {
+        emit("stopStack", stack.name, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -47,7 +46,7 @@ export function useStackActions(
 
     function downStack() {
         startComposeAction();
-        emitAgent(endpoint.value, "downStack", stack.name, (res: any) => {
+        emit("downStack", stack.name, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -55,7 +54,7 @@ export function useStackActions(
 
     function restartStack() {
         startComposeAction();
-        emitAgent(endpoint.value, "restartStack", stack.name, (res: any) => {
+        emit("restartStack", stack.name, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
@@ -63,14 +62,14 @@ export function useStackActions(
 
     function doUpdateStack(data: { pruneAfterUpdate: boolean; pruneAllAfterUpdate: boolean }) {
         startComposeAction();
-        emitAgent(endpoint.value, "updateStack", stack.name, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
+        emit("updateStack", stack.name, data.pruneAfterUpdate, data.pruneAllAfterUpdate, (res: any) => {
             stopComposeAction();
             toastRes(res);
         });
     }
 
     function deleteDialog() {
-        emitAgent(endpoint.value, "deleteStack", stack.name, { deleteStackFiles: deleteStackFiles.value }, (res: any) => {
+        emit("deleteStack", stack.name, { deleteStackFiles: deleteStackFiles.value }, (res: any) => {
             toastRes(res);
             if (res.ok) {
                 router.push("/stacks");
@@ -81,7 +80,7 @@ export function useStackActions(
     }
 
     function forceDeleteDialog() {
-        emitAgent(endpoint.value, "forceDeleteStack", stack.name, (res: any) => {
+        emit("forceDeleteStack", stack.name, (res: any) => {
             toastRes(res);
             if (res.ok) {
                 router.push("/stacks");
@@ -91,7 +90,7 @@ export function useStackActions(
 
     function checkImageUpdates(onSuccess?: () => void) {
         processing.value = true;
-        emitAgent(endpoint.value, "checkImageUpdates", stack.name, (res: any) => {
+        emit("checkImageUpdates", stack.name, (res: any) => {
             processing.value = false;
             toastRes(res);
             if (res.ok && onSuccess) {

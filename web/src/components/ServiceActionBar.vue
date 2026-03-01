@@ -23,7 +23,6 @@
         <UpdateDialog
             v-model="showDialog"
             :stack-name="stackName"
-            :endpoint="endpoint"
             :service-name="serviceName"
             @update="doUpdate"
         />
@@ -53,7 +52,6 @@ const props = defineProps<{
     imageUpdatesAvailable: boolean;
     recreateNecessary: boolean;
     stackName: string;
-    endpoint: string;
     serviceName: string;
 }>();
 

@@ -5,16 +5,12 @@
             <span class="me-2">{{ stackName }}</span>
             <font-awesome-icon v-if="stack.started && stack.recreateNecessary" icon="rocket" class="notification-icon me-2" :title="$t('tooltipIconRecreate')" />
             <font-awesome-icon v-if="stack.imageUpdatesAvailable" icon="arrow-up" class="notification-icon me-2" :title="$t('tooltipIconUpdate')" />
-            <div v-if="agentCount > 1" class="endpoint">{{ endpointDisplay }}</div>
         </div>
     </router-link>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useSocket } from "../composables/useSocket";
-
-const { agentCount, endpointDisplayFunction } = useSocket();
 
 const props = withDefaults(defineProps<{
     stack: Record<string, any>;
@@ -33,14 +29,7 @@ const props = withDefaults(defineProps<{
 
 const isCollapsed = ref(true);
 
-const endpointDisplay = computed(() => endpointDisplayFunction(props.stack.endpoint));
-
-const url = computed(() => {
-    if (props.stack.endpoint) {
-        return `/stacks/${props.stack.name}/${props.stack.endpoint}`;
-    }
-    return `/stacks/${props.stack.name}`;
-});
+const url = computed(() => `/stacks/${props.stack.name}`);
 
 const depthMargin = computed(() => ({
     marginLeft: `${31 * props.depth}px`,
@@ -86,10 +75,6 @@ function toggleSelection() {
         opacity: 0.3;
     }
 
-    .endpoint {
-        font-size: 12px;
-        color: $dark-font-color3;
-    }
 }
 
 .collapsed {

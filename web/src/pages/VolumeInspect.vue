@@ -87,7 +87,7 @@ import { ContainerStatusInfo } from "../common/util-common";
 
 const route = useRoute();
 const { t } = useI18n();
-const { emitAgent } = useSocket();
+const { emit } = useSocket();
 const containerStore = useContainerStore();
 
 const volumeDetail = ref<any>(null);
@@ -138,7 +138,7 @@ function fetchDetail() {
         return;
     }
     loading.value = true;
-    emitAgent("", "volumeInspect", volumeName.value, (res: any) => {
+    emit("volumeInspect", volumeName.value, (res: any) => {
         loading.value = false;
         if (res.ok && res.volumeDetail) {
             volumeDetail.value = res.volumeDetail;

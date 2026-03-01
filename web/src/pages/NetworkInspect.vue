@@ -131,7 +131,7 @@ import { ContainerStatusInfo } from "../common/util-common";
 
 const route = useRoute();
 const { t } = useI18n();
-const { emitAgent } = useSocket();
+const { emit } = useSocket();
 const containerStore = useContainerStore();
 
 const networkDetail = ref<any>(null);
@@ -189,7 +189,7 @@ function fetchDetail() {
         return;
     }
     loading.value = true;
-    emitAgent("", "networkInspect", networkName.value, (res: any) => {
+    emit("networkInspect", networkName.value, (res: any) => {
         loading.value = false;
         if (res.ok && res.networkDetail) {
             networkDetail.value = res.networkDetail;

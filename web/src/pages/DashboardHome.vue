@@ -46,77 +46,6 @@
 
                     <button class="btn-normal btn mb-4" @click="convertDockerRun">{{ $t("Convert to Compose") }}</button>
                 </div>
-                <!-- Right -->
-                <div class="col-md-5">
-                    <!-- Agent List -->
-                    <div class="shadow-box big-padding">
-                        <h4 class="mb-3">{{ $tc("dockgeAgent", 2) }} <span class="badge bg-warning" style="font-size: 12px;">beta</span></h4>
-
-                        <div v-for="(agent, endpoint) in agentList" :key="endpoint" class="mb-3 agent">
-                            <!-- Agent Status -->
-                            <template v-if="agentStatusList[endpoint]">
-                                <span v-if="agentStatusList[endpoint] === 'online'" class="badge bg-primary me-2">{{ $t("agentOnline") }}</span>
-                                <span v-else-if="agentStatusList[endpoint] === 'offline'" class="badge bg-danger me-2">{{ $t("agentOffline") }}</span>
-                                <span v-else class="badge bg-secondary me-2">{{ $t(agentStatusList[endpoint]) }}</span>
-                            </template>
-
-                            <!-- Agent Display Name -->
-                            <template v-if="agentStatusList[endpoint]">
-                                <span v-if="endpoint === '' && agent.name === ''" class="badge bg-secondary me-2">Controller</span>
-                                <span v-else-if="agent.name === ''" :href="agent.url" class="me-2">{{ endpoint }}</span>
-                                <span v-else :href="agent.url" class="me-2">{{ agent.name }}</span>
-                            </template>
-
-                            <!-- Edit Name  -->
-                            <font-awesome-icon icon="pen-to-square" @click="showEditAgentNameDialog[agent.name] = !showEditAgentNameDialog[agent.name]" />
-
-                            <!-- Edit Dialog -->
-                            <BModal v-model="showEditAgentNameDialog[agent.name]" :no-close-on-backdrop="true" :close-on-esc="true" :okTitle="$t('Update Name')" okVariant="info" @ok="updateName(agent.url, agent.updatedName)">
-                                <label for="Update Name" class="form-label">Current value: {{ $t(agent.name) }}</label>
-                                <input id="updatedName" v-model="agent.updatedName" type="text" class="form-control" optional>
-                            </BModal>
-
-                            <!-- Remove Button -->
-                            <font-awesome-icon v-if="endpoint !== ''" class="ms-2 remove-agent" icon="trash" @click="showRemoveAgentDialog[agent.url] = !showRemoveAgentDialog[agent.url]" />
-
-                            <!-- Remove Agent Dialog -->
-                            <BModal v-model="showRemoveAgentDialog[agent.url]" :okTitle="$t('removeAgent')" okVariant="danger" @ok="removeAgent(agent.url)">
-                                <p>{{ agent.url }}</p>
-                                {{ $t("removeAgentMsg") }}
-                            </BModal>
-                        </div>
-
-                        <button v-if="!showAgentForm" class="btn btn-normal" @click="showAgentForm = !showAgentForm">{{ $t("addAgent") }}</button>
-
-                        <!-- Add Agent Form -->
-                        <form v-if="showAgentForm" @submit.prevent="addAgent">
-                            <div class="mb-3">
-                                <label for="url" class="form-label">{{ $t("dockgeURL") }}</label>
-                                <input id="url" v-model="agent.url" type="url" class="form-control" required placeholder="http://">
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="username" class="form-label">{{ $t("Username") }}</label>
-                                <input id="username" v-model="agent.username" type="text" class="form-control" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="password" class="form-label">{{ $t("Password") }}</label>
-                                <input id="password" v-model="agent.password" type="password" class="form-control" required autocomplete="new-password">
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="name" class="form-label">{{ $t("Friendly Name") }}</label>
-                                <input id="name" v-model="agent.name" type="text" class="form-control" optional>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary" :disabled="connectingAgent">
-                                <template v-if="connectingAgent">{{ $t("connecting") }}</template>
-                                <template v-else>{{ $t("connect") }}</template>
-                            </button>
-                        </form>
-                    </div>
-                </div>
             </div>
         </div>
     </transition>
@@ -124,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from "vue";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { statusNameShort } from "../common/util-common";
 import { useSocket } from "../composables/useSocket";
@@ -137,27 +66,15 @@ defineProps<{
 
 const router = useRouter();
 const stackStore = useStackStore();
-const { allAgentStackList, agentList, agentStatusList, composeTemplate, getSocket } = useSocket();
+const { composeTemplate } = useSocket();
 const { toastRes } = useAppToast();
 
 const dockerRunCommand = ref("");
-const showAgentForm = ref(false);
-const showRemoveAgentDialog = reactive<Record<string, boolean>>({});
-const showEditAgentNameDialog = reactive<Record<string, boolean>>({});
-const connectingAgent = ref(false);
-const agent = reactive({
-    url: "http://",
-    username: "",
-    password: "",
-    name: "",
-    updatedName: "",
-});
 const tableContainerRef = ref<HTMLElement>();
 
 const statusCounts = computed(() => {
     const counts: Record<string, number> = { active: 0, partially: 0, unhealthy: 0, down: 0, exited: 0, updateAvailable: 0 };
 
-    // Local stacks from Pinia store
     for (const stack of stackStore.allStacks) {
         const short = statusNameShort(stack.status);
         if (short in counts) {
@@ -165,21 +82,6 @@ const statusCounts = computed(() => {
         }
         if (stack.imageUpdatesAvailable) {
             counts.updateAvailable++;
-        }
-    }
-
-    // Remote agent stacks
-    for (const endpoint in allAgentStackList.value) {
-        const instance = allAgentStackList.value[endpoint];
-        for (const stackName in instance.stackList) {
-            const stack = instance.stackList[stackName];
-            const short = statusNameShort(stack.status);
-            if (short in counts) {
-                counts[short]++;
-            }
-            if (stack.imageUpdatesAvailable) {
-                counts.updateAvailable++;
-            }
         }
     }
 
@@ -192,53 +94,6 @@ const unhealthyNum = computed(() => statusCounts.value.unhealthy);
 const downNum = computed(() => statusCounts.value.down);
 const exitedNum = computed(() => statusCounts.value.exited);
 const updateAvailableNum = computed(() => statusCounts.value.updateAvailable);
-
-function addAgent() {
-    connectingAgent.value = true;
-    getSocket().emit("addAgent", agent, (res: any) => {
-        toastRes(res);
-
-        if (res.ok) {
-            showAgentForm.value = false;
-            Object.assign(agent, {
-                url: "http://",
-                username: "",
-                password: "",
-                name: "",
-                updatedName: "",
-            });
-        }
-
-        connectingAgent.value = false;
-    });
-}
-
-function removeAgent(url: string) {
-    getSocket().emit("removeAgent", url, (res: any) => {
-        if (res.ok) {
-            toastRes(res);
-
-            let urlObj = new URL(url);
-            let endpoint = urlObj.host;
-
-            // Remove the stack list and status list of the removed agent
-            delete allAgentStackList.value[endpoint];
-        }
-    });
-}
-
-function updateName(url: string, updatedName: string) {
-    getSocket().emit("updateAgent", url, updatedName, (res: any) => {
-        toastRes(res);
-
-        if (res.ok) {
-            showAgentForm.value = false;
-            Object.assign(agent, {
-                updatedName: "",
-            });
-        }
-    });
-}
 
 async function convertDockerRun() {
     const cmd = dockerRunCommand.value.trim();
@@ -315,15 +170,5 @@ table {
 
 }
 
-.remove-agent {
-    cursor: pointer;
-    color: rgba(255, 255, 255, 0.3);
-}
-
-.agent {
-    a {
-        text-decoration: none;
-    }
-}
 
 </style>

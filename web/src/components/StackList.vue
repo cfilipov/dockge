@@ -7,29 +7,15 @@
                 <router-link to="/stacks/new">{{ $t("addFirstStackMsg") }}</router-link>
             </div>
 
-            <div class="stack-list-inner" v-for="(agent, index) in agentStackList" :key="index">
-                <div v-if="agentCount > 1"
-                     class="p-2 agent-select"
-                     @click="closedAgents.set(agent.endpoint, !closedAgents.get(agent.endpoint))">
-                    <span class="me-1">
-                        <font-awesome-icon v-show="closedAgents.get(agent.endpoint)" icon="chevron-circle-right" />
-                        <font-awesome-icon v-show="!closedAgents.get(agent.endpoint)" icon="chevron-circle-down" />
-                    </span>
-                    <span v-if="agent.endpoint === 'current'">{{ $t("currentEndpoint") }}</span>
-                    <span v-else>{{ agent.endpoint }}</span>
-                </div>
-
-                <StackListItem
-                    v-show="agentCount === 1 || !closedAgents.get(agent.endpoint)"
-                    v-for="item in agent.stacks"
-                    :key="item.name + '_' + (item.endpoint || '')"
-                    :stack="item"
-                    :isSelectMode="selectMode"
-                    :isSelected="isSelected"
-                    :select="select"
-                    :deselect="deselect"
-                />
-            </div>
+            <StackListItem
+                v-for="item in flatStackList"
+                :key="item.name"
+                :stack="item"
+                :isSelectMode="selectMode"
+                :isSelected="isSelected"
+                :select="select"
+                :deselect="deselect"
+            />
         </div>
     </div>
 
@@ -54,7 +40,7 @@ defineProps<{
 }>();
 
 const stackStore = useStackStore();
-const { agentCount, allAgentStackList, getSocket } = useSocket();
+const { getSocket } = useSocket();
 
 const searchText = ref("");
 const selectMode = ref(false);
@@ -64,31 +50,19 @@ const selectedStacks = ref<Record<string, boolean>>({});
 const stackFilter = reactive(new StackFilter());
 useFilterParams(searchText, [
     { param: "status", category: stackFilter.status },
-    { param: "agent", category: stackFilter.agents },
     { param: "attr", category: stackFilter.attributes },
 ]);
-const closedAgents = reactive(new Map<string, boolean>());
 const stackListRef = ref<HTMLElement>();
 const confirmPauseRef = ref<InstanceType<typeof Confirm>>();
 
-// Combined stack list: local from Pinia store + remote from agent sockets
-const combinedStacks = computed((): any[] => {
-    const result: any[] = [...stackStore.allStacks];
-    for (const endpoint in allAgentStackList.value) {
-        const instance = allAgentStackList.value[endpoint];
-        for (const stackName in instance.stackList) {
-            result.push(instance.stackList[stackName]);
-        }
-    }
-    return result;
-});
+const combinedStacks = computed((): any[] => [...stackStore.allStacks]);
 
 // Keep filter options in sync with the stack list (outside computed to avoid side effects)
 watch(combinedStacks, (list) => {
     updateFilterOptions(list);
 }, { immediate: true });
 
-const agentStackList = computed(() => {
+const filteredStacks = computed(() => {
     let result = [...combinedStacks.value];
 
     // filter
@@ -112,13 +86,6 @@ const agentStackList = computed(() => {
             statusMatch = stackFilter.status.selected.has(statusLabel);
         }
 
-        // agent filter
-        let agentMatch = true;
-        if (stackFilter.agents.isFilterSelected()) {
-            const endpoint = stack.endpoint || "current";
-            agentMatch = stackFilter.agents.selected.has(endpoint);
-        }
-
         // attribute filter
         let attributeMatch = true;
         if (stackFilter.attributes.isFilterSelected()) {
@@ -134,7 +101,7 @@ const agentStackList = computed(() => {
             }
         }
 
-        return searchTextMatch && statusMatch && agentMatch && attributeMatch;
+        return searchTextMatch && statusMatch && attributeMatch;
     });
 
     // sort
@@ -161,28 +128,10 @@ const agentStackList = computed(() => {
         return m1.name.localeCompare(m2.name);
     });
 
-    // group by endpoint with 'current' first, others alphabetical
-    const groups = [
-        ...result.reduce((acc: Map<string, any[]>, stack: any) => {
-            const endpoint = stack.endpoint || 'current';
-            if (!acc.has(endpoint)) acc.set(endpoint, []);
-            acc.get(endpoint)!.push(stack);
-            return acc;
-        }, new Map()).entries()
-    ].map(([endpoint, stacks]) => ({ endpoint, stacks }));
-
-    groups.sort((a, b) => {
-        if (a.endpoint === 'current' && b.endpoint !== 'current') return -1;
-        if (a.endpoint !== 'current' && b.endpoint === 'current') return 1;
-        return a.endpoint.localeCompare(b.endpoint);
-    });
-
-    return groups;
+    return result;
 });
 
-const flatStackList = computed(() => {
-    return agentStackList.value.flatMap((g: any) => g.stacks);
-});
+const flatStackList = computed(() => filteredStacks.value);
 
 const stackListStyle = computed(() => {
     let listHeaderHeight = 60;
@@ -190,25 +139,13 @@ const stackListStyle = computed(() => {
     return { height: `calc(100% - ${listHeaderHeight}px)` };
 });
 
-function updateFilterOptions(stacks: any[]) {
+function updateFilterOptions(_stacks: any[]) {
     // Build status options from StackStatusInfo
     const statusOptions: Record<string, string> = {};
     for (const info of StackStatusInfo.ALL) {
         statusOptions[info.label] = info.label;
     }
     stackFilter.status.options = statusOptions;
-
-    // Build agent options from current stacks
-    if (agentCount.value > 1) {
-        const agentOptions: Record<string, string> = {};
-        for (const stack of stacks) {
-            const endpoint = stack.endpoint || "current";
-            if (!agentOptions[endpoint]) {
-                agentOptions[endpoint] = endpoint;
-            }
-        }
-        stackFilter.agents.options = agentOptions;
-    }
 
     // Attribute filter options
     stackFilter.attributes.options = {

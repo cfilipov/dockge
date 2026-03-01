@@ -39,10 +39,6 @@ const routes = [
                                 component: Compose,
                             },
                             {
-                                path: "/stacks/:stackName/:endpoint",
-                                component: Compose,
-                            },
-                            {
                                 path: "/stacks/:stackName",
                                 component: Compose,
                             },
@@ -52,38 +48,19 @@ const routes = [
                                 name: "containerTerminal",
                             },
                             {
-                                path: "/terminal/:stackName/:serviceName/:type/:endpoint",
-                                component: ContainerTerminal,
-                                name: "containerTerminalEndpoint",
-                            },
-                            {
                                 path: "/log/:stackName/:serviceName",
                                 component: ContainerLog,
                                 name: "containerLog",
-                            },
-                            {
-                                path: "/log/:stackName/:serviceName/:endpoint",
-                                component: ContainerLog,
-                                name: "containerLogEndpoint",
                             },
                             {
                                 path: "/inspect/:containerName",
                                 component: ContainerInspect,
                                 name: "containerInspect",
                             },
-                            {
-                                path: "/inspect/:containerName/:endpoint",
-                                component: ContainerInspect,
-                                name: "containerInspectEndpoint",
-                            },
                         ]
                     },
                     {
                         path: "/console",
-                        component: Console,
-                    },
-                    {
-                        path: "/console/:endpoint",
                         component: Console,
                     },
                     {
@@ -220,10 +197,6 @@ const routes = [
         redirect: "/stacks/new",
     },
     {
-        path: "/compose/:stackName/:endpoint",
-        redirect: (to: any) => `/stacks/${to.params.stackName}/${to.params.endpoint}`,
-    },
-    {
         path: "/compose/:stackName",
         redirect: (to: any) => `/stacks/${to.params.stackName}`,
     },
@@ -232,10 +205,6 @@ const routes = [
         redirect: "/stacks",
     },
     // Legacy /raw URLs — redirect to non-raw equivalents
-    {
-        path: "/stacks/:stackName/raw/:endpoint",
-        redirect: (to: any) => `/stacks/${to.params.stackName}/${to.params.endpoint}`,
-    },
     {
         path: "/stacks/:stackName/raw",
         redirect: (to: any) => `/stacks/${to.params.stackName}`,

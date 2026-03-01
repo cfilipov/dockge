@@ -30,17 +30,6 @@ func openTestSettingStore(t *testing.T) *SettingStore {
     return NewSettingStore(database)
 }
 
-func openTestAgentStore(t *testing.T) *AgentStore {
-    t.Helper()
-    dir := t.TempDir()
-    database, err := db.Open(filepath.Join(dir, "data"))
-    if err != nil {
-        t.Fatal(err)
-    }
-    t.Cleanup(func() { database.Close() })
-    return NewAgentStore(database)
-}
-
 func openTestImageUpdateStore(t *testing.T) *ImageUpdateStore {
     t.Helper()
     dir := t.TempDir()
@@ -257,71 +246,6 @@ func TestSettingStoreInvalidateCache(t *testing.T) {
     }
     if val != "cached-value" {
         t.Errorf("val = %q after cache invalidation", val)
-    }
-}
-
-// --- AgentStore ---
-
-func TestAgentStoreCRUD(t *testing.T) {
-    t.Parallel()
-    store := openTestAgentStore(t)
-
-    // Initially empty
-    agents, err := store.GetAll()
-    if err != nil {
-        t.Fatal(err)
-    }
-    if len(agents) != 0 {
-        t.Errorf("expected 0 agents, got %d", len(agents))
-    }
-
-    // Add
-    agent, err := store.Add("https://a1.example.com", "admin", "secret", "Agent 1")
-    if err != nil {
-        t.Fatal(err)
-    }
-    if agent.URL != "https://a1.example.com" {
-        t.Errorf("URL = %q", agent.URL)
-    }
-    if agent.ID == 0 {
-        t.Error("expected non-zero ID")
-    }
-
-    // Get all
-    agents, err = store.GetAll()
-    if err != nil {
-        t.Fatal(err)
-    }
-    if len(agents) != 1 {
-        t.Fatalf("expected 1 agent, got %d", len(agents))
-    }
-
-    // Update name
-    if err := store.UpdateName("https://a1.example.com", "Updated Name"); err != nil {
-        t.Fatal(err)
-    }
-    agents, _ = store.GetAll()
-    if agents[0].Name != "Updated Name" {
-        t.Errorf("name = %q after update", agents[0].Name)
-    }
-
-    // Remove
-    if err := store.Remove("https://a1.example.com"); err != nil {
-        t.Fatal(err)
-    }
-    agents, _ = store.GetAll()
-    if len(agents) != 0 {
-        t.Errorf("expected 0 agents after remove, got %d", len(agents))
-    }
-}
-
-func TestAgentStoreUpdateNonexistent(t *testing.T) {
-    t.Parallel()
-    store := openTestAgentStore(t)
-
-    err := store.UpdateName("https://nonexistent.com", "name")
-    if err == nil {
-        t.Error("expected error when updating nonexistent agent")
     }
 }
 

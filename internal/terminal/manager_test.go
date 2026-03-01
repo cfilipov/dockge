@@ -169,14 +169,14 @@ func TestRemoveWriterFromAllKeepsPipeWithoutCancel(t *testing.T) {
 	t.Parallel()
 
 	m := NewManager()
-	term := m.Create("compose--mystack", TypePipe)
+	term := m.Create("compose-mystack", TypePipe)
 	// No SetCancel — this is a compose action terminal
 	term.AddWriter("client1", func(string) {})
 
 	m.RemoveWriterFromAll("client1")
 
 	// Pipe terminal without cancel should be kept (compose action terminals)
-	if m.Get("compose--mystack") == nil {
+	if m.Get("compose-mystack") == nil {
 		t.Error("pipe terminal without cancel should be kept")
 	}
 }

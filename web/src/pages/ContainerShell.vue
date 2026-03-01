@@ -8,7 +8,7 @@
             </div>
 
             <Terminal class="terminal" :rows="20" mode="interactive"
-                :name="terminalName" :endpoint="endpoint"
+                :name="terminalName"
                 :container-name="containerName" :shell="shell" />
         </div>
         <div v-else>
@@ -45,9 +45,8 @@ const badgeLabel = computed(() =>
 );
 
 const containerName = computed(() => route.params.containerName as string || "");
-const endpoint = computed(() => "");
 const shell = computed(() => (route.params.type as string) || "bash");
-const terminalName = computed(() => "container-exec-by-name--" + containerName.value);
+const terminalName = computed(() => "container-exec-by-name-" + containerName.value);
 
 const alternateShell = computed(() => shell.value === "bash" ? "sh" : "bash");
 const switchShellLabel = computed(() => shell.value === "bash" ? "Switch to sh" : "Switch to bash");

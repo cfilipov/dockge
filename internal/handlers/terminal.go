@@ -64,7 +64,7 @@ func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
             }
         }
     } else {
-        // For compose action terminals (compose--*) and others, create the
+        // For compose action terminals (compose-*) and others, create the
         // terminal on join if it doesn't exist yet. This ensures the writer
         // is registered before the compose action's Recreate() call, which
         // will carry over the writer to the fresh terminal.
@@ -249,9 +249,8 @@ func (app *App) handleInteractiveTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     // Terminal name matches frontend convention:
-    // container-exec-{endpoint}-{stackName}-{serviceName}-0
-    // For local endpoint (empty string), becomes: container-exec--{stackName}-{serviceName}-0
-    termName := "container-exec--" + stackName + "-" + serviceName + "-0"
+    // container-exec-{stackName}-{serviceName}-0
+    termName := "container-exec-" + stackName + "-" + serviceName + "-0"
 
     term := app.Terms.Recreate(termName, terminal.TypePTY)
     // Writer is carried over from the terminalJoin that already ran.
@@ -308,7 +307,7 @@ func (app *App) handleContainerExec(c *ws.Conn, msg *ws.ClientMessage) {
         shell = "bash"
     }
 
-    termName := "container-exec-by-name--" + containerName
+    termName := "container-exec-by-name-" + containerName
 
     // Check if already running — register this client but don't recreate
     existing := app.Terms.Get(termName)
@@ -365,9 +364,9 @@ func (app *App) handleJoinContainerLog(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
-    // Terminal name: container-log-{endpoint}-{serviceName}
+    // Terminal name: container-log-{serviceName}
     // (matches frontend getContainerLogName convention)
-    termName := "container-log--" + serviceName
+    termName := "container-log-" + serviceName
 
     // Always recreate: the frontend's Terminal component mounts before the
     // parent ContainerLog.vue, so terminalJoin has already created an empty
@@ -439,7 +438,7 @@ func (app *App) handleJoinContainerLogByName(c *ws.Conn, msg *ws.ClientMessage) 
         return
     }
 
-    termName := "container-log-by-name--" + containerName
+    termName := "container-log-by-name-" + containerName
 
     // Always recreate: the frontend's Terminal component mounts before the
     // parent page, so terminalJoin has already created an empty terminal.
@@ -496,7 +495,7 @@ func (app *App) handleLeaveCombinedTerminal(c *ws.Conn, msg *ws.ClientMessage) {
     stackName := argString(args, 0)
 
     if stackName != "" {
-        termName := "combined--" + stackName
+        termName := "combined-" + stackName
         term := app.Terms.Get(termName)
         if term != nil {
             term.RemoveWriter(c.ID())
@@ -767,21 +766,14 @@ func (app *App) findContainerID(ctx context.Context, stackName, serviceName stri
 }
 
 // extractCombinedStackName extracts the stack name from a combined terminal name.
-// Format: "combined-{endpoint}-{stackName}" — for local endpoint: "combined--{stackName}"
+// Format: "combined-{stackName}"
 func extractCombinedStackName(termName string) string {
-    // Strip "combined-" prefix
-    rest := strings.TrimPrefix(termName, "combined-")
-    // The first segment is the endpoint (possibly empty), then stack name
-    idx := strings.Index(rest, "-")
-    if idx < 0 {
-        return rest
-    }
-    return rest[idx+1:]
+    return strings.TrimPrefix(termName, "combined-")
 }
 
 // makeTermWriter creates a WriteFunc that sends terminalWrite events to a connection.
 func makeTermWriter(c *ws.Conn, termName string) terminal.WriteFunc {
     return func(data string) {
-        c.SendEvent("agent", []interface{}{"terminalWrite", termName, data})
+        c.SendEvent("terminalWrite", []interface{}{termName, data})
     }
 }

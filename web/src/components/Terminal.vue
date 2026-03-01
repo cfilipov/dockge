@@ -14,7 +14,7 @@ import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
 import { useTheme } from "../composables/useTheme";
 
-const { emitAgent, bindTerminal, unbindTerminal } = useSocket();
+const { emit: socketEmit, bindTerminal, unbindTerminal } = useSocket();
 const { toastRes, toastError } = useAppToast();
 const { isDark } = useTheme();
 
@@ -68,7 +68,6 @@ const lightTheme: ITheme = {
 
 const props = withDefaults(defineProps<{
     name: string;
-    endpoint: string;
     stackName?: string;
     serviceName?: string;
     containerName?: string;
@@ -102,14 +101,14 @@ let terminalInputBuffer = "";
 let cursorPosition = 0;
 let stopDarkWatcher: (() => void) | null = null;
 
-function bind(endpoint?: string, name?: string) {
+function bind(name?: string) {
     if (name) {
         unbindTerminal(name);
-        bindTerminal(endpoint!, name, terminal.value!);
+        bindTerminal(name, terminal.value!);
         console.debug("Terminal bound via parameter: " + name);
     } else if (props.name) {
         unbindTerminal(props.name);
-        bindTerminal(props.endpoint, props.name, terminal.value!);
+        bindTerminal(props.name, terminal.value!);
         console.debug("Terminal bound: " + props.name);
     } else {
         console.debug("Terminal name not set");
@@ -143,7 +142,7 @@ function mainTerminalConfig() {
             }
             const buffer = terminalInputBuffer;
             removeInput();
-            emitAgent(props.endpoint, "terminalInput", props.name, buffer + e.key, (err: any) => {
+            socketEmit("terminalInput", props.name, buffer + e.key, (err: any) => {
                 toastError(err.msg);
             });
         } else if (e.key === "\u007F") {
@@ -175,7 +174,7 @@ function mainTerminalConfig() {
             }
         } else if (e.key === "\u0003") {
             console.debug("Ctrl + C");
-            emitAgent(props.endpoint, "terminalInput", props.name, e.key);
+            socketEmit("terminalInput", props.name, e.key);
             removeInput();
         } else if (e.key === "\u0016" || (e.ctrlKey && e.key === "v")) {
             handlePaste();
@@ -197,7 +196,7 @@ function interactiveTerminalConfig() {
             handlePaste();
             return;
         }
-        emitAgent(props.endpoint, "terminalInput", props.name, e.key, (res: any) => {
+        socketEmit("terminalInput", props.name, e.key, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
@@ -218,7 +217,7 @@ function onResizeEvent() {
     terminalFitAddOn?.fit();
     const rows = terminal.value!.rows;
     const cols = terminal.value!.cols;
-    emitAgent(props.endpoint, "terminalResize", props.name, rows, cols);
+    socketEmit("terminalResize", props.name, rows, cols);
 }
 
 async function handlePaste() {
@@ -243,7 +242,7 @@ function pasteText(text: string) {
         const backspaces = "\b".repeat(afterCursor.length);
         terminal.value!.write(backspaces);
     } else if (props.mode === "interactive") {
-        emitAgent(props.endpoint, "terminalInput", props.name, text, (res: any) => {
+        socketEmit("terminalInput", props.name, text, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
@@ -326,14 +325,14 @@ onMounted(async () => {
 
     if (props.mainTerminal) {
         bind();
-        emitAgent(props.endpoint, "mainTerminal", props.name, (res: any) => {
+        socketEmit("mainTerminal", props.name, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
         });
     } else if (props.mode === "mainTerminal") {
         bind();
-        emitAgent(props.endpoint, "mainTerminal", props.name, (res: any) => {
+        socketEmit("mainTerminal", props.name, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
@@ -342,7 +341,7 @@ onMounted(async () => {
         // Create the terminal FIRST so any stale terminal is replaced,
         // then join it in the callback to read the fresh buffer.
         console.debug("Create container exec terminal:", props.name);
-        emitAgent(props.endpoint, "containerExec", props.containerName, props.shell, (res: any) => {
+        socketEmit("containerExec", props.containerName, props.shell, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
@@ -352,7 +351,7 @@ onMounted(async () => {
         // Create the terminal FIRST so any stale terminal is replaced,
         // then join it in the callback to read the fresh buffer.
         console.debug("Create Interactive terminal:", props.name);
-        emitAgent(props.endpoint, "interactiveTerminal", props.stackName!, props.serviceName!, props.shell, (res: any) => {
+        socketEmit("interactiveTerminal", props.stackName!, props.serviceName!, props.shell, (res: any) => {
             if (!res.ok) {
                 toastRes(res);
             }
