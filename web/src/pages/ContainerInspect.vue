@@ -280,7 +280,7 @@
                             <div v-if="parsed.Id" class="overview-item">
                                 <div class="overview-label">{{ $t("containerID") }}</div>
                                 <div class="overview-value">
-                                    <code :title="parsed.Id">{{ parsed.Id.substring(0, 12) }}</code>
+                                    <code class="truncate-id" :title="parsed.Id">{{ parsed.Id }}</code>
                                 </div>
                             </div>
 
@@ -734,7 +734,15 @@ onUnmounted(() => {
         font-size: 0.85em;
         color: inherit;
         background: none;
+        padding: 0;
     }
+}
+
+.truncate-id {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .port-arrow {

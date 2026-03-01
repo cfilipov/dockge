@@ -8,6 +8,7 @@
                 <div class="cmd"><span class="cmd-desc">Restart services</span><code>docker compose restart</code></div>
                 <div class="cmd"><span class="cmd-desc">Stop services</span><code>docker compose stop</code></div>
                 <div class="cmd"><span class="cmd-desc">Start stopped</span><code>docker compose start</code></div>
+                <div class="cmd"><span class="cmd-desc">Build &amp; recreate</span><code>docker compose up -d --build --force-recreate</code></div>
             </div>
         </div>
 

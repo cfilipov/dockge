@@ -56,7 +56,7 @@
                             <div class="overview-item">
                                 <div class="overview-label">{{ $t("networkID") }}</div>
                                 <div class="overview-value">
-                                    <code>{{ networkDetail.id }}</code>
+                                    <code class="truncate-id" :title="networkDetail.id">{{ networkDetail.id }}</code>
                                 </div>
                             </div>
 
@@ -274,7 +274,15 @@ onMounted(() => {
         font-size: 0.85em;
         color: inherit;
         background: none;
+        padding: 0;
     }
+}
+
+.truncate-id {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .stack-link {
