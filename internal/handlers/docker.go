@@ -18,7 +18,6 @@ func RegisterDockerHandlers(app *App) {
 	app.WS.Handle("containerTop", app.handleContainerTop)
 	app.WS.Handle("getDockerNetworkList", app.handleGetDockerNetworkList)
 	app.WS.Handle("networkInspect", app.handleNetworkInspect)
-	app.WS.Handle("requestContainerList", app.handleRequestContainerList)
 	app.WS.Handle("getDockerImageList", app.handleGetDockerImageList)
 	app.WS.Handle("imageInspect", app.handleImageInspect)
 	app.WS.Handle("getDockerVolumeList", app.handleGetDockerVolumeList)

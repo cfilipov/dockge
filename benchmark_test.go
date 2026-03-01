@@ -65,7 +65,7 @@ func TestMemoryBudget(t *testing.T) {
 
     // Run representative workload
     for i := 0; i < 5; i++ {
-        env.SendAndReceive(t, conn, "requestStackList")
+        env.SendAndReceive(t, conn, "getStack", "test-stack")
     }
     for i := 0; i < 3; i++ {
         env.SendAndReceive(t, conn, "dockerStats", "test-stack")
@@ -102,7 +102,7 @@ func BenchmarkLogin(b *testing.B) {
     }
 }
 
-func BenchmarkRequestStackList(b *testing.B) {
+func BenchmarkGetStackList(b *testing.B) {
     env := testutil.Setup(b)
     env.SeedAdmin(b)
 
@@ -112,7 +112,7 @@ func BenchmarkRequestStackList(b *testing.B) {
     b.ReportAllocs()
     b.ResetTimer()
     for b.Loop() {
-        env.SendAndReceive(b, conn, "requestStackList")
+        env.SendAndReceive(b, conn, "getStack", "test-stack")
     }
 }
 
@@ -160,7 +160,7 @@ func BenchmarkDockerStats(b *testing.B) {
     }
 }
 
-func BenchmarkRequestStackList200(b *testing.B) {
+func BenchmarkGetStack200(b *testing.B) {
     env := testutil.SetupFull(b)
     env.SeedAdmin(b)
 
@@ -176,15 +176,15 @@ func BenchmarkRequestStackList200(b *testing.B) {
     b.ReportAllocs()
     b.ResetTimer()
     for b.Loop() {
-        env.SendAndReceive(b, conn, "requestStackList")
+        env.SendAndReceive(b, conn, "getStack", "test-stack")
     }
 }
 
-// BenchmarkRequestStackList200_HeapProfile writes heap profiles before and after
+// BenchmarkGetStack200_HeapProfile writes heap profiles before and after
 // a workload for offline analysis with `go tool pprof`.
-// Usage: go test -bench=BenchmarkRequestStackList200_HeapProfile -benchtime=1x -run='^$' .
+// Usage: go test -bench=BenchmarkGetStack200_HeapProfile -benchtime=1x -run='^$' .
 // Then:  go tool pprof -http=:8080 heap-after.prof
-func BenchmarkRequestStackList200_HeapProfile(b *testing.B) {
+func BenchmarkGetStack200_HeapProfile(b *testing.B) {
     env := testutil.SetupFull(b)
     env.SeedAdmin(b)
 
@@ -201,7 +201,7 @@ func BenchmarkRequestStackList200_HeapProfile(b *testing.B) {
 
     b.ResetTimer()
     for i := 0; i < 100; i++ {
-        env.SendAndReceive(b, conn, "requestStackList")
+        env.SendAndReceive(b, conn, "getStack", "test-stack")
     }
     b.StopTimer()
 

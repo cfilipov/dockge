@@ -253,13 +253,3 @@ func GetStackList(stacksDir string, composeLsOutput []byte) map[string]*Stack {
     return stacks
 }
 
-// BuildStackListJSON converts a stack map to the JSON format the frontend expects.
-// updateMap: stack name -> true if any service has an image update available.
-// recreateMap: stack name -> true if any running service image differs from compose.yaml.
-func BuildStackListJSON(stacks map[string]*Stack, endpoint string, updateMap, recreateMap map[string]bool) map[string]StackSimpleJSON {
-    result := make(map[string]StackSimpleJSON, len(stacks))
-    for name, s := range stacks {
-        result[name] = s.ToSimpleJSON(endpoint, updateMap[name], recreateMap[name])
-    }
-    return result
-}

@@ -248,7 +248,6 @@ func main() {
 
             // Mock reset bypasses Docker commands, so no events fire.
             // Trigger all broadcasts explicitly.
-            app.BroadcastAll()
             app.TriggerStacksBroadcast()
             app.TriggerContainersBroadcast()
             app.TriggerNetworksBroadcast()
@@ -288,7 +287,6 @@ func main() {
         slog.Warn("compose file watcher failed to start", "err", err)
     }
 
-    app.StartStackWatcher(ctx)
     app.StartBroadcastWatcher(ctx)
     app.StartImageUpdateChecker(ctx)
 

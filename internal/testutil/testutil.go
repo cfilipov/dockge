@@ -164,7 +164,8 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
 
     // Start background tasks
     ctx, cancel := context.WithCancel(context.Background())
-    app.StartStackWatcher(ctx)
+    app.InitBroadcast()
+    app.StartBroadcastWatcher(ctx)
 
     // Start test server
     server := httptest.NewServer(mux)

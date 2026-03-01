@@ -1,16 +1,13 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cfilipov/dockge/internal/compose"
@@ -20,18 +17,7 @@ import (
 	"github.com/cfilipov/dockge/internal/ws"
 )
 
-// freshData holds all the data needed for a broadcast, queried fresh each time.
-type freshData struct {
-	stacks         map[string]*stack.Stack
-	byProject      map[string][]docker.Container
-	updateMap      map[string]bool
-	serviceUpdates map[string]bool
-	recreateMap    map[string]bool
-	imagesByStack  map[string]map[string]string
-}
-
 func RegisterStackHandlers(app *App) {
-	app.WS.Handle("requestStackList", app.handleRequestStackList)
 	app.WS.Handle("getStack", app.handleGetStack)
 	app.WS.Handle("saveStack", app.handleSaveStack)
 	app.WS.Handle("deployStack", app.handleDeployStack)
@@ -44,81 +30,6 @@ func RegisterStackHandlers(app *App) {
 	app.WS.Handle("forceDeleteStack", app.handleForceDeleteStack)
 	app.WS.Handle("pauseStack", app.handlePauseStack)
 	app.WS.Handle("resumeStack", app.handleResumeStack)
-}
-
-// queryFreshData queries Docker, filesystem, and BoltDB to build a complete
-// snapshot of all stack data. No caches — each call is a fresh query.
-func (app *App) queryFreshData() *freshData {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	// 1. Query Docker (~10-50ms)
-	containers, err := app.Docker.ContainerList(ctx, true, "")
-	if err != nil {
-		slog.Warn("queryFreshData: container list", "err", err)
-	}
-
-	// 2. Parse YAML from disk for ignore labels + image refs (~5ms for 50 stacks)
-	ignoreMap, imagesByStack := parseAllComposeData(app.StacksDir)
-
-	// 3. Build stack list from containers + filesystem
-	stacks := stack.GetStackListFromContainers(app.StacksDir, containers, ignoreMap)
-	byProject := groupByProject(containers)
-
-	// 4. Read image update results from BoltDB (~0.5ms, memory-mapped)
-	updateMap, _ := app.ImageUpdates.StackHasUpdates()
-	serviceUpdates, _ := app.ImageUpdates.AllServiceUpdates()
-
-	// 5. Compute recreate inline (compare running images vs compose YAML)
-	recreateMap := computeRecreateMap(stacks, byProject, imagesByStack)
-
-	return &freshData{
-		stacks:         stacks,
-		byProject:      byProject,
-		updateMap:      updateMap,
-		serviceUpdates: serviceUpdates,
-		recreateMap:    recreateMap,
-		imagesByStack:  imagesByStack,
-	}
-}
-
-// parseAllComposeData scans the stacks directory, parses each compose file,
-// and returns both the ignore map and the images-by-stack map.
-func parseAllComposeData(stacksDir string) (stack.IgnoreMap, map[string]map[string]string) {
-	entries, err := os.ReadDir(stacksDir)
-	if err != nil {
-		return nil, nil
-	}
-
-	ignoreMap := make(stack.IgnoreMap)
-	imagesByStack := make(map[string]map[string]string)
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		path := compose.FindComposeFile(stacksDir, name)
-		if path == "" {
-			continue
-		}
-
-		services := compose.ParseFile(path)
-		images := make(map[string]string)
-		for svc, sd := range services {
-			if sd.Image != "" {
-				images[svc] = sd.Image
-			}
-			if sd.StatusIgnore {
-				if ignoreMap[name] == nil {
-					ignoreMap[name] = make(map[string]bool)
-				}
-				ignoreMap[name][svc] = true
-			}
-		}
-		imagesByStack[name] = images
-	}
-	return ignoreMap, imagesByStack
 }
 
 // parseComposeDataForStack parses compose data for a single stack,
@@ -195,220 +106,6 @@ func computeRecreateMap(stacks map[string]*stack.Stack, byProject map[string][]d
 	return result
 }
 
-// StartStackWatcher starts a background goroutine that:
-// 1. Does an initial broadcast with fresh data
-// 2. Subscribes to Docker Events to react to container lifecycle changes
-// 3. Retries on error; exits the process after repeated failures
-func (app *App) StartStackWatcher(ctx context.Context) {
-	// Initial broadcast
-	app.BroadcastAll()
-
-	go app.runStackWatcherLoop(ctx)
-}
-
-// runStackWatcherLoop subscribes to Docker events and broadcasts on changes.
-// On error or channel close, it retries with exponential backoff up to
-// maxRetries times, then exits the process.
-func (app *App) runStackWatcherLoop(ctx context.Context) {
-	const maxRetries = 5
-	failures := 0
-	backoff := 1 * time.Second
-
-	for {
-		eventCh, errCh := app.Docker.Events(ctx)
-
-		// Debounce: batch events that arrive within 500ms into a single refresh.
-		var debounceTimer *time.Timer
-		var debounceMu sync.Mutex
-
-		triggerDebounced := func() {
-			debounceMu.Lock()
-			defer debounceMu.Unlock()
-			if debounceTimer != nil {
-				debounceTimer.Stop()
-			}
-			debounceTimer = time.AfterFunc(500*time.Millisecond, func() {
-				app.BroadcastAll()
-			})
-		}
-
-		err := app.consumeEvents(ctx, eventCh, errCh, func(evt docker.DockerEvent) {
-			triggerDebounced()
-		})
-
-		debounceMu.Lock()
-		if debounceTimer != nil {
-			debounceTimer.Stop()
-		}
-		debounceMu.Unlock()
-
-		if ctx.Err() != nil {
-			return // clean shutdown
-		}
-
-		failures++
-		if failures > maxRetries {
-			slog.Error("docker events: too many failures, exiting", "failures", failures, "lastErr", err)
-			os.Exit(1)
-		}
-
-		slog.Warn("docker events: retrying", "attempt", failures, "backoff", backoff, "err", err)
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(backoff):
-		}
-		backoff = min(backoff*2, 30*time.Second)
-	}
-}
-
-// consumeEvents reads from event/error channels until one closes or errors.
-// Calls onEvent for each received event. Returns the error (or nil if channel closed).
-func (app *App) consumeEvents(ctx context.Context, eventCh <-chan docker.DockerEvent, errCh <-chan error, onEvent func(docker.DockerEvent)) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case evt, ok := <-eventCh:
-			if !ok {
-				return fmt.Errorf("docker events channel closed")
-			}
-			slog.Debug("docker event (legacy)", "action", evt.Action, "project", evt.Project, "service", evt.Service)
-			onEvent(evt)
-		case err, ok := <-errCh:
-			if !ok {
-				continue
-			}
-			return fmt.Errorf("docker events error: %w", err)
-		}
-	}
-}
-
-// stackListResponse is the typed response for the stackList event.
-type stackListResponse struct {
-	OK        bool                             `json:"ok"`
-	StackList map[string]stack.StackSimpleJSON `json:"stackList"`
-}
-
-// containerListResponse is the typed response for the containerList event.
-type containerListResponse struct {
-	OK            bool                       `json:"ok"`
-	ContainerList []stack.ContainerSimpleJSON `json:"containerList"`
-}
-
-// BroadcastAll queries fresh data and broadcasts both stack list and container list
-// to all authenticated connections. Skips all work if no clients are connected.
-// Marshals each message once and compares against the last broadcast — if the
-// wire bytes are identical, the send is skipped entirely.
-func (app *App) BroadcastAll() {
-	if !app.WS.HasAuthenticatedConns() {
-		return
-	}
-
-	data := app.queryFreshData()
-
-	stackJSON := stack.BuildStackListJSON(data.stacks, "", data.updateMap, data.recreateMap)
-	stackMsg, err := json.Marshal(ws.ServerMessage{
-		Event: "agent",
-		Data:  []interface{}{"stackList", stackListResponse{OK: true, StackList: stackJSON}},
-	})
-	if err != nil {
-		slog.Error("marshal stackList broadcast", "err", err)
-		return
-	}
-
-	containerJSON := stack.BuildContainerListJSON(data.byProject, data.stacks, data.serviceUpdates, data.recreateMap, data.imagesByStack)
-	containerMsg, err := json.Marshal(ws.ServerMessage{
-		Event: "agent",
-		Data:  []interface{}{"containerList", containerListResponse{OK: true, ContainerList: containerJSON}},
-	})
-	if err != nil {
-		slog.Error("marshal containerList broadcast", "err", err)
-		return
-	}
-
-	app.broadcastMu.Lock()
-
-	stackChanged := !bytes.Equal(stackMsg, app.lastStackMsg)
-	containerChanged := !bytes.Equal(containerMsg, app.lastContainerMsg)
-
-	if stackChanged {
-		app.lastStackMsg = stackMsg
-	}
-	if containerChanged {
-		app.lastContainerMsg = containerMsg
-	}
-
-	app.broadcastMu.Unlock()
-
-	if stackChanged {
-		app.WS.BroadcastAuthenticatedBytes(stackMsg)
-	} else {
-		slog.Debug("broadcast skipped (unchanged)", "list", "stackList")
-	}
-
-	if containerChanged {
-		app.WS.BroadcastAuthenticatedBytes(containerMsg)
-	} else {
-		slog.Debug("broadcast skipped (unchanged)", "list", "containerList")
-	}
-}
-
-
-
-func (app *App) handleRequestContainerList(c *ws.Conn, msg *ws.ClientMessage) {
-	if checkLogin(c, msg) == 0 {
-		return
-	}
-
-	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true})
-	}
-
-	app.sendContainerListTo(c)
-}
-
-// sendContainerListTo sends a fresh container list to a single connection.
-func (app *App) sendContainerListTo(c *ws.Conn) {
-	data := app.queryFreshData()
-
-	containerJSON := stack.BuildContainerListJSON(data.byProject, data.stacks, data.serviceUpdates, data.recreateMap, data.imagesByStack)
-	if containerJSON == nil {
-		containerJSON = []stack.ContainerSimpleJSON{}
-	}
-
-	c.SendEvent("agent", []interface{}{"containerList", containerListResponse{
-		OK:            true,
-		ContainerList: containerJSON,
-	}})
-}
-
-func (app *App) handleRequestStackList(c *ws.Conn, msg *ws.ClientMessage) {
-	if checkLogin(c, msg) == 0 {
-		return
-	}
-
-	if msg.ID != nil {
-		c.SendAck(*msg.ID, ws.OkResponse{OK: true})
-	}
-
-	app.sendStackListTo(c)
-}
-
-// sendStackListTo sends a fresh stack list to a single connection.
-func (app *App) sendStackListTo(c *ws.Conn) {
-	data := app.queryFreshData()
-
-	listJSON := stack.BuildStackListJSON(data.stacks, "", data.updateMap, data.recreateMap)
-	if listJSON == nil {
-		listJSON = map[string]stack.StackSimpleJSON{}
-	}
-
-	c.SendEvent("agent", []interface{}{"stackList", stackListResponse{
-		OK:        true,
-		StackList: listJSON,
-	}})
-}
 
 func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
 	if checkLogin(c, msg) == 0 {
@@ -670,7 +367,6 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
 			slog.Warn("clear image update cache", "stack", stackName, "err", err)
 		}
 		app.checkImageUpdatesForStack(stackName)
-		app.BroadcastAll()
 		app.TriggerUpdatesBroadcast()
 	}()
 }
@@ -720,7 +416,6 @@ func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 			}
 		}
 
-	
 		slog.Info("stack deleted", "stack", stackName)
 	}()
 }
@@ -758,7 +453,6 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 			slog.Error("force delete stack", "err", err, "stack", stackName)
 		}
 
-	
 		slog.Info("stack force deleted", "stack", stackName)
 	}()
 }
@@ -837,9 +531,6 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 
 	// Schedule terminal cleanup after a grace period
 	app.Terms.RemoveAfter(termName, 30*time.Second)
-
-
-
 }
 
 // runDeployWithValidation validates the compose file via `docker compose config`
@@ -895,9 +586,6 @@ func (app *App) runDeployWithValidation(stackName string) {
 
 	// Schedule terminal cleanup after a grace period
 	app.Terms.RemoveAfter(termName, 30*time.Second)
-
-
-
 }
 
 // runDockerCommands runs multiple docker commands sequentially on the same terminal.
@@ -932,8 +620,6 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 				term.Write([]byte(errMsg))
 				slog.Error("compose action", "action", action, "stack", stackName, "err", err)
 			}
-		
-		
 			return
 		}
 	}
@@ -942,9 +628,6 @@ func (app *App) runDockerCommands(stackName, action string, argSets [][]string) 
 
 	// Schedule terminal cleanup after a grace period
 	app.Terms.RemoveAfter(termName, 30*time.Second)
-
-
-
 }
 
 // handleComposeYAMLSave handles side effects of saving compose YAML:

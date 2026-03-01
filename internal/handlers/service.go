@@ -153,8 +153,6 @@ func (app *App) runServiceAction(stackName, serviceName, action string, composeA
 	} else {
 		term.Write([]byte("\r\n[Done]\r\n"))
 	}
-
-
 }
 
 func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
@@ -173,7 +171,7 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
 
 	go func() {
 		app.checkImageUpdatesForStack(stackName)
-		app.BroadcastAll()
+		app.TriggerUpdatesBroadcast()
 	}()
 
 	// Ack immediately — the check runs asynchronously
@@ -296,7 +294,7 @@ func (app *App) StartImageUpdateChecker(ctx context.Context) {
 
 		if app.isImageUpdateCheckEnabled() {
 			app.checkAllImageUpdates()
-			app.BroadcastAll()
+			app.TriggerUpdatesBroadcast()
 		}
 
 		for {
@@ -307,7 +305,7 @@ func (app *App) StartImageUpdateChecker(ctx context.Context) {
 			case <-time.After(interval):
 				if app.isImageUpdateCheckEnabled() {
 					app.checkAllImageUpdates()
-					app.BroadcastAll()
+					app.TriggerUpdatesBroadcast()
 				}
 			}
 		}

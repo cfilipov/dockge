@@ -350,9 +350,6 @@ func (app *App) afterLogin(c *ws.Conn) {
     }
     c.SendEvent("agentList", agentMap)
 
-    // Send legacy stack list (for backward compat until frontend is migrated to Pinia)
-    app.sendStackListTo(c)
-
     // Send all 6 broadcast channels to this connection
     go app.sendAllBroadcastsTo(c)
 }

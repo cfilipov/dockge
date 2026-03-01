@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"log/slog"
-	"sync"
 
 	"github.com/cfilipov/dockge/internal/docker"
 	"github.com/cfilipov/dockge/internal/models"
@@ -28,12 +27,7 @@ type App struct {
 	StacksDir        string
 	MainTerminalName string // tracked for checkMainTerminal
 
-	// Legacy broadcast dedup (used by BroadcastAll — will be removed in Phase 5)
-	broadcastMu      sync.Mutex
-	lastStackMsg     []byte
-	lastContainerMsg []byte
-
-	// New per-channel broadcast infrastructure
+	// Per-channel broadcast infrastructure
 	bcastState *broadcastState
 	debouncer  *channelDebouncer
 }

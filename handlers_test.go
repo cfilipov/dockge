@@ -62,21 +62,6 @@ func TestLoginBadPassword(t *testing.T) {
     }
 }
 
-func TestRequestStackList(t *testing.T) {
-    env := testutil.Setup(t)
-    env.SeedAdmin(t)
-
-    conn := env.DialWS(t)
-    env.Login(t, conn)
-
-    resp := env.SendAndReceive(t, conn, "requestStackList")
-    ok, _ := resp["ok"].(bool)
-    if !ok {
-        t.Fatal("expected ok=true")
-    }
-    // The ack is just {ok: true}. The actual stack list is pushed via a
-    // separate "agent" event. We verified the handler responds without error.
-}
 
 func TestGetStack(t *testing.T) {
     env := testutil.Setup(t)
