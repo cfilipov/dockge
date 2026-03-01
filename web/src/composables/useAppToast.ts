@@ -13,9 +13,9 @@ function t(key: string, values?: any): string {
  * When the user clicks the toast body, cancel auto-dismiss so the
  * message stays visible until the X button is used.
  */
-function pinOnClick(id: ToastID) {
+function pinOnClick(id: ToastID, content: any) {
     return () => {
-        toast.update(id, { options: { timeout: false } });
+        toast.update(id, { content, options: { timeout: false } });
     };
 }
 
@@ -33,9 +33,9 @@ function toastRes(res: any) {
     let id: ToastID;
 
     if (res.ok) {
-        id = toast.success(content, { onClick: () => pinOnClick(id)() });
+        id = toast.success(content, { onClick: () => pinOnClick(id, content)() });
     } else {
-        id = toast.error(content, { onClick: () => pinOnClick(id)() });
+        id = toast.error(content, { onClick: () => pinOnClick(id, content)() });
     }
 }
 
@@ -43,14 +43,14 @@ function toastSuccess(msg: string) {
     const message = t(msg);
     const content = { component: ToastBody, props: { message } };
     let id: ToastID;
-    id = toast.success(content, { onClick: () => pinOnClick(id)() });
+    id = toast.success(content, { onClick: () => pinOnClick(id, content)() });
 }
 
 function toastError(msg: string) {
     const message = t(msg);
     const content = { component: ToastBody, props: { message } };
     let id: ToastID;
-    id = toast.error(content, { onClick: () => pinOnClick(id)() });
+    id = toast.error(content, { onClick: () => pinOnClick(id, content)() });
 }
 
 export function useAppToast() {
