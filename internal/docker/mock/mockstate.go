@@ -12,17 +12,19 @@ import (
 //
 // Valid statuses: "running", "exited", "inactive", "paused".
 type MockState struct {
-	mu       sync.RWMutex
-	stacks   map[string]string // stackName → status ("running", "exited", "inactive", "paused")
-	services map[string]string // "stackName/serviceName" → status override
-	defaults map[string]string // initial state to restore on Reset()
+	mu          sync.RWMutex
+	stacks      map[string]string // stackName → status ("running", "exited", "inactive", "paused")
+	services    map[string]string // "stackName/serviceName" → status override
+	standalone  map[string]string // containerName → status override for standalone containers
+	defaults    map[string]string // initial state to restore on Reset()
 }
 
 // NewMockState returns an empty MockState (useful for tests).
 func NewMockState() *MockState {
 	return &MockState{
-		stacks:   make(map[string]string),
-		services: make(map[string]string),
+		stacks:     make(map[string]string),
+		services:   make(map[string]string),
+		standalone: make(map[string]string),
 	}
 }
 
@@ -36,7 +38,7 @@ func NewMockStateFrom(defaults map[string]string) *MockState {
 	for k, v := range defaults {
 		d[k] = v
 	}
-	return &MockState{stacks: m, services: make(map[string]string), defaults: d}
+	return &MockState{stacks: m, services: make(map[string]string), standalone: make(map[string]string), defaults: d}
 }
 
 // DefaultDevState returns state for all 200+ test stacks by auto-discovering
@@ -87,6 +89,7 @@ func (s *MockState) Reset() {
 		s.stacks = make(map[string]string)
 	}
 	s.services = make(map[string]string)
+	s.standalone = make(map[string]string)
 }
 
 // Get returns the status for a stack, or "inactive" if not present.
@@ -132,6 +135,20 @@ func (s *MockState) Remove(stack string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.stacks, stack)
+}
+
+// GetStandalone returns the state override for a standalone container, or "" if none.
+func (s *MockState) GetStandalone(name string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.standalone[name]
+}
+
+// SetStandalone sets a state override for a standalone container.
+func (s *MockState) SetStandalone(name, state string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.standalone[name] = state
 }
 
 // All returns a snapshot copy of all stack states.

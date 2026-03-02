@@ -124,7 +124,8 @@ tasks:
           ./test-data/bin/mock-daemon \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
-            --stacks-dir {{.STACKS_DIR}} &
+            --stacks-dir {{.STACKS_DIR}} \
+            --no-heartbeat &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
           ./test-data/bin/seed-testdb --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
           DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/test-data/bin:$PATH" \

@@ -487,6 +487,9 @@ func (w *MockWorld) RemoveStack(stackName string) {
 // calling MockState.Set) are immediately visible without requiring a rebuild.
 func (w *MockWorld) effectiveState(c *LiveContainer) string {
 	if c.IsStandalone {
+		if override := w.state.GetStandalone(c.Name); override != "" {
+			return override
+		}
 		return c.State
 	}
 	// Per-service override takes priority
@@ -817,6 +820,21 @@ func (w *MockWorld) getServiceNames(stackName string) []string {
 		}
 	}
 	return services
+}
+
+// ServiceIndex returns the 0-based alphabetical index of a service within its
+// stack. Standalone containers always return 0. This is used by the mock
+// daemon to stagger log delivery so combined log streams are deterministic.
+func (w *MockWorld) ServiceIndex(stackName, serviceName string) int {
+	if stackName == "" {
+		return 0
+	}
+	for i, svc := range w.getServiceNames(stackName) {
+		if svc == serviceName {
+			return i
+		}
+	}
+	return 0
 }
 
 // buildMountsFromData constructs mount JSON from MockData.

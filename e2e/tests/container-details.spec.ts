@@ -98,10 +98,10 @@ test.describe("Container Log Lifecycle Banners", () => {
         // Verify start banner appears
         await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
 
-        // Verify startup logs appear again after restart (from log-templates.yaml alpine.startup)
-        // The startup logs should appear twice now — once from initial load, once after restart.
-        // We can't easily count occurrences, but the heartbeat log confirms the stream reconnected.
-        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
+        // Verify startup logs appear again after restart (from log-templates.yaml alpine.startup).
+        // Use a regex to confirm startup text follows the CONTAINER START banner,
+        // proving the log stream reconnected after the restart.
+        await expect(logTerminal).toContainText(/CONTAINER START.*alpine container started/s, { timeout: 15000 });
 
         // Dismiss progress terminal so screenshots are deterministic
         await page.getByRole("region", { name: "Progress" }).getByTitle("Close").click();
@@ -130,7 +130,9 @@ test.describe("Container Log Lifecycle Banners", () => {
         await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
         await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
         await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
-        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
+        // Verify startup logs reappear after the CONTAINER START banner,
+        // confirming the log stream reconnected after restart.
+        await expect(logTerminal).toContainText(/CONTAINER START.*alpine container started/s, { timeout: 15000 });
 
         await page.getByRole("region", { name: "Progress" }).getByTitle("Close").click();
         await expect(page).toHaveScreenshot("container-log-restart.png");
@@ -156,7 +158,8 @@ test.describe("Container Log Lifecycle Banners", () => {
         await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
         await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
         await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
-        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
+        // Verify startup logs reappear after the CONTAINER START banner
+        await expect(logTerminal).toContainText(/CONTAINER START.*alpine container started/s, { timeout: 15000 });
 
         await page.getByRole("region", { name: "Progress" }).getByTitle("Close").click();
         await expect(page).toHaveScreenshot("container-log-recreate.png");
@@ -188,7 +191,8 @@ test.describe("Container Log Lifecycle Banners", () => {
         await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
         await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
         await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
-        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 15000 });
+        // Verify startup logs reappear after the CONTAINER START banner
+        await expect(logTerminal).toContainText(/CONTAINER START.*alpine container started/s, { timeout: 15000 });
 
         await page.getByRole("region", { name: "Progress" }).getByTitle("Close").click();
         await expect(page).toHaveScreenshot("container-log-update.png");

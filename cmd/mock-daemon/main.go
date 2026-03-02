@@ -27,12 +27,14 @@ func main() {
 		stacksSource string
 		stacksDir    string
 		logLevel     string
+		noHeartbeat  bool
 	)
 
 	flag.StringVar(&socketPath, "socket", "", "Unix socket path (default: /tmp/dockge-mock-<pid>/docker.sock)")
 	flag.StringVar(&stacksSource, "stacks-source", "test-data/stacks", "Pristine source stacks directory")
 	flag.StringVar(&stacksDir, "stacks-dir", "test-data/stacks", "Working stacks directory that dockge reads from")
 	flag.StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	flag.BoolVar(&noHeartbeat, "no-heartbeat", false, "Suppress heartbeat log emission (for deterministic E2E tests)")
 	flag.Parse()
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
@@ -54,7 +56,9 @@ func main() {
 	mockState := mock.DefaultDevStateFromData(mockData)
 
 	// Start fake daemon on the specified socket
-	cleanup, err := mock.StartFakeDaemonOnSocket(mockState, mockData, stacksDir, stacksSource, socketPath)
+	cleanup, err := mock.StartFakeDaemonOnSocket(mockState, mockData, stacksDir, stacksSource, socketPath, mock.DaemonOpts{
+		NoHeartbeat: noHeartbeat,
+	})
 	if err != nil {
 		slog.Error("start fake daemon", "err", err)
 		os.Exit(1)

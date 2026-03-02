@@ -185,6 +185,14 @@ func handleContainerAction(action string, args []string) {
 	}
 	containerName := args[0]
 	fmt.Println(containerName)
+
+	// Communicate state change to mock daemon
+	newState := "running"
+	if action == "stop" {
+		newState = "exited"
+	}
+	body, _ := json.Marshal(map[string]string{"status": newState})
+	mockHTTP("POST", "/_mock/standalone/"+containerName, bytes.NewReader(body))
 }
 
 // --- Exec Helper ---

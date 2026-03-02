@@ -28,6 +28,7 @@ type FakeDaemon struct {
 	world        *MockWorld
 	stacksDir    string
 	stacksSource string // pristine source dir for reset file restoration (empty = no file reset)
+	noHeartbeat  bool   // suppress heartbeat log emission (for deterministic E2E tests)
 	listener     net.Listener
 	server       *http.Server
 
@@ -53,11 +54,16 @@ type eventActor struct {
 	Attributes map[string]string `json:"Attributes"`
 }
 
+// DaemonOpts holds optional configuration for the fake daemon.
+type DaemonOpts struct {
+	NoHeartbeat bool // suppress heartbeat log emission (for deterministic E2E tests)
+}
+
 // StartFakeDaemon creates and starts a fake Docker daemon on a Unix socket.
 // stacksSource is the pristine source directory for file restoration on reset
 // (pass "" to skip file restoration, e.g. in unit tests).
 // Returns the socket path for DOCKER_HOST, a cleanup function, and any error.
-func StartFakeDaemon(state *MockState, data *MockData, stacksDir, stacksSource string) (socketPath string, cleanup func(), err error) {
+func StartFakeDaemon(state *MockState, data *MockData, stacksDir, stacksSource string, opts ...DaemonOpts) (socketPath string, cleanup func(), err error) {
 	// Create temp directory for the socket
 	tmpDir, err := os.MkdirTemp("", "dockge-mock-*")
 	if err != nil {
@@ -73,12 +79,18 @@ func StartFakeDaemon(state *MockState, data *MockData, stacksDir, stacksSource s
 
 	world := BuildMockWorld(data, state, stacksDir)
 
+	var opt DaemonOpts
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
 	fd := &FakeDaemon{
 		state:        state,
 		data:         data,
 		world:        world,
 		stacksDir:    stacksDir,
 		stacksSource: stacksSource,
+		noHeartbeat:  opt.NoHeartbeat,
 		listener:     listener,
 		eventSubs:    make(map[int]chan eventMessage),
 	}
@@ -106,7 +118,7 @@ func StartFakeDaemon(state *MockState, data *MockData, stacksDir, stacksSource s
 // StartFakeDaemonOnSocket creates and starts a fake Docker daemon on a
 // caller-specified Unix socket path. Used by cmd/mock-daemon for external
 // daemon operation. Returns a cleanup function and any error.
-func StartFakeDaemonOnSocket(state *MockState, data *MockData, stacksDir, stacksSource, sockPath string) (cleanup func(), err error) {
+func StartFakeDaemonOnSocket(state *MockState, data *MockData, stacksDir, stacksSource, sockPath string, opts ...DaemonOpts) (cleanup func(), err error) {
 	// Ensure parent directory exists
 	if dir := filepath.Dir(sockPath); dir != "" {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -124,12 +136,18 @@ func StartFakeDaemonOnSocket(state *MockState, data *MockData, stacksDir, stacks
 
 	world := BuildMockWorld(data, state, stacksDir)
 
+	var opt DaemonOpts
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
 	fd := &FakeDaemon{
 		state:        state,
 		data:         data,
 		world:        world,
 		stacksDir:    stacksDir,
 		stacksSource: stacksSource,
+		noHeartbeat:  opt.NoHeartbeat,
 		listener:     listener,
 		eventSubs:    make(map[int]chan eventMessage),
 	}
@@ -205,6 +223,7 @@ func (fd *FakeDaemon) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /_mock/state/{stack}/{service}", fd.handleMockServiceStateSet)
 	mux.HandleFunc("POST /_mock/state/{stack}", fd.handleMockStateSet)
 	mux.HandleFunc("DELETE /_mock/state/{stack}", fd.handleMockStateDelete)
+	mux.HandleFunc("POST /_mock/standalone/{name}", fd.handleMockStandaloneStateSet)
 	mux.HandleFunc("POST /_mock/reset", fd.handleMockReset)
 	mux.HandleFunc("GET /_mock/logs/{stack}/{service}", fd.handleMockLogs)
 }
@@ -609,6 +628,14 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
 	w.WriteHeader(http.StatusOK)
 
+	// Stagger log delivery by service index so combined log streams are
+	// deterministic. When the dockge backend fetches logs from multiple
+	// containers concurrently, the first service (alphabetically) writes
+	// immediately while later services wait, ensuring consistent ordering.
+	if idx := fd.world.ServiceIndex(c.StackName, c.ServiceName); idx > 0 {
+		time.Sleep(time.Duration(idx) * 100 * time.Millisecond)
+	}
+
 	// Emit startup lines
 	for i, line := range logs.Startup {
 		expanded := ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
@@ -659,6 +686,10 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 				return
 			}
 		case <-ticker.C:
+			// Skip heartbeat if disabled (e.g. during E2E tests for determinism)
+			if fd.noHeartbeat {
+				continue
+			}
 			// Skip heartbeat if the container is no longer running —
 			// the "die" event handler above will emit shutdown logs and return.
 			if fd.world.GetContainerState(containerID) != "running" {
@@ -1172,6 +1203,32 @@ func (fd *FakeDaemon) handleMockStateDelete(w http.ResponseWriter, r *http.Reque
 
 	fd.state.Remove(stack)
 	fd.world.Reset() // Rebuild world after state change
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+}
+
+func (fd *FakeDaemon) handleMockStandaloneStateSet(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+
+	var body struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	fd.state.SetStandalone(name, body.Status)
+	fd.world.Reset()
+
+	containerID := fmt.Sprintf("mock-standalone-%s", name)
+	switch body.Status {
+	case "running":
+		fd.publishEvent("start", containerID, "", "")
+	case "exited":
+		fd.publishEvent("die", containerID, "", "")
+	}
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
 }
