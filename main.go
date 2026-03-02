@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
@@ -234,6 +235,22 @@ func main() {
 
 	app.StartBroadcastWatcher(ctx)
 	app.StartImageUpdateChecker(ctx)
+
+	// Periodically return unused memory to the OS. Go's runtime retains
+	// freed heap pages as RSS for future allocations; this nudges it to
+	// release them sooner, keeping steady-state RSS lower.
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				debug.FreeOSMemory()
+			}
+		}
+	}()
 
 	// Start HTTP server
 	addr := fmt.Sprintf(":%d", cfg.Port)

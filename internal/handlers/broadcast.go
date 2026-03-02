@@ -322,6 +322,7 @@ func buildStackBroadcast(stacksDir string) []StackBroadcastEntry {
 // StartBroadcastWatcher or any broadcast trigger methods.
 func (app *App) InitBroadcast() {
 	app.bcastState = newBroadcastState()
+	app.EventBus = NewEventBus()
 }
 
 // StartBroadcastWatcher starts the event-driven broadcast system.
@@ -392,6 +393,10 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 				return fmt.Errorf("docker events channel closed")
 			}
 			slog.Debug("docker event", "type", evt.Type, "action", evt.Action)
+
+			// Fan out to per-terminal subscribers (always, even without
+			// authenticated WS conns — terminals have their own lifecycle).
+			app.EventBus.Publish(evt)
 
 			if !app.WS.HasAuthenticatedConns() {
 				continue

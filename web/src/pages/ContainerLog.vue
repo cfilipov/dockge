@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { getContainerLogName } from "../common/util-common";
 import { useSocket } from "../composables/useSocket";
@@ -23,6 +23,10 @@ const terminalName = computed(() => getContainerLogName(stackName.value, service
 
 onMounted(() => {
     emit("joinContainerLog", stackName.value, serviceName.value, () => {});
+});
+
+onBeforeUnmount(() => {
+    emit("leaveContainerLog", terminalName.value, () => {});
 });
 </script>
 

@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
@@ -106,6 +106,12 @@ const {
 onMounted(() => {
     if (containerName.value) {
         emit("joinContainerLogByName", containerName.value, () => {});
+    }
+});
+
+onBeforeUnmount(() => {
+    if (terminalName.value) {
+        emit("leaveContainerLog", terminalName.value, () => {});
     }
 });
 </script>

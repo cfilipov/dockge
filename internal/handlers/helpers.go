@@ -30,6 +30,10 @@ type App struct {
 	// Per-channel broadcast infrastructure
 	bcastState *broadcastState
 	debouncer  *channelDebouncer
+
+	// EventBus fans out Docker events from the single broadcast watcher
+	// to per-terminal subscribers, replacing per-terminal Events() calls.
+	EventBus *EventBus
 }
 
 // checkLogin verifies that the connection is authenticated.
