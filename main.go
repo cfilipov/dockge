@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -51,6 +52,13 @@ func main() {
 
 	cfg := config.Parse()
 
+	// Cap GOMAXPROCS to reduce per-P memory overhead (mcache, sync.Pool shards,
+	// gzip writers). Default 4 is plenty for a single-user web app. Set to 0
+	// or use DOCKGE_MAX_PROCS=0 to keep the Go default (= host CPU count).
+	if cfg.MaxProcs > 0 {
+		runtime.GOMAXPROCS(cfg.MaxProcs)
+	}
+
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: cfg.LogLevel,
 	})))
@@ -63,6 +71,7 @@ func main() {
 		"pprof", cfg.Dev || cfg.Pprof,
 		"logLevel", cfg.LogLevel,
 		"noAuth", cfg.NoAuth,
+		"maxProcs", runtime.GOMAXPROCS(0),
 	)
 
 	// Open database
@@ -240,7 +249,7 @@ func main() {
 	// freed heap pages as RSS for future allocations; this nudges it to
 	// release them sooner, keeping steady-state RSS lower.
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
 		for {
 			select {

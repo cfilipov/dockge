@@ -204,6 +204,9 @@ func (app *App) runServiceAction(stackName, serviceName, action string, composeA
 	} else {
 		term.Write([]byte("\r\n[Done]\r\n"))
 	}
+
+	// Schedule terminal cleanup after a grace period
+	app.Terms.RemoveAfter(termName, 30*time.Second)
 }
 
 // isStackManaged returns true if the stack has a compose file in the stacks directory.
@@ -238,6 +241,9 @@ func (app *App) runUnmanagedServiceAction(stackName, serviceName, action string,
 	} else {
 		term.Write([]byte("\r\n[Done]\r\n"))
 	}
+
+	// Schedule terminal cleanup after a grace period
+	app.Terms.RemoveAfter(termName, 30*time.Second)
 }
 
 // --- Standalone container actions (no compose project) ---
@@ -324,6 +330,9 @@ func (app *App) runContainerAction(containerName, action string) {
 	} else {
 		term.Write([]byte("\r\n[Done]\r\n"))
 	}
+
+	// Schedule terminal cleanup after a grace period
+	app.Terms.RemoveAfter(termName, 30*time.Second)
 }
 
 func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
