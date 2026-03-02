@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
+	"time"
 
 	"github.com/cfilipov/dockge/internal/docker"
 	"github.com/cfilipov/dockge/internal/models"
@@ -34,6 +37,12 @@ type App struct {
 	// EventBus fans out Docker events from the single broadcast watcher
 	// to per-terminal subscribers, replacing per-terminal Events() calls.
 	EventBus *EventBus
+
+	// Lazy watcher lifecycle — watcher runs only while clients are connected.
+	parentCtx     context.Context    // stored from InitBroadcast for creating child contexts
+	watcherMu     sync.Mutex         // protects watcherCancel and idleTimer
+	watcherCancel context.CancelFunc // nil = watcher not running
+	idleTimer     *time.Timer        // grace period before stopping watcher
 }
 
 // checkLogin verifies that the connection is authenticated.

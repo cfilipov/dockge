@@ -162,7 +162,7 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
 
     // Start background tasks
     ctx, cancel := context.WithCancel(context.Background())
-    app.InitBroadcast()
+    app.InitBroadcast(ctx)
     app.StartBroadcastWatcher(ctx)
 
     // Start test server

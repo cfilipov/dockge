@@ -53,7 +53,7 @@ func main() {
 	cfg := config.Parse()
 
 	// Cap GOMAXPROCS to reduce per-P memory overhead (mcache, sync.Pool shards,
-	// gzip writers). Default 4 is plenty for a single-user web app. Set to 0
+	// gzip writers). Default 1 is plenty for a single-user web app. Set to 0
 	// or use DOCKGE_MAX_PROCS=0 to keep the Go default (= host CPU count).
 	if cfg.MaxProcs > 0 {
 		runtime.GOMAXPROCS(cfg.MaxProcs)
@@ -216,24 +216,31 @@ func main() {
 	}
 
 	// No-auth mode: auto-authenticate every connection as user 1
+	// and ensure the broadcast watcher is running.
 	if cfg.NoAuth {
 		slog.Warn("authentication disabled (--no-auth)")
 		wss.HandleConnect(func(c *ws.Conn) {
 			c.SetUser(1)
+			app.EnsureWatcherRunning()
 		})
 	}
 
-	// Clean up terminal writers when a connection disconnects
+	// Clean up terminal writers when a connection disconnects.
+	// If the disconnecting client was authenticated and no others remain,
+	// schedule watcher teardown after grace period.
 	wss.OnDisconnect(func(c *ws.Conn) {
 		terms.RemoveWriterFromAll(c.ID())
+		if c.UserID() != 0 && !wss.HasAuthenticatedConns() {
+			app.ScheduleWatcherStop()
+		}
 	})
 
 	// Start background tasks
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize broadcast infrastructure
-	app.InitBroadcast()
+	// Initialize broadcast infrastructure (stores parent context for lazy watcher start)
+	app.InitBroadcast(ctx)
 
 	// Start compose file watcher (fsnotify) — triggers broadcast on file changes
 	if err := compose.StartWatcher(ctx, cfg.StacksDir, func(stackName string) {
@@ -242,7 +249,8 @@ func main() {
 		slog.Warn("compose file watcher failed to start", "err", err)
 	}
 
-	app.StartBroadcastWatcher(ctx)
+	// NOTE: StartBroadcastWatcher is NOT called here — the watcher starts
+	// lazily when the first client authenticates (via EnsureWatcherRunning).
 	app.StartImageUpdateChecker(ctx)
 
 	// Periodically return unused memory to the OS. Go's runtime retains

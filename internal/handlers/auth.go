@@ -318,6 +318,9 @@ func (app *App) handleTwoFAStatus(c *ws.Conn, msg *ws.ClientMessage) {
 
 // afterLogin sends initial data to a freshly authenticated connection.
 func (app *App) afterLogin(c *ws.Conn) {
+    // Ensure the Docker events watcher is running (lazy start on first client).
+    app.EnsureWatcherRunning()
+
     // NOTE: Do NOT send "info" here — it's already sent on connect (before auth).
     // Sending it again is redundant.
 
