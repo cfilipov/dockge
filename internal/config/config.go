@@ -16,7 +16,7 @@ type Config struct {
     LogLevel  slog.Level // Parsed log level (debug, info, warn, error)
     NoAuth    bool       // Skip authentication (all endpoints open)
     Pprof     bool       // Enable /debug/pprof/ endpoints
-    MaxProcs  int        // GOMAXPROCS override (default 4)
+    MaxProcs  int        // GOMAXPROCS override (default 1)
 }
 
 func Parse() *Config {
@@ -29,7 +29,7 @@ func Parse() *Config {
     flag.BoolVar(&cfg.Dev, "dev", false, "Development mode (serve frontend from filesystem)")
     flag.StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
     flag.BoolVar(&cfg.NoAuth, "no-auth", false, "Disable authentication (all endpoints open)")
-    flag.IntVar(&cfg.MaxProcs, "max-procs", 4, "GOMAXPROCS limit (0 = use Go default)")
+    flag.IntVar(&cfg.MaxProcs, "max-procs", 1, "GOMAXPROCS limit (0 = use Go default)")
     flag.Parse()
 
     // Env vars override flags (if set)
