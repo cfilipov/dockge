@@ -103,12 +103,12 @@ func (s *SDKClient) ContainerList(ctx context.Context, all bool, projectFilter s
     return result, nil
 }
 
-// ContainerBroadcastList returns enriched container data for the broadcast channel.
+// ContainerListDetailed returns enriched container data for the broadcast channel.
 // Includes networks, mounts, ports, and imageId for cross-store joins.
-func (s *SDKClient) ContainerBroadcastList(ctx context.Context) ([]ContainerBroadcast, error) {
+func (s *SDKClient) ContainerListDetailed(ctx context.Context) ([]ContainerBroadcast, error) {
     raw, err := s.cli.ContainerList(ctx, container.ListOptions{All: true})
     if err != nil {
-        return nil, fmt.Errorf("container broadcast list: %w", err)
+        return nil, fmt.Errorf("container list detailed: %w", err)
     }
 
     result := make([]ContainerBroadcast, 0, len(raw))

@@ -15,9 +15,9 @@ type Client interface {
     // only returns containers belonging to that compose project.
     ContainerList(ctx context.Context, all bool, projectFilter string) ([]Container, error)
 
-    // ContainerBroadcastList returns enriched container data for broadcasting.
+    // ContainerListDetailed returns enriched container data for broadcasting.
     // Includes networks, mounts, ports, and imageId for cross-store joins.
-    ContainerBroadcastList(ctx context.Context) ([]ContainerBroadcast, error)
+    ContainerListDetailed(ctx context.Context) ([]ContainerBroadcast, error)
 
     // ContainerInspect returns the raw JSON inspect output for a container.
     ContainerInspect(ctx context.Context, id string) (string, error)

@@ -139,7 +139,7 @@ func (app *App) broadcastContainers() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	containers, err := app.Docker.ContainerBroadcastList(ctx)
+	containers, err := app.Docker.ContainerListDetailed(ctx)
 	if err != nil {
 		slog.Warn("broadcastContainers", "err", err)
 		containers = []docker.ContainerBroadcast{}
@@ -204,68 +204,6 @@ func (app *App) broadcastUpdates() {
 	sort.Strings(updated)
 
 	app.bcastState.broadcastIfChanged(app.WS, chanUpdates, updated)
-}
-
-// sendAllBroadcastsTo sends current state of all 6 channels to a single connection.
-// Used on initial authenticated connect.
-func (app *App) sendAllBroadcastsTo(c *ws.Conn) {
-	// 1. Stacks (fastest — dir scan + compose parse)
-	entries := buildStackBroadcast(app.StacksDir)
-	sendToConn(c, chanStacks, entries)
-
-	// 2. Containers
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	containers, err := app.Docker.ContainerBroadcastList(ctx)
-	if err != nil {
-		slog.Warn("sendAllBroadcastsTo: containers", "err", err)
-		containers = []docker.ContainerBroadcast{}
-	}
-	sendToConn(c, chanContainers, containers)
-
-	// 3-5. Networks, Images, Volumes (parallel)
-	var wg sync.WaitGroup
-	wg.Add(3)
-	go func() {
-		defer wg.Done()
-		networks, err := app.Docker.NetworkList(ctx)
-		if err != nil {
-			slog.Warn("sendAllBroadcastsTo: networks", "err", err)
-			networks = []docker.NetworkSummary{}
-		}
-		sendToConn(c, chanNetworks, networks)
-	}()
-	go func() {
-		defer wg.Done()
-		images, err := app.Docker.ImageList(ctx)
-		if err != nil {
-			slog.Warn("sendAllBroadcastsTo: images", "err", err)
-			images = []docker.ImageSummary{}
-		}
-		sendToConn(c, chanImages, images)
-	}()
-	go func() {
-		defer wg.Done()
-		volumes, err := app.Docker.VolumeList(ctx)
-		if err != nil {
-			slog.Warn("sendAllBroadcastsTo: volumes", "err", err)
-			volumes = []docker.VolumeSummary{}
-		}
-		sendToConn(c, chanVolumes, volumes)
-	}()
-	wg.Wait()
-
-	// 6. Updates (BoltDB read — instant)
-	svcUpdates, _ := app.ImageUpdates.AllServiceUpdates()
-	updated := make([]string, 0, len(svcUpdates))
-	for key, hasUpdate := range svcUpdates {
-		if hasUpdate {
-			updated = append(updated, key)
-		}
-	}
-	sort.Strings(updated)
-	sendToConn(c, chanUpdates, updated)
 }
 
 // buildStackBroadcast scans the stacks directory and builds the broadcast payload.

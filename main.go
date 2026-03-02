@@ -216,12 +216,12 @@ func main() {
 	}
 
 	// No-auth mode: auto-authenticate every connection as user 1
-	// and ensure the broadcast watcher is running.
+	// and send initial state (afterLogin starts the watcher + sends all 6 channels).
 	if cfg.NoAuth {
 		slog.Warn("authentication disabled (--no-auth)")
 		wss.HandleConnect(func(c *ws.Conn) {
 			c.SetUser(1)
-			app.EnsureWatcherRunning()
+			app.AfterLogin(c)
 		})
 	}
 

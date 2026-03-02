@@ -1,8 +1,12 @@
 package handlers
 
 import (
+    "context"
     "log/slog"
+    "sort"
+    "time"
 
+    "github.com/cfilipov/dockge/internal/docker"
     "github.com/cfilipov/dockge/internal/models"
     "github.com/cfilipov/dockge/internal/ws"
 )
@@ -100,7 +104,7 @@ func (app *App) handleLogin(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     c.SetUser(user.ID)
-    app.afterLogin(c)
+    app.AfterLogin(c)
 
     if msg.ID != nil {
         ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Token: token})
@@ -153,7 +157,7 @@ func (app *App) handleLoginByToken(c *ws.Conn, msg *ws.ClientMessage) {
     }
 
     c.SetUser(user.ID)
-    app.afterLogin(c)
+    app.AfterLogin(c)
 
     if msg.ID != nil {
         ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
@@ -316,8 +320,10 @@ func (app *App) handleTwoFAStatus(c *ws.Conn, msg *ws.ClientMessage) {
     }
 }
 
-// afterLogin sends initial data to a freshly authenticated connection.
-func (app *App) afterLogin(c *ws.Conn) {
+// AfterLogin sends initial data to a freshly authenticated connection.
+// All 6 broadcast channels fire as independent goroutines — each sends to the
+// connection as soon as its data is ready, with no channel waiting on any other.
+func (app *App) AfterLogin(c *ws.Conn) {
     // Ensure the Docker events watcher is running (lazy start on first client).
     app.EnsureWatcherRunning()
 
@@ -329,6 +335,61 @@ func (app *App) afterLogin(c *ws.Conn) {
     // login causes the frontend to overwrite the JWT token with "autoLogin",
     // breaking token-based re-auth on subsequent page loads.
 
-    // Send all 6 broadcast channels to this connection
-    go app.sendAllBroadcastsTo(c)
+    // Fire all 6 broadcast channels independently. Each goroutine sends
+    // to the connection as soon as its data is ready — no channel waits
+    // on any other. The frontend renders progressively as stores populate.
+    go func() {
+        sendToConn(c, chanStacks, buildStackBroadcast(app.StacksDir))
+    }()
+    go func() {
+        ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+        defer cancel()
+        containers, err := app.Docker.ContainerListDetailed(ctx)
+        if err != nil {
+            slog.Warn("afterLogin: containers", "err", err)
+            containers = []docker.ContainerBroadcast{}
+        }
+        sendToConn(c, chanContainers, containers)
+    }()
+    go func() {
+        ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+        defer cancel()
+        networks, err := app.Docker.NetworkList(ctx)
+        if err != nil {
+            slog.Warn("afterLogin: networks", "err", err)
+            networks = []docker.NetworkSummary{}
+        }
+        sendToConn(c, chanNetworks, networks)
+    }()
+    go func() {
+        ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+        defer cancel()
+        images, err := app.Docker.ImageList(ctx)
+        if err != nil {
+            slog.Warn("afterLogin: images", "err", err)
+            images = []docker.ImageSummary{}
+        }
+        sendToConn(c, chanImages, images)
+    }()
+    go func() {
+        ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+        defer cancel()
+        volumes, err := app.Docker.VolumeList(ctx)
+        if err != nil {
+            slog.Warn("afterLogin: volumes", "err", err)
+            volumes = []docker.VolumeSummary{}
+        }
+        sendToConn(c, chanVolumes, volumes)
+    }()
+    go func() {
+        svcUpdates, _ := app.ImageUpdates.AllServiceUpdates()
+        updated := make([]string, 0, len(svcUpdates))
+        for key, hasUpdate := range svcUpdates {
+            if hasUpdate {
+                updated = append(updated, key)
+            }
+        }
+        sort.Strings(updated)
+        sendToConn(c, chanUpdates, updated)
+    }()
 }
