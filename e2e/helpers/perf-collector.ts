@@ -53,11 +53,10 @@ export interface ToleranceSpec {
 }
 
 export const TOLERANCES: Record<string, ToleranceSpec> = {
-    // Memory (percent-based). Peak goroutines omitted — 500ms polling
-    // makes instantaneous goroutine peaks too noisy for comparison;
-    // the value is still recorded in the baseline for human review.
-    // Peak heap omitted — it's a single instantaneous maximum that swings
-    // 50%+ depending on GC timing. Avg and final heap reliably catch leaks.
+    // Memory (percent-based). In-process 50ms sampling makes peaks reliable.
+    "memory.peak.heapAlloc": { type: "percent", value: 10 },
+    "memory.peak.heapInuse": { type: "percent", value: 10 },
+    "memory.peak.goroutines": { type: "percent", value: 15 },
     "memory.final.heapAlloc": { type: "percent", value: 10 },
     "memory.avgHeapAlloc": { type: "percent", value: 10 },
     "memory.cumulativeAlloc": { type: "percent", value: 15 },
@@ -84,8 +83,6 @@ const INITIAL_BROADCAST_CHANNELS = new Set([
 
 export class PerfCollector {
     private baseURL: string;
-    private pollInterval: ReturnType<typeof setInterval> | null = null;
-    private samples: MemSample[] = [];
     private perTest: Record<string, TestSocketData> = {};
     private initialLoad: Record<string, { count: number; bytes: number }> = {};
     private totalServerFrames = 0;
@@ -100,41 +97,46 @@ export class PerfCollector {
         this.baseURL = baseURL || `http://localhost:${port}`;
     }
 
-    // ---------- Memory polling ----------
+    // ---------- Memory (server-side tracking) ----------
 
-    async startMemoryPolling(): Promise<void> {
-        // Take initial sample
-        await this.pollOnce();
-
-        this.pollInterval = setInterval(() => {
-            this.pollOnce().catch(() => {
-                // Server unavailable during polling — skip sample
-            });
-        }, 500);
+    async resetMemoryBaseline(): Promise<void> {
+        const resp = await fetch(`${this.baseURL}/api/debug/memstats/reset`, { method: "POST" });
+        if (!resp.ok) throw new Error(`reset memstats: ${resp.status}`);
     }
 
-    private async pollOnce(): Promise<void> {
+    private async fetchMemoryResults(): Promise<PerfResults["memory"]> {
         const resp = await fetch(`${this.baseURL}/api/debug/memstats`);
-        if (!resp.ok) return;
+        if (!resp.ok) throw new Error(`fetch memstats: ${resp.status}`);
         const data = await resp.json();
-        this.samples.push({
-            heapAlloc: data.heapAlloc,
-            heapInuse: data.heapInuse,
-            sys: data.sys,
-            goroutines: data.goroutines,
-            totalAlloc: data.totalAlloc,
-            numGC: data.numGC,
-            stackInuse: data.stackInuse,
-        });
-    }
-
-    async stop(): Promise<void> {
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-        }
-        // Final sample
-        await this.pollOnce().catch(() => {});
+        return {
+            baseline: {
+                heapAlloc: data.baseline.heapAlloc,
+                heapInuse: data.baseline.heapInuse,
+                sys: data.baseline.sys,
+                goroutines: data.baseline.goroutines,
+                totalAlloc: data.baseline.totalAlloc,
+                numGC: data.baseline.numGC,
+                stackInuse: data.baseline.stackInuse,
+            },
+            peak: {
+                heapAlloc: data.peak.heapAlloc,
+                heapInuse: data.peak.heapInuse,
+                goroutines: data.peak.goroutines,
+            },
+            final: {
+                heapAlloc: data.current.heapAlloc,
+                heapInuse: data.current.heapInuse,
+                sys: data.current.sys,
+                goroutines: data.current.goroutines,
+                totalAlloc: data.current.totalAlloc,
+                numGC: data.current.numGC,
+                stackInuse: data.current.stackInuse,
+            },
+            sampleCount: data.samples,
+            avgHeapAlloc: data.avgHeapAlloc,
+            totalAllocDelta: data.totalAllocDelta,
+            gcCyclesDelta: data.gcCyclesDelta,
+        };
     }
 
     // ---------- Test lifecycle ----------
@@ -226,24 +228,8 @@ export class PerfCollector {
 
     // ---------- Results ----------
 
-    getResults(): PerfResults {
-        const baseline = this.samples[0] || emptyMemSample();
-        const final = this.samples[this.samples.length - 1] || emptyMemSample();
-
-        let peakHeapAlloc = 0;
-        let peakHeapInuse = 0;
-        let peakGoroutines = 0;
-        let sumHeapAlloc = 0;
-
-        for (const s of this.samples) {
-            if (s.heapAlloc > peakHeapAlloc) peakHeapAlloc = s.heapAlloc;
-            if (s.heapInuse > peakHeapInuse) peakHeapInuse = s.heapInuse;
-            if (s.goroutines > peakGoroutines) peakGoroutines = s.goroutines;
-            sumHeapAlloc += s.heapAlloc;
-        }
-
-        const sampleCount = this.samples.length;
-        const avgHeapAlloc = sampleCount > 0 ? Math.round(sumHeapAlloc / sampleCount) : 0;
+    async getResults(): Promise<PerfResults> {
+        const memory = await this.fetchMemoryResults();
 
         // Compute initial load total
         const initialLoadWithTotal: Record<string, { count: number; bytes: number }> = { ...this.initialLoad };
@@ -256,15 +242,7 @@ export class PerfCollector {
         initialLoadWithTotal["total"] = { count: totalInitCount, bytes: totalInitBytes };
 
         return {
-            memory: {
-                baseline,
-                peak: { heapAlloc: peakHeapAlloc, heapInuse: peakHeapInuse, goroutines: peakGoroutines },
-                final,
-                sampleCount,
-                avgHeapAlloc,
-                totalAllocDelta: final.totalAlloc - baseline.totalAlloc,
-                gcCyclesDelta: final.numGC - baseline.numGC,
-            },
+            memory,
             socket: {
                 initialLoad: initialLoadWithTotal,
                 perTest: this.perTest,
@@ -279,8 +257,10 @@ export class PerfCollector {
     static compare(actual: PerfResults, baseline: PerfResults): ComparisonResult[] {
         const results: ComparisonResult[] = [];
 
-        // Memory comparisons. Peak heap and goroutines omitted — single-sample
-        // maximums swing 50%+ from GC timing jitter. Avg/final are stable.
+        // Memory comparisons — in-process 50ms sampling makes peaks stable.
+        compareField(results, "memory.peak.heapAlloc", actual.memory.peak.heapAlloc, baseline.memory.peak.heapAlloc);
+        compareField(results, "memory.peak.heapInuse", actual.memory.peak.heapInuse, baseline.memory.peak.heapInuse);
+        compareField(results, "memory.peak.goroutines", actual.memory.peak.goroutines, baseline.memory.peak.goroutines);
         compareField(results, "memory.final.heapAlloc", actual.memory.final.heapAlloc, baseline.memory.final.heapAlloc);
         compareField(results, "memory.avgHeapAlloc", actual.memory.avgHeapAlloc, baseline.memory.avgHeapAlloc);
         compareField(results, "memory.cumulativeAlloc", actual.memory.totalAllocDelta, baseline.memory.totalAllocDelta);
@@ -348,10 +328,6 @@ export interface ComparisonResult {
     tolerance: string;
     passed: boolean;
     message: string;
-}
-
-function emptyMemSample(): MemSample {
-    return { heapAlloc: 0, heapInuse: 0, sys: 0, goroutines: 0, totalAlloc: 0, numGC: 0, stackInuse: 0 };
 }
 
 function compareField(

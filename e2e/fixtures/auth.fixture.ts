@@ -5,7 +5,7 @@ import { PerfCollector } from "../helpers/perf-collector";
 /**
  * Extended test fixture that:
  * 1. Disables CSS animations on every page load (for deterministic screenshots)
- * 2. Runs a worker-scoped PerfCollector that polls memory and records WebSocket frames
+ * 2. Runs a worker-scoped PerfCollector that resets the server-side memory tracker and records WebSocket frames
  *
  * Use this instead of importing `test` from @playwright/test in spec files.
  */
@@ -15,9 +15,8 @@ export const test = base.extend<
 >({
     perfCollector: [async ({}, use) => {
         const collector = new PerfCollector();
-        await collector.startMemoryPolling();
+        await collector.resetMemoryBaseline();
         await use(collector);
-        await collector.stop();
     }, { scope: "worker" }],
 
     page: async ({ page, perfCollector }, use, testInfo) => {

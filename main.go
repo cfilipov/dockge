@@ -24,6 +24,7 @@ import (
 	"github.com/cfilipov/dockge/internal/compose"
 	"github.com/cfilipov/dockge/internal/config"
 	"github.com/cfilipov/dockge/internal/db"
+	dbgmem "github.com/cfilipov/dockge/internal/debug"
 	"github.com/cfilipov/dockge/internal/docker"
 	"github.com/cfilipov/dockge/internal/handlers"
 	"github.com/cfilipov/dockge/internal/models"
@@ -102,23 +103,14 @@ func main() {
 		mux.HandleFunc("/debug/pprof/trace", pprofTrace)
 		slog.Info("pprof enabled at /debug/pprof/")
 
-		mux.HandleFunc("GET /api/debug/memstats", func(w http.ResponseWriter, _ *http.Request) {
-			runtime.GC()
-			var m runtime.MemStats
-			runtime.ReadMemStats(&m)
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{
-				"heapAlloc":  m.HeapAlloc,
-				"heapInuse":  m.HeapInuse,
-				"heapSys":    m.HeapSys,
-				"stackInuse": m.StackInuse,
-				"sys":        m.Sys,
-				"numGC":      m.NumGC,
-				"totalAlloc": m.TotalAlloc,
-				"goroutines": runtime.NumGoroutine(),
-				"timestamp":  time.Now().UnixMilli(),
-			})
-		})
+		// In-process memory tracker — samples every 50ms without forced GC.
+		// Stops when ctx is cancelled (graceful shutdown, declared below).
+		// We create a child context here and cancel it on shutdown.
+		memCtx, memCancel := context.WithCancel(context.Background())
+		tracker := dbgmem.NewMemTracker(memCtx, 50*time.Millisecond)
+		defer memCancel()
+		mux.HandleFunc("GET /api/debug/memstats", tracker.HandleGet)
+		mux.HandleFunc("POST /api/debug/memstats/reset", tracker.HandleReset)
 	}
 
 	// Frontend SPA handler

@@ -1,11 +1,11 @@
 import { test, expect } from "../fixtures/auth.fixture";
-import { PerfCollector, ComparisonResult } from "../helpers/perf-collector";
+import { PerfCollector, PerfResults, ComparisonResult } from "../helpers/perf-collector";
 
 const UPDATE_MODE = !!process.env.UPDATE_BENCHMARKS;
 
 test.describe("Performance Benchmarks", () => {
     test("memory and socket metrics within baseline tolerances", async ({ perfCollector }) => {
-        const results = perfCollector.getResults();
+        const results = await perfCollector.getResults();
         const baseline = PerfCollector.loadBaseline();
 
         // First run or update mode: write golden file and pass
@@ -47,7 +47,7 @@ test.describe("Performance Benchmarks", () => {
     });
 });
 
-function logSummary(results: ReturnType<PerfCollector["getResults"]>): void {
+function logSummary(results: PerfResults): void {
     const log = (msg: string) => console.log(msg); // eslint-disable-line no-console
 
     log("\n=== Performance Summary ===");
