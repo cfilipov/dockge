@@ -190,6 +190,12 @@ tasks:
     dir: e2e
     cmd: E2E_PORT=5052 pnpm run test:update-screenshots
 
+  update-benchmarks:
+    desc: Update E2E performance golden baselines (requires full test run)
+    deps: [build-web, build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    dir: e2e
+    cmd: E2E_PORT=5052 UPDATE_BENCHMARKS=1 pnpm test
+
   test-e2e-trace:
     desc: Run E2E test with tracing (use -- <test-file>)
     deps: [build-web, build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]

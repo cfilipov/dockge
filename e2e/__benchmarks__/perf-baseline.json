@@ -1,0 +1,4147 @@
+{
+    "memory": {
+        "baseline": {
+            "heapAlloc": 2826656,
+            "heapInuse": 4104192,
+            "sys": 17914120,
+            "goroutines": 18,
+            "totalAlloc": 11435944,
+            "numGC": 4,
+            "stackInuse": 655360
+        },
+        "peak": {
+            "heapAlloc": 11268520,
+            "heapInuse": 12541952,
+            "goroutines": 225
+        },
+        "final": {
+            "heapAlloc": 4039024,
+            "heapInuse": 6316032,
+            "sys": 31283464,
+            "goroutines": 90,
+            "totalAlloc": 1391089288,
+            "numGC": 559,
+            "stackInuse": 1736704
+        },
+        "sampleCount": 326,
+        "avgHeapAlloc": 4832590,
+        "totalAllocDelta": 1379653344,
+        "gcCyclesDelta": 555
+    },
+    "socket": {
+        "initialLoad": {
+            "info": {
+                "count": 1,
+                "bytes": 97
+            },
+            "updates": {
+                "count": 1,
+                "bytes": 90
+            },
+            "stacks": {
+                "count": 1,
+                "bytes": 35935
+            },
+            "volumes": {
+                "count": 1,
+                "bytes": 15944
+            },
+            "networks": {
+                "count": 1,
+                "bytes": 41822
+            },
+            "images": {
+                "count": 1,
+                "bytes": 6623
+            },
+            "containers": {
+                "count": 1,
+                "bytes": 149749
+            },
+            "total": {
+                "count": 7,
+                "bytes": 250260
+            }
+        },
+        "perTest": {
+            "change-password.spec.ts > Change Password — Validation > shows validation error when passwords do not match": {
+                "serverFrameCount": 10,
+                "serverTotalBytes": 250441,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 328,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 181,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "change-password.spec.ts > Change Password — Validation > shows error with wrong current password": {
+                "serverFrameCount": 11,
+                "serverTotalBytes": 250511,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 466,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 251,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "change-password.spec.ts > Change Password — Validation > disable auth button shows confirmation dialog": {
+                "serverFrameCount": 10,
+                "serverTotalBytes": 250441,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 328,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 181,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "check-image-updates.spec.ts > Check Image Updates > check updates via overflow menu succeeds": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251535,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 478,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 851,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "compose-create.spec.ts > Compose Create — New Stack > displays new stack form elements": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "compose-create.spec.ts > Compose Create — New Stack > screenshot: compose create page": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "compose-delete.spec.ts > Delete Stack > delete stack via overflow menu with confirmation modal": {
+                "serverFrameCount": 15,
+                "serverTotalBytes": 287245,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 555,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 2,
+                    "images": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 651,
+                    "updates": 90,
+                    "stacks": 71870,
+                    "images": 6623,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "containers": 149749,
+                    "terminalWrite": 399
+                }
+            },
+            "compose-deploy-invalid.spec.ts > Deploy — Invalid YAML > deploy with no-services YAML creates inactive stack": {
+                "serverFrameCount": 19,
+                "serverTotalBytes": 322542,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 685,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 3,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 3
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 709,
+                    "updates": 90,
+                    "stacks": 107562,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149385,
+                    "terminalWrite": 310
+                }
+            },
+            "compose-deploy.spec.ts > Deploy New Stack > deploy new stack end-to-end": {
+                "serverFrameCount": 36,
+                "serverTotalBytes": 478649,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 777,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 3,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 2,
+                    "terminalWrite": 19
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1034,
+                    "updates": 90,
+                    "stacks": 107923,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 299872,
+                    "terminalWrite": 5244
+                }
+            },
+            "compose-operations.spec.ts > Compose Operations > start stack (03-monitoring)": {
+                "serverFrameCount": 39,
+                "serverTotalBytes": 442617,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 547,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 2,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 2,
+                    "terminalWrite": 24
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 708,
+                    "updates": 90,
+                    "stacks": 71870,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 299499,
+                    "terminalWrite": 5964
+                }
+            },
+            "compose-operations.spec.ts > Compose Operations > stop stack (04-database)": {
+                "serverFrameCount": 24,
+                "serverTotalBytes": 403045,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 536,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 2,
+                    "terminalWrite": 10
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 732,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 299492,
+                    "terminalWrite": 2310
+                }
+            },
+            "compose-operations.spec.ts > Compose Operations > restart stack (02-blog)": {
+                "serverFrameCount": 32,
+                "serverTotalBytes": 256616,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 519,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 19
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 986,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149742,
+                    "terminalWrite": 5377
+                }
+            },
+            "compose-operations.spec.ts > Compose Operations > down stack (00-single-service)": {
+                "serverFrameCount": 42,
+                "serverTotalBytes": 406359,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 566,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 2,
+                    "terminalWrite": 28
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 676,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 299081,
+                    "terminalWrite": 6091
+                }
+            },
+            "compose-operations.spec.ts > Compose Operations > update stack (01-web-app)": {
+                "serverFrameCount": 86,
+                "serverTotalBytes": 266519,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 545,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 73
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 891,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149339,
+                    "terminalWrite": 15778
+                }
+            },
+            "compose-operations.spec.ts > Compose Operations > service restart (01-web-app nginx)": {
+                "serverFrameCount": 19,
+                "serverTotalBytes": 274241,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 544,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1,
+                    "terminalWrite": 6
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 23249,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149339,
+                    "terminalWrite": 1142
+                }
+            },
+            "compose-operations.spec.ts > Compose Operations > service start (04-database postgres)": {
+                "serverFrameCount": 28,
+                "serverTotalBytes": 255670,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 550,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 15
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 2209,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149339,
+                    "terminalWrite": 3611
+                }
+            },
+            "compose-operations.spec.ts > Compose Operations > service stop (stack-010 ruby)": {
+                "serverFrameCount": 26,
+                "serverTotalBytes": 401811,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 535,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "containers": 2,
+                    "terminalWrite": 12
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 662,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "images": 6623,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "containers": 298693,
+                    "terminalWrite": 1945
+                }
+            },
+            "compose-save-discard.spec.ts > Compose — Save Draft & Discard > save draft persists YAML changes": {
+                "serverFrameCount": 25,
+                "serverTotalBytes": 502977,
+                "clientFrameCount": 9,
+                "clientTotalBytes": 1039,
+                "serverEventCounts": {
+                    "info": 2,
+                    "ack": 9,
+                    "updates": 2,
+                    "stacks": 2,
+                    "volumes": 2,
+                    "networks": 2,
+                    "images": 2,
+                    "containers": 2,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 194,
+                    "ack": 1177,
+                    "updates": 180,
+                    "stacks": 71870,
+                    "volumes": 31888,
+                    "networks": 83644,
+                    "images": 13246,
+                    "containers": 299498,
+                    "terminalWrite": 1280
+                }
+            },
+            "compose-save-discard.spec.ts > Compose — Save Draft & Discard > discard reverts YAML changes": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251677,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 465,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1021,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 396
+                }
+            },
+            "compose-save-env.spec.ts > Compose — Save .env File > save persists .env file changes": {
+                "serverFrameCount": 23,
+                "serverTotalBytes": 501715,
+                "clientFrameCount": 9,
+                "clientTotalBytes": 1047,
+                "serverEventCounts": {
+                    "info": 2,
+                    "ack": 9,
+                    "updates": 2,
+                    "stacks": 2,
+                    "volumes": 2,
+                    "images": 2,
+                    "networks": 2,
+                    "containers": 2
+                },
+                "serverEventBytes": {
+                    "info": 194,
+                    "ack": 1195,
+                    "updates": 180,
+                    "stacks": 71870,
+                    "volumes": 31888,
+                    "images": 13246,
+                    "networks": 83644,
+                    "containers": 299498
+                }
+            },
+            "compose-unmanaged-urls.spec.ts > Compose — Unmanaged Stack Banner > shows unmanaged banner on 10-unmanaged": {
+                "serverFrameCount": 11,
+                "serverTotalBytes": 250929,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 375,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 105,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 564
+                }
+            },
+            "compose-unmanaged-urls.spec.ts > Compose — Unmanaged Stack Banner > unmanaged stack does not show Edit button": {
+                "serverFrameCount": 11,
+                "serverTotalBytes": 250929,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 375,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 105,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 564
+                }
+            },
+            "compose-unmanaged-urls.spec.ts > Compose — Unmanaged Stack Banner > screenshot: unmanaged stack banner": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251453,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 375,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 105,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 1088
+                }
+            },
+            "compose-unmanaged-urls.spec.ts > Compose — URL Display > shows URL badges on stack with URL labels": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 254129,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 438,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 2882,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 987
+                }
+            },
+            "compose-unmanaged-urls.spec.ts > Compose — URL Display > screenshot: compose view with URLs": {
+                "serverFrameCount": 18,
+                "serverTotalBytes": 256263,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 438,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "stacks": 1,
+                    "containers": 1,
+                    "volumes": 1,
+                    "terminalWrite": 7
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 2882,
+                    "updates": 90,
+                    "images": 6623,
+                    "networks": 41822,
+                    "stacks": 35935,
+                    "containers": 149749,
+                    "volumes": 15944,
+                    "terminalWrite": 3121
+                }
+            },
+            "compose.spec.ts > Compose View — Running Stack > displays stack view UI elements": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 252238,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1554,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "compose.spec.ts > Compose View — Running Stack > screenshot: compose view running stack": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 252238,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1554,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "compose.spec.ts > Compose Edit Mode > edit mode shows deploy/save/discard and editor class": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 252238,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1554,
+                    "updates": 90,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "compose.spec.ts > Compose Edit Mode > screenshot: compose edit mode": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 252238,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1554,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "images": 6623,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "console.spec.ts > Console Page > displays console UI elements": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 250606,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 394,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 138,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 208
+                }
+            },
+            "console.spec.ts > Console Page > screenshot: console page": {
+                "serverFrameCount": 11,
+                "serverTotalBytes": 250558,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 394,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 298,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "container-card-delete.spec.ts > Container Card — Delete Service > deleting a container card removes the service from YAML": {
+                "serverFrameCount": 11,
+                "serverTotalBytes": 250843,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 417,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 583,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > change image name updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > set restart policy updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > add port updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > add environment variable updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > add container dependency updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > add URL updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > toggle ignore status and image updates check updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > set changelog URL updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > toggle external network updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-card-edit.spec.ts > Container Card Editing > add network via sidebar and container card updates YAML": {
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251996,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 432,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 764,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 972
+                }
+            },
+            "container-details.spec.ts > Container Inspect > displays inspect UI elements": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 311287,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 477,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 61027,
+                    "updates": 90,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "container-details.spec.ts > Container Inspect > raw toggle shows CodeMirror editor": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 311287,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 477,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 61027,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "container-details.spec.ts > Container Inspect > screenshot: container inspect": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 311287,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 477,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 61027,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749
+                }
+            },
+            "container-details.spec.ts > Container Log > displays log UI elements": {
+                "serverFrameCount": 16,
+                "serverTotalBytes": 251637,
+                "clientFrameCount": 8,
+                "clientTotalBytes": 697,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 8,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 953,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "container-details.spec.ts > Container Log > screenshot: container log": {
+                "serverFrameCount": 17,
+                "serverTotalBytes": 251974,
+                "clientFrameCount": 8,
+                "clientTotalBytes": 697,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 8,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 953,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 761
+                }
+            },
+            "container-details.spec.ts > Container Log Lifecycle Banners > shows shutdown logs, stop banner, start banner, and startup logs": {
+                "serverFrameCount": 40,
+                "serverTotalBytes": 555672,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 691,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 3,
+                    "terminalWrite": 24
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1034,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 449246,
+                    "terminalWrite": 4881
+                }
+            },
+            "container-details.spec.ts > Container Log Lifecycle Banners > restart triggers banners and logs": {
+                "serverFrameCount": 23,
+                "serverTotalBytes": 254506,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 557,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 11
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 2310,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 1936
+                }
+            },
+            "container-details.spec.ts > Container Log Lifecycle Banners > recreate triggers banners and logs": {
+                "serverFrameCount": 30,
+                "serverTotalBytes": 254986,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 558,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 18
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 975,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 3751
+                }
+            },
+            "container-details.spec.ts > Container Log Lifecycle Banners > update triggers banners and logs": {
+                "serverFrameCount": 37,
+                "serverTotalBytes": 257806,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 624,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 24
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 2822,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 4724
+                }
+            },
+            "container-details.spec.ts > Container Terminal > displays terminal UI elements": {
+                "serverFrameCount": 10,
+                "serverTotalBytes": 250536,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 399,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 276,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "container-details.spec.ts > Container Terminal > screenshot: container terminal": {
+                "serverFrameCount": 10,
+                "serverTotalBytes": 250536,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 399,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 276,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "container-metrics.spec.ts > Container Metrics > displays CPU, Memory, Block I/O, and Network I/O metrics": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 311287,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 477,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 61027,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Stacks to Logs > log button navigates to Logs tab with container selected": {
+                "serverFrameCount": 17,
+                "serverTotalBytes": 251974,
+                "clientFrameCount": 8,
+                "clientTotalBytes": 697,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 8,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 953,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 761
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Stacks to Logs > screenshot: stacks to logs": {
+                "serverFrameCount": 17,
+                "serverTotalBytes": 251974,
+                "clientFrameCount": 8,
+                "clientTotalBytes": 697,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 8,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 953,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 761
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Stacks to Containers > inspect button navigates to Containers tab with container selected": {
+                "serverFrameCount": 17,
+                "serverTotalBytes": 257237,
+                "clientFrameCount": 9,
+                "clientTotalBytes": 721,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 9,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 6553,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Stacks to Containers > screenshot: stacks to containers": {
+                "serverFrameCount": 17,
+                "serverTotalBytes": 257237,
+                "clientFrameCount": 9,
+                "clientTotalBytes": 721,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 9,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 6553,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Stacks to Shell > shell button navigates to Shell tab with container selected": {
+                "serverFrameCount": 17,
+                "serverTotalBytes": 251867,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 635,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 3
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 902,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 705
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Stacks to Shell > screenshot: stacks to shell": {
+                "serverFrameCount": 15,
+                "serverTotalBytes": 251705,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 635,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1021,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Sidebar switching > clicking a different container in the sidebar switches the detail view": {
+                "serverFrameCount": 15,
+                "serverTotalBytes": 250846,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 705,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 249,
+                    "updates": 90,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 337
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Sidebar switching > clicking a different container on containers tab switches inspect view": {
+                "serverFrameCount": 16,
+                "serverTotalBytes": 316826,
+                "clientFrameCount": 9,
+                "clientTotalBytes": 716,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 9,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 66566,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Sidebar switching > screenshot: sidebar switch": {
+                "serverFrameCount": 16,
+                "serverTotalBytes": 251030,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 705,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 249,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 521
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Tab switching preserves selection > switching from Containers to Logs preserves container selection": {
+                "serverFrameCount": 15,
+                "serverTotalBytes": 311196,
+                "clientFrameCount": 8,
+                "clientTotalBytes": 684,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 8,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 60936,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Tab switching preserves selection > switching from Logs to Shell preserves container selection": {
+                "serverFrameCount": 14,
+                "serverTotalBytes": 251073,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 628,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 6,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 198,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 615
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Tab switching preserves selection > switching from Shell to Containers preserves container selection": {
+                "serverFrameCount": 14,
+                "serverTotalBytes": 256163,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 622,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 5903,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Tab switching preserves selection > clicking the same tab clears selection and goes to home view": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251007,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 466,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 132,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 615
+                }
+            },
+            "container-tabs.spec.ts > Container Tabs — Tab switching preserves selection > screenshot: tab switching preserves selection": {
+                "serverFrameCount": 16,
+                "serverTotalBytes": 311811,
+                "clientFrameCount": 8,
+                "clientTotalBytes": 674,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 8,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 60936,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 615
+                }
+            },
+            "dashboard.spec.ts > Dashboard Home > displays dashboard UI elements": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "dashboard.spec.ts > Dashboard Home > screenshot: dashboard home": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "dashboard.spec.ts > Header Navigation > displays header nav elements": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "dashboard.spec.ts > Header Navigation > profile dropdown shows expected items": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "dashboard.spec.ts > Header Navigation > clicking Compose link in sidebar navigates to /stacks/new": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "dashboard.spec.ts > Header Navigation > Settings link navigates to /settings": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749
+                }
+            },
+            "dashboard.spec.ts > Header Navigation > screenshot: profile dropdown": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "docker-run-converter.spec.ts > Docker Run → Compose Converter > converts a docker run command to compose YAML": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "docker-run-converter.spec.ts > Docker Run → Compose Converter > shows error for empty docker run command": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "volumes": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "volumes": 15944
+                }
+            },
+            "fullscreen-editor.spec.ts > Fullscreen Editor Modals > compose YAML fullscreen modal opens and shows editor": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "fullscreen-editor.spec.ts > Fullscreen Editor Modals > compose YAML fullscreen modal closes and preserves content": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "fullscreen-editor.spec.ts > Fullscreen Editor Modals > .env fullscreen modal opens and shows editor": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "images.spec.ts > Images — List > displays image list with items": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "images.spec.ts > Images — List > empty state shows no-image-selected message": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "images.spec.ts > Images — List > search filters image list": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "images.spec.ts > Images — List > filter by in use status": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "images.spec.ts > Images — List > filter by dangling status": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "images.spec.ts > Images — Detail > displays image detail view with overview fields": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 251136,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 303,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 876,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "images.spec.ts > Images — Detail > image detail shows layers section": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 251136,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 303,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 876,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "images.spec.ts > Images — Detail > image detail shows containers section": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 251136,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 303,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 876,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "images.spec.ts > Images — Detail > screenshot: image detail": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 251136,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 303,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 876,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "login.spec.ts > Login Page > displays login form with username, password, and Login button": {
+                "serverFrameCount": 2,
+                "serverTotalBytes": 124,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 48,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27
+                }
+            },
+            "login.spec.ts > Login Page > shows error on invalid credentials": {
+                "serverFrameCount": 3,
+                "serverTotalBytes": 194,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 158,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 97
+                }
+            },
+            "login.spec.ts > Login Page > logs in successfully with valid credentials": {
+                "serverFrameCount": 4,
+                "serverTotalBytes": 457,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 156,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 270,
+                    "updates": 90
+                }
+            },
+            "login.spec.ts > Login Page > screenshot: login form": {
+                "serverFrameCount": 2,
+                "serverTotalBytes": 124,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 48,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27
+                }
+            },
+            "mobile-viewport.spec.ts > Mobile Viewport > dashboard hides sidebar and header nav on mobile": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "mobile-viewport.spec.ts > Mobile Viewport > compose page works on mobile": {
+                "serverFrameCount": 11,
+                "serverTotalBytes": 251069,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "mobile-viewport.spec.ts > Mobile Viewport > settings page accessible on mobile": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "networks.spec.ts > Networks — List > displays network list with expected networks": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "networks.spec.ts > Networks — List > empty state shows no-network-selected message": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749
+                }
+            },
+            "networks.spec.ts > Networks — List > search filters network list": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "networks.spec.ts > Networks — List > filter by in use status": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "networks.spec.ts > Networks — Detail > displays network detail view": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 251324,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 299,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1064,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "networks.spec.ts > Networks — Detail > network detail shows connected containers section": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250626,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 298,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 366,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "networks.spec.ts > Networks — Detail > screenshot: network detail": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 251324,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 299,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1064,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "perf.spec.ts > Performance > stack list populates within 1 second": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "containers": 1,
+                    "images": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "containers": 149749,
+                    "images": 6623
+                }
+            },
+            "perf.spec.ts > Performance > navigating to a stack loads within 1 second": {
+                "serverFrameCount": 20,
+                "serverTotalBytes": 501780,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 668,
+                "serverEventCounts": {
+                    "info": 2,
+                    "ack": 5,
+                    "updates": 2,
+                    "stacks": 2,
+                    "networks": 2,
+                    "volumes": 2,
+                    "images": 2,
+                    "containers": 2,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 194,
+                    "ack": 836,
+                    "updates": 180,
+                    "stacks": 71870,
+                    "networks": 83644,
+                    "volumes": 31888,
+                    "images": 13246,
+                    "containers": 299498,
+                    "terminalWrite": 424
+                }
+            },
+            "settings.spec.ts > Settings — General > displays settings UI elements": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — General > screenshot: settings general": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Appearance > displays appearance UI elements": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Appearance > theme switching works": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Appearance > screenshot: appearance settings": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Appearance > screenshot: light theme": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Appearance > screenshot: dark theme": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Security > displays security UI elements": {
+                "serverFrameCount": 10,
+                "serverTotalBytes": 250441,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 328,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 181,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Security > screenshot: settings security": {
+                "serverFrameCount": 10,
+                "serverTotalBytes": 250441,
+                "clientFrameCount": 3,
+                "clientTotalBytes": 328,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 3,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 181,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Global .env > displays global env UI elements": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "containers": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "containers": 149749,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822
+                }
+            },
+            "settings.spec.ts > Settings — Global .env > screenshot: settings global env": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250399,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 139,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — Global .env > saves and persists global env content": {
+                "serverFrameCount": 20,
+                "serverTotalBytes": 501109,
+                "clientFrameCount": 6,
+                "clientTotalBytes": 817,
+                "serverEventCounts": {
+                    "info": 2,
+                    "ack": 6,
+                    "updates": 2,
+                    "stacks": 2,
+                    "volumes": 2,
+                    "networks": 2,
+                    "images": 2,
+                    "containers": 2
+                },
+                "serverEventBytes": {
+                    "info": 194,
+                    "ack": 589,
+                    "updates": 180,
+                    "stacks": 71870,
+                    "volumes": 31888,
+                    "networks": 83644,
+                    "images": 13246,
+                    "containers": 299498
+                }
+            },
+            "settings.spec.ts > Settings — About > displays about UI elements": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250478,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 218,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "settings.spec.ts > Settings — About > screenshot: settings about": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250478,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 288,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 218,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "stack-data-verification.spec.ts > Stack data verification > stack list and detail pages match compose/mock data": {
+                "serverFrameCount": 126,
+                "serverTotalBytes": 2521252,
+                "clientFrameCount": 71,
+                "clientTotalBytes": 6336,
+                "serverEventCounts": {
+                    "info": 10,
+                    "ack": 37,
+                    "updates": 10,
+                    "stacks": 10,
+                    "networks": 10,
+                    "images": 10,
+                    "volumes": 10,
+                    "containers": 10,
+                    "terminalWrite": 19
+                },
+                "serverEventBytes": {
+                    "info": 970,
+                    "ack": 9876,
+                    "updates": 900,
+                    "stacks": 359350,
+                    "networks": 418220,
+                    "images": 66230,
+                    "volumes": 159440,
+                    "containers": 1497490,
+                    "terminalWrite": 8776
+                }
+            },
+            "stack-data-verification.spec.ts > Stack data verification > global resource tabs match compose/mock data": {
+                "serverFrameCount": 35,
+                "serverTotalBytes": 1003005,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 1179,
+                "serverEventCounts": {
+                    "info": 4,
+                    "ack": 7,
+                    "updates": 4,
+                    "stacks": 4,
+                    "volumes": 4,
+                    "networks": 4,
+                    "images": 4,
+                    "containers": 4
+                },
+                "serverEventBytes": {
+                    "info": 388,
+                    "ack": 1965,
+                    "updates": 360,
+                    "stacks": 143740,
+                    "volumes": 63776,
+                    "networks": 167288,
+                    "images": 26492,
+                    "containers": 598996
+                }
+            },
+            "stack-list-filter.spec.ts > Stack List — Search > search filters stacks by name": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "stack-list-filter.spec.ts > Stack List — Search > clearing search restores full list": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "stack-list-filter.spec.ts > Stack List — Search > search with no matches shows empty state": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "stack-list-filter.spec.ts > Stack List — Filter by Status > filter by exited status shows only exited stacks": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "stack-list-filter.spec.ts > Stack List — Filter by Status > filter by active status shows only running stacks": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "stack-list-filter.spec.ts > Stack List — Filter by Status > clear filter restores full list": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "stack-list-filter.spec.ts > Stack List — Filter by Attributes > filter by unmanaged attribute shows unmanaged stacks": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "stack-list-filter.spec.ts > Stack List — URL Query Sync > navigating with query params pre-fills search and filter": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "unmanaged-actions.spec.ts > Unmanaged Stack — Stacks Tab > stop then start cache service": {
+                "serverFrameCount": 47,
+                "serverTotalBytes": 557419,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 626,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 3,
+                    "terminalWrite": 31
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1019,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 449246,
+                    "terminalWrite": 6643
+                }
+            },
+            "unmanaged-actions.spec.ts > Unmanaged Stack — Stacks Tab > restart web service": {
+                "serverFrameCount": 19,
+                "serverTotalBytes": 256335,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 501,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 7
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 4245,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 1830
+                }
+            },
+            "unmanaged-actions.spec.ts > Unmanaged Stack — Stacks Tab > recreate web service": {
+                "serverFrameCount": 18,
+                "serverTotalBytes": 253737,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 502,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 6
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 1707,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 1770
+                }
+            },
+            "unmanaged-actions.spec.ts > Unmanaged Stack — Containers Tab > stop web from container page": {
+                "serverFrameCount": 18,
+                "serverTotalBytes": 313676,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 602,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 4
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 62749,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 667
+                }
+            },
+            "unmanaged-actions.spec.ts > Unmanaged Stack — Containers Tab > restart cache from container page": {
+                "serverFrameCount": 20,
+                "serverTotalBytes": 313295,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 611,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 6
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 62226,
+                    "updates": 90,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "containers": 149748,
+                    "terminalWrite": 810
+                }
+            },
+            "unmanaged-actions.spec.ts > Standalone Containers — Containers Tab > stop portainer": {
+                "serverFrameCount": 18,
+                "serverTotalBytes": 461114,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 575,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 2,
+                    "terminalWrite": 3
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 60875,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 299497,
+                    "terminalWrite": 231
+                }
+            },
+            "unmanaged-actions.spec.ts > Standalone Containers — Containers Tab > start homeassistant": {
+                "serverFrameCount": 18,
+                "serverTotalBytes": 461034,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 596,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 2,
+                    "terminalWrite": 3
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 60774,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 299497,
+                    "terminalWrite": 252
+                }
+            },
+            "unmanaged-actions.spec.ts > Standalone Containers — Containers Tab > restart watchtower": {
+                "serverFrameCount": 17,
+                "serverTotalBytes": 311396,
+                "clientFrameCount": 7,
+                "clientTotalBytes": 583,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 7,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 3
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 60897,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 239
+                }
+            },
+            "unmanaged-actions.spec.ts > Standalone Containers — Containers Tab > no recreate or update buttons": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 311110,
+                "clientFrameCount": 5,
+                "clientTotalBytes": 460,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 5,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 60850,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
+                }
+            },
+            "volumes.spec.ts > Volumes — List > displays volume list with volumes": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "volumes.spec.ts > Volumes — List > empty state shows no-volume-selected message": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "volumes.spec.ts > Volumes — List > search filters volume list": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "volumes.spec.ts > Volumes — List > filter by in use status": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "volumes.spec.ts > Volumes — Detail > displays volume detail view with overview fields": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250489,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 310,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 229,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749
+                }
+            },
+            "volumes.spec.ts > Volumes — Detail > volume detail shows containers section": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250489,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 310,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 229,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "volumes.spec.ts > Volumes — Detail > screenshot: volume detail": {
+                "serverFrameCount": 9,
+                "serverTotalBytes": 250489,
+                "clientFrameCount": 2,
+                "clientTotalBytes": 310,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 2,
+                    "updates": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "containers": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 229,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "containers": 149749
+                }
+            },
+            "yaml-editor-indent.spec.ts > YAML Editor — Indentation > auto-indents 2 spaces after a mapping key (services:)": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "yaml-editor-indent.spec.ts > YAML Editor — Indentation > auto-indents 2 deeper after a nested mapping key (nginx:)": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "yaml-editor-indent.spec.ts > YAML Editor — Indentation > maintains indent level after a value line (image: nginx:latest)": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "yaml-editor-indent.spec.ts > YAML Editor — Indentation > auto-indents after a list parent key (ports:)": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "yaml-editor-indent.spec.ts > YAML Editor — Indentation > maintains indent after a list item (- 8080:80)": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "yaml-editor-indent.spec.ts > YAML Editor — Indentation > Tab key indents by 2 spaces": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "yaml-editor-indent.spec.ts > YAML Editor — Indentation > Shift+Tab dedents by 2 spaces": {
+                "serverFrameCount": 12,
+                "serverTotalBytes": 251493,
+                "clientFrameCount": 4,
+                "clientTotalBytes": 420,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 4,
+                    "updates": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1,
+                    "terminalWrite": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 809,
+                    "updates": 90,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
+                    "terminalWrite": 424
+                }
+            },
+            "z-change-password-success.spec.ts > Change Password — Success > successfully changes password and can log in with new one": {
+                "serverFrameCount": 38,
+                "serverTotalBytes": 602301,
+                "clientFrameCount": 17,
+                "clientTotalBytes": 1778,
+                "serverEventCounts": {
+                    "info": 4,
+                    "ack": 15,
+                    "updates": 3,
+                    "stacks": 3,
+                    "volumes": 3,
+                    "networks": 3,
+                    "images": 3,
+                    "containers": 2,
+                    "refresh": 2
+                },
+                "serverEventBytes": {
+                    "info": 388,
+                    "ack": 1111,
+                    "updates": 270,
+                    "stacks": 107805,
+                    "volumes": 47832,
+                    "networks": 125466,
+                    "images": 19869,
+                    "containers": 299498,
+                    "refresh": 62
+                }
+            }
+        },
+        "totalServerFrames": 2256,
+        "totalServerBytes": 44554424
+    }
+}

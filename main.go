@@ -101,6 +101,24 @@ func main() {
 		mux.HandleFunc("/debug/pprof/symbol", pprofSymbol)
 		mux.HandleFunc("/debug/pprof/trace", pprofTrace)
 		slog.Info("pprof enabled at /debug/pprof/")
+
+		mux.HandleFunc("GET /api/debug/memstats", func(w http.ResponseWriter, _ *http.Request) {
+			runtime.GC()
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"heapAlloc":  m.HeapAlloc,
+				"heapInuse":  m.HeapInuse,
+				"heapSys":    m.HeapSys,
+				"stackInuse": m.StackInuse,
+				"sys":        m.Sys,
+				"numGC":      m.NumGC,
+				"totalAlloc": m.TotalAlloc,
+				"goroutines": runtime.NumGoroutine(),
+				"timestamp":  time.Now().UnixMilli(),
+			})
+		})
 	}
 
 	// Frontend SPA handler
