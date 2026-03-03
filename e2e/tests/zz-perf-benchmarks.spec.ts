@@ -1,20 +1,26 @@
+import { writeFileSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { test, expect } from "../fixtures/auth.fixture";
 import { PerfCollector, PerfResults, ComparisonResult } from "../helpers/perf-collector";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPDATE_MODE = !!process.env.UPDATE_BENCHMARKS;
+const REPORT_PATH = join(__dirname, "..", "test-results", "benchmark-report.txt");
 
 test.describe("Performance Benchmarks", () => {
     test("memory and socket metrics within baseline tolerances", async ({ perfCollector }) => {
         const results = await perfCollector.getResults();
         const baseline = PerfCollector.loadBaseline();
+        const report = new ReportBuilder();
 
         // First run or update mode: write golden file and pass
         if (!baseline || UPDATE_MODE) {
             PerfCollector.saveBaseline(results);
             const action = baseline ? "Updated" : "Created initial";
-            // eslint-disable-next-line no-console
-            console.log(`${action} performance baseline at ${PerfCollector.GOLDEN_PATH}`);
-            logSummary(results);
+            report.line(`${action} performance baseline at ${PerfCollector.GOLDEN_PATH}`);
+            buildSummary(report, results);
+            report.flush();
             return;
         }
 
@@ -22,23 +28,20 @@ test.describe("Performance Benchmarks", () => {
         const comparisons = PerfCollector.compare(results, baseline);
         const failures = comparisons.filter((c) => !c.passed);
 
-        // Log all comparisons for visibility
-        // eslint-disable-next-line no-console
-        console.log("\n=== Performance Benchmark Results ===\n");
+        report.line("\n=== Performance Benchmark Results ===\n");
         for (const c of comparisons) {
-            // eslint-disable-next-line no-console
-            console.log(`  ${c.passed ? "PASS" : "FAIL"} ${c.message}`);
+            report.line(`  ${c.passed ? "PASS" : "FAIL"} ${c.message}`);
         }
 
         if (failures.length > 0) {
-            // eslint-disable-next-line no-console
-            console.log(
+            report.line(
                 `\nTo update baselines: UPDATE_BENCHMARKS=1 task test-e2e\n` +
                 `Or: task update-benchmarks\n`
             );
         }
 
-        logSummary(results);
+        buildSummary(report, results);
+        report.flush();
 
         expect(
             failures.length,
@@ -47,39 +50,53 @@ test.describe("Performance Benchmarks", () => {
     });
 });
 
-function logSummary(results: PerfResults): void {
-    const log = (msg: string) => console.log(msg); // eslint-disable-line no-console
+/** Collects report lines, logs to stdout, and writes to file. */
+class ReportBuilder {
+    private lines: string[] = [];
 
-    log("\n=== Performance Summary ===");
-    log("");
-    log("  Memory");
-    log(`    Samples:              ${results.memory.sampleCount}`);
-    log(`    Peak heap:            ${formatBytes(results.memory.peak.heapAlloc)}`);
-    log(`    Avg heap:             ${formatBytes(results.memory.avgHeapAlloc)}`);
-    log(`    Final heap:           ${formatBytes(results.memory.final.heapAlloc)}`);
-    log(`    Peak goroutines:      ${results.memory.peak.goroutines}`);
-    log(`    Cumulative alloc:     ${formatBytes(results.memory.totalAllocDelta)} (total bytes allocated during run)`);
-    log(`    GC cycles:            ${results.memory.gcCyclesDelta}`);
+    line(msg: string): void {
+        console.log(msg); // eslint-disable-line no-console
+        this.lines.push(msg);
+    }
 
-    log("");
-    log("  WebSocket");
-    log(`    Total server frames:  ${results.socket.totalServerFrames}`);
-    log(`    Total server bytes:   ${formatBytes(results.socket.totalServerBytes)}`);
-    log(`    Tests tracked:        ${Object.keys(results.socket.perTest).length}`);
+    flush(): void {
+        const dir = dirname(REPORT_PATH);
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(REPORT_PATH, this.lines.join("\n") + "\n");
+    }
+}
 
-    log("");
-    log("  Initial Load (first connection)");
+function buildSummary(report: ReportBuilder, results: PerfResults): void {
+    report.line("\n=== Performance Summary ===");
+    report.line("");
+    report.line("  Memory");
+    report.line(`    Samples:              ${results.memory.sampleCount}`);
+    report.line(`    Peak heap:            ${formatBytes(results.memory.peak.heapAlloc)}`);
+    report.line(`    Avg heap:             ${formatBytes(results.memory.avgHeapAlloc)}`);
+    report.line(`    Final heap:           ${formatBytes(results.memory.final.heapAlloc)}`);
+    report.line(`    Peak goroutines:      ${results.memory.peak.goroutines}`);
+    report.line(`    Cumulative alloc:     ${formatBytes(results.memory.totalAllocDelta)} (total bytes allocated during run)`);
+    report.line(`    GC cycles:            ${results.memory.gcCyclesDelta}`);
+
+    report.line("");
+    report.line("  WebSocket");
+    report.line(`    Total server frames:  ${results.socket.totalServerFrames}`);
+    report.line(`    Total server bytes:   ${formatBytes(results.socket.totalServerBytes)}`);
+    report.line(`    Tests tracked:        ${Object.keys(results.socket.perTest).length}`);
+
+    report.line("");
+    report.line("  Initial Load (first connection)");
     const channels = Object.entries(results.socket.initialLoad)
         .filter(([ch]) => ch !== "total")
         .sort(([, a], [, b]) => b.bytes - a.bytes);
     for (const [channel, data] of channels) {
         const name = (channel + ":").padEnd(16);
-        log(`    ${name}${formatBytes(data.bytes).padStart(10)}  (${data.count} frame)`);
+        report.line(`    ${name}${formatBytes(data.bytes).padStart(10)}  (${data.count} frame)`);
     }
     const total = results.socket.initialLoad["total"];
     if (total) {
-        log(`    ${"─".repeat(28)}`);
-        log(`    ${"total:".padEnd(16)}${formatBytes(total.bytes).padStart(10)}  (${total.count} frames)`);
+        report.line(`    ${"─".repeat(28)}`);
+        report.line(`    ${"total:".padEnd(16)}${formatBytes(total.bytes).padStart(10)}  (${total.count} frames)`);
     }
 }
 
