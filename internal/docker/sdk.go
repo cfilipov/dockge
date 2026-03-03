@@ -699,6 +699,15 @@ func (s *SDKClient) Events(ctx context.Context) (<-chan DockerEvent, <-chan erro
     return out, outErr
 }
 
+// CloseIdleConnections closes idle HTTP connections to the Docker daemon.
+// Called periodically when no clients are connected to reclaim memory held
+// by idle keep-alive connections in the transport pool.
+func (s *SDKClient) CloseIdleConnections() {
+	if t, ok := s.cli.HTTPClient().Transport.(interface{ CloseIdleConnections() }); ok {
+		t.CloseIdleConnections()
+	}
+}
+
 func (s *SDKClient) Close() error {
     return s.cli.Close()
 }

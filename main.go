@@ -226,21 +226,21 @@ func main() {
 	}
 
 	// Clean up terminal writers when a connection disconnects.
-	// If the disconnecting client was authenticated and no others remain,
-	// schedule watcher teardown after grace period.
 	wss.OnDisconnect(func(c *ws.Conn) {
 		terms.RemoveWriterFromAll(c.ID())
-		if c.UserID() != 0 && !wss.HasAuthenticatedConns() {
-			app.ScheduleWatcherStop()
-		}
 	})
 
 	// Start background tasks
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize broadcast infrastructure (stores parent context for lazy watcher start)
-	app.InitBroadcast(ctx)
+	// Set GOMEMLIMIT to cap heap size unless the user overrides via env.
+	if os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(32 << 20) // 32 MiB
+	}
+
+	// Initialize broadcast infrastructure (debouncer, event bus, hash state)
+	app.InitBroadcast()
 
 	// Start compose file watcher (fsnotify) — triggers broadcast on file changes
 	if err := compose.StartWatcher(ctx, cfg.StacksDir, func(stackName string) {
@@ -249,13 +249,16 @@ func main() {
 		slog.Warn("compose file watcher failed to start", "err", err)
 	}
 
-	// NOTE: StartBroadcastWatcher is NOT called here — the watcher starts
-	// lazily when the first client authenticates (via EnsureWatcherRunning).
+	// Start the broadcast watcher at boot — it runs forever. Individual
+	// broadcast functions skip Docker API calls when no clients are connected.
+	app.StartBroadcastWatcher(ctx)
 	app.StartImageUpdateChecker(ctx)
 
 	// Periodically return unused memory to the OS. Go's runtime retains
 	// freed heap pages as RSS for future allocations; this nudges it to
 	// release them sooner, keeping steady-state RSS lower.
+	// When no clients are connected, also close idle Docker HTTP connections
+	// and log memory diagnostics.
 	go func() {
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
@@ -264,6 +267,18 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				if !wss.HasAuthenticatedConns() {
+					dockerClient.CloseIdleConnections()
+					var m runtime.MemStats
+					runtime.ReadMemStats(&m)
+					slog.Debug("idle memory stats",
+						"heapAlloc", formatBytes(m.HeapAlloc),
+						"heapInuse", formatBytes(m.HeapInuse),
+						"heapIdle", formatBytes(m.HeapIdle),
+						"heapReleased", formatBytes(m.HeapReleased),
+						"sys", formatBytes(m.Sys),
+					)
+				}
 				debug.FreeOSMemory()
 			}
 		}
@@ -422,4 +437,18 @@ type gzipResponseWriter struct {
 
 func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
+}
+
+// formatBytes formats a byte count as a human-readable string for log output.
+func formatBytes(b uint64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%dB", b)
+	}
+	div, exp := uint64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }

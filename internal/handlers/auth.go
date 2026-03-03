@@ -324,9 +324,6 @@ func (app *App) handleTwoFAStatus(c *ws.Conn, msg *ws.ClientMessage) {
 // All 6 broadcast channels fire as independent goroutines — each sends to the
 // connection as soon as its data is ready, with no channel waiting on any other.
 func (app *App) AfterLogin(c *ws.Conn) {
-    // Ensure the Docker events watcher is running (lazy start on first client).
-    app.EnsureWatcherRunning()
-
     // NOTE: Do NOT send "info" here — it's already sent on connect (before auth).
     // Sending it again is redundant.
 

@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -62,15 +61,6 @@ func (d *channelDebouncer) trigger(channel string, fn func()) {
 		t.Stop()
 	}
 	d.timers[channel] = time.AfterFunc(200*time.Millisecond, fn)
-}
-
-// stop cancels all pending timers.
-func (d *channelDebouncer) stop() {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	for _, t := range d.timers {
-		t.Stop()
-	}
 }
 
 // broadcastState holds per-channel FNV hashes for deduplication.
@@ -130,12 +120,18 @@ func sendToConn(c *ws.Conn, channel string, data any) {
 
 // broadcastStacks scans the stacks directory and broadcasts compose file metadata.
 func (app *App) broadcastStacks() {
+	if !app.WS.HasAuthenticatedConns() {
+		return
+	}
 	entries := buildStackBroadcast(app.StacksDir)
 	app.bcastState.broadcastIfChanged(app.WS, chanStacks, entries)
 }
 
 // broadcastContainers queries Docker for all containers and broadcasts enriched data.
 func (app *App) broadcastContainers() {
+	if !app.WS.HasAuthenticatedConns() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -149,6 +145,9 @@ func (app *App) broadcastContainers() {
 
 // broadcastNetworks queries Docker for all networks and broadcasts.
 func (app *App) broadcastNetworks() {
+	if !app.WS.HasAuthenticatedConns() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -162,6 +161,9 @@ func (app *App) broadcastNetworks() {
 
 // broadcastImages queries Docker for all images and broadcasts.
 func (app *App) broadcastImages() {
+	if !app.WS.HasAuthenticatedConns() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -175,6 +177,9 @@ func (app *App) broadcastImages() {
 
 // broadcastVolumes queries Docker for all volumes and broadcasts.
 func (app *App) broadcastVolumes() {
+	if !app.WS.HasAuthenticatedConns() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -257,135 +262,31 @@ func buildStackBroadcast(stacksDir string) []StackBroadcastEntry {
 	return result
 }
 
-// InitBroadcast initializes the broadcast state. Must be called before
-// StartBroadcastWatcher or any broadcast trigger methods. The context is
-// stored for creating child contexts when the watcher starts lazily.
-func (app *App) InitBroadcast(ctx context.Context) {
-	app.parentCtx = ctx
+// InitBroadcast initializes the broadcast state and debouncer. Must be called
+// before StartBroadcastWatcher or any broadcast trigger methods.
+func (app *App) InitBroadcast() {
 	app.bcastState = newBroadcastState()
+	app.debouncer = newChannelDebouncer()
 	app.EventBus = NewEventBus()
 }
 
 // StartBroadcastWatcher starts the event-driven broadcast system.
 // It subscribes to Docker events and dispatches to per-channel broadcast
-// functions via a debouncer. On error it retries with exponential backoff;
+// functions via the debouncer. On error it retries with exponential backoff;
 // after repeated failures it exits the process.
 //
-// The watcher goroutine clears watcherCancel on exit so EnsureWatcherRunning
-// knows the watcher is no longer running.
+// The watcher starts once at boot and never stops — client guards in
+// individual broadcast functions skip Docker API calls when no clients
+// are connected.
 func (app *App) StartBroadcastWatcher(ctx context.Context) {
-	debouncer := newChannelDebouncer()
-	app.debouncer = debouncer
-
-	// Initial broadcast of all channels
-	if app.WS.HasAuthenticatedConns() {
-		app.broadcastStacks()
-		app.broadcastContainers()
-		app.broadcastNetworks()
-		app.broadcastImages()
-		app.broadcastVolumes()
-		app.broadcastUpdates()
-	}
-
 	slog.Info("broadcast watcher started")
-
-	go func() {
-		app.runBroadcastWatcherLoop(ctx, debouncer)
-
-		// Goroutine exiting — clear state under lock so lifecycle methods
-		// know the watcher is no longer running.
-		app.watcherMu.Lock()
-		app.watcherCancel = nil
-		app.debouncer = nil
-		app.watcherMu.Unlock()
-	}()
-}
-
-// EnsureWatcherRunning starts the broadcast watcher if it isn't already running.
-// Called when a client authenticates to ensure Docker events are being watched.
-func (app *App) EnsureWatcherRunning() {
-	app.watcherMu.Lock()
-	defer app.watcherMu.Unlock()
-
-	// Cancel any pending idle timer
-	if app.idleTimer != nil {
-		app.idleTimer.Stop()
-		app.idleTimer = nil
-	}
-
-	// Already running — nothing to do
-	if app.watcherCancel != nil {
-		return
-	}
-
-	app.startWatcherLocked()
-}
-
-// ScheduleWatcherStop schedules the broadcast watcher to stop after a grace
-// period (60s). If a new client authenticates before the timer fires, the
-// timer is cancelled by EnsureWatcherRunning. This prevents thrashing on
-// page refreshes where the browser disconnects and reconnects within seconds.
-func (app *App) ScheduleWatcherStop() {
-	app.watcherMu.Lock()
-	defer app.watcherMu.Unlock()
-
-	if app.watcherCancel == nil {
-		return // not running
-	}
-
-	// Reset any existing timer
-	if app.idleTimer != nil {
-		app.idleTimer.Stop()
-	}
-
-	app.idleTimer = time.AfterFunc(60*time.Second, func() {
-		app.watcherMu.Lock()
-		defer app.watcherMu.Unlock()
-
-		app.idleTimer = nil
-
-		// Double-check: still no authenticated connections?
-		if app.WS.HasAuthenticatedConns() {
-			return
-		}
-
-		app.stopWatcherLocked()
-		slog.Info("broadcast watcher stopped (no clients)")
-		debug.FreeOSMemory()
-	})
-}
-
-// startWatcherLocked creates a child context and starts the broadcast watcher.
-// Must be called with watcherMu held.
-func (app *App) startWatcherLocked() {
-	ctx, cancel := context.WithCancel(app.parentCtx)
-	app.watcherCancel = cancel
-	app.StartBroadcastWatcher(ctx)
-}
-
-// stopWatcherLocked cancels the watcher context and clears broadcast state
-// so the next restart re-sends all data. Must be called with watcherMu held.
-func (app *App) stopWatcherLocked() {
-	if app.watcherCancel != nil {
-		app.watcherCancel()
-		app.watcherCancel = nil
-	}
-	if app.debouncer != nil {
-		app.debouncer.stop()
-		app.debouncer = nil
-	}
-	// Clear hashes so next watcher start re-broadcasts everything
-	app.bcastState.mu.Lock()
-	app.bcastState.lastHash = make(map[string]uint64)
-	app.bcastState.mu.Unlock()
+	go app.runBroadcastWatcherLoop(ctx)
 }
 
 // runBroadcastWatcherLoop subscribes to Docker events and dispatches to
 // per-channel broadcasters. On error or channel close, it retries with
 // exponential backoff up to maxRetries times, then exits the process.
-func (app *App) runBroadcastWatcherLoop(ctx context.Context, debouncer *channelDebouncer) {
-	defer debouncer.stop()
-
+func (app *App) runBroadcastWatcherLoop(ctx context.Context) {
 	const maxRetries = 5
 	failures := 0
 	backoff := 1 * time.Second
@@ -393,7 +294,7 @@ func (app *App) runBroadcastWatcherLoop(ctx context.Context, debouncer *channelD
 	for {
 		eventCh, errCh := app.Docker.Events(ctx)
 
-		err := app.consumeBroadcastEvents(ctx, eventCh, errCh, debouncer)
+		err := app.consumeBroadcastEvents(ctx, eventCh, errCh)
 		if ctx.Err() != nil {
 			return // clean shutdown
 		}
@@ -416,7 +317,7 @@ func (app *App) runBroadcastWatcherLoop(ctx context.Context, debouncer *channelD
 
 // consumeBroadcastEvents reads Docker events and dispatches to per-channel
 // broadcasters until the channel closes or errors.
-func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docker.DockerEvent, errCh <-chan error, debouncer *channelDebouncer) error {
+func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docker.DockerEvent, errCh <-chan error) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -438,13 +339,13 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 
 			switch evt.Type {
 			case "container":
-				debouncer.trigger(chanContainers, app.broadcastContainers)
+				app.debouncer.trigger(chanContainers, app.broadcastContainers)
 			case "network":
-				debouncer.trigger(chanNetworks, app.broadcastNetworks)
+				app.debouncer.trigger(chanNetworks, app.broadcastNetworks)
 			case "image":
-				debouncer.trigger(chanImages, app.broadcastImages)
+				app.debouncer.trigger(chanImages, app.broadcastImages)
 			case "volume":
-				debouncer.trigger(chanVolumes, app.broadcastVolumes)
+				app.debouncer.trigger(chanVolumes, app.broadcastVolumes)
 			}
 
 		case err, ok := <-errCh:
@@ -456,53 +357,32 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 	}
 }
 
-// getDebouncer returns the current debouncer under the watcher lock.
-// Returns nil if the watcher is not running.
-func (app *App) getDebouncer() *channelDebouncer {
-	app.watcherMu.Lock()
-	d := app.debouncer
-	app.watcherMu.Unlock()
-	return d
-}
-
 // TriggerStacksBroadcast triggers a debounced stacks broadcast (used by fsnotify watcher).
 func (app *App) TriggerStacksBroadcast() {
-	if d := app.getDebouncer(); d != nil {
-		d.trigger(chanStacks, app.broadcastStacks)
-	}
+	app.debouncer.trigger(chanStacks, app.broadcastStacks)
 }
 
 // TriggerContainersBroadcast triggers a debounced containers broadcast.
 func (app *App) TriggerContainersBroadcast() {
-	if d := app.getDebouncer(); d != nil {
-		d.trigger(chanContainers, app.broadcastContainers)
-	}
+	app.debouncer.trigger(chanContainers, app.broadcastContainers)
 }
 
 // TriggerNetworksBroadcast triggers a debounced networks broadcast.
 func (app *App) TriggerNetworksBroadcast() {
-	if d := app.getDebouncer(); d != nil {
-		d.trigger(chanNetworks, app.broadcastNetworks)
-	}
+	app.debouncer.trigger(chanNetworks, app.broadcastNetworks)
 }
 
 // TriggerImagesBroadcast triggers a debounced images broadcast.
 func (app *App) TriggerImagesBroadcast() {
-	if d := app.getDebouncer(); d != nil {
-		d.trigger(chanImages, app.broadcastImages)
-	}
+	app.debouncer.trigger(chanImages, app.broadcastImages)
 }
 
 // TriggerVolumesBroadcast triggers a debounced volumes broadcast.
 func (app *App) TriggerVolumesBroadcast() {
-	if d := app.getDebouncer(); d != nil {
-		d.trigger(chanVolumes, app.broadcastVolumes)
-	}
+	app.debouncer.trigger(chanVolumes, app.broadcastVolumes)
 }
 
 // TriggerUpdatesBroadcast triggers a debounced updates broadcast.
 func (app *App) TriggerUpdatesBroadcast() {
-	if d := app.getDebouncer(); d != nil {
-		d.trigger(chanUpdates, app.broadcastUpdates)
-	}
+	app.debouncer.trigger(chanUpdates, app.broadcastUpdates)
 }
