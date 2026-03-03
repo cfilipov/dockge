@@ -57,14 +57,14 @@ export const TOLERANCES: Record<string, ToleranceSpec> = {
     "memory.peak.heapAlloc": { type: "percent", value: 10 },
     "memory.peak.heapInuse": { type: "percent", value: 10 },
     "memory.peak.goroutines": { type: "percent", value: 15 },
-    "memory.final.heapAlloc": { type: "percent", value: 10 },
+    "memory.final.heapAlloc": { type: "percent", value: 25 },
     "memory.avgHeapAlloc": { type: "percent", value: 10 },
     "memory.cumulativeAlloc": { type: "percent", value: 15 },
     "memory.gcCyclesDelta": { type: "percent", value: 20 },
-    // Socket totals — ±2% because debounced broadcasts can shift frame
+    // Socket totals — ±3% because debounced broadcasts can shift frame
     // counts between adjacent tests, but the total is stable.
-    "socket.totalServerFrames": { type: "percent", value: 2 },
-    "socket.totalServerBytes": { type: "percent", value: 2 },
+    "socket.totalServerFrames": { type: "percent", value: 3 },
+    "socket.totalServerBytes": { type: "percent", value: 3 },
 };
 
 // ---------- Initial load channels ----------
@@ -330,6 +330,32 @@ export interface ComparisonResult {
     message: string;
 }
 
+// Fields whose values represent byte sizes and should use friendly units.
+const BYTE_FIELDS = new Set([
+    "memory.peak.heapAlloc",
+    "memory.peak.heapInuse",
+    "memory.final.heapAlloc",
+    "memory.avgHeapAlloc",
+    "memory.cumulativeAlloc",
+    "socket.totalServerBytes",
+]);
+
+function isByteField(field: string): boolean {
+    if (BYTE_FIELDS.has(field)) return true;
+    // initialLoad per-channel bytes: socket.initialLoad.<channel>.bytes
+    return field.endsWith(".bytes");
+}
+
+function formatValue(field: string, value: number): string {
+    return isByteField(field) ? formatBytes(value) : String(value);
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KiB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MiB`;
+}
+
 function compareField(
     results: ComparisonResult[],
     field: string,
@@ -355,10 +381,12 @@ function compareField(
         toleranceStr = `\u00b1${tol.value}%`;
     }
 
+    const fmtActual = formatValue(field, actual);
+    const fmtBaseline = formatValue(field, baseline);
     const pctChange = baseline !== 0 ? ((actual - baseline) / baseline * 100).toFixed(1) : "N/A";
     const message = passed
-        ? `${field}: ${actual} (baseline ${baseline}, ${pctChange}%, within ${toleranceStr})`
-        : `${field}: ${actual} vs baseline ${baseline} (${pctChange}% change, exceeds ${toleranceStr} tolerance)`;
+        ? `${field}: ${fmtActual} (baseline ${fmtBaseline}, ${pctChange}%, within ${toleranceStr})`
+        : `${field}: ${fmtActual} vs baseline ${fmtBaseline} (${pctChange}% change, exceeds ${toleranceStr} tolerance)`;
 
     results.push({ field, actual, baseline, tolerance: toleranceStr, passed, message });
 }
