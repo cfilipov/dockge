@@ -144,24 +144,24 @@
                                     <span class="badge rounded-pill bg-success me-2">{{ $t("networkInUse") }}</span>
                                     <router-link :to="{ name: 'networkDetail', params: { networkName: net.name } }" class="stack-link">{{ net.name }}</router-link>
                                 </h5>
-                                <div class="network-props">
-                                    <div class="network-chip">
+                                <div class="info-chips">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("networkIPv4") }}</span>
                                         <code>{{ net.ipv4 || '–' }}</code>
                                     </div>
-                                    <div class="network-chip">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("networkIPv6") }}</span>
                                         <code>{{ net.ipv6 || '–' }}</code>
                                     </div>
-                                    <div class="network-chip">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("networkMAC") }}</span>
                                         <code>{{ net.mac || '–' }}</code>
                                     </div>
-                                    <div class="network-chip">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("networkGateway") }}</span>
                                         <code>{{ net.gateway || '–' }}</code>
                                     </div>
-                                    <div class="network-chip">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("networkAliases") }}</span>
                                         <span v-if="net.aliases && net.aliases.length > 0">
                                             <template v-for="(alias, i) in net.aliases" :key="i"><code>{{ alias }}</code><span v-if="i < net.aliases.length - 1" class="chip-sep">, </span></template>
@@ -190,20 +190,20 @@
                                         {{ mount.Destination }}
                                     </template>
                                 </h5>
-                                <div class="network-props">
-                                    <div class="network-chip">
+                                <div class="info-chips">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("mountType") }}</span>
                                         <code>{{ mount.Type }}</code>
                                     </div>
-                                    <div class="network-chip">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("mountSource") }}</span>
                                         <code>{{ mount.Source || mount.Name || '–' }}</code>
                                     </div>
-                                    <div class="network-chip">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("mountDestination") }}</span>
                                         <code>{{ mount.Destination }}</code>
                                     </div>
-                                    <div class="network-chip">
+                                    <div class="info-chip">
                                         <span class="chip-label">{{ $t("mountReadWrite") }}</span>
                                         <code>{{ mount.RW ? 'rw' : 'ro' }}</code>
                                     </div>
@@ -707,108 +707,20 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-@import "../styles/vars.scss";
+@import "../styles/info-chips";
+
+.overview-value code {
+    padding: 0;
+}
 
 .editor-box {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
 }
 
-.network-props {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.network-chip {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    background: rgba(0, 0, 0, 0.06);
-    border-radius: 10px;
-    padding: 0.3rem 0.6rem;
-
-    .dark & {
-        background: $dark-header-bg;
-    }
-
-    .chip-label {
-        font-size: 0.8em;
-        font-weight: 600;
-        color: $dark-font-color3;
-        text-transform: uppercase;
-        white-space: nowrap;
-    }
-
-    code {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85em;
-        color: $primary;
-        background: none;
-    }
-
-    .chip-sep {
-        color: $dark-font-color3;
-    }
-}
-
-.overview-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.overview-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.overview-label {
-    font-size: 0.8em;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: $dark-font-color3;
-    margin-bottom: 0.15rem;
-
-    .dark & {
-        color: $dark-font-color3;
-    }
-}
-
-.overview-value {
-    word-break: break-all;
-    color: $primary;
-
-    code {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85em;
-        color: inherit;
-        background: none;
-        padding: 0;
-    }
-}
-
-.truncate-id {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .port-arrow {
     color: $primary;
     opacity: 0.4;
-}
-
-.stack-link {
-    font-weight: 600;
-    text-decoration: none;
-    color: $primary;
-
-    &:hover {
-        color: lighten($primary, 10%);
-    }
 }
 
 .process-table {

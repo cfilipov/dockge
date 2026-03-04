@@ -9,30 +9,20 @@
                     <CollapsibleSection>
                         <template #heading>{{ $t("networkContainers") }} <span class="section-count">({{ networkContainers.length }})</span></template>
                         <div v-if="networkContainers.length > 0">
-                            <div v-for="c in networkContainers" :key="c.containerId" class="shadow-box big-padding mb-3">
-                                <h5 class="mb-3">
-                                    <span class="badge rounded-pill me-2" :class="'bg-' + containerBadgeColor(c)">{{ $t(containerStatusLabel(c)) }}</span>
-                                    <router-link :to="{ name: 'containerDetail', params: { containerName: c.name } }" class="stack-link">{{ c.name }}</router-link>
-                                </h5>
-                                <div class="network-props">
-                                    <div class="network-chip">
-                                        <span class="chip-label">{{ $t("containerID") }}</span>
-                                        <code :title="c.containerId">{{ c.containerId.substring(0, 12) }}</code>
-                                    </div>
-                                    <div class="network-chip">
-                                        <span class="chip-label">{{ $t("networkIPv4") }}</span>
-                                        <code>{{ c.networks[networkName]?.ipv4 || '–' }}</code>
-                                    </div>
-                                    <div class="network-chip">
-                                        <span class="chip-label">{{ $t("networkIPv6") }}</span>
-                                        <code>{{ c.networks[networkName]?.ipv6 || '–' }}</code>
-                                    </div>
-                                    <div class="network-chip">
-                                        <span class="chip-label">{{ $t("networkMAC") }}</span>
-                                        <code>{{ c.networks[networkName]?.mac || '–' }}</code>
-                                    </div>
+                            <ContainerCard v-for="c in networkContainers" :key="c.containerId" :container="c">
+                                <div class="info-chip">
+                                    <span class="chip-label">{{ $t("networkIPv4") }}</span>
+                                    <code>{{ c.networks[networkName]?.ipv4 || '–' }}</code>
                                 </div>
-                            </div>
+                                <div class="info-chip">
+                                    <span class="chip-label">{{ $t("networkIPv6") }}</span>
+                                    <code>{{ c.networks[networkName]?.ipv6 || '–' }}</code>
+                                </div>
+                                <div class="info-chip">
+                                    <span class="chip-label">{{ $t("networkMAC") }}</span>
+                                    <code>{{ c.networks[networkName]?.mac || '–' }}</code>
+                                </div>
+                            </ContainerCard>
                         </div>
                         <div v-else-if="networkDetail" class="shadow-box big-padding mb-3">
                             <p class="text-muted mb-0">{{ $t("noNetworkContainers") }}</p>
@@ -127,7 +117,7 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
 import { useContainerStore } from "../stores/containerStore";
-import { ContainerStatusInfo } from "../common/util-common";
+import ContainerCard from "../components/ContainerCard.vue";
 
 const route = useRoute();
 const { t } = useI18n();
@@ -161,14 +151,6 @@ const primaryGateway = computed(() => {
     if (!networkDetail.value?.ipam?.length) return "";
     return networkDetail.value.ipam[0].gateway || "";
 });
-
-function containerStatusLabel(c: Record<string, any>): string {
-    return ContainerStatusInfo.from(c).label;
-}
-
-function containerBadgeColor(c: Record<string, any>): string {
-    return ContainerStatusInfo.from(c).badgeColor;
-}
 
 function formatDate(dateStr: string): string {
     if (!dateStr) return "";
@@ -205,93 +187,9 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-@import "../styles/vars.scss";
+@import "../styles/info-chips";
 
-.network-props {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.network-chip {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    background: rgba(0, 0, 0, 0.06);
-    border-radius: 10px;
-    padding: 0.3rem 0.6rem;
-
-    .dark & {
-        background: $dark-header-bg;
-    }
-
-    .chip-label {
-        font-size: 0.8em;
-        font-weight: 600;
-        color: $dark-font-color3;
-        text-transform: uppercase;
-        white-space: nowrap;
-    }
-
-    code {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85em;
-        color: $primary;
-        background: none;
-    }
-}
-
-.overview-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.overview-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.overview-label {
-    font-size: 0.8em;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: $dark-font-color3;
-    margin-bottom: 0.15rem;
-
-    .dark & {
-        color: $dark-font-color3;
-    }
-}
-
-.overview-value {
-    word-break: break-all;
-    color: $primary;
-
-    code {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85em;
-        color: inherit;
-        background: none;
-        padding: 0;
-    }
-}
-
-.truncate-id {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.stack-link {
-    font-weight: 600;
-    text-decoration: none;
-    color: $primary;
-
-    &:hover {
-        color: lighten($primary, 10%);
-    }
+.overview-value code {
+    padding: 0;
 }
 </style>

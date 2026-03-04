@@ -9,16 +9,16 @@
         </h5>
 
         <!-- Container, image, ports chips -->
-        <div v-if="!isEditMode" class="network-props">
-            <div class="network-chip chip-link" @click="emit('scroll-to-service', name)">
+        <div v-if="!isEditMode" class="info-chips">
+            <div class="info-chip chip-link" @click="emit('scroll-to-service', name)">
                 <span class="chip-label">{{ $t("service") }}</span>
                 <code>{{ name }}</code>
             </div>
-            <router-link v-if="imageRef" :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="network-chip chip-link">
+            <router-link v-if="imageRef" :to="{ name: 'imageDetail', params: { imageRef: imageName + ':' + imageTag } }" class="info-chip chip-link">
                 <span class="chip-label">{{ $t("image") }}</span>
                 <code>{{ imageName }}:{{ imageTag }}</code>
             </router-link>
-            <div v-if="envsubstService.ports && envsubstService.ports.length > 0" class="network-chip">
+            <div v-if="envsubstService.ports && envsubstService.ports.length > 0" class="info-chip">
                 <span class="chip-label">{{ $tc("port", 2) }}</span>
                 <span>
                     <template v-for="(port, i) in envsubstService.ports" :key="port"><a :href="parsePort(port).url" target="_blank" class="chip-port-link"><code>{{ parsePort(port).display }}</code></a><span v-if="i < envsubstService.ports.length - 1" class="chip-sep">, </span></template>
@@ -467,7 +467,7 @@ function updateUrl(key: string, value: string) {
 </script>
 
 <style scoped lang="scss">
-@import "../styles/vars";
+@import "../styles/info-chips";
 
 .svg-icon {
     display: inline-block;
@@ -480,40 +480,6 @@ function updateUrl(key: string, value: string) {
 
 .container {
     max-width: 100%;
-
-    .network-props {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .network-chip {
-        display: inline-flex;
-        align-items: baseline;
-        gap: 0.4rem;
-        background: rgba(0, 0, 0, 0.06);
-        border-radius: 10px;
-        padding: 0.3rem 0.6rem;
-
-        .dark & {
-            background: $dark-header-bg;
-        }
-
-        .chip-label {
-            font-size: 0.8em;
-            font-weight: 600;
-            color: $dark-font-color3;
-            text-transform: uppercase;
-            white-space: nowrap;
-        }
-
-        code {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85em;
-            color: $primary;
-            background: none;
-        }
-    }
 
     .chip-link {
         text-decoration: none;
@@ -536,18 +502,8 @@ function updateUrl(key: string, value: string) {
         }
     }
 
-    .chip-sep {
-        color: $dark-font-color3;
-    }
-
     .stack-link {
-        font-weight: 600;
-        text-decoration: none;
         color: inherit;
-
-        &:hover {
-            color: lighten($primary, 10%);
-        }
     }
 
     .notification {
