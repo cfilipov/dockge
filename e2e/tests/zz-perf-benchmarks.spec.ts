@@ -11,6 +11,15 @@ const REPORT_PATH = join(__dirname, "..", "test-results", "benchmark-report.txt"
 test.describe("Performance Benchmarks", () => {
     test("memory and socket metrics within baseline tolerances", async ({ perfCollector }) => {
         const results = await perfCollector.getResults();
+
+        // The benchmark aggregates WebSocket and memory data collected by prior
+        // tests in the same worker.  When run in isolation (e.g. a grep that
+        // matches only this file), no other tests populate the collector, so
+        // every metric reads zero.  Skip cleanly instead of failing.
+        test.skip(
+            results.socket.totalServerFrames === 0,
+            "Benchmark requires the full E2E suite — run via `task test-e2e`",
+        );
         const projectRoot = join(__dirname, "..", "..");
         try {
             results.build = measureBuildSizes(projectRoot);
