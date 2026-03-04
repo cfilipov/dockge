@@ -244,103 +244,97 @@
 
                 <div class="col-lg-4">
                     <!-- Overview Card -->
-                    <h4 class="mb-3">{{ $t("containerOverview") }}</h4>
-                    <div v-if="parsed" class="shadow-box big-padding mb-3">
-                        <div class="overview-list" role="region" :aria-label="$t('containerOverview')">
-                            <!-- Stack -->
-                            <div v-if="stackName" class="overview-item">
-                                <div class="overview-label">{{ $t("containerStack") }}</div>
-                                <div class="overview-value">
-                                    <span class="badge rounded-pill me-2" :class="'bg-' + stackStatusInfo.badgeColor">{{ $t(stackStatusInfo.label) }}</span>
-                                    <router-link :to="stackLink" class="stack-link">{{ stackName }}</router-link>
-                                </div>
+                    <OverviewCard :data="parsed" :fallback-text="inspectData">
+                        <!-- Stack -->
+                        <div v-if="stackName" class="overview-item">
+                            <div class="overview-label">{{ $t("containerStack") }}</div>
+                            <div class="overview-value">
+                                <span class="badge rounded-pill me-2" :class="'bg-' + stackStatusInfo.badgeColor">{{ $t(stackStatusInfo.label) }}</span>
+                                <router-link :to="stackLink" class="stack-link">{{ stackName }}</router-link>
                             </div>
+                        </div>
 
-                            <!-- Image -->
-                            <div v-if="parsed.Config?.Image" class="overview-item">
-                                <div class="overview-label">{{ $t("containerImage") }}</div>
-                                <div class="overview-value">
-                                    <span class="badge rounded-pill bg-success me-2">{{ $t("imageInUse") }}</span>
-                                    <router-link :to="{ name: 'imageDetail', params: { imageRef: fullImageRef } }" class="stack-link">{{ fullImageRef }}</router-link>
-                                </div>
+                        <!-- Image -->
+                        <div v-if="parsed.Config?.Image" class="overview-item">
+                            <div class="overview-label">{{ $t("containerImage") }}</div>
+                            <div class="overview-value">
+                                <span class="badge rounded-pill bg-success me-2">{{ $t("imageInUse") }}</span>
+                                <router-link :to="{ name: 'imageDetail', params: { imageRef: fullImageRef } }" class="stack-link">{{ fullImageRef }}</router-link>
                             </div>
+                        </div>
 
-                            <!-- Ports -->
-                            <div v-if="ports.length > 0" class="overview-item">
-                                <div class="overview-label">{{ $t("containerPorts") }}</div>
-                                <div class="overview-value">
-                                    <div v-for="(p, i) in ports" :key="i">
-                                        <code>{{ p.host }}</code> <span class="port-arrow">&rarr;</span> <code>{{ p.container }}</code>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Command -->
-                            <div v-if="commandStr" class="overview-item">
-                                <div class="overview-label">{{ $t("containerCommand") }}</div>
-                                <div class="overview-value"><code>{{ commandStr }}</code></div>
-                            </div>
-
-                            <!-- Restart Policy -->
-                            <div v-if="restartPolicyStr" class="overview-item">
-                                <div class="overview-label">{{ $t("containerRestartPolicy") }}</div>
-                                <div class="overview-value">{{ restartPolicyStr }}</div>
-                            </div>
-
-                            <!-- Restart Count -->
-                            <div v-if="parsed.RestartCount != null" class="overview-item">
-                                <div class="overview-label">{{ $t("containerRestartCount") }}</div>
-                                <div class="overview-value">{{ parsed.RestartCount }}</div>
-                            </div>
-
-                            <!-- Container ID -->
-                            <div v-if="parsed.Id" class="overview-item">
-                                <div class="overview-label">{{ $t("containerID") }}</div>
-                                <div class="overview-value">
-                                    <code class="truncate-id" :title="parsed.Id">{{ parsed.Id }}</code>
-                                </div>
-                            </div>
-
-                            <!-- Created -->
-                            <div v-if="parsed.Created" class="overview-item">
-                                <div class="overview-label">{{ $t("containerCreated") }}</div>
-                                <div class="overview-value">{{ formatDate(parsed.Created) }}</div>
-                            </div>
-
-                            <!-- Started -->
-                            <div v-if="parsed.State?.StartedAt && isValidDate(parsed.State.StartedAt)" class="overview-item">
-                                <div class="overview-label">{{ $t("containerStarted") }}</div>
-                                <div class="overview-value">{{ formatDate(parsed.State.StartedAt) }}</div>
-                            </div>
-
-                            <!-- Uptime -->
-                            <div v-if="uptimeStr" class="overview-item">
-                                <div class="overview-label">{{ $t("containerUptime") }}</div>
-                                <div class="overview-value">{{ uptimeStr }}</div>
-                            </div>
-
-                            <!-- Working Dir -->
-                            <div v-if="parsed.Config?.WorkingDir !== undefined" class="overview-item">
-                                <div class="overview-label">{{ $t("containerWorkingDir") }}</div>
-                                <div class="overview-value">
-                                    <code v-if="parsed.Config.WorkingDir">{{ parsed.Config.WorkingDir }}</code>
-                                    <span v-else class="text-muted">&ndash;</span>
-                                </div>
-                            </div>
-
-                            <!-- User -->
-                            <div v-if="parsed.Config?.User !== undefined" class="overview-item">
-                                <div class="overview-label">{{ $t("containerUserGroup") }}</div>
-                                <div class="overview-value">
-                                    <span v-if="parsed.Config.User">{{ parsed.Config.User }}</span>
-                                    <span v-else>&ndash;</span>
+                        <!-- Ports -->
+                        <div v-if="ports.length > 0" class="overview-item">
+                            <div class="overview-label">{{ $t("containerPorts") }}</div>
+                            <div class="overview-value">
+                                <div v-for="(p, i) in ports" :key="i">
+                                    <code>{{ p.host }}</code> <span class="port-arrow">&rarr;</span> <code>{{ p.container }}</code>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div v-else class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ inspectData }}</p>
-                    </div>
+
+                        <!-- Command -->
+                        <div v-if="commandStr" class="overview-item">
+                            <div class="overview-label">{{ $t("containerCommand") }}</div>
+                            <div class="overview-value"><code>{{ commandStr }}</code></div>
+                        </div>
+
+                        <!-- Restart Policy -->
+                        <div v-if="restartPolicyStr" class="overview-item">
+                            <div class="overview-label">{{ $t("containerRestartPolicy") }}</div>
+                            <div class="overview-value">{{ restartPolicyStr }}</div>
+                        </div>
+
+                        <!-- Restart Count -->
+                        <div v-if="parsed.RestartCount != null" class="overview-item">
+                            <div class="overview-label">{{ $t("containerRestartCount") }}</div>
+                            <div class="overview-value">{{ parsed.RestartCount }}</div>
+                        </div>
+
+                        <!-- Container ID -->
+                        <div v-if="parsed.Id" class="overview-item">
+                            <div class="overview-label">{{ $t("containerID") }}</div>
+                            <div class="overview-value">
+                                <code class="truncate-id" :title="parsed.Id">{{ parsed.Id }}</code>
+                            </div>
+                        </div>
+
+                        <!-- Created -->
+                        <div v-if="parsed.Created" class="overview-item">
+                            <div class="overview-label">{{ $t("containerCreated") }}</div>
+                            <div class="overview-value">{{ formatDate(parsed.Created) }}</div>
+                        </div>
+
+                        <!-- Started -->
+                        <div v-if="parsed.State?.StartedAt && isValidDate(parsed.State.StartedAt)" class="overview-item">
+                            <div class="overview-label">{{ $t("containerStarted") }}</div>
+                            <div class="overview-value">{{ formatDate(parsed.State.StartedAt) }}</div>
+                        </div>
+
+                        <!-- Uptime -->
+                        <div v-if="uptimeStr" class="overview-item">
+                            <div class="overview-label">{{ $t("containerUptime") }}</div>
+                            <div class="overview-value">{{ uptimeStr }}</div>
+                        </div>
+
+                        <!-- Working Dir -->
+                        <div v-if="parsed.Config?.WorkingDir !== undefined" class="overview-item">
+                            <div class="overview-label">{{ $t("containerWorkingDir") }}</div>
+                            <div class="overview-value">
+                                <code v-if="parsed.Config.WorkingDir">{{ parsed.Config.WorkingDir }}</code>
+                                <span v-else class="text-muted">&ndash;</span>
+                            </div>
+                        </div>
+
+                        <!-- User -->
+                        <div v-if="parsed.Config?.User !== undefined" class="overview-item">
+                            <div class="overview-label">{{ $t("containerUserGroup") }}</div>
+                            <div class="overview-value">
+                                <span v-if="parsed.Config.User">{{ parsed.Config.User }}</span>
+                                <span v-else>&ndash;</span>
+                            </div>
+                        </div>
+                    </OverviewCard>
                 </div>
             </div>
 
@@ -383,7 +377,7 @@ import { useStackStore } from "../stores/stackStore";
 import { useUpdateStore } from "../stores/updateStore";
 import { useAppToast } from "../composables/useAppToast";
 import { useServiceActions } from "../composables/useServiceActions";
-import { ContainerStatusInfo, StackStatusInfo, getComposeTerminalName } from "../common/util-common";
+import { ContainerStatusInfo, StackStatusInfo, getComposeTerminalName, formatDate } from "../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import ServiceActionBar from "../components/ServiceActionBar.vue";
 import { useTheme } from "../composables/useTheme";
@@ -610,19 +604,6 @@ const mounts = computed(() => {
 function isValidDate(dateStr: string): boolean {
     if (!dateStr || dateStr.startsWith("0001-")) return false;
     return dayjs(dateStr).isValid();
-}
-
-function formatDate(dateStr: string): string {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    });
 }
 
 const uptimeStr = computed(() => {

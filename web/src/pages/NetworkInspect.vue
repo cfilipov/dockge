@@ -35,70 +35,64 @@
 
                 <div class="col-lg-4">
                     <!-- Overview Card -->
-                    <h4 class="mb-3">{{ $t("containerOverview") }}</h4>
-                    <div v-if="networkDetail" class="shadow-box big-padding mb-3">
-                        <div class="overview-list" role="region" :aria-label="$t('containerOverview')">
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("overviewName") }}</div>
-                                <div class="overview-value">{{ networkDetail.name }}</div>
-                            </div>
+                    <OverviewCard :data="networkDetail" :loading="loading">
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("overviewName") }}</div>
+                            <div class="overview-value">{{ networkDetail.name }}</div>
+                        </div>
 
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("networkID") }}</div>
-                                <div class="overview-value">
-                                    <code class="truncate-id" :title="networkDetail.id">{{ networkDetail.id }}</code>
-                                </div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("networkDriver") }}</div>
-                                <div class="overview-value">{{ networkDetail.driver }}</div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("networkScope") }}</div>
-                                <div class="overview-value">{{ networkDetail.scope }}</div>
-                            </div>
-
-                            <div v-if="networkDetail.created" class="overview-item">
-                                <div class="overview-label">{{ $t("networkCreatedAt") }}</div>
-                                <div class="overview-value">{{ formatDate(networkDetail.created) }}</div>
-                            </div>
-
-                            <div v-if="primarySubnet" class="overview-item">
-                                <div class="overview-label">{{ $t("networkSubnet") }}</div>
-                                <div class="overview-value"><code>{{ primarySubnet }}</code></div>
-                            </div>
-
-                            <div v-if="primaryGateway" class="overview-item">
-                                <div class="overview-label">{{ $t("networkGatewayAddr") }}</div>
-                                <div class="overview-value"><code>{{ primaryGateway }}</code></div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("networkAttachable") }}</div>
-                                <div class="overview-value">{{ networkDetail.attachable ? $t("yes") : $t("no") }}</div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("networkInternal") }}</div>
-                                <div class="overview-value">{{ networkDetail.internal ? $t("yes") : $t("no") }}</div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("networkIPv6Enabled") }}</div>
-                                <div class="overview-value">{{ networkDetail.ipv6 ? $t("yes") : $t("no") }}</div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("networkIngress") }}</div>
-                                <div class="overview-value">{{ networkDetail.ingress ? $t("yes") : $t("no") }}</div>
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("networkID") }}</div>
+                            <div class="overview-value">
+                                <code class="truncate-id" :title="networkDetail.id">{{ networkDetail.id }}</code>
                             </div>
                         </div>
-                    </div>
-                    <div v-else class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ loading ? "Loading..." : "" }}</p>
-                    </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("networkDriver") }}</div>
+                            <div class="overview-value">{{ networkDetail.driver }}</div>
+                        </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("networkScope") }}</div>
+                            <div class="overview-value">{{ networkDetail.scope }}</div>
+                        </div>
+
+                        <div v-if="networkDetail.created" class="overview-item">
+                            <div class="overview-label">{{ $t("networkCreatedAt") }}</div>
+                            <div class="overview-value">{{ formatDate(networkDetail.created) }}</div>
+                        </div>
+
+                        <div v-if="primarySubnet" class="overview-item">
+                            <div class="overview-label">{{ $t("networkSubnet") }}</div>
+                            <div class="overview-value"><code>{{ primarySubnet }}</code></div>
+                        </div>
+
+                        <div v-if="primaryGateway" class="overview-item">
+                            <div class="overview-label">{{ $t("networkGatewayAddr") }}</div>
+                            <div class="overview-value"><code>{{ primaryGateway }}</code></div>
+                        </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("networkAttachable") }}</div>
+                            <div class="overview-value">{{ networkDetail.attachable ? $t("yes") : $t("no") }}</div>
+                        </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("networkInternal") }}</div>
+                            <div class="overview-value">{{ networkDetail.internal ? $t("yes") : $t("no") }}</div>
+                        </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("networkIPv6Enabled") }}</div>
+                            <div class="overview-value">{{ networkDetail.ipv6 ? $t("yes") : $t("no") }}</div>
+                        </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("networkIngress") }}</div>
+                            <div class="overview-value">{{ networkDetail.ingress ? $t("yes") : $t("no") }}</div>
+                        </div>
+                    </OverviewCard>
                 </div>
             </div>
         </div>
@@ -117,6 +111,7 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
 import { useContainerStore } from "../stores/containerStore";
+import { formatDate } from "../common/util-common";
 import ContainerCard from "../components/ContainerCard.vue";
 
 const route = useRoute();
@@ -151,19 +146,6 @@ const primaryGateway = computed(() => {
     if (!networkDetail.value?.ipam?.length) return "";
     return networkDetail.value.ipam[0].gateway || "";
 });
-
-function formatDate(dateStr: string): string {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    });
-}
 
 function fetchDetail() {
     if (!networkName.value) {

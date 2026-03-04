@@ -22,38 +22,32 @@
 
                 <div class="col-lg-4">
                     <!-- Overview Card -->
-                    <h4 class="mb-3">{{ $t("containerOverview") }}</h4>
-                    <div v-if="volumeDetail" class="shadow-box big-padding mb-3">
-                        <div class="overview-list" role="region" :aria-label="$t('containerOverview')">
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("overviewName") }}</div>
-                                <div class="overview-value">{{ volumeDetail.name }}</div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("volumeDriver") }}</div>
-                                <div class="overview-value">{{ volumeDetail.driver }}</div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("volumeScope") }}</div>
-                                <div class="overview-value">{{ volumeDetail.scope }}</div>
-                            </div>
-
-                            <div class="overview-item">
-                                <div class="overview-label">{{ $t("volumeMountpoint") }}</div>
-                                <div class="overview-value"><code>{{ volumeDetail.mountpoint }}</code></div>
-                            </div>
-
-                            <div v-if="volumeDetail.created" class="overview-item">
-                                <div class="overview-label">{{ $t("volumeCreatedAt") }}</div>
-                                <div class="overview-value">{{ formatDate(volumeDetail.created) }}</div>
-                            </div>
+                    <OverviewCard :data="volumeDetail" :loading="loading">
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("overviewName") }}</div>
+                            <div class="overview-value">{{ volumeDetail.name }}</div>
                         </div>
-                    </div>
-                    <div v-else class="shadow-box big-padding mb-3">
-                        <p class="text-muted mb-0">{{ loading ? "Loading..." : "" }}</p>
-                    </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("volumeDriver") }}</div>
+                            <div class="overview-value">{{ volumeDetail.driver }}</div>
+                        </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("volumeScope") }}</div>
+                            <div class="overview-value">{{ volumeDetail.scope }}</div>
+                        </div>
+
+                        <div class="overview-item">
+                            <div class="overview-label">{{ $t("volumeMountpoint") }}</div>
+                            <div class="overview-value"><code>{{ volumeDetail.mountpoint }}</code></div>
+                        </div>
+
+                        <div v-if="volumeDetail.created" class="overview-item">
+                            <div class="overview-label">{{ $t("volumeCreatedAt") }}</div>
+                            <div class="overview-value">{{ formatDate(volumeDetail.created) }}</div>
+                        </div>
+                    </OverviewCard>
                 </div>
             </div>
         </div>
@@ -72,6 +66,7 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
 import { useContainerStore } from "../stores/containerStore";
+import { formatDate } from "../common/util-common";
 import ContainerCard from "../components/ContainerCard.vue";
 
 const route = useRoute();
@@ -99,19 +94,6 @@ const badgeLabel = computed(() => {
     if (!volumeDetail.value) return "";
     return inUse.value ? t("volumeInUse") : t("volumeUnused");
 });
-
-function formatDate(dateStr: string): string {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    });
-}
 
 function fetchDetail() {
     if (!volumeName.value) {

@@ -588,6 +588,22 @@ export function parseEnv(src: string): Record<string, string> {
     return result;
 }
 
+/**
+ * Format an ISO date string for display.
+ */
+export function formatDate(dateStr: string): string {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
+}
+
 export function envsubst(string : string, variables : LooseObject) : string {
     return replaceVariablesSync(string, variables)[0];
 }
