@@ -1,32 +1,32 @@
 {
     "memory": {
         "baseline": {
-            "heapAlloc": 10432136,
-            "heapInuse": 11239424,
+            "heapAlloc": 10409792,
+            "heapInuse": 11255808,
             "sys": 17914120,
             "goroutines": 19,
-            "totalAlloc": 11436104,
+            "totalAlloc": 11429808,
             "numGC": 2,
-            "stackInuse": 622592
+            "stackInuse": 589824
         },
         "peak": {
-            "heapAlloc": 15756504,
-            "heapInuse": 16949248,
-            "goroutines": 918
+            "heapAlloc": 16408808,
+            "heapInuse": 17522688,
+            "goroutines": 934
         },
         "final": {
-            "heapAlloc": 4797488,
-            "heapInuse": 7405568,
-            "sys": 31545608,
+            "heapAlloc": 4794896,
+            "heapInuse": 7602176,
+            "sys": 31283464,
             "goroutines": 85,
-            "totalAlloc": 1067548544,
-            "numGC": 203,
-            "stackInuse": 1474560
+            "totalAlloc": 1064014680,
+            "numGC": 194,
+            "stackInuse": 1409024
         },
-        "sampleCount": 3439,
-        "avgHeapAlloc": 9515291,
-        "totalAllocDelta": 1056112440,
-        "gcCyclesDelta": 201
+        "sampleCount": 3263,
+        "avgHeapAlloc": 9581486,
+        "totalAllocDelta": 1052584872,
+        "gcCyclesDelta": 192
     },
     "socket": {
         "initialLoad": {
@@ -46,13 +46,13 @@
                 "count": 1,
                 "bytes": 15944
             },
-            "images": {
-                "count": 1,
-                "bytes": 6623
-            },
             "networks": {
                 "count": 1,
                 "bytes": 41822
+            },
+            "images": {
+                "count": 1,
+                "bytes": 6623
             },
             "containers": {
                 "count": 1,
@@ -75,8 +75,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -85,8 +85,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -99,21 +99,21 @@
                     "info": 1,
                     "ack": 4,
                     "updates": 1,
-                    "containers": 1,
-                    "images": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
-                    "volumes": 1
+                    "images": 1,
+                    "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 251,
                     "updates": 90,
-                    "containers": 149749,
-                    "images": 6623,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
-                    "volumes": 15944
+                    "images": 6623,
+                    "containers": 149749
                 }
             },
             "change-password.spec.ts > Change Password — Validation > disable auth button shows confirmation dialog": {
@@ -126,9 +126,9 @@
                     "ack": 3,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -136,24 +136,24 @@
                     "ack": 181,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 149749
                 }
             },
             "check-image-updates.spec.ts > Check Image Updates > check updates via overflow menu succeeds": {
-                "serverFrameCount": 14,
-                "serverTotalBytes": 287470,
+                "serverFrameCount": 13,
+                "serverTotalBytes": 251535,
                 "clientFrameCount": 5,
                 "clientTotalBytes": 478,
                 "serverEventCounts": {
                     "info": 1,
                     "ack": 5,
                     "updates": 1,
-                    "stacks": 2,
-                    "networks": 1,
+                    "stacks": 1,
                     "volumes": 1,
+                    "networks": 1,
                     "images": 1,
                     "containers": 1,
                     "terminalWrite": 1
@@ -162,37 +162,37 @@
                     "info": 97,
                     "ack": 851,
                     "updates": 90,
-                    "stacks": 71870,
-                    "networks": 41822,
+                    "stacks": 35935,
                     "volumes": 15944,
+                    "networks": 41822,
                     "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
             },
             "compose-create.spec.ts > Compose Create — New Stack > displays new stack form elements": {
-                "serverFrameCount": 8,
-                "serverTotalBytes": 250287,
+                "serverFrameCount": 9,
+                "serverTotalBytes": 286222,
                 "clientFrameCount": 1,
                 "clientTotalBytes": 248,
                 "serverEventCounts": {
                     "info": 1,
                     "ack": 1,
                     "updates": 1,
-                    "stacks": 1,
+                    "stacks": 2,
+                    "volumes": 1,
                     "images": 1,
                     "networks": 1,
-                    "volumes": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 27,
                     "updates": 90,
-                    "stacks": 35935,
+                    "stacks": 71870,
+                    "volumes": 15944,
                     "images": 6623,
                     "networks": 41822,
-                    "volumes": 15944,
                     "containers": 149749
                 }
             },
@@ -251,92 +251,92 @@
                 }
             },
             "compose-deploy-invalid.spec.ts > Deploy — Invalid YAML > deploy with no-services YAML creates inactive stack": {
-                "serverFrameCount": 18,
-                "serverTotalBytes": 286721,
+                "serverFrameCount": 19,
+                "serverTotalBytes": 322542,
                 "clientFrameCount": 7,
                 "clientTotalBytes": 685,
                 "serverEventCounts": {
                     "info": 1,
                     "ack": 7,
                     "updates": 1,
-                    "stacks": 2,
+                    "stacks": 3,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
                     "containers": 1,
+                    "images": 1,
                     "terminalWrite": 3
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 709,
                     "updates": 90,
-                    "stacks": 71741,
+                    "stacks": 107562,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
                     "containers": 149385,
+                    "images": 6623,
                     "terminalWrite": 310
                 }
             },
             "compose-deploy.spec.ts > Deploy New Stack > deploy new stack end-to-end": {
-                "serverFrameCount": 45,
-                "serverTotalBytes": 443334,
+                "serverFrameCount": 39,
+                "serverTotalBytes": 478835,
                 "clientFrameCount": 7,
                 "clientTotalBytes": 777,
                 "serverEventCounts": {
                     "info": 1,
                     "ack": 7,
                     "updates": 1,
+                    "stacks": 3,
                     "volumes": 1,
-                    "containers": 2,
                     "networks": 1,
                     "images": 1,
-                    "stacks": 2,
-                    "terminalWrite": 29
+                    "containers": 2,
+                    "terminalWrite": 22
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 1034,
                     "updates": 90,
+                    "stacks": 107923,
                     "volumes": 15944,
-                    "containers": 299872,
                     "networks": 41822,
                     "images": 6623,
-                    "stacks": 71988,
-                    "terminalWrite": 5864
+                    "containers": 299872,
+                    "terminalWrite": 5430
                 }
             },
             "compose-operations.spec.ts > Compose Operations > start stack (03-monitoring)": {
-                "serverFrameCount": 48,
-                "serverTotalBytes": 407292,
+                "serverFrameCount": 37,
+                "serverTotalBytes": 442495,
                 "clientFrameCount": 6,
                 "clientTotalBytes": 547,
                 "serverEventCounts": {
                     "info": 1,
                     "ack": 6,
                     "updates": 1,
-                    "stacks": 1,
+                    "stacks": 2,
                     "volumes": 1,
                     "images": 1,
                     "networks": 1,
                     "containers": 2,
-                    "terminalWrite": 34
+                    "terminalWrite": 22
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 708,
                     "updates": 90,
-                    "stacks": 35935,
+                    "stacks": 71870,
                     "volumes": 15944,
                     "images": 6623,
                     "networks": 41822,
                     "containers": 299499,
-                    "terminalWrite": 6574
+                    "terminalWrite": 5842
                 }
             },
             "compose-operations.spec.ts > Compose Operations > stop stack (04-database)": {
-                "serverFrameCount": 27,
-                "serverTotalBytes": 403222,
+                "serverFrameCount": 25,
+                "serverTotalBytes": 403104,
                 "clientFrameCount": 6,
                 "clientTotalBytes": 536,
                 "serverEventCounts": {
@@ -345,10 +345,10 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 2,
-                    "terminalWrite": 13
+                    "terminalWrite": 11
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -356,15 +356,15 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 299492,
-                    "terminalWrite": 2487
+                    "terminalWrite": 2369
                 }
             },
             "compose-operations.spec.ts > Compose Operations > restart stack (02-blog)": {
-                "serverFrameCount": 33,
-                "serverTotalBytes": 256672,
+                "serverFrameCount": 31,
+                "serverTotalBytes": 256562,
                 "clientFrameCount": 6,
                 "clientTotalBytes": 519,
                 "serverEventCounts": {
@@ -373,10 +373,10 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1,
-                    "terminalWrite": 20
+                    "terminalWrite": 18
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -384,15 +384,15 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149742,
-                    "terminalWrite": 5433
+                    "terminalWrite": 5323
                 }
             },
             "compose-operations.spec.ts > Compose Operations > down stack (00-single-service)": {
-                "serverFrameCount": 49,
-                "serverTotalBytes": 406839,
+                "serverFrameCount": 33,
+                "serverTotalBytes": 405774,
                 "clientFrameCount": 6,
                 "clientTotalBytes": 566,
                 "serverEventCounts": {
@@ -404,23 +404,23 @@
                     "networks": 1,
                     "images": 1,
                     "containers": 2,
-                    "terminalWrite": 35
+                    "terminalWrite": 19
                 },
                 "serverEventBytes": {
                     "info": 97,
-                    "ack": 701,
+                    "ack": 676,
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
                     "containers": 299081,
-                    "terminalWrite": 6546
+                    "terminalWrite": 5506
                 }
             },
             "compose-operations.spec.ts > Compose Operations > update stack (01-web-app)": {
-                "serverFrameCount": 79,
-                "serverTotalBytes": 266113,
+                "serverFrameCount": 67,
+                "serverTotalBytes": 265417,
                 "clientFrameCount": 6,
                 "clientTotalBytes": 545,
                 "serverEventCounts": {
@@ -432,7 +432,7 @@
                     "images": 1,
                     "networks": 1,
                     "containers": 1,
-                    "terminalWrite": 66
+                    "terminalWrite": 54
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -443,7 +443,7 @@
                     "images": 6623,
                     "networks": 41822,
                     "containers": 149339,
-                    "terminalWrite": 15372
+                    "terminalWrite": 14676
                 }
             },
             "compose-operations.spec.ts > Compose Operations > service restart (01-web-app nginx)": {
@@ -457,8 +457,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 3
                 },
@@ -468,15 +468,15 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149339,
                     "terminalWrite": 702
                 }
             },
             "compose-operations.spec.ts > Compose Operations > service start (04-database postgres)": {
                 "serverFrameCount": 33,
-                "serverTotalBytes": 405253,
+                "serverTotalBytes": 255965,
                 "clientFrameCount": 6,
                 "clientTotalBytes": 550,
                 "serverEventCounts": {
@@ -487,8 +487,8 @@
                     "volumes": 1,
                     "images": 1,
                     "networks": 1,
-                    "containers": 2,
-                    "terminalWrite": 19
+                    "containers": 1,
+                    "terminalWrite": 20
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -498,50 +498,50 @@
                     "volumes": 15944,
                     "images": 6623,
                     "networks": 41822,
-                    "containers": 298686,
-                    "terminalWrite": 3847
+                    "containers": 149339,
+                    "terminalWrite": 3906
                 }
             },
             "compose-operations.spec.ts > Compose Operations > service stop (stack-010 ruby)": {
-                "serverFrameCount": 26,
-                "serverTotalBytes": 252522,
+                "serverFrameCount": 23,
+                "serverTotalBytes": 252351,
                 "clientFrameCount": 6,
                 "clientTotalBytes": 535,
                 "serverEventCounts": {
                     "info": 1,
                     "ack": 6,
                     "updates": 1,
-                    "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
                     "containers": 1,
-                    "terminalWrite": 13
+                    "terminalWrite": 10
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 662,
                     "updates": 90,
-                    "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
                     "containers": 149347,
-                    "terminalWrite": 2002
+                    "terminalWrite": 1831
                 }
             },
             "compose-save-discard.spec.ts > Compose — Save Draft & Discard > save draft persists YAML changes": {
-                "serverFrameCount": 26,
-                "serverTotalBytes": 538912,
+                "serverFrameCount": 25,
+                "serverTotalBytes": 502977,
                 "clientFrameCount": 9,
                 "clientTotalBytes": 1039,
                 "serverEventCounts": {
                     "info": 2,
                     "ack": 9,
                     "updates": 2,
-                    "stacks": 3,
-                    "images": 2,
+                    "stacks": 2,
                     "volumes": 2,
+                    "images": 2,
                     "networks": 2,
                     "containers": 2,
                     "terminalWrite": 2
@@ -550,9 +550,9 @@
                     "info": 194,
                     "ack": 1177,
                     "updates": 180,
-                    "stacks": 107805,
-                    "images": 13246,
+                    "stacks": 71870,
                     "volumes": 31888,
+                    "images": 13246,
                     "networks": 83644,
                     "containers": 299498,
                     "terminalWrite": 1280
@@ -570,8 +570,8 @@
                     "stacks": 1,
                     "volumes": 1,
                     "networks": 1,
-                    "containers": 1,
                     "images": 1,
+                    "containers": 1,
                     "terminalWrite": 1
                 },
                 "serverEventBytes": {
@@ -581,8 +581,8 @@
                     "stacks": 35935,
                     "volumes": 15944,
                     "networks": 41822,
-                    "containers": 149749,
                     "images": 6623,
+                    "containers": 149749,
                     "terminalWrite": 396
                 }
             },
@@ -597,8 +597,8 @@
                     "updates": 2,
                     "stacks": 2,
                     "volumes": 2,
-                    "networks": 2,
                     "images": 2,
+                    "networks": 2,
                     "containers": 2
                 },
                 "serverEventBytes": {
@@ -607,8 +607,8 @@
                     "updates": 180,
                     "stacks": 71870,
                     "volumes": 31888,
-                    "networks": 83644,
                     "images": 13246,
+                    "networks": 83644,
                     "containers": 299498
                 }
             },
@@ -621,22 +621,22 @@
                     "info": 1,
                     "ack": 3,
                     "updates": 1,
-                    "networks": 1,
+                    "stacks": 1,
                     "volumes": 1,
+                    "networks": 1,
                     "images": 1,
                     "containers": 1,
-                    "stacks": 1,
                     "terminalWrite": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 105,
                     "updates": 90,
-                    "networks": 41822,
+                    "stacks": 35935,
                     "volumes": 15944,
+                    "networks": 41822,
                     "images": 6623,
                     "containers": 149749,
-                    "stacks": 35935,
                     "terminalWrite": 564
                 }
             },
@@ -651,8 +651,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -662,8 +662,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 564
                 }
@@ -697,8 +697,8 @@
                 }
             },
             "compose-unmanaged-urls.spec.ts > Compose — URL Display > shows URL badges on stack with URL labels": {
-                "serverFrameCount": 14,
-                "serverTotalBytes": 254766,
+                "serverFrameCount": 13,
+                "serverTotalBytes": 254129,
                 "clientFrameCount": 4,
                 "clientTotalBytes": 438,
                 "serverEventCounts": {
@@ -710,7 +710,7 @@
                     "networks": 1,
                     "images": 1,
                     "containers": 1,
-                    "terminalWrite": 3
+                    "terminalWrite": 2
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -721,7 +721,7 @@
                     "networks": 41822,
                     "images": 6623,
                     "containers": 149749,
-                    "terminalWrite": 1624
+                    "terminalWrite": 987
                 }
             },
             "compose-unmanaged-urls.spec.ts > Compose — URL Display > screenshot: compose view with URLs": {
@@ -735,8 +735,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "networks": 1,
-                    "volumes": 1,
                     "images": 1,
+                    "volumes": 1,
                     "containers": 1,
                     "terminalWrite": 7
                 },
@@ -746,8 +746,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "networks": 41822,
-                    "volumes": 15944,
                     "images": 6623,
+                    "volumes": 15944,
                     "containers": 149749,
                     "terminalWrite": 3121
                 }
@@ -763,8 +763,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -774,8 +774,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
@@ -790,9 +790,9 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -801,9 +801,9 @@
                     "ack": 1554,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
@@ -846,8 +846,8 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
+                    "networks": 1,
                     "images": 1,
                     "containers": 1,
                     "terminalWrite": 1
@@ -857,8 +857,8 @@
                     "ack": 1554,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
+                    "networks": 41822,
                     "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 424
@@ -874,9 +874,9 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
+                    "volumes": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -885,9 +885,9 @@
                     "ack": 138,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
+                    "volumes": 15944,
                     "containers": 149749,
                     "terminalWrite": 255
                 }
@@ -903,8 +903,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -913,8 +913,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -928,9 +928,9 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
-                    "images": 1,
                     "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -938,9 +938,9 @@
                     "ack": 583,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
-                    "images": 6623,
                     "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -955,9 +955,9 @@
                     "updates": 1,
                     "stacks": 1,
                     "networks": 1,
+                    "containers": 1,
                     "images": 1,
                     "volumes": 1,
-                    "containers": 1,
                     "terminalWrite": 2
                 },
                 "serverEventBytes": {
@@ -966,9 +966,9 @@
                     "updates": 90,
                     "stacks": 35935,
                     "networks": 41822,
+                    "containers": 149749,
                     "images": 6623,
                     "volumes": 15944,
-                    "containers": 149749,
                     "terminalWrite": 972
                 }
             },
@@ -981,9 +981,9 @@
                     "info": 1,
                     "ack": 4,
                     "updates": 1,
-                    "stacks": 1,
                     "volumes": 1,
                     "images": 1,
+                    "stacks": 1,
                     "networks": 1,
                     "containers": 1,
                     "terminalWrite": 2
@@ -992,9 +992,9 @@
                     "info": 97,
                     "ack": 764,
                     "updates": 90,
-                    "stacks": 35935,
                     "volumes": 15944,
                     "images": 6623,
+                    "stacks": 35935,
                     "networks": 41822,
                     "containers": 149749,
                     "terminalWrite": 972
@@ -1009,10 +1009,10 @@
                     "info": 1,
                     "ack": 4,
                     "updates": 1,
-                    "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1020,10 +1020,10 @@
                     "info": 97,
                     "ack": 764,
                     "updates": 90,
-                    "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
                     "containers": 149749,
                     "terminalWrite": 972
                 }
@@ -1039,8 +1039,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1050,8 +1050,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 972
                 }
@@ -1123,8 +1123,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1134,8 +1134,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749,
                     "terminalWrite": 972
                 }
@@ -1178,9 +1178,9 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
+                    "networks": 1,
                     "volumes": 1,
                     "images": 1,
-                    "networks": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1189,9 +1189,9 @@
                     "ack": 764,
                     "updates": 90,
                     "stacks": 35935,
+                    "networks": 41822,
                     "volumes": 15944,
                     "images": 6623,
-                    "networks": 41822,
                     "containers": 149749,
                     "terminalWrite": 972
                 }
@@ -1206,9 +1206,9 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
-                    "images": 1,
                     "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1217,9 +1217,9 @@
                     "ack": 764,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
-                    "images": 6623,
                     "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
                     "containers": 149749,
                     "terminalWrite": 972
                 }
@@ -1261,8 +1261,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "networks": 1,
-                    "images": 1,
                     "volumes": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -1271,8 +1271,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "networks": 41822,
-                    "images": 6623,
                     "volumes": 15944,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -1286,9 +1286,9 @@
                     "ack": 5,
                     "updates": 1,
                     "stacks": 1,
-                    "images": 1,
-                    "networks": 1,
                     "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -1296,9 +1296,9 @@
                     "ack": 61027,
                     "updates": 90,
                     "stacks": 35935,
-                    "images": 6623,
-                    "networks": 41822,
                     "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -1312,10 +1312,10 @@
                     "ack": 8,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
-                    "containers": 1,
                     "volumes": 1,
                     "images": 1,
+                    "networks": 1,
+                    "containers": 1,
                     "terminalWrite": 1
                 },
                 "serverEventBytes": {
@@ -1323,10 +1323,10 @@
                     "ack": 953,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
-                    "containers": 149749,
                     "volumes": 15944,
                     "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749,
                     "terminalWrite": 424
                 }
             },
@@ -1340,9 +1340,9 @@
                     "ack": 8,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1351,16 +1351,16 @@
                     "ack": 953,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
                     "containers": 149749,
                     "terminalWrite": 761
                 }
             },
             "container-details.spec.ts > Container Log Lifecycle Banners > shows shutdown logs, stop banner, start banner, and startup logs": {
-                "serverFrameCount": 41,
-                "serverTotalBytes": 555737,
+                "serverFrameCount": 46,
+                "serverTotalBytes": 556062,
                 "clientFrameCount": 7,
                 "clientTotalBytes": 691,
                 "serverEventCounts": {
@@ -1372,7 +1372,7 @@
                     "networks": 1,
                     "images": 1,
                     "containers": 3,
-                    "terminalWrite": 25
+                    "terminalWrite": 30
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -1383,12 +1383,12 @@
                     "networks": 41822,
                     "images": 6623,
                     "containers": 449246,
-                    "terminalWrite": 4946
+                    "terminalWrite": 5271
                 }
             },
             "container-details.spec.ts > Container Log Lifecycle Banners > restart triggers banners and logs": {
-                "serverFrameCount": 25,
-                "serverTotalBytes": 254613,
+                "serverFrameCount": 23,
+                "serverTotalBytes": 254483,
                 "clientFrameCount": 5,
                 "clientTotalBytes": 557,
                 "serverEventCounts": {
@@ -1400,7 +1400,7 @@
                     "networks": 1,
                     "images": 1,
                     "containers": 1,
-                    "terminalWrite": 13
+                    "terminalWrite": 11
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -1411,12 +1411,12 @@
                     "networks": 41822,
                     "images": 6623,
                     "containers": 149749,
-                    "terminalWrite": 2043
+                    "terminalWrite": 1913
                 }
             },
             "container-details.spec.ts > Container Log Lifecycle Banners > recreate triggers banners and logs": {
-                "serverFrameCount": 32,
-                "serverTotalBytes": 255093,
+                "serverFrameCount": 30,
+                "serverTotalBytes": 254963,
                 "clientFrameCount": 5,
                 "clientTotalBytes": 558,
                 "serverEventCounts": {
@@ -1428,7 +1428,7 @@
                     "images": 1,
                     "networks": 1,
                     "containers": 1,
-                    "terminalWrite": 20
+                    "terminalWrite": 18
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -1439,12 +1439,12 @@
                     "images": 6623,
                     "networks": 41822,
                     "containers": 149749,
-                    "terminalWrite": 3858
+                    "terminalWrite": 3728
                 }
             },
             "container-details.spec.ts > Container Log Lifecycle Banners > update triggers banners and logs": {
-                "serverFrameCount": 42,
-                "serverTotalBytes": 255985,
+                "serverFrameCount": 38,
+                "serverTotalBytes": 255725,
                 "clientFrameCount": 6,
                 "clientTotalBytes": 624,
                 "serverEventCounts": {
@@ -1452,22 +1452,22 @@
                     "ack": 6,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
                     "networks": 1,
+                    "volumes": 1,
                     "images": 1,
                     "containers": 1,
-                    "terminalWrite": 29
+                    "terminalWrite": 25
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 708,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
                     "networks": 41822,
+                    "volumes": 15944,
                     "images": 6623,
                     "containers": 149749,
-                    "terminalWrite": 5017
+                    "terminalWrite": 4757
                 }
             },
             "container-details.spec.ts > Container Terminal > displays terminal UI elements": {
@@ -1532,9 +1532,9 @@
                     "ack": 5,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -1542,9 +1542,9 @@
                     "ack": 61027,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 149749
                 }
             },
@@ -1558,8 +1558,8 @@
                     "ack": 8,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
+                    "networks": 1,
                     "images": 1,
                     "containers": 1,
                     "terminalWrite": 2
@@ -1569,8 +1569,8 @@
                     "ack": 953,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
+                    "networks": 41822,
                     "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 761
@@ -1587,8 +1587,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1598,8 +1598,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749,
                     "terminalWrite": 761
                 }
@@ -1643,8 +1643,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -1654,8 +1654,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
@@ -1671,8 +1671,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1682,8 +1682,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 624
                 }
@@ -1698,9 +1698,9 @@
                     "ack": 7,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -1709,9 +1709,9 @@
                     "ack": 1021,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
@@ -1781,8 +1781,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 2
                 },
@@ -1792,8 +1792,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 521
                 }
@@ -1809,8 +1809,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -1819,8 +1819,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -1834,10 +1834,10 @@
                     "ack": 6,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
-                    "networks": 1,
-                    "images": 1,
                     "containers": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
                     "terminalWrite": 1
                 },
                 "serverEventBytes": {
@@ -1845,10 +1845,10 @@
                     "ack": 198,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
-                    "networks": 41822,
-                    "images": 6623,
                     "containers": 149749,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
                     "terminalWrite": 615
                 }
             },
@@ -1861,21 +1861,21 @@
                     "info": 1,
                     "ack": 7,
                     "updates": 1,
+                    "stacks": 1,
                     "volumes": 1,
-                    "containers": 1,
                     "networks": 1,
                     "images": 1,
-                    "stacks": 1
+                    "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 5903,
                     "updates": 90,
+                    "stacks": 35935,
                     "volumes": 15944,
-                    "containers": 149749,
                     "networks": 41822,
                     "images": 6623,
-                    "stacks": 35935
+                    "containers": 149749
                 }
             },
             "container-tabs.spec.ts > Container Tabs — Tab switching preserves selection > clicking the same tab clears selection and goes to home view": {
@@ -1889,8 +1889,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -1900,8 +1900,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 615
                 }
@@ -1916,9 +1916,9 @@
                     "ack": 8,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -1927,9 +1927,9 @@
                     "ack": 60936,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 149749,
                     "terminalWrite": 615
                 }
@@ -1944,9 +1944,9 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -1954,9 +1954,9 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 149749
                 }
             },
@@ -1971,8 +1971,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -1981,8 +1981,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -1997,8 +1997,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2007,8 +2007,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -2023,8 +2023,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2033,8 +2033,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2049,8 +2049,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2059,8 +2059,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2074,8 +2074,8 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
+                    "networks": 1,
                     "images": 1,
                     "containers": 1
                 },
@@ -2084,8 +2084,8 @@
                     "ack": 139,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
+                    "networks": 41822,
                     "images": 6623,
                     "containers": 149749
                 }
@@ -2100,8 +2100,8 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
+                    "networks": 1,
                     "images": 1,
                     "containers": 1
                 },
@@ -2110,8 +2110,8 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
+                    "networks": 41822,
                     "images": 6623,
                     "containers": 149749
                 }
@@ -2125,20 +2125,20 @@
                     "info": 1,
                     "ack": 1,
                     "updates": 1,
-                    "stacks": 1,
+                    "networks": 1,
                     "volumes": 1,
                     "images": 1,
-                    "networks": 1,
+                    "stacks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 27,
                     "updates": 90,
-                    "stacks": 35935,
+                    "networks": 41822,
                     "volumes": 15944,
                     "images": 6623,
-                    "networks": 41822,
+                    "stacks": 35935,
                     "containers": 149749
                 }
             },
@@ -2178,10 +2178,10 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
                     "networks": 1,
-                    "containers": 1,
                     "images": 1,
+                    "volumes": 1,
+                    "containers": 1,
                     "terminalWrite": 1
                 },
                 "serverEventBytes": {
@@ -2189,10 +2189,10 @@
                     "ack": 809,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
                     "networks": 41822,
-                    "containers": 149749,
                     "images": 6623,
+                    "volumes": 15944,
+                    "containers": 149749,
                     "terminalWrite": 424
                 }
             },
@@ -2206,9 +2206,9 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
-                    "images": 1,
-                    "networks": 1,
                     "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -2217,9 +2217,9 @@
                     "ack": 809,
                     "updates": 90,
                     "stacks": 35935,
-                    "images": 6623,
-                    "networks": 41822,
                     "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
@@ -2261,20 +2261,20 @@
                     "info": 1,
                     "ack": 1,
                     "updates": 1,
-                    "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 27,
                     "updates": 90,
-                    "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2289,8 +2289,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2299,8 +2299,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2315,8 +2315,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2325,8 +2325,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -2341,8 +2341,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2351,8 +2351,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -2366,9 +2366,9 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
-                    "images": 1,
-                    "volumes": 1,
                     "networks": 1,
+                    "volumes": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2376,9 +2376,9 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
-                    "images": 6623,
-                    "volumes": 15944,
                     "networks": 41822,
+                    "volumes": 15944,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -2391,20 +2391,20 @@
                     "info": 1,
                     "ack": 2,
                     "updates": 1,
-                    "volumes": 1,
-                    "images": 1,
-                    "networks": 1,
                     "stacks": 1,
+                    "volumes": 1,
+                    "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 876,
                     "updates": 90,
-                    "volumes": 15944,
-                    "images": 6623,
-                    "networks": 41822,
                     "stacks": 35935,
+                    "volumes": 15944,
+                    "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -2418,9 +2418,9 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2428,9 +2428,9 @@
                     "ack": 876,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2444,9 +2444,9 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
+                    "volumes": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2454,9 +2454,9 @@
                     "ack": 876,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
+                    "volumes": 15944,
                     "containers": 149749
                 }
             },
@@ -2470,9 +2470,9 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2480,9 +2480,9 @@
                     "ack": 876,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
                     "containers": 149749
                 }
             },
@@ -2554,8 +2554,8 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
+                    "networks": 1,
                     "images": 1,
                     "containers": 1
                 },
@@ -2564,8 +2564,8 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
+                    "networks": 41822,
                     "images": 6623,
                     "containers": 149749
                 }
@@ -2580,10 +2580,10 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
-                    "containers": 1,
+                    "networks": 1,
                     "images": 1,
+                    "containers": 1,
                     "terminalWrite": 1
                 },
                 "serverEventBytes": {
@@ -2591,10 +2591,10 @@
                     "ack": 809,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
-                    "containers": 149749,
+                    "networks": 41822,
                     "images": 6623,
+                    "containers": 149749,
                     "terminalWrite": 424
                 }
             },
@@ -2609,8 +2609,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2619,8 +2619,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -2659,20 +2659,20 @@
                     "info": 1,
                     "ack": 1,
                     "updates": 1,
-                    "volumes": 1,
-                    "images": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 27,
                     "updates": 90,
-                    "volumes": 15944,
-                    "images": 6623,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -2685,20 +2685,20 @@
                     "info": 1,
                     "ack": 1,
                     "updates": 1,
+                    "stacks": 1,
                     "networks": 1,
                     "images": 1,
                     "volumes": 1,
-                    "stacks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 27,
                     "updates": 90,
+                    "stacks": 35935,
                     "networks": 41822,
                     "images": 6623,
                     "volumes": 15944,
-                    "stacks": 35935,
                     "containers": 149749
                 }
             },
@@ -2713,8 +2713,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2723,8 +2723,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2738,9 +2738,9 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2748,9 +2748,9 @@
                     "ack": 1064,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2791,8 +2791,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "networks": 1,
-                    "images": 1,
                     "volumes": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2801,8 +2801,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "networks": 41822,
-                    "images": 6623,
                     "volumes": 15944,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -2816,9 +2816,9 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
+                    "networks": 1,
                     "volumes": 1,
                     "images": 1,
-                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2826,9 +2826,9 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
+                    "networks": 41822,
                     "volumes": 15944,
                     "images": 6623,
-                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2842,9 +2842,9 @@
                     "ack": 5,
                     "updates": 2,
                     "stacks": 2,
-                    "volumes": 2,
                     "networks": 2,
                     "images": 2,
+                    "volumes": 2,
                     "containers": 2,
                     "terminalWrite": 1
                 },
@@ -2853,9 +2853,9 @@
                     "ack": 836,
                     "updates": 180,
                     "stacks": 71870,
-                    "volumes": 31888,
                     "networks": 83644,
                     "images": 13246,
+                    "volumes": 31888,
                     "containers": 299498,
                     "terminalWrite": 424
                 }
@@ -2871,9 +2871,9 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
+                    "images": 1,
                     "networks": 1,
-                    "containers": 1,
-                    "images": 1
+                    "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -2881,9 +2881,9 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
+                    "images": 6623,
                     "networks": 41822,
-                    "containers": 149749,
-                    "images": 6623
+                    "containers": 149749
                 }
             },
             "settings.spec.ts > Settings — General > screenshot: settings general": {
@@ -2896,9 +2896,9 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
                     "volumes": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2906,9 +2906,9 @@
                     "ack": 139,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
                     "volumes": 15944,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -2922,9 +2922,9 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2932,9 +2932,9 @@
                     "ack": 139,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 149749
                 }
             },
@@ -2975,8 +2975,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -2985,8 +2985,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -3025,20 +3025,20 @@
                     "info": 1,
                     "ack": 2,
                     "updates": 1,
-                    "stacks": 1,
                     "volumes": 1,
                     "networks": 1,
                     "images": 1,
+                    "stacks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 139,
                     "updates": 90,
-                    "stacks": 35935,
                     "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
+                    "stacks": 35935,
                     "containers": 149749
                 }
             },
@@ -3053,8 +3053,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -3063,8 +3063,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -3078,20 +3078,20 @@
                     "ack": 3,
                     "updates": 1,
                     "stacks": 1,
-                    "images": 1,
                     "volumes": 1,
-                    "containers": 1,
-                    "networks": 1
+                    "images": 1,
+                    "networks": 1,
+                    "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 181,
                     "updates": 90,
                     "stacks": 35935,
-                    "images": 6623,
                     "volumes": 15944,
-                    "containers": 149749,
-                    "networks": 41822
+                    "images": 6623,
+                    "networks": 41822,
+                    "containers": 149749
                 }
             },
             "settings.spec.ts > Settings — Global .env > displays global env UI elements": {
@@ -3104,9 +3104,9 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
+                    "networks": 1,
                     "volumes": 1,
                     "images": 1,
-                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -3114,9 +3114,9 @@
                     "ack": 139,
                     "updates": 90,
                     "stacks": 35935,
+                    "networks": 41822,
                     "volumes": 15944,
                     "images": 6623,
-                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -3130,9 +3130,9 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
-                    "networks": 1,
-                    "images": 1,
                     "volumes": 1,
+                    "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -3140,9 +3140,9 @@
                     "ack": 139,
                     "updates": 90,
                     "stacks": 35935,
-                    "networks": 41822,
-                    "images": 6623,
                     "volumes": 15944,
+                    "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -3156,8 +3156,8 @@
                     "ack": 6,
                     "updates": 2,
                     "stacks": 2,
-                    "volumes": 2,
                     "networks": 2,
+                    "volumes": 2,
                     "images": 2,
                     "containers": 2
                 },
@@ -3166,8 +3166,8 @@
                     "ack": 589,
                     "updates": 180,
                     "stacks": 71870,
-                    "volumes": 31888,
                     "networks": 83644,
+                    "volumes": 31888,
                     "images": 13246,
                     "containers": 299498
                 }
@@ -3183,8 +3183,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -3193,8 +3193,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -3227,16 +3227,16 @@
             "stack-data-verification.spec.ts > Stack data verification > stack list and detail pages match compose/mock data": {
                 "serverFrameCount": 126,
                 "serverTotalBytes": 2521252,
-                "clientFrameCount": 73,
-                "clientTotalBytes": 6467,
+                "clientFrameCount": 71,
+                "clientTotalBytes": 6336,
                 "serverEventCounts": {
                     "info": 10,
                     "ack": 37,
                     "updates": 10,
                     "stacks": 10,
-                    "volumes": 10,
                     "networks": 10,
                     "images": 10,
+                    "volumes": 10,
                     "containers": 10,
                     "terminalWrite": 19
                 },
@@ -3245,9 +3245,9 @@
                     "ack": 9876,
                     "updates": 900,
                     "stacks": 359350,
-                    "volumes": 159440,
                     "networks": 418220,
                     "images": 66230,
+                    "volumes": 159440,
                     "containers": 1497490,
                     "terminalWrite": 8776
                 }
@@ -3340,9 +3340,9 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
-                    "images": 1,
                     "volumes": 1,
                     "networks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -3350,9 +3350,9 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
-                    "images": 6623,
                     "volumes": 15944,
                     "networks": 41822,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -3366,9 +3366,9 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
+                    "networks": 1,
                     "volumes": 1,
                     "images": 1,
-                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -3376,9 +3376,9 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
+                    "networks": 41822,
                     "volumes": 15944,
                     "images": 6623,
-                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -3392,9 +3392,9 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -3402,9 +3402,9 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
                     "containers": 149749
                 }
             },
@@ -3470,8 +3470,8 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
-                    "images": 1,
                     "volumes": 1,
+                    "images": 1,
                     "networks": 1,
                     "containers": 1
                 },
@@ -3480,15 +3480,15 @@
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
-                    "images": 6623,
                     "volumes": 15944,
+                    "images": 6623,
                     "networks": 41822,
                     "containers": 149749
                 }
             },
             "unmanaged-actions.spec.ts > Unmanaged Stack — Stacks Tab > stop then start cache service": {
-                "serverFrameCount": 50,
-                "serverTotalBytes": 556944,
+                "serverFrameCount": 49,
+                "serverTotalBytes": 557539,
                 "clientFrameCount": 7,
                 "clientTotalBytes": 626,
                 "serverEventCounts": {
@@ -3496,27 +3496,27 @@
                     "ack": 7,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 3,
-                    "terminalWrite": 34
+                    "terminalWrite": 33
                 },
                 "serverEventBytes": {
                     "info": 97,
-                    "ack": 364,
+                    "ack": 1019,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 449246,
-                    "terminalWrite": 6823
+                    "terminalWrite": 6763
                 }
             },
             "unmanaged-actions.spec.ts > Unmanaged Stack — Stacks Tab > restart web service": {
-                "serverFrameCount": 16,
-                "serverTotalBytes": 255889,
+                "serverFrameCount": 15,
+                "serverTotalBytes": 255365,
                 "clientFrameCount": 5,
                 "clientTotalBytes": 501,
                 "serverEventCounts": {
@@ -3526,9 +3526,9 @@
                     "stacks": 1,
                     "volumes": 1,
                     "images": 1,
-                    "containers": 1,
                     "networks": 1,
-                    "terminalWrite": 4
+                    "containers": 1,
+                    "terminalWrite": 3
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -3537,9 +3537,9 @@
                     "stacks": 35935,
                     "volumes": 15944,
                     "images": 6623,
-                    "containers": 149749,
                     "networks": 41822,
-                    "terminalWrite": 1384
+                    "containers": 149749,
+                    "terminalWrite": 860
                 }
             },
             "unmanaged-actions.spec.ts > Unmanaged Stack — Stacks Tab > recreate web service": {
@@ -3551,9 +3551,9 @@
                     "info": 1,
                     "ack": 5,
                     "updates": 1,
+                    "stacks": 1,
                     "volumes": 1,
                     "networks": 1,
-                    "stacks": 1,
                     "images": 1,
                     "containers": 1,
                     "terminalWrite": 3
@@ -3562,17 +3562,17 @@
                     "info": 97,
                     "ack": 1707,
                     "updates": 90,
+                    "stacks": 35935,
                     "volumes": 15944,
                     "networks": 41822,
-                    "stacks": 35935,
                     "images": 6623,
                     "containers": 149749,
                     "terminalWrite": 860
                 }
             },
             "unmanaged-actions.spec.ts > Unmanaged Stack — Containers Tab > stop web from container page": {
-                "serverFrameCount": 20,
-                "serverTotalBytes": 313796,
+                "serverFrameCount": 16,
+                "serverTotalBytes": 313298,
                 "clientFrameCount": 7,
                 "clientTotalBytes": 602,
                 "serverEventCounts": {
@@ -3580,27 +3580,27 @@
                     "ack": 7,
                     "updates": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
-                    "volumes": 1,
                     "containers": 1,
-                    "terminalWrite": 6
+                    "terminalWrite": 2
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 62749,
                     "updates": 90,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
-                    "volumes": 15944,
                     "containers": 149749,
-                    "terminalWrite": 787
+                    "terminalWrite": 289
                 }
             },
             "unmanaged-actions.spec.ts > Unmanaged Stack — Containers Tab > restart cache from container page": {
-                "serverFrameCount": 20,
-                "serverTotalBytes": 313295,
+                "serverFrameCount": 16,
+                "serverTotalBytes": 312785,
                 "clientFrameCount": 7,
                 "clientTotalBytes": 611,
                 "serverEventCounts": {
@@ -3609,10 +3609,10 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1,
-                    "terminalWrite": 6
+                    "terminalWrite": 2
                 },
                 "serverEventBytes": {
                     "info": 97,
@@ -3620,15 +3620,15 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149748,
-                    "terminalWrite": 810
+                    "terminalWrite": 300
                 }
             },
             "unmanaged-actions.spec.ts > Standalone Containers — Containers Tab > stop portainer": {
                 "serverFrameCount": 18,
-                "serverTotalBytes": 461141,
+                "serverTotalBytes": 461114,
                 "clientFrameCount": 7,
                 "clientTotalBytes": 575,
                 "serverEventCounts": {
@@ -3644,7 +3644,7 @@
                 },
                 "serverEventBytes": {
                     "info": 97,
-                    "ack": 60902,
+                    "ack": 60875,
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
@@ -3665,8 +3665,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 2,
                     "terminalWrite": 3
                 },
@@ -3676,8 +3676,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 299497,
                     "terminalWrite": 252
                 }
@@ -3693,8 +3693,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "networks": 1,
-                    "volumes": 1,
                     "images": 1,
+                    "volumes": 1,
                     "containers": 1,
                     "terminalWrite": 3
                 },
@@ -3704,8 +3704,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "networks": 41822,
-                    "volumes": 15944,
                     "images": 6623,
+                    "volumes": 15944,
                     "containers": 149749,
                     "terminalWrite": 239
                 }
@@ -3719,20 +3719,20 @@
                     "info": 1,
                     "ack": 5,
                     "updates": 1,
-                    "stacks": 1,
                     "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "stacks": 1,
+                    "images": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 60850,
                     "updates": 90,
-                    "stacks": 35935,
                     "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "stacks": 35935,
+                    "images": 6623,
                     "containers": 149749
                 }
             },
@@ -3745,6 +3745,32 @@
                     "info": 1,
                     "ack": 1,
                     "updates": 1,
+                    "networks": 1,
+                    "stacks": 1,
+                    "volumes": 1,
+                    "containers": 1,
+                    "images": 1
+                },
+                "serverEventBytes": {
+                    "info": 97,
+                    "ack": 27,
+                    "updates": 90,
+                    "networks": 41822,
+                    "stacks": 35935,
+                    "volumes": 15944,
+                    "containers": 149749,
+                    "images": 6623
+                }
+            },
+            "volumes.spec.ts > Volumes — List > empty state shows no-volume-selected message": {
+                "serverFrameCount": 8,
+                "serverTotalBytes": 250287,
+                "clientFrameCount": 1,
+                "clientTotalBytes": 248,
+                "serverEventCounts": {
+                    "info": 1,
+                    "ack": 1,
+                    "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
                     "networks": 1,
@@ -3762,32 +3788,6 @@
                     "containers": 149749
                 }
             },
-            "volumes.spec.ts > Volumes — List > empty state shows no-volume-selected message": {
-                "serverFrameCount": 8,
-                "serverTotalBytes": 250287,
-                "clientFrameCount": 1,
-                "clientTotalBytes": 248,
-                "serverEventCounts": {
-                    "info": 1,
-                    "ack": 1,
-                    "updates": 1,
-                    "containers": 1,
-                    "images": 1,
-                    "stacks": 1,
-                    "networks": 1,
-                    "volumes": 1
-                },
-                "serverEventBytes": {
-                    "info": 97,
-                    "ack": 27,
-                    "updates": 90,
-                    "containers": 149749,
-                    "images": 6623,
-                    "stacks": 35935,
-                    "networks": 41822,
-                    "volumes": 15944
-                }
-            },
             "volumes.spec.ts > Volumes — List > search filters volume list": {
                 "serverFrameCount": 8,
                 "serverTotalBytes": 250287,
@@ -3798,20 +3798,20 @@
                     "ack": 1,
                     "updates": 1,
                     "stacks": 1,
-                    "images": 1,
+                    "volumes": 1,
                     "networks": 1,
-                    "containers": 1,
-                    "volumes": 1
+                    "images": 1,
+                    "containers": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 27,
                     "updates": 90,
                     "stacks": 35935,
-                    "images": 6623,
+                    "volumes": 15944,
                     "networks": 41822,
-                    "containers": 149749,
-                    "volumes": 15944
+                    "images": 6623,
+                    "containers": 149749
                 }
             },
             "volumes.spec.ts > Volumes — List > filter by in use status": {
@@ -3850,8 +3850,8 @@
                     "ack": 2,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
                     "images": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "containers": 1
                 },
@@ -3860,8 +3860,8 @@
                     "ack": 229,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
                     "images": 6623,
+                    "volumes": 15944,
                     "networks": 41822,
                     "containers": 149749
                 }
@@ -3903,8 +3903,8 @@
                     "updates": 1,
                     "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "networks": 1,
                     "containers": 1
                 },
                 "serverEventBytes": {
@@ -3913,8 +3913,8 @@
                     "updates": 90,
                     "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "networks": 41822,
                     "containers": 149749
                 }
             },
@@ -3955,8 +3955,8 @@
                     "info": 1,
                     "ack": 4,
                     "updates": 1,
-                    "volumes": 1,
                     "stacks": 1,
+                    "volumes": 1,
                     "networks": 1,
                     "images": 1,
                     "containers": 1,
@@ -3966,8 +3966,8 @@
                     "info": 97,
                     "ack": 809,
                     "updates": 90,
-                    "volumes": 15944,
                     "stacks": 35935,
+                    "volumes": 15944,
                     "networks": 41822,
                     "images": 6623,
                     "containers": 149749,
@@ -3983,22 +3983,22 @@
                     "info": 1,
                     "ack": 4,
                     "updates": 1,
+                    "volumes": 1,
+                    "images": 1,
+                    "stacks": 1,
                     "networks": 1,
                     "containers": 1,
-                    "stacks": 1,
-                    "images": 1,
-                    "volumes": 1,
                     "terminalWrite": 1
                 },
                 "serverEventBytes": {
                     "info": 97,
                     "ack": 809,
                     "updates": 90,
+                    "volumes": 15944,
+                    "images": 6623,
+                    "stacks": 35935,
                     "networks": 41822,
                     "containers": 149749,
-                    "stacks": 35935,
-                    "images": 6623,
-                    "volumes": 15944,
                     "terminalWrite": 424
                 }
             },
@@ -4040,9 +4040,9 @@
                     "ack": 4,
                     "updates": 1,
                     "stacks": 1,
-                    "volumes": 1,
-                    "images": 1,
                     "networks": 1,
+                    "images": 1,
+                    "volumes": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -4051,9 +4051,9 @@
                     "ack": 809,
                     "updates": 90,
                     "stacks": 35935,
-                    "volumes": 15944,
-                    "images": 6623,
                     "networks": 41822,
+                    "images": 6623,
+                    "volumes": 15944,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
@@ -4067,10 +4067,10 @@
                     "info": 1,
                     "ack": 4,
                     "updates": 1,
+                    "stacks": 1,
                     "volumes": 1,
                     "images": 1,
                     "networks": 1,
-                    "stacks": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -4078,10 +4078,10 @@
                     "info": 97,
                     "ack": 809,
                     "updates": 90,
+                    "stacks": 35935,
                     "volumes": 15944,
                     "images": 6623,
                     "networks": 41822,
-                    "stacks": 35935,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
@@ -4095,10 +4095,10 @@
                     "info": 1,
                     "ack": 4,
                     "updates": 1,
-                    "stacks": 1,
                     "volumes": 1,
-                    "networks": 1,
                     "images": 1,
+                    "stacks": 1,
+                    "networks": 1,
                     "containers": 1,
                     "terminalWrite": 1
                 },
@@ -4106,10 +4106,10 @@
                     "info": 97,
                     "ack": 809,
                     "updates": 90,
-                    "stacks": 35935,
                     "volumes": 15944,
-                    "networks": 41822,
                     "images": 6623,
+                    "stacks": 35935,
+                    "networks": 41822,
                     "containers": 149749,
                     "terminalWrite": 424
                 }
@@ -4143,7 +4143,13 @@
                 }
             }
         },
-        "totalServerFrames": 2290,
-        "totalServerBytes": 44481833
+        "totalServerFrames": 2224,
+        "totalServerBytes": 44399179
+    },
+    "build": {
+        "binarySize": 16787059,
+        "bundleSizeRaw": 3093654,
+        "bundleSizeGzip": 1031085,
+        "bundleFileCount": 66
     }
 }

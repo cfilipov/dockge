@@ -1,6 +1,7 @@
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { gzipSync } from "zlib";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -44,6 +45,12 @@ export interface PerfResults {
         totalServerFrames: number;
         totalServerBytes: number;
     };
+    build?: {
+        binarySize: number;
+        bundleSizeRaw: number;
+        bundleSizeGzip: number;
+        bundleFileCount: number;
+    };
 }
 
 // Tolerance definitions for comparison
@@ -65,6 +72,10 @@ export const TOLERANCES: Record<string, ToleranceSpec> = {
     // counts between adjacent tests, but the total is stable.
     "socket.totalServerFrames": { type: "percent", value: 3 },
     "socket.totalServerBytes": { type: "percent", value: 3 },
+    // Build sizes — deterministic but allows minor toolchain drift
+    "build.binarySize": { type: "percent", value: 3 },
+    "build.bundleSizeRaw": { type: "percent", value: 3 },
+    "build.bundleSizeGzip": { type: "percent", value: 3 },
 };
 
 // ---------- Initial load channels ----------
@@ -296,6 +307,13 @@ export class PerfCollector {
         // frame/byte attribution to shift between adjacent tests. The totals
         // above catch actual regressions; per-test data aids manual inspection.
 
+        // Build sizes — only compare if both sides have build data
+        if (actual.build && baseline.build) {
+            compareField(results, "build.binarySize", actual.build.binarySize, baseline.build.binarySize);
+            compareField(results, "build.bundleSizeRaw", actual.build.bundleSizeRaw, baseline.build.bundleSizeRaw);
+            compareField(results, "build.bundleSizeGzip", actual.build.bundleSizeGzip, baseline.build.bundleSizeGzip);
+        }
+
         return results;
     }
 
@@ -319,6 +337,50 @@ export class PerfCollector {
     }
 }
 
+// ---------- Build size measurement ----------
+
+/** Walk a directory recursively and return all file paths. */
+function walkDir(dir: string): string[] {
+    const files: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...walkDir(full));
+        } else if (entry.isFile()) {
+            files.push(full);
+        }
+    }
+    return files;
+}
+
+/**
+ * Measure build artifact sizes. Call after `task build`.
+ * @param projectRoot - path to the repository root (where `./dockge` binary and `frontend-dist/` live)
+ */
+export function measureBuildSizes(projectRoot: string): NonNullable<PerfResults["build"]> {
+    const binaryPath = join(projectRoot, "dockge");
+    const distDir = join(projectRoot, "dist");
+
+    const binaryStat = statSync(binaryPath);
+    const binarySize = binaryStat.size;
+
+    const distFiles = walkDir(distDir);
+    let bundleSizeRaw = 0;
+    let bundleSizeGzip = 0;
+    for (const file of distFiles) {
+        const contents = readFileSync(file);
+        bundleSizeRaw += contents.length;
+        bundleSizeGzip += gzipSync(contents).length;
+    }
+
+    return {
+        binarySize,
+        bundleSizeRaw,
+        bundleSizeGzip,
+        bundleFileCount: distFiles.length,
+    };
+}
+
 // ---------- Helpers ----------
 
 export interface ComparisonResult {
@@ -338,6 +400,9 @@ const BYTE_FIELDS = new Set([
     "memory.avgHeapAlloc",
     "memory.cumulativeAlloc",
     "socket.totalServerBytes",
+    "build.binarySize",
+    "build.bundleSizeRaw",
+    "build.bundleSizeGzip",
 ]);
 
 function isByteField(field: string): boolean {

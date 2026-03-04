@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { test, expect } from "../fixtures/auth.fixture";
-import { PerfCollector, PerfResults, ComparisonResult } from "../helpers/perf-collector";
+import { PerfCollector, PerfResults, ComparisonResult, measureBuildSizes } from "../helpers/perf-collector";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPDATE_MODE = !!process.env.UPDATE_BENCHMARKS;
@@ -11,6 +11,12 @@ const REPORT_PATH = join(__dirname, "..", "test-results", "benchmark-report.txt"
 test.describe("Performance Benchmarks", () => {
     test("memory and socket metrics within baseline tolerances", async ({ perfCollector }) => {
         const results = await perfCollector.getResults();
+        const projectRoot = join(__dirname, "..", "..");
+        try {
+            results.build = measureBuildSizes(projectRoot);
+        } catch {
+            // Build artifacts missing — skip build size tracking
+        }
         const baseline = PerfCollector.loadBaseline();
         const report = new ReportBuilder();
 
@@ -97,6 +103,14 @@ function buildSummary(report: ReportBuilder, results: PerfResults): void {
     if (total) {
         report.line(`    ${"─".repeat(28)}`);
         report.line(`    ${"total:".padEnd(16)}${formatBytes(total.bytes).padStart(10)}  (${total.count} frames)`);
+    }
+
+    if (results.build) {
+        report.line("");
+        report.line("  Build Sizes");
+        report.line(`    Binary (embedded):    ${formatBytes(results.build.binarySize)}`);
+        report.line(`    Bundle (raw):         ${formatBytes(results.build.bundleSizeRaw)} (${results.build.bundleFileCount} files)`);
+        report.line(`    Bundle (gzip):        ${formatBytes(results.build.bundleSizeGzip)}`);
     }
 }
 
