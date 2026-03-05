@@ -669,10 +669,18 @@ func (s *SDKClient) Events(ctx context.Context) (<-chan DockerEvent, <-chan erro
                 evt := DockerEvent{
                     Type:   evtType,
                     Action: action,
+                    Raw:    msg,
                 }
-                // Container-specific fields
-                if msg.Type == events.ContainerEventType {
+                // Extract project/service/container from actor attributes.
+                // Container events carry these directly; network connect/disconnect
+                // events also include the container ID in attributes.
+                switch msg.Type {
+                case events.ContainerEventType:
                     evt.ContainerID = msg.Actor.ID
+                    evt.Project = msg.Actor.Attributes["com.docker.compose.project"]
+                    evt.Service = msg.Actor.Attributes["com.docker.compose.service"]
+                case events.NetworkEventType:
+                    evt.ContainerID = msg.Actor.Attributes["container"]
                     evt.Project = msg.Actor.Attributes["com.docker.compose.project"]
                     evt.Service = msg.Actor.Attributes["com.docker.compose.service"]
                 }

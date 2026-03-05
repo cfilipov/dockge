@@ -1095,6 +1095,8 @@ func (fd *FakeDaemon) unsubscribeEvents(id int) {
 }
 
 // publishEventGeneric sends a typed event to all subscribers (non-blocking).
+// For network events, id is the container ID (matching real Docker's
+// Actor.Attributes["container"] on connect/disconnect).
 func (fd *FakeDaemon) publishEventGeneric(eventType, action, id, project, service string) {
 	fd.eventsMu.Lock()
 	defer fd.eventsMu.Unlock()
@@ -1106,6 +1108,12 @@ func (fd *FakeDaemon) publishEventGeneric(eventType, action, id, project, servic
 	}
 	if service != "" {
 		attrs["com.docker.compose.service"] = service
+	}
+
+	if eventType == "network" {
+		// Real Docker: network connect/disconnect events carry the container
+		// ID in Actor.Attributes["container"], not Actor.ID.
+		attrs["container"] = id
 	}
 
 	evt := eventMessage{

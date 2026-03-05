@@ -618,20 +618,25 @@ func DiffAndEmit(before, after worldSnapshot, sink EventSink) {
 		}
 	}
 
-	// Network connect/disconnect per container
+	// Network connect/disconnect per container — include container context
+	// so events carry project/service attribution like real Docker.
 	for id, afterNets := range after.containerNetworks {
+		meta := after.containerMeta[id]
+		project, svc := meta[0], meta[1]
 		beforeNets := before.containerNetworks[id]
 		for netName := range afterNets {
 			if beforeNets == nil || !beforeNets[netName] {
-				sink("network", "connect", netName, "", "")
+				sink("network", "connect", id, project, svc)
 			}
 		}
 	}
 	for id, beforeNets := range before.containerNetworks {
+		meta := before.containerMeta[id]
+		project, svc := meta[0], meta[1]
 		afterNets := after.containerNetworks[id]
 		for netName := range beforeNets {
 			if afterNets == nil || !afterNets[netName] {
-				sink("network", "disconnect", netName, "", "")
+				sink("network", "disconnect", id, project, svc)
 			}
 		}
 	}

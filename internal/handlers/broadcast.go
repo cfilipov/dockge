@@ -408,7 +408,11 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 			}
 
 			// Broadcast raw Docker event for dev inspection (visible in browser console).
-			ws.BroadcastAuthenticated(app.WS, "dockerEvent", evt)
+			if evt.Raw != nil {
+				ws.BroadcastAuthenticated(app.WS, "dockerEvent", evt.Raw)
+			} else {
+				ws.BroadcastAuthenticated(app.WS, "dockerEvent", evt)
+			}
 
 			switch evt.Type {
 			case "container":

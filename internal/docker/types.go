@@ -68,6 +68,9 @@ type DockerEvent struct {
     Project     string // from com.docker.compose.project label
     Service     string // from com.docker.compose.service label
     ContainerID string
+    // Raw holds the original Docker API event message (JSON-serializable).
+    // Used for dev inspection — broadcast as-is to WebSocket clients.
+    Raw any `json:"-"`
 }
 
 // ContainerEvent represents a Docker container lifecycle event.
