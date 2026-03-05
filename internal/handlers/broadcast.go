@@ -407,6 +407,9 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 				continue
 			}
 
+			// Broadcast raw Docker event for dev inspection (visible in browser console).
+			ws.BroadcastAuthenticated(app.WS, "dockerEvent", evt)
+
 			switch evt.Type {
 			case "container":
 				app.BcastMetrics.recordTriggered(chanContainers)
