@@ -77,10 +77,73 @@ func newBroadcastState() *broadcastState {
 	}
 }
 
+// BroadcastMetrics tracks per-channel broadcast statistics.
+type BroadcastMetrics struct {
+	mu       sync.Mutex
+	counters map[string]*ChannelMetrics
+}
+
+// ChannelMetrics holds counters for a single broadcast channel.
+type ChannelMetrics struct {
+	Triggered int64 `json:"triggered"` // debouncer triggered
+	Sent      int64 `json:"sent"`      // actually broadcast (hash changed)
+	Skipped   int64 `json:"skipped"`   // suppressed by hash dedup
+}
+
+func newBroadcastMetrics() *BroadcastMetrics {
+	channels := []string{chanStacks, chanContainers, chanNetworks, chanImages, chanVolumes, chanUpdates}
+	m := &BroadcastMetrics{
+		counters: make(map[string]*ChannelMetrics, len(channels)),
+	}
+	for _, ch := range channels {
+		m.counters[ch] = &ChannelMetrics{}
+	}
+	return m
+}
+
+func (bm *BroadcastMetrics) recordTriggered(channel string) {
+	bm.mu.Lock()
+	if cm, ok := bm.counters[channel]; ok {
+		cm.Triggered++
+	}
+	bm.mu.Unlock()
+}
+
+func (bm *BroadcastMetrics) recordSent(channel string) {
+	bm.mu.Lock()
+	if cm, ok := bm.counters[channel]; ok {
+		cm.Sent++
+	}
+	bm.mu.Unlock()
+}
+
+func (bm *BroadcastMetrics) recordSkipped(channel string) {
+	bm.mu.Lock()
+	if cm, ok := bm.counters[channel]; ok {
+		cm.Skipped++
+	}
+	bm.mu.Unlock()
+}
+
+// Snapshot returns a copy of all metrics for JSON serialization.
+func (bm *BroadcastMetrics) Snapshot() map[string]*ChannelMetrics {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+	result := make(map[string]*ChannelMetrics, len(bm.counters))
+	for k, v := range bm.counters {
+		result[k] = &ChannelMetrics{
+			Triggered: v.Triggered,
+			Sent:      v.Sent,
+			Skipped:   v.Skipped,
+		}
+	}
+	return result
+}
+
 // broadcastIfChanged marshals data, computes FNV-1a hash, and broadcasts
 // to all authenticated connections only if the hash differs from the last
 // broadcast on this channel. Returns true if a broadcast was sent.
-func (bs *broadcastState) broadcastIfChanged(wss *ws.Server, channel string, data any) bool {
+func (bs *broadcastState) broadcastIfChanged(wss *ws.Server, channel string, data any, metrics *BroadcastMetrics) bool {
 	// Marshal the full envelope once — used for both hashing and sending.
 	msg, err := json.Marshal(ws.ServerMessage[any]{
 		Event: channel,
@@ -105,11 +168,17 @@ func (bs *broadcastState) broadcastIfChanged(wss *ws.Server, channel string, dat
 
 	if !changed {
 		slog.Debug("broadcast skipped (unchanged)", "channel", channel)
+		if metrics != nil {
+			metrics.recordSkipped(channel)
+		}
 		return false
 	}
 
 	wss.BroadcastAuthenticatedBytes(msg)
-	slog.Debug("broadcast sent", "channel", channel, "bytes", len(msg))
+	slog.Info("broadcast sent", "channel", channel, "bytes", len(msg))
+	if metrics != nil {
+		metrics.recordSent(channel)
+	}
 	return true
 }
 
@@ -124,7 +193,7 @@ func (app *App) broadcastStacks() {
 		return
 	}
 	entries := buildStackBroadcast(app.StacksDir)
-	app.bcastState.broadcastIfChanged(app.WS, chanStacks, entries)
+	app.bcastState.broadcastIfChanged(app.WS, chanStacks, entries, app.BcastMetrics)
 }
 
 // broadcastContainers queries Docker for all containers and broadcasts enriched data.
@@ -140,7 +209,7 @@ func (app *App) broadcastContainers() {
 		slog.Warn("broadcastContainers", "err", err)
 		containers = []docker.ContainerBroadcast{}
 	}
-	app.bcastState.broadcastIfChanged(app.WS, chanContainers, containers)
+	app.bcastState.broadcastIfChanged(app.WS, chanContainers, containers, app.BcastMetrics)
 }
 
 // broadcastNetworks queries Docker for all networks and broadcasts.
@@ -156,7 +225,7 @@ func (app *App) broadcastNetworks() {
 		slog.Warn("broadcastNetworks", "err", err)
 		networks = []docker.NetworkSummary{}
 	}
-	app.bcastState.broadcastIfChanged(app.WS, chanNetworks, networks)
+	app.bcastState.broadcastIfChanged(app.WS, chanNetworks, networks, app.BcastMetrics)
 }
 
 // broadcastImages queries Docker for all images and broadcasts.
@@ -172,7 +241,7 @@ func (app *App) broadcastImages() {
 		slog.Warn("broadcastImages", "err", err)
 		images = []docker.ImageSummary{}
 	}
-	app.bcastState.broadcastIfChanged(app.WS, chanImages, images)
+	app.bcastState.broadcastIfChanged(app.WS, chanImages, images, app.BcastMetrics)
 }
 
 // broadcastVolumes queries Docker for all volumes and broadcasts.
@@ -188,7 +257,7 @@ func (app *App) broadcastVolumes() {
 		slog.Warn("broadcastVolumes", "err", err)
 		volumes = []docker.VolumeSummary{}
 	}
-	app.bcastState.broadcastIfChanged(app.WS, chanVolumes, volumes)
+	app.bcastState.broadcastIfChanged(app.WS, chanVolumes, volumes, app.BcastMetrics)
 }
 
 // broadcastUpdates reads BoltDB image update cache and broadcasts container names with updates.
@@ -208,7 +277,7 @@ func (app *App) broadcastUpdates() {
 	}
 	sort.Strings(updated)
 
-	app.bcastState.broadcastIfChanged(app.WS, chanUpdates, updated)
+	app.bcastState.broadcastIfChanged(app.WS, chanUpdates, updated, app.BcastMetrics)
 }
 
 // buildStackBroadcast scans the stacks directory and builds the broadcast payload.
@@ -267,6 +336,7 @@ func buildStackBroadcast(stacksDir string) []StackBroadcastEntry {
 func (app *App) InitBroadcast() {
 	app.bcastState = newBroadcastState()
 	app.debouncer = newChannelDebouncer()
+	app.BcastMetrics = newBroadcastMetrics()
 	app.EventBus = NewEventBus()
 }
 
@@ -339,12 +409,16 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 
 			switch evt.Type {
 			case "container":
+				app.BcastMetrics.recordTriggered(chanContainers)
 				app.debouncer.trigger(chanContainers, app.broadcastContainers)
 			case "network":
+				app.BcastMetrics.recordTriggered(chanNetworks)
 				app.debouncer.trigger(chanNetworks, app.broadcastNetworks)
 			case "image":
+				app.BcastMetrics.recordTriggered(chanImages)
 				app.debouncer.trigger(chanImages, app.broadcastImages)
 			case "volume":
+				app.BcastMetrics.recordTriggered(chanVolumes)
 				app.debouncer.trigger(chanVolumes, app.broadcastVolumes)
 			}
 

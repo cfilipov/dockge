@@ -1094,23 +1094,28 @@ func (fd *FakeDaemon) unsubscribeEvents(id int) {
 	}
 }
 
-// publishEvent sends an event to all subscribers (non-blocking).
-func (fd *FakeDaemon) publishEvent(action, containerID, project, service string) {
+// publishEventGeneric sends a typed event to all subscribers (non-blocking).
+func (fd *FakeDaemon) publishEventGeneric(eventType, action, id, project, service string) {
 	fd.eventsMu.Lock()
 	defer fd.eventsMu.Unlock()
 
 	now := time.Now()
+	attrs := make(map[string]string)
+	if project != "" {
+		attrs["com.docker.compose.project"] = project
+	}
+	if service != "" {
+		attrs["com.docker.compose.service"] = service
+	}
+
 	evt := eventMessage{
 		Status: action,
-		ID:     containerID,
-		Type:   "container",
+		ID:     id,
+		Type:   eventType,
 		Action: action,
 		Actor: eventActor{
-			ID: containerID,
-			Attributes: map[string]string{
-				"com.docker.compose.project": project,
-				"com.docker.compose.service": service,
-			},
+			ID:         id,
+			Attributes: attrs,
 		},
 		Time:     now.Unix(),
 		TimeNano: now.UnixNano(),
@@ -1123,6 +1128,11 @@ func (fd *FakeDaemon) publishEvent(action, containerID, project, service string)
 			// Drop if subscriber is slow
 		}
 	}
+}
+
+// eventSink returns an EventSink that publishes to all event subscribers.
+func (fd *FakeDaemon) eventSink() EventSink {
+	return fd.publishEventGeneric
 }
 
 // --- Custom Mock State Endpoints ---
@@ -1139,18 +1149,10 @@ func (fd *FakeDaemon) handleMockServiceStateSet(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	fd.state.SetService(stack, service, body.Status)
-	fd.world.Reset() // Rebuild world after state change
-
-	containerID := fmt.Sprintf("mock-%s-%s-1", stack, service)
-	switch body.Status {
-	case "running":
-		fd.publishEvent("start", containerID, stack, service)
-	case "exited":
-		fd.publishEvent("die", containerID, stack, service)
-	case "paused":
-		fd.publishEvent("pause", containerID, stack, service)
-	}
+	fd.world.ApplyStateChange(func() {
+		fd.state.SetService(stack, service, body.Status)
+		fd.world.rebuild()
+	}, fd.eventSink())
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
@@ -1167,25 +1169,10 @@ func (fd *FakeDaemon) handleMockStateSet(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	oldStatus := fd.state.Get(stack)
-	fd.state.Set(stack, body.Status)
-	fd.world.Reset() // Rebuild world after state change
-
-	// Publish events for state transitions
-	services := fd.getServices(stack)
-	if oldStatus != body.Status {
-		for _, svc := range services {
-			containerID := fmt.Sprintf("mock-%s-%s-1", stack, svc)
-			switch body.Status {
-			case "running":
-				fd.publishEvent("start", containerID, stack, svc)
-			case "exited":
-				fd.publishEvent("die", containerID, stack, svc)
-			case "paused":
-				fd.publishEvent("pause", containerID, stack, svc)
-			}
-		}
-	}
+	fd.world.ApplyStateChange(func() {
+		fd.state.Set(stack, body.Status)
+		fd.world.rebuild()
+	}, fd.eventSink())
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
@@ -1194,15 +1181,11 @@ func (fd *FakeDaemon) handleMockStateSet(w http.ResponseWriter, r *http.Request)
 func (fd *FakeDaemon) handleMockStateDelete(w http.ResponseWriter, r *http.Request) {
 	stack := r.PathValue("stack")
 
-	// Publish destroy events before removing
-	services := fd.getServices(stack)
-	for _, svc := range services {
-		containerID := fmt.Sprintf("mock-%s-%s-1", stack, svc)
-		fd.publishEvent("destroy", containerID, stack, svc)
-	}
+	fd.world.ApplyStateChange(func() {
+		fd.state.Remove(stack)
+		fd.world.rebuild()
+	}, fd.eventSink())
 
-	fd.state.Remove(stack)
-	fd.world.Reset() // Rebuild world after state change
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
 }
@@ -1218,16 +1201,10 @@ func (fd *FakeDaemon) handleMockStandaloneStateSet(w http.ResponseWriter, r *htt
 		return
 	}
 
-	fd.state.SetStandalone(name, body.Status)
-	fd.world.Reset()
-
-	containerID := fmt.Sprintf("mock-standalone-%s", name)
-	switch body.Status {
-	case "running":
-		fd.publishEvent("start", containerID, "", "")
-	case "exited":
-		fd.publishEvent("die", containerID, "", "")
-	}
+	fd.world.ApplyStateChange(func() {
+		fd.state.SetStandalone(name, body.Status)
+		fd.world.rebuild()
+	}, fd.eventSink())
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
@@ -1356,9 +1333,9 @@ func (fd *FakeDaemon) StartEventsPoller(ctx context.Context) {
 							containerID := fmt.Sprintf("mock-%s-%s-1", stack, svc)
 							switch status {
 							case "running":
-								fd.publishEvent("start", containerID, stack, svc)
+								fd.publishEventGeneric("container", "start", containerID, stack, svc)
 							case "exited":
-								fd.publishEvent("die", containerID, stack, svc)
+								fd.publishEventGeneric("container", "die", containerID, stack, svc)
 							}
 						}
 					}
@@ -1368,7 +1345,7 @@ func (fd *FakeDaemon) StartEventsPoller(ctx context.Context) {
 						services := fd.getServices(stack)
 						for _, svc := range services {
 							containerID := fmt.Sprintf("mock-%s-%s-1", stack, svc)
-							fd.publishEvent("destroy", containerID, stack, svc)
+							fd.publishEventGeneric("container", "destroy", containerID, stack, svc)
 						}
 					}
 				}

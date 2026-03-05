@@ -28,8 +28,9 @@ type App struct {
 	MainTerminalName string // tracked for checkMainTerminal
 
 	// Per-channel broadcast infrastructure
-	bcastState *broadcastState
-	debouncer  *channelDebouncer
+	bcastState   *broadcastState
+	debouncer    *channelDebouncer
+	BcastMetrics *BroadcastMetrics
 
 	// EventBus fans out Docker events from the single broadcast watcher
 	// to per-terminal subscribers, replacing per-terminal Events() calls.

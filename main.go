@@ -187,6 +187,14 @@ func main() {
 	handlers.RegisterDockerHandlers(app)
 	handlers.RegisterServiceHandlers(app)
 
+	// Dev mode: broadcast metrics and mock reset proxy endpoints.
+	if cfg.Dev {
+		mux.HandleFunc("GET /api/broadcast-metrics", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(app.BcastMetrics.Snapshot())
+		})
+	}
+
 	// Dev mode: mock reset proxy endpoint.
 	// Forwards POST /_mock/reset to the mock daemon over the DOCKER_HOST Unix socket,
 	// then seeds BoltDB image updates from the response and triggers broadcasts.
