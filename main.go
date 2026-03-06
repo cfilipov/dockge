@@ -187,6 +187,9 @@ func main() {
 	handlers.RegisterDockerHandlers(app)
 	handlers.RegisterServiceHandlers(app)
 
+	// Dedicated terminal WebSocket endpoint (binary protocol, per-instance connections)
+	mux.HandleFunc("/ws/terminal/", app.HandleTerminalWS)
+
 	// Dev mode: broadcast metrics and mock reset proxy endpoints.
 	if cfg.Dev {
 		mux.HandleFunc("GET /api/broadcast-metrics", func(w http.ResponseWriter, _ *http.Request) {

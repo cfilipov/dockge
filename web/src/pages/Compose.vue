@@ -204,6 +204,9 @@
                             :rows="combinedTerminalRows"
                             :cols="combinedTerminalCols"
                             style="height: 315px;"
+                            channel="terminal"
+                            terminal-type="combined"
+                            :terminal-params="{ stack: stack.name }"
                         ></Terminal>
                     </div>
                 </div>
@@ -723,8 +726,8 @@ function exitConfirm(next: (val?: boolean | undefined) => void) {
 
 function exitAction() {
     console.debug("exitAction");
-    console.debug("leaveCombinedTerminal", stack.name);
-    emit("leaveCombinedTerminal", stack.name, () => {});
+    // Combined terminal cleanup is handled automatically by the dedicated
+    // WebSocket — closing the WS triggers server-side cleanup.
 }
 
 function bindTerminal() {

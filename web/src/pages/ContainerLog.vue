@@ -3,31 +3,22 @@
         <div>
             <h1 class="mb-3">{{ $t("log") }} - {{ serviceName }} ({{ stackName }})</h1>
 
-            <Terminal class="terminal" :rows="20" mode="displayOnly" :name="terminalName" :stack-name="stackName" :service-name="serviceName"></Terminal>
+            <Terminal class="terminal" :rows="20" mode="displayOnly" :name="terminalName" :stack-name="stackName" :service-name="serviceName"
+                channel="terminal" terminal-type="container-log" :terminal-params="{ stack: stackName, service: serviceName }"></Terminal>
         </div>
     </transition>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from "vue";
+import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { getContainerLogName } from "../common/util-common";
-import { useSocket } from "../composables/useSocket";
 
 const route = useRoute();
-const { emit } = useSocket();
 
 const stackName = computed(() => route.params.stackName as string);
 const serviceName = computed(() => route.params.serviceName as string);
 const terminalName = computed(() => getContainerLogName(stackName.value, serviceName.value));
-
-onMounted(() => {
-    emit("joinContainerLog", stackName.value, serviceName.value, () => {});
-});
-
-onBeforeUnmount(() => {
-    emit("leaveContainerLog", terminalName.value, () => {});
-});
 </script>
 
 <style scoped lang="scss">

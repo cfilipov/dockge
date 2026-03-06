@@ -160,6 +160,33 @@ func (m *Manager) RemoveAfter(name string, delay time.Duration) {
     })
 }
 
+// RemoveWriterAndCleanup removes a single writer from a specific terminal and
+// handles cleanup. For pipe terminals with a cancel func (log streams), if the
+// last writer is removed, the terminal is closed immediately. For PTY terminals,
+// cleanup is scheduled after 30s. Used by the dedicated terminal WS handler
+// where each connection maps to exactly one terminal.
+func (m *Manager) RemoveWriterAndCleanup(termName, connID string) {
+	m.mu.RLock()
+	t, ok := m.terminals[termName]
+	m.mu.RUnlock()
+
+	if !ok || t == nil {
+		return
+	}
+
+	t.RemoveWriter(connID)
+
+	if t.WriterCount() == 0 {
+		if t.Type == TypePipe && t.HasCancel() {
+			// Log streams: cancel context and remove immediately
+			m.Remove(termName)
+		} else if t.Type == TypePTY {
+			// Shell terminals: schedule delayed cleanup
+			m.RemoveAfter(termName, 30*time.Second)
+		}
+	}
+}
+
 // RemoveWriterFromAll removes a writer (by connID) from every terminal.
 // Called when a WebSocket connection disconnects.
 //

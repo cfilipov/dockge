@@ -13,6 +13,7 @@ import { TERMINAL_COLS, TERMINAL_ROWS } from "../common/util-common";
 import { useSocket } from "../composables/useSocket";
 import { useAppToast } from "../composables/useAppToast";
 import { useTheme } from "../composables/useTheme";
+import { useTerminalSocket, type TerminalSocket } from "../composables/useTerminalSocket";
 
 const { emit: socketEmit, bindTerminal, unbindTerminal } = useSocket();
 const { toastRes, toastError } = useAppToast();
@@ -77,6 +78,9 @@ const props = withDefaults(defineProps<{
     mode?: string;
     mainTerminal?: boolean;
     ariaLabel?: string;
+    channel?: "control" | "terminal";
+    terminalType?: string;
+    terminalParams?: Record<string, string>;
 }>(), {
     stackName: undefined,
     serviceName: undefined,
@@ -87,6 +91,9 @@ const props = withDefaults(defineProps<{
     mode: "displayOnly",
     mainTerminal: false,
     ariaLabel: undefined,
+    channel: "control",
+    terminalType: undefined,
+    terminalParams: undefined,
 });
 
 const emit = defineEmits<{
@@ -100,6 +107,9 @@ let first = true;
 let terminalInputBuffer = "";
 let cursorPosition = 0;
 let stopDarkWatcher: (() => void) | null = null;
+let termSocket: TerminalSocket | null = null;
+let spinnerTimer: ReturnType<typeof setTimeout> | null = null;
+let spinnerInterval: ReturnType<typeof setInterval> | null = null;
 
 function bind(name?: string) {
     if (name) {
@@ -196,11 +206,71 @@ function interactiveTerminalConfig() {
             handlePaste();
             return;
         }
-        socketEmit("terminalInput", props.name, e.key, (res: any) => {
-            if (!res.ok) {
-                toastRes(res);
-            }
-        });
+        if (termSocket) {
+            termSocket.sendInput(e.key);
+        } else {
+            socketEmit("terminalInput", props.name, e.key, (res: any) => {
+                if (!res.ok) {
+                    toastRes(res);
+                }
+            });
+        }
+    });
+}
+
+// Spinner for dedicated terminal WS connections (debounced 150ms)
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+function startSpinnerDebounce() {
+    let frameIdx = 0;
+    spinnerTimer = setTimeout(() => {
+        if (!terminal.value) return;
+        terminal.value.write("\x1b[?25l"); // hide cursor
+        terminal.value.write(`\r  ${SPINNER_FRAMES[0]}  Connecting...`);
+        spinnerInterval = setInterval(() => {
+            frameIdx = (frameIdx + 1) % SPINNER_FRAMES.length;
+            terminal.value?.write(`\r  ${SPINNER_FRAMES[frameIdx]}  Connecting...`);
+        }, 80);
+    }, 150);
+}
+
+function stopSpinner() {
+    if (spinnerTimer) {
+        clearTimeout(spinnerTimer);
+        spinnerTimer = null;
+    }
+    if (spinnerInterval) {
+        clearInterval(spinnerInterval);
+        spinnerInterval = null;
+    }
+}
+
+function connectDedicatedTerminal() {
+    if (!props.terminalType) return;
+
+    startSpinnerDebounce();
+
+    termSocket = useTerminalSocket({
+        type: props.terminalType,
+        params: props.terminalParams,
+    });
+
+    let firstMessage = true;
+    termSocket.onData((data: Uint8Array) => {
+        if (!terminal.value) return;
+        if (firstMessage) {
+            stopSpinner();
+            // reset() fully clears the terminal including current line and scrollback,
+            // unlike clear() which preserves the cursor line (leaving spinner residue).
+            terminal.value.reset();
+            firstMessage = false;
+        }
+        terminal.value.write(data);
+
+        if (first) {
+            emit("has-data");
+            first = false;
+        }
     });
 }
 
@@ -217,7 +287,11 @@ function onResizeEvent() {
     terminalFitAddOn?.fit();
     const rows = terminal.value!.rows;
     const cols = terminal.value!.cols;
-    socketEmit("terminalResize", props.name, rows, cols);
+    if (termSocket) {
+        termSocket.sendResize(rows, cols);
+    } else {
+        socketEmit("terminalResize", props.name, rows, cols);
+    }
 }
 
 async function handlePaste() {
@@ -242,11 +316,15 @@ function pasteText(text: string) {
         const backspaces = "\b".repeat(afterCursor.length);
         terminal.value!.write(backspaces);
     } else if (props.mode === "interactive") {
-        socketEmit("terminalInput", props.name, text, (res: any) => {
-            if (!res.ok) {
-                toastRes(res);
-            }
-        });
+        if (termSocket) {
+            termSocket.sendInput(text);
+        } else {
+            socketEmit("terminalInput", props.name, text, (res: any) => {
+                if (!res.ok) {
+                    toastRes(res);
+                }
+            });
+        }
     }
 }
 
@@ -323,7 +401,10 @@ onMounted(async () => {
         }
     });
 
-    if (props.mainTerminal) {
+    if (props.channel === "terminal" && props.terminalType) {
+        // Dedicated terminal WebSocket — no control WS lifecycle needed
+        connectDedicatedTerminal();
+    } else if (props.mainTerminal) {
         bind();
         socketEmit("mainTerminal", props.name, (res: any) => {
             if (!res.ok) {
@@ -365,12 +446,18 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    stopSpinner();
     stopDarkWatcher?.();
     window.removeEventListener("resize", onResizeEvent);
     if (terminalEl.value) {
         terminalEl.value.removeEventListener("contextmenu", handleContextMenu);
     }
-    unbindTerminal(props.name);
+    if (termSocket) {
+        termSocket.close();
+        termSocket = null;
+    } else {
+        unbindTerminal(props.name);
+    }
     terminal.value?.dispose();
 });
 

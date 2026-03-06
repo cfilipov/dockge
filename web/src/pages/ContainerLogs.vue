@@ -28,7 +28,8 @@
             />
 
             <Terminal class="terminal flex-grow-1" :rows="20" mode="displayOnly"
-                :name="terminalName" />
+                :name="terminalName" channel="terminal" terminal-type="container-log-by-name"
+                :terminal-params="{ container: containerName }" />
         </div>
         <div v-else>
             <h1 class="mb-3">{{ $t("logs") }}</h1>
@@ -40,11 +41,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from "vue";
+import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { useSocket } from "../composables/useSocket";
 import { useContainerStore } from "../stores/containerStore";
 import { useStackStore } from "../stores/stackStore";
 import { useUpdateStore } from "../stores/updateStore";
@@ -56,7 +56,6 @@ import { ref } from "vue";
 
 const route = useRoute();
 const { t } = useI18n();
-const { emit } = useSocket();
 const containerStore = useContainerStore();
 const stackStoreInstance = useStackStore();
 const updateStoreInstance = useUpdateStore();
@@ -103,17 +102,8 @@ const {
     doUpdate, checkImageUpdates,
 } = useServiceActions(stackName, serviceName, progressTerminalRef);
 
-onMounted(() => {
-    if (containerName.value) {
-        emit("joinContainerLogByName", containerName.value, () => {});
-    }
-});
-
-onBeforeUnmount(() => {
-    if (terminalName.value) {
-        emit("leaveContainerLog", terminalName.value, () => {});
-    }
-});
+// Terminal WS lifecycle is handled automatically by the dedicated WebSocket
+// connection — no manual join/leave needed.
 </script>
 
 <style scoped lang="scss">
