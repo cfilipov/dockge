@@ -176,6 +176,9 @@ function connectDedicatedTerminal() {
             // reset() fully clears the terminal including current line and scrollback,
             // unlike clear() which preserves the cursor line (leaving spinner residue).
             terminal.value.reset();
+            // Restore cursor visibility — the spinner hides it with \x1b[?25l,
+            // and reset() doesn't always re-enable it (xterm.js quirk).
+            terminal.value.write("\x1b[?25h");
             firstMessage = false;
         }
         terminal.value.write(data);
