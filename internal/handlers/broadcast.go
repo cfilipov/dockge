@@ -2,14 +2,12 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"hash"
-	"hash/fnv"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,43 +36,10 @@ type StackBroadcastEntry struct {
 	IsManagedByDockge bool                       `json:"isManagedByDockge"`
 }
 
-// channelDebouncer manages per-channel trailing-edge debounce timers.
-// Each event type resets its own timer; the timer fires 200ms after the
-// last event of that type.
-type channelDebouncer struct {
-	mu     sync.Mutex
-	timers map[string]*time.Timer
-}
-
-func newChannelDebouncer() *channelDebouncer {
-	return &channelDebouncer{
-		timers: make(map[string]*time.Timer),
-	}
-}
-
-// trigger resets the timer for the given channel. When the timer fires
-// (200ms after the last trigger), it calls fn in a new goroutine.
-func (d *channelDebouncer) trigger(channel string, fn func()) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if t, ok := d.timers[channel]; ok {
-		t.Stop()
-	}
-	d.timers[channel] = time.AfterFunc(200*time.Millisecond, fn)
-}
-
-// broadcastState holds per-channel FNV hashes for deduplication.
-type broadcastState struct {
-	mu       sync.Mutex
-	lastHash map[string]uint64
-	hasher   hash.Hash64
-}
-
-func newBroadcastState() *broadcastState {
-	return &broadcastState{
-		lastHash: make(map[string]uint64),
-		hasher:   fnv.New64a(),
-	}
+// dispatchWork is sent through the dispatch channel to the worker goroutine.
+type dispatchWork struct {
+	evt      docker.DockerEvent
+	fullSync string // non-empty = full refresh for this channel (bypass event routing)
 }
 
 // BroadcastMetrics tracks per-channel broadcast statistics.
@@ -85,9 +50,8 @@ type BroadcastMetrics struct {
 
 // ChannelMetrics holds counters for a single broadcast channel.
 type ChannelMetrics struct {
-	Triggered int64 `json:"triggered"` // debouncer triggered
-	Sent      int64 `json:"sent"`      // actually broadcast (hash changed)
-	Skipped   int64 `json:"skipped"`   // suppressed by hash dedup
+	Triggered int64 `json:"triggered"` // events received
+	Sent      int64 `json:"sent"`      // broadcasts sent
 }
 
 func newBroadcastMetrics() *BroadcastMetrics {
@@ -117,14 +81,6 @@ func (bm *BroadcastMetrics) recordSent(channel string) {
 	bm.mu.Unlock()
 }
 
-func (bm *BroadcastMetrics) recordSkipped(channel string) {
-	bm.mu.Lock()
-	if cm, ok := bm.counters[channel]; ok {
-		cm.Skipped++
-	}
-	bm.mu.Unlock()
-}
-
 // Snapshot returns a copy of all metrics for JSON serialization.
 func (bm *BroadcastMetrics) Snapshot() map[string]*ChannelMetrics {
 	bm.mu.Lock()
@@ -134,52 +90,9 @@ func (bm *BroadcastMetrics) Snapshot() map[string]*ChannelMetrics {
 		result[k] = &ChannelMetrics{
 			Triggered: v.Triggered,
 			Sent:      v.Sent,
-			Skipped:   v.Skipped,
 		}
 	}
 	return result
-}
-
-// broadcastIfChanged marshals data, computes FNV-1a hash, and broadcasts
-// to all authenticated connections only if the hash differs from the last
-// broadcast on this channel. Returns true if a broadcast was sent.
-func (bs *broadcastState) broadcastIfChanged(wss *ws.Server, channel string, data any, metrics *BroadcastMetrics) bool {
-	// Marshal the full envelope once — used for both hashing and sending.
-	msg, err := json.Marshal(ws.ServerMessage[any]{
-		Event: channel,
-		Data:  data,
-	})
-	if err != nil {
-		slog.Error("broadcast marshal", "channel", channel, "err", err)
-		return false
-	}
-
-	bs.hasher.Reset()
-	bs.hasher.Write(msg)
-	hash := bs.hasher.Sum64()
-
-	bs.mu.Lock()
-	old := bs.lastHash[channel]
-	changed := hash != old
-	if changed {
-		bs.lastHash[channel] = hash
-	}
-	bs.mu.Unlock()
-
-	if !changed {
-		slog.Debug("broadcast skipped (unchanged)", "channel", channel)
-		if metrics != nil {
-			metrics.recordSkipped(channel)
-		}
-		return false
-	}
-
-	wss.BroadcastAuthenticatedBytes(msg)
-	slog.Info("broadcast sent", "channel", channel, "bytes", len(msg))
-	if metrics != nil {
-		metrics.recordSent(channel)
-	}
-	return true
 }
 
 // sendToConn sends channel data to a single connection (used for initial connect).
@@ -187,77 +100,135 @@ func sendToConn(c *ws.Conn, channel string, data any) {
 	ws.SendEvent(c, channel, data)
 }
 
-// broadcastStacks scans the stacks directory and broadcasts compose file metadata.
-func (app *App) broadcastStacks() {
+// --- Map-building helpers ---
+
+// mapPayload wraps a map with a replace flag. When Replace is true, the
+// frontend clears the store before merging. Used for full-list broadcasts
+// (initial load, Trigger*). Event-driven partial updates send bare maps.
+type mapPayload struct {
+	Replace bool           `json:"replace"`
+	Data    map[string]any `json:"data"`
+}
+
+// containersToMap converts a slice of ContainerBroadcast to a map keyed by name.
+func containersToMap(containers []docker.ContainerBroadcast) map[string]any {
+	m := make(map[string]any, len(containers))
+	for _, c := range containers {
+		m[c.Name] = c
+	}
+	return m
+}
+
+// networksToMap converts a slice of NetworkSummary to a map keyed by name.
+func networksToMap(networks []docker.NetworkSummary) map[string]any {
+	m := make(map[string]any, len(networks))
+	for _, n := range networks {
+		m[n.Name] = n
+	}
+	return m
+}
+
+// imagesToMap converts a slice of ImageSummary to a map keyed by ID.
+func imagesToMap(images []docker.ImageSummary) map[string]any {
+	m := make(map[string]any, len(images))
+	for _, img := range images {
+		m[img.ID] = img
+	}
+	return m
+}
+
+// volumesToMap converts a slice of VolumeSummary to a map keyed by name.
+func volumesToMap(volumes []docker.VolumeSummary) map[string]any {
+	m := make(map[string]any, len(volumes))
+	for _, v := range volumes {
+		m[v.Name] = v
+	}
+	return m
+}
+
+// stacksToMap converts a slice of StackBroadcastEntry to a map keyed by name.
+func stacksToMap(stacks []StackBroadcastEntry) map[string]any {
+	m := make(map[string]any, len(stacks))
+	for _, s := range stacks {
+		m[s.Name] = s
+	}
+	return m
+}
+
+// --- Full-list broadcast functions (for initial load + Trigger methods) ---
+
+// broadcastStacksMap queries stacks and broadcasts as a full-replace map.
+func (app *App) broadcastStacksMap() {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	entries := buildStackBroadcast(app.StacksDir)
-	app.bcastState.broadcastIfChanged(app.WS, chanStacks, entries, app.BcastMetrics)
+	ws.BroadcastAuthenticated(app.WS, chanStacks, mapPayload{Replace: true, Data: stacksToMap(entries)})
+	app.BcastMetrics.recordSent(chanStacks)
 }
 
-// broadcastContainers queries Docker for all containers and broadcasts enriched data.
-func (app *App) broadcastContainers() {
+// broadcastContainersMap queries Docker for all containers and broadcasts as a full-replace map.
+func (app *App) broadcastContainersMap() {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
 	containers, err := app.Docker.ContainerListDetailed(ctx)
 	if err != nil {
-		slog.Warn("broadcastContainers", "err", err)
+		slog.Warn("broadcastContainersMap", "err", err)
 		containers = []docker.ContainerBroadcast{}
 	}
-	app.bcastState.broadcastIfChanged(app.WS, chanContainers, containers, app.BcastMetrics)
+	ws.BroadcastAuthenticated(app.WS, chanContainers, mapPayload{Replace: true, Data: containersToMap(containers)})
+	app.BcastMetrics.recordSent(chanContainers)
 }
 
-// broadcastNetworks queries Docker for all networks and broadcasts.
-func (app *App) broadcastNetworks() {
+// broadcastNetworksMap queries Docker for all networks and broadcasts as a full-replace map.
+func (app *App) broadcastNetworksMap() {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
 	networks, err := app.Docker.NetworkList(ctx)
 	if err != nil {
-		slog.Warn("broadcastNetworks", "err", err)
+		slog.Warn("broadcastNetworksMap", "err", err)
 		networks = []docker.NetworkSummary{}
 	}
-	app.bcastState.broadcastIfChanged(app.WS, chanNetworks, networks, app.BcastMetrics)
+	ws.BroadcastAuthenticated(app.WS, chanNetworks, mapPayload{Replace: true, Data: networksToMap(networks)})
+	app.BcastMetrics.recordSent(chanNetworks)
 }
 
-// broadcastImages queries Docker for all images and broadcasts.
-func (app *App) broadcastImages() {
+// broadcastImagesMap queries Docker for all images and broadcasts as a full-replace map.
+func (app *App) broadcastImagesMap() {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
 	images, err := app.Docker.ImageList(ctx)
 	if err != nil {
-		slog.Warn("broadcastImages", "err", err)
+		slog.Warn("broadcastImagesMap", "err", err)
 		images = []docker.ImageSummary{}
 	}
-	app.bcastState.broadcastIfChanged(app.WS, chanImages, images, app.BcastMetrics)
+	ws.BroadcastAuthenticated(app.WS, chanImages, mapPayload{Replace: true, Data: imagesToMap(images)})
+	app.BcastMetrics.recordSent(chanImages)
 }
 
-// broadcastVolumes queries Docker for all volumes and broadcasts.
-func (app *App) broadcastVolumes() {
+// broadcastVolumesMap queries Docker for all volumes and broadcasts as a full-replace map.
+func (app *App) broadcastVolumesMap() {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
 	volumes, err := app.Docker.VolumeList(ctx)
 	if err != nil {
-		slog.Warn("broadcastVolumes", "err", err)
+		slog.Warn("broadcastVolumesMap", "err", err)
 		volumes = []docker.VolumeSummary{}
 	}
-	app.bcastState.broadcastIfChanged(app.WS, chanVolumes, volumes, app.BcastMetrics)
+	ws.BroadcastAuthenticated(app.WS, chanVolumes, mapPayload{Replace: true, Data: volumesToMap(volumes)})
+	app.BcastMetrics.recordSent(chanVolumes)
 }
 
 // broadcastUpdates reads BoltDB image update cache and broadcasts container names with updates.
@@ -268,7 +239,6 @@ func (app *App) broadcastUpdates() {
 		svcUpdates = map[string]bool{}
 	}
 
-	// Collect service keys that have updates
 	updated := make([]string, 0, len(svcUpdates))
 	for key, hasUpdate := range svcUpdates {
 		if hasUpdate {
@@ -277,7 +247,8 @@ func (app *App) broadcastUpdates() {
 	}
 	sort.Strings(updated)
 
-	app.bcastState.broadcastIfChanged(app.WS, chanUpdates, updated, app.BcastMetrics)
+	ws.BroadcastAuthenticated(app.WS, chanUpdates, updated)
+	app.BcastMetrics.recordSent(chanUpdates)
 }
 
 // buildStackBroadcast scans the stacks directory and builds the broadcast payload.
@@ -323,7 +294,6 @@ func buildStackBroadcast(stacksDir string) []StackBroadcastEntry {
 		})
 	}
 
-	// Sort by name for deterministic serialization
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Name < result[j].Name
 	})
@@ -331,31 +301,247 @@ func buildStackBroadcast(stacksDir string) []StackBroadcastEntry {
 	return result
 }
 
-// InitBroadcast initializes the broadcast state and debouncer. Must be called
-// before StartBroadcastWatcher or any broadcast trigger methods.
+// --- Dispatch channel + worker (1+1 goroutine model) ---
+
+// InitBroadcast initializes the broadcast state, dispatch channel, and metrics.
 func (app *App) InitBroadcast() {
-	app.bcastState = newBroadcastState()
-	app.debouncer = newChannelDebouncer()
+	app.dispatchCh = make(chan dispatchWork, 64)
 	app.BcastMetrics = newBroadcastMetrics()
 	app.EventBus = NewEventBus()
 }
 
 // StartBroadcastWatcher starts the event-driven broadcast system.
-// It subscribes to Docker events and dispatches to per-channel broadcast
-// functions via the debouncer. On error it retries with exponential backoff;
-// after repeated failures it exits the process.
-//
-// The watcher starts once at boot and never stops — client guards in
-// individual broadcast functions skip Docker API calls when no clients
-// are connected.
+// It starts the dispatch worker and event consumer goroutines.
 func (app *App) StartBroadcastWatcher(ctx context.Context) {
 	slog.Info("broadcast watcher started")
+	go app.runDispatchWorker(ctx)
 	go app.runBroadcastWatcherLoop(ctx)
 }
 
-// runBroadcastWatcherLoop subscribes to Docker events and dispatches to
-// per-channel broadcasters. On error or channel close, it retries with
-// exponential backoff up to maxRetries times, then exits the process.
+// runDispatchWorker processes dispatch work sequentially, preserving event ordering.
+func (app *App) runDispatchWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case work := <-app.dispatchCh:
+			if work.fullSync != "" {
+				app.dispatchFullSync(ctx, work.fullSync)
+			} else {
+				app.dispatchEvent(ctx, work.evt)
+			}
+		}
+	}
+}
+
+// dispatchFullSync handles a full-refresh broadcast for a channel.
+func (app *App) dispatchFullSync(_ context.Context, channel string) {
+	switch channel {
+	case chanStacks:
+		app.broadcastStacksMap()
+	case chanContainers:
+		app.broadcastContainersMap()
+	case chanNetworks:
+		app.broadcastNetworksMap()
+	case chanImages:
+		app.broadcastImagesMap()
+	case chanVolumes:
+		app.broadcastVolumesMap()
+	case chanUpdates:
+		app.broadcastUpdates()
+	}
+}
+
+// dispatchEvent handles a single Docker event — queries only the affected
+// resource and broadcasts a partial map update.
+func (app *App) dispatchEvent(ctx context.Context, evt docker.DockerEvent) {
+	if !app.WS.HasAuthenticatedConns() {
+		return
+	}
+
+	dctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	switch evt.Type {
+	case "container":
+		app.dispatchContainerEvent(dctx, evt)
+	case "network":
+		app.dispatchNetworkEvent(dctx, evt)
+	case "image":
+		app.dispatchImageEvent(dctx, evt)
+	case "volume":
+		app.dispatchVolumeEvent(dctx, evt)
+	}
+}
+
+// dispatchContainerEvent handles container lifecycle events.
+func (app *App) dispatchContainerEvent(ctx context.Context, evt docker.DockerEvent) {
+	app.BcastMetrics.recordTriggered(chanContainers)
+
+	action := evt.Action
+	// Strip health_status prefix to just "health_status"
+	if strings.HasPrefix(action, "health_status") {
+		action = "health_status"
+	}
+
+	switch action {
+	case "destroy":
+		// Container is gone — broadcast deletion by name
+		name := evt.Name
+		if name == "" {
+			slog.Warn("container destroy event missing name", "id", evt.ContainerID)
+			return
+		}
+		data := map[string]any{name: nil}
+		ws.BroadcastAuthenticated(app.WS, chanContainers, data)
+		app.BcastMetrics.recordSent(chanContainers)
+
+	default:
+		// Query the specific container
+		containers, err := app.Docker.ContainerListDetailedByID(ctx, evt.ContainerID)
+		if err != nil {
+			slog.Warn("dispatch container", "err", err, "id", evt.ContainerID)
+			return
+		}
+		if len(containers) == 0 {
+			// Container might have already been removed
+			return
+		}
+		ws.BroadcastAuthenticated(app.WS, chanContainers, containersToMap(containers))
+		app.BcastMetrics.recordSent(chanContainers)
+	}
+}
+
+// dispatchNetworkEvent handles network lifecycle events.
+func (app *App) dispatchNetworkEvent(ctx context.Context, evt docker.DockerEvent) {
+	switch evt.Action {
+	case "connect", "disconnect":
+		// Network connect/disconnect: the network metadata doesn't change,
+		// but the container's network list does. Broadcast containers update.
+		app.BcastMetrics.recordTriggered(chanContainers)
+		if evt.ContainerID == "" {
+			return
+		}
+		containers, err := app.Docker.ContainerListDetailedByID(ctx, evt.ContainerID)
+		if err != nil {
+			slog.Warn("dispatch network connect/disconnect", "err", err)
+			return
+		}
+		if len(containers) > 0 {
+			ws.BroadcastAuthenticated(app.WS, chanContainers, containersToMap(containers))
+			app.BcastMetrics.recordSent(chanContainers)
+		}
+
+	case "destroy":
+		// Network removed — broadcast deletion by name
+		app.BcastMetrics.recordTriggered(chanNetworks)
+		name := evt.Name
+		if name == "" {
+			slog.Warn("network destroy event missing name", "id", evt.ActorID)
+			return
+		}
+		data := map[string]any{name: nil}
+		ws.BroadcastAuthenticated(app.WS, chanNetworks, data)
+		app.BcastMetrics.recordSent(chanNetworks)
+
+	default:
+		// Network created or other — query the specific network
+		app.BcastMetrics.recordTriggered(chanNetworks)
+		networks, err := app.Docker.NetworkListByID(ctx, evt.ActorID)
+		if err != nil {
+			slog.Warn("dispatch network", "err", err, "id", evt.ActorID)
+			return
+		}
+		if len(networks) > 0 {
+			ws.BroadcastAuthenticated(app.WS, chanNetworks, networksToMap(networks))
+			app.BcastMetrics.recordSent(chanNetworks)
+		}
+	}
+}
+
+// dispatchImageEvent handles image lifecycle events.
+func (app *App) dispatchImageEvent(_ context.Context, evt docker.DockerEvent) {
+	app.BcastMetrics.recordTriggered(chanImages)
+
+	switch evt.Action {
+	case "delete":
+		// Image removed — broadcast deletion by ID
+		id := evt.ActorID
+		if id == "" {
+			return
+		}
+		data := map[string]any{id: nil}
+		ws.BroadcastAuthenticated(app.WS, chanImages, data)
+		app.BcastMetrics.recordSent(chanImages)
+
+	default:
+		// pull, tag, untag, etc. — do a full image list since we can't
+		// reliably filter by the event's actor ID (it may be a tag name)
+		app.broadcastImagesMap()
+	}
+}
+
+// dispatchVolumeEvent handles volume lifecycle events.
+func (app *App) dispatchVolumeEvent(ctx context.Context, evt docker.DockerEvent) {
+	switch evt.Action {
+	case "mount", "unmount":
+		// Volume mount/unmount: volume metadata doesn't change,
+		// but the container's mount list does.
+		app.BcastMetrics.recordTriggered(chanContainers)
+		if evt.ContainerID == "" {
+			// Volume events carry the actor ID as the volume name, not container ID.
+			// For mount/unmount we'd need the container — fall back to full refresh.
+			app.broadcastContainersMap()
+			return
+		}
+		containers, err := app.Docker.ContainerListDetailedByID(ctx, evt.ContainerID)
+		if err != nil {
+			slog.Warn("dispatch volume mount/unmount", "err", err)
+			return
+		}
+		if len(containers) > 0 {
+			ws.BroadcastAuthenticated(app.WS, chanContainers, containersToMap(containers))
+			app.BcastMetrics.recordSent(chanContainers)
+		}
+
+	case "destroy":
+		// Volume removed — broadcast deletion by name
+		app.BcastMetrics.recordTriggered(chanVolumes)
+		name := evt.Name
+		if name == "" {
+			name = evt.ActorID // volume events use actor ID as name
+		}
+		if name == "" {
+			return
+		}
+		data := map[string]any{name: nil}
+		ws.BroadcastAuthenticated(app.WS, chanVolumes, data)
+		app.BcastMetrics.recordSent(chanVolumes)
+
+	default:
+		// Volume created — query the specific volume
+		app.BcastMetrics.recordTriggered(chanVolumes)
+		name := evt.Name
+		if name == "" {
+			name = evt.ActorID
+		}
+		if name == "" {
+			return
+		}
+		volumes, err := app.Docker.VolumeListByName(ctx, name)
+		if err != nil {
+			slog.Warn("dispatch volume", "err", err, "name", name)
+			return
+		}
+		if len(volumes) > 0 {
+			ws.BroadcastAuthenticated(app.WS, chanVolumes, volumesToMap(volumes))
+			app.BcastMetrics.recordSent(chanVolumes)
+		}
+	}
+}
+
+// runBroadcastWatcherLoop subscribes to Docker events and sends them to the
+// dispatch channel. On error it retries with exponential backoff.
 func (app *App) runBroadcastWatcherLoop(ctx context.Context) {
 	const maxRetries = 5
 	failures := 0
@@ -385,8 +571,7 @@ func (app *App) runBroadcastWatcherLoop(ctx context.Context) {
 	}
 }
 
-// consumeBroadcastEvents reads Docker events and dispatches to per-channel
-// broadcasters until the channel closes or errors.
+// consumeBroadcastEvents reads Docker events and sends them to the dispatch channel.
 func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docker.DockerEvent, errCh <-chan error) error {
 	for {
 		select {
@@ -397,36 +582,27 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 			if !ok {
 				return fmt.Errorf("docker events channel closed")
 			}
-			slog.Debug("docker event", "type", evt.Type, "action", evt.Action)
+			slog.Debug("docker event", "type", evt.Type, "action", evt.Action, "name", evt.Name)
 
-			// Fan out to per-terminal subscribers (always, even without
-			// authenticated WS conns — terminals have their own lifecycle).
+			// Fan out to per-terminal subscribers
 			app.EventBus.Publish(evt)
 
 			if !app.WS.HasAuthenticatedConns() {
 				continue
 			}
 
-			// Broadcast raw Docker event for dev inspection (visible in browser console).
+			// Broadcast raw Docker event for dev inspection
 			if evt.Raw != nil {
 				ws.BroadcastAuthenticated(app.WS, "dockerEvent", evt.Raw)
 			} else {
 				ws.BroadcastAuthenticated(app.WS, "dockerEvent", evt)
 			}
 
-			switch evt.Type {
-			case "container":
-				app.BcastMetrics.recordTriggered(chanContainers)
-				app.debouncer.trigger(chanContainers, app.broadcastContainers)
-			case "network":
-				app.BcastMetrics.recordTriggered(chanNetworks)
-				app.debouncer.trigger(chanNetworks, app.broadcastNetworks)
-			case "image":
-				app.BcastMetrics.recordTriggered(chanImages)
-				app.debouncer.trigger(chanImages, app.broadcastImages)
-			case "volume":
-				app.BcastMetrics.recordTriggered(chanVolumes)
-				app.debouncer.trigger(chanVolumes, app.broadcastVolumes)
+			// Send to dispatch channel for granular processing
+			select {
+			case app.dispatchCh <- dispatchWork{evt: evt}:
+			default:
+				slog.Warn("dispatch channel full, dropping event", "type", evt.Type, "action", evt.Action)
 			}
 
 		case err, ok := <-errCh:
@@ -438,32 +614,52 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 	}
 }
 
-// TriggerStacksBroadcast triggers a debounced stacks broadcast (used by fsnotify watcher).
+// --- Trigger methods (for explicit full refreshes) ---
+
+// TriggerStacksBroadcast triggers a full stacks broadcast via dispatch channel.
 func (app *App) TriggerStacksBroadcast() {
-	app.debouncer.trigger(chanStacks, app.broadcastStacks)
+	select {
+	case app.dispatchCh <- dispatchWork{fullSync: chanStacks}:
+	default:
+	}
 }
 
-// TriggerContainersBroadcast triggers a debounced containers broadcast.
+// TriggerContainersBroadcast triggers a full containers broadcast via dispatch channel.
 func (app *App) TriggerContainersBroadcast() {
-	app.debouncer.trigger(chanContainers, app.broadcastContainers)
+	select {
+	case app.dispatchCh <- dispatchWork{fullSync: chanContainers}:
+	default:
+	}
 }
 
-// TriggerNetworksBroadcast triggers a debounced networks broadcast.
+// TriggerNetworksBroadcast triggers a full networks broadcast via dispatch channel.
 func (app *App) TriggerNetworksBroadcast() {
-	app.debouncer.trigger(chanNetworks, app.broadcastNetworks)
+	select {
+	case app.dispatchCh <- dispatchWork{fullSync: chanNetworks}:
+	default:
+	}
 }
 
-// TriggerImagesBroadcast triggers a debounced images broadcast.
+// TriggerImagesBroadcast triggers a full images broadcast via dispatch channel.
 func (app *App) TriggerImagesBroadcast() {
-	app.debouncer.trigger(chanImages, app.broadcastImages)
+	select {
+	case app.dispatchCh <- dispatchWork{fullSync: chanImages}:
+	default:
+	}
 }
 
-// TriggerVolumesBroadcast triggers a debounced volumes broadcast.
+// TriggerVolumesBroadcast triggers a full volumes broadcast via dispatch channel.
 func (app *App) TriggerVolumesBroadcast() {
-	app.debouncer.trigger(chanVolumes, app.broadcastVolumes)
+	select {
+	case app.dispatchCh <- dispatchWork{fullSync: chanVolumes}:
+	default:
+	}
 }
 
-// TriggerUpdatesBroadcast triggers a debounced updates broadcast.
+// TriggerUpdatesBroadcast triggers a full updates broadcast via dispatch channel.
 func (app *App) TriggerUpdatesBroadcast() {
-	app.debouncer.trigger(chanUpdates, app.broadcastUpdates)
+	select {
+	case app.dispatchCh <- dispatchWork{fullSync: chanUpdates}:
+	default:
+	}
 }

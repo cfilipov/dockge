@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useContainerStore } from "./containerStore";
 
 /** Matches the Go VolumeSummary type (with Labels). */
@@ -17,11 +17,33 @@ export interface VolumeWithStatus extends VolumeSummary {
 }
 
 export const useVolumeStore = defineStore("volumes", () => {
-    const volumes = ref<VolumeSummary[]>([]);
+    const volumeMap = reactive(new Map<string, VolumeSummary>());
     const loading = ref(true);
 
-    function setVolumes(data: VolumeSummary[]) {
-        volumes.value = data;
+    /** Sorted array of volumes (backward-compatible). */
+    const volumes = computed(() =>
+        [...volumeMap.values()].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    );
+
+    /** Merge a map update. If data has replace=true, clears the store first. */
+    function mergeVolumes(data: Record<string, VolumeSummary | null> | { replace: boolean; data: Record<string, VolumeSummary | null> }) {
+        let entries: Record<string, VolumeSummary | null>;
+        if (typeof data === "object" && data !== null && "replace" in data && typeof (data as any).replace === "boolean") {
+            const wrapper = data as { replace: boolean; data: Record<string, VolumeSummary | null> };
+            if (wrapper.replace) {
+                volumeMap.clear();
+            }
+            entries = wrapper.data;
+        } else {
+            entries = data as Record<string, VolumeSummary | null>;
+        }
+        for (const [key, value] of Object.entries(entries)) {
+            if (value === null) {
+                volumeMap.delete(key);
+            } else {
+                volumeMap.set(key, value);
+            }
+        }
         loading.value = false;
     }
 
@@ -42,8 +64,9 @@ export const useVolumeStore = defineStore("volumes", () => {
 
     return {
         volumes,
+        volumeMap,
         loading,
-        setVolumes,
+        mergeVolumes,
         volumesWithStatus,
     };
 });

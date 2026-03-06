@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useContainerStore } from "./containerStore";
 
 /** Matches the Go NetworkSummary type (with Labels). */
@@ -21,11 +21,33 @@ export interface NetworkWithStatus extends NetworkSummary {
 }
 
 export const useNetworkStore = defineStore("networks", () => {
-    const networks = ref<NetworkSummary[]>([]);
+    const networkMap = reactive(new Map<string, NetworkSummary>());
     const loading = ref(true);
 
-    function setNetworks(data: NetworkSummary[]) {
-        networks.value = data;
+    /** Sorted array of networks (backward-compatible). */
+    const networks = computed(() =>
+        [...networkMap.values()].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    );
+
+    /** Merge a map update. If data has replace=true, clears the store first. */
+    function mergeNetworks(data: Record<string, NetworkSummary | null> | { replace: boolean; data: Record<string, NetworkSummary | null> }) {
+        let entries: Record<string, NetworkSummary | null>;
+        if (typeof data === "object" && data !== null && "replace" in data && typeof (data as any).replace === "boolean") {
+            const wrapper = data as { replace: boolean; data: Record<string, NetworkSummary | null> };
+            if (wrapper.replace) {
+                networkMap.clear();
+            }
+            entries = wrapper.data;
+        } else {
+            entries = data as Record<string, NetworkSummary | null>;
+        }
+        for (const [key, value] of Object.entries(entries)) {
+            if (value === null) {
+                networkMap.delete(key);
+            } else {
+                networkMap.set(key, value);
+            }
+        }
         loading.value = false;
     }
 
@@ -46,8 +68,9 @@ export const useNetworkStore = defineStore("networks", () => {
 
     return {
         networks,
+        networkMap,
         loading,
-        setNetworks,
+        mergeNetworks,
         networksWithStatus,
     };
 });

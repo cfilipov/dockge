@@ -72,18 +72,19 @@ tasks:
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
+          rm -rf test-data/dev-stacks && cp -a test-data/stacks test-data/dev-stacks
           MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
           mkdir -p "$(dirname "$MOCK_SOCK")"
           ./test-data/bin/mock-daemon \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
-            --stacks-dir test-data/stacks &
+            --stacks-dir test-data/dev-stacks &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./test-data/bin/seed-testdb --data-dir test-data --stacks-dir test-data/stacks
+          ./test-data/bin/seed-testdb --data-dir test-data --stacks-dir test-data/dev-stacks
           export DOCKER_HOST="unix://$MOCK_SOCK"
           export PATH="$(pwd)/test-data/bin:$PATH"
           (cd web && pnpm run dev) &
-          ./{{.BINARY}} --dev --port 5001 --data-dir test-data --stacks-dir test-data/stacks &
+          ./{{.BINARY}} --dev --port 5001 --data-dir test-data --stacks-dir test-data/dev-stacks &
           wait
 
   dev-web:
@@ -97,17 +98,18 @@ tasks:
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
+          rm -rf test-data/dev-stacks && cp -a test-data/stacks test-data/dev-stacks
           MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
           mkdir -p "$(dirname "$MOCK_SOCK")"
           ./test-data/bin/mock-daemon \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
-            --stacks-dir test-data/stacks &
+            --stacks-dir test-data/dev-stacks &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./test-data/bin/seed-testdb --data-dir test-data --stacks-dir test-data/stacks
+          ./test-data/bin/seed-testdb --data-dir test-data --stacks-dir test-data/dev-stacks
           export DOCKER_HOST="unix://$MOCK_SOCK"
           export PATH="$(pwd)/test-data/bin:$PATH"
-          ./{{.BINARY}} --dev --port 5001 --data-dir test-data --stacks-dir test-data/stacks
+          ./{{.BINARY}} --dev --port 5001 --data-dir test-data --stacks-dir test-data/dev-stacks
 
   start-mock-env:
     desc: Start mock daemon + dockge for dev/test

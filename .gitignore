@@ -14,6 +14,7 @@ tmp
 test-data/bin/
 test-data/e2e-data*/
 test-data/e2e-stacks/
+test-data/dev-stacks/
 
 # Dev artifacts
 .task/

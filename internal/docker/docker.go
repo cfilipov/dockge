@@ -19,6 +19,10 @@ type Client interface {
     // Includes networks, mounts, ports, and imageId for cross-store joins.
     ContainerListDetailed(ctx context.Context) ([]ContainerBroadcast, error)
 
+    // ContainerListDetailedByID returns enriched data for a single container.
+    // Uses Docker API id filter. Returns empty slice if not found.
+    ContainerListDetailedByID(ctx context.Context, containerID string) ([]ContainerBroadcast, error)
+
     // ContainerInspect returns the raw JSON inspect output for a container.
     ContainerInspect(ctx context.Context, id string) (string, error)
 
@@ -50,11 +54,19 @@ type Client interface {
     // NetworkList returns summary info for all Docker networks.
     NetworkList(ctx context.Context) ([]NetworkSummary, error)
 
+    // NetworkListByID returns summary info for a single network by ID.
+    // Returns empty slice if not found.
+    NetworkListByID(ctx context.Context, networkID string) ([]NetworkSummary, error)
+
     // NetworkInspect returns detailed info for a single Docker network.
     NetworkInspect(ctx context.Context, networkID string) (*NetworkDetail, error)
 
     // ImageList returns summary info for all Docker images.
     ImageList(ctx context.Context) ([]ImageSummary, error)
+
+    // ImageListByID returns summary info for a single image by ID.
+    // Returns empty slice if not found.
+    ImageListByID(ctx context.Context, imageID string) ([]ImageSummary, error)
 
     // ImageInspectDetail returns detailed info for a single Docker image,
     // including layers.
@@ -65,6 +77,10 @@ type Client interface {
 
     // VolumeList returns summary info for all Docker volumes.
     VolumeList(ctx context.Context) ([]VolumeSummary, error)
+
+    // VolumeListByName returns summary info for a single volume by name.
+    // Returns empty slice if not found.
+    VolumeListByName(ctx context.Context, volumeName string) ([]VolumeSummary, error)
 
     // VolumeInspect returns detailed info for a single Docker volume.
     VolumeInspect(ctx context.Context, volumeName string) (*VolumeDetail, error)

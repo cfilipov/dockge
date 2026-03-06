@@ -68,6 +68,13 @@ type DockerEvent struct {
     Project     string // from com.docker.compose.project label
     Service     string // from com.docker.compose.service label
     ContainerID string
+    // Name is the resource name from Actor.Attributes["name"].
+    // Used to key deletion broadcasts without querying Docker.
+    Name string
+    // ActorID is the Actor.ID from the Docker event (resource ID).
+    // For containers it equals ContainerID; for networks/images/volumes
+    // it's the resource's Docker ID.
+    ActorID string
     // Raw holds the original Docker API event message (JSON-serializable).
     // Used for dev inspection — broadcast as-is to WebSocket clients.
     Raw any `json:"-"`

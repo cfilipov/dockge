@@ -322,6 +322,7 @@ func (fd *FakeDaemon) handleContainerList(w http.ResponseWriter, r *http.Request
 	//   {"label":["key=val"]}  (array form) or
 	//   {"label":{"key=val":true}}  (map form)
 	projectFilter := ""
+	var idFilters []string
 	filtersParam := r.URL.Query().Get("filters")
 	if filtersParam != "" {
 		var raw map[string]json.RawMessage
@@ -329,10 +330,28 @@ func (fd *FakeDaemon) handleContainerList(w http.ResponseWriter, r *http.Request
 			if labelRaw, ok := raw["label"]; ok {
 				projectFilter = extractProjectFilter(labelRaw)
 			}
+			if idRaw, ok := raw["id"]; ok {
+				idFilters = extractStringFilter(idRaw)
+			}
 		}
 	}
 
 	containers := fd.world.ContainerList(all, projectFilter)
+
+	// Apply ID filter (prefix match, same as Docker)
+	if len(idFilters) > 0 {
+		filtered := containers[:0]
+		for _, c := range containers {
+			for _, idPrefix := range idFilters {
+				if strings.HasPrefix(c.ID, idPrefix) {
+					filtered = append(filtered, c)
+					break
+				}
+			}
+		}
+		containers = filtered
+	}
+
 	writeJSON(w, http.StatusOK, containers)
 }
 
@@ -758,6 +777,18 @@ func (fd *FakeDaemon) handleImageList(w http.ResponseWriter, r *http.Request) {
 		countByImageID[c.ImageID]++
 	}
 
+	// Parse reference filter
+	var refFilters []string
+	filtersParam := r.URL.Query().Get("filters")
+	if filtersParam != "" {
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(filtersParam), &raw); err == nil {
+			if refRaw, ok := raw["reference"]; ok {
+				refFilters = extractStringFilter(refRaw)
+			}
+		}
+	}
+
 	refs := fd.data.SortedImages()
 	result := make([]imageJSON, 0, len(refs)+2)
 
@@ -765,6 +796,20 @@ func (fd *FakeDaemon) handleImageList(w http.ResponseWriter, r *http.Request) {
 		meta := fd.data.images[ref]
 		hash := mockHash(ref)
 		id := fmt.Sprintf("sha256:%s%s", hash, hash)
+
+		// Apply reference filter (match against ID or repo tag)
+		if len(refFilters) > 0 {
+			matched := false
+			for _, f := range refFilters {
+				if strings.HasPrefix(id, f) || ref == f {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
 
 		created, _ := time.Parse(time.RFC3339, meta.created)
 		sizeBytes := parseSizeToBytes(meta.size)
@@ -778,16 +823,18 @@ func (fd *FakeDaemon) handleImageList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Dangling images from MockData
-	for i, di := range fd.data.danglingImages {
-		hash := mockHash(fmt.Sprintf("dangling-%d-%s", i, di.id))
-		created, _ := time.Parse(time.RFC3339, di.created)
-		result = append(result, imageJSON{
-			ID:       fmt.Sprintf("sha256:%s%s", hash, hash),
-			RepoTags: []string{},
-			Created:  created.Unix(),
-			Size:     parseSizeToBytes(di.size),
-		})
+	// Dangling images from MockData (skip if filtering)
+	if len(refFilters) == 0 {
+		for i, di := range fd.data.danglingImages {
+			hash := mockHash(fmt.Sprintf("dangling-%d-%s", i, di.id))
+			created, _ := time.Parse(time.RFC3339, di.created)
+			result = append(result, imageJSON{
+				ID:       fmt.Sprintf("sha256:%s%s", hash, hash),
+				RepoTags: []string{},
+				Created:  created.Unix(),
+				Size:     parseSizeToBytes(di.size),
+			})
+		}
 	}
 
 	writeJSON(w, http.StatusOK, result)
@@ -973,6 +1020,31 @@ type networkContainerJSON struct {
 
 func (fd *FakeDaemon) handleNetworkList(w http.ResponseWriter, r *http.Request) {
 	result := fd.world.NetworkList()
+
+	// Apply ID filter if present
+	var idFilters []string
+	filtersParam := r.URL.Query().Get("filters")
+	if filtersParam != "" {
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(filtersParam), &raw); err == nil {
+			if idRaw, ok := raw["id"]; ok {
+				idFilters = extractStringFilter(idRaw)
+			}
+		}
+	}
+	if len(idFilters) > 0 {
+		filtered := result[:0]
+		for _, n := range result {
+			for _, idPrefix := range idFilters {
+				if strings.HasPrefix(n.ID, idPrefix) {
+					filtered = append(filtered, n)
+					break
+				}
+			}
+		}
+		result = filtered
+	}
+
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -1005,10 +1077,35 @@ type volumeJSON struct {
 }
 
 func (fd *FakeDaemon) handleVolumeList(w http.ResponseWriter, r *http.Request) {
+	// Parse name filter
+	var nameFilters []string
+	filtersParam := r.URL.Query().Get("filters")
+	if filtersParam != "" {
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(filtersParam), &raw); err == nil {
+			if nameRaw, ok := raw["name"]; ok {
+				nameFilters = extractStringFilter(nameRaw)
+			}
+		}
+	}
+
 	names := fd.data.SortedVolumes()
 	volumes := make([]volumeJSON, 0, len(names))
 
 	for _, name := range names {
+		if len(nameFilters) > 0 {
+			matched := false
+			for _, f := range nameFilters {
+				if name == f {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
 		volumes = append(volumes, volumeJSON{
 			Name:       name,
 			Driver:     "local",
@@ -1108,6 +1205,15 @@ func (fd *FakeDaemon) publishEventGeneric(eventType, action, id, project, servic
 	}
 	if service != "" {
 		attrs["com.docker.compose.service"] = service
+	}
+
+	// Derive resource name for Actor.Attributes["name"].
+	// Container names follow the pattern "stackName-serviceName-1".
+	// For non-container events, use the service name as fallback.
+	if eventType == "container" && project != "" && service != "" {
+		attrs["name"] = project + "-" + service + "-1"
+	} else if service != "" {
+		attrs["name"] = service
 	}
 
 	if eventType == "network" {
@@ -1361,6 +1467,24 @@ func (fd *FakeDaemon) StartEventsPoller(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// extractStringFilter extracts string values from a Docker API filter value.
+// The SDK may send either array form ["val"] or map form {"val":true}.
+func extractStringFilter(raw json.RawMessage) []string {
+	var arr []string
+	if err := json.Unmarshal(raw, &arr); err == nil {
+		return arr
+	}
+	var m map[string]bool
+	if err := json.Unmarshal(raw, &m); err == nil {
+		result := make([]string, 0, len(m))
+		for k := range m {
+			result = append(result, k)
+		}
+		return result
+	}
+	return nil
 }
 
 // extractProjectFilter extracts the compose project name from a Docker API

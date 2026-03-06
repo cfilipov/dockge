@@ -323,20 +323,14 @@ func (app *App) handleTwoFAStatus(c *ws.Conn, msg *ws.ClientMessage) {
 // AfterLogin sends initial data to a freshly authenticated connection.
 // All 6 broadcast channels fire as independent goroutines — each sends to the
 // connection as soon as its data is ready, with no channel waiting on any other.
+// Data is sent as maps (Record<string, T>) matching the format used for event updates.
 func (app *App) AfterLogin(c *ws.Conn) {
     // NOTE: Do NOT send "info" here — it's already sent on connect (before auth).
-    // Sending it again is redundant.
-
     // NOTE: Do NOT send "autoLogin" here. That event is only for when auth is
-    // disabled (every connection is auto-authenticated). Sending it after a real
-    // login causes the frontend to overwrite the JWT token with "autoLogin",
-    // breaking token-based re-auth on subsequent page loads.
+    // disabled (every connection is auto-authenticated).
 
-    // Fire all 6 broadcast channels independently. Each goroutine sends
-    // to the connection as soon as its data is ready — no channel waits
-    // on any other. The frontend renders progressively as stores populate.
     go func() {
-        sendToConn(c, chanStacks, buildStackBroadcast(app.StacksDir))
+        sendToConn(c, chanStacks, mapPayload{Replace: true, Data: stacksToMap(buildStackBroadcast(app.StacksDir))})
     }()
     go func() {
         ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -346,7 +340,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
             slog.Warn("afterLogin: containers", "err", err)
             containers = []docker.ContainerBroadcast{}
         }
-        sendToConn(c, chanContainers, containers)
+        sendToConn(c, chanContainers, mapPayload{Replace: true, Data: containersToMap(containers)})
     }()
     go func() {
         ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -356,7 +350,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
             slog.Warn("afterLogin: networks", "err", err)
             networks = []docker.NetworkSummary{}
         }
-        sendToConn(c, chanNetworks, networks)
+        sendToConn(c, chanNetworks, mapPayload{Replace: true, Data: networksToMap(networks)})
     }()
     go func() {
         ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -366,7 +360,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
             slog.Warn("afterLogin: images", "err", err)
             images = []docker.ImageSummary{}
         }
-        sendToConn(c, chanImages, images)
+        sendToConn(c, chanImages, mapPayload{Replace: true, Data: imagesToMap(images)})
     }()
     go func() {
         ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -376,7 +370,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
             slog.Warn("afterLogin: volumes", "err", err)
             volumes = []docker.VolumeSummary{}
         }
-        sendToConn(c, chanVolumes, volumes)
+        sendToConn(c, chanVolumes, mapPayload{Replace: true, Data: volumesToMap(volumes)})
     }()
     go func() {
         svcUpdates, _ := app.ImageUpdates.AllServiceUpdates()

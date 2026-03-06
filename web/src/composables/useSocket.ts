@@ -420,23 +420,23 @@ export function initWebSocket() {
     // Each channel pushes its data directly to the corresponding Pinia store.
 
     socket.on("stacks", (data: unknown) => {
-        useStackStore().setStacks(data as any[]);
+        useStackStore().mergeStacks(data as Record<string, any>);
     });
 
     socket.on("containers", (data: unknown) => {
-        useContainerStore().setContainers(data as any[]);
+        useContainerStore().mergeContainers(data as Record<string, any>);
     });
 
     socket.on("networks", (data: unknown) => {
-        useNetworkStore().setNetworks(data as any[]);
+        useNetworkStore().mergeNetworks(data as Record<string, any>);
     });
 
     socket.on("images", (data: unknown) => {
-        useImageStore().setImages(data as any[]);
+        useImageStore().mergeImages(data as Record<string, any>);
     });
 
     socket.on("volumes", (data: unknown) => {
-        useVolumeStore().setVolumes(data as any[]);
+        useVolumeStore().mergeVolumes(data as Record<string, any>);
     });
 
     socket.on("updates", (data: unknown) => {

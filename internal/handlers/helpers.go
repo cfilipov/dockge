@@ -27,9 +27,8 @@ type App struct {
 	StacksDir        string
 	MainTerminalName string // tracked for checkMainTerminal
 
-	// Per-channel broadcast infrastructure
-	bcastState   *broadcastState
-	debouncer    *channelDebouncer
+	// Dispatch channel for event-driven broadcasts (1+1 goroutine model)
+	dispatchCh   chan dispatchWork
 	BcastMetrics *BroadcastMetrics
 
 	// EventBus fans out Docker events from the single broadcast watcher

@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useContainerStore, type ContainerBroadcast } from "./containerStore";
 import { useUpdateStore } from "./updateStore";
 import {
@@ -80,13 +80,35 @@ function deriveStatus(
 }
 
 export const useStackStore = defineStore("stacks", () => {
-    const rawStacks = ref<StackBroadcastEntry[]>([]);
+    const stackMap = reactive(new Map<string, StackBroadcastEntry>());
     const loading = ref(true);
 
-    function setStacks(data: StackBroadcastEntry[]) {
-        rawStacks.value = data;
+    /** Merge a map update. If data has replace=true, clears the store first. */
+    function mergeStacks(data: Record<string, StackBroadcastEntry | null> | { replace: boolean; data: Record<string, StackBroadcastEntry | null> }) {
+        let entries: Record<string, StackBroadcastEntry | null>;
+        if (typeof data === "object" && data !== null && "replace" in data && typeof (data as any).replace === "boolean") {
+            const wrapper = data as { replace: boolean; data: Record<string, StackBroadcastEntry | null> };
+            if (wrapper.replace) {
+                stackMap.clear();
+            }
+            entries = wrapper.data;
+        } else {
+            entries = data as Record<string, StackBroadcastEntry | null>;
+        }
+        for (const [key, value] of Object.entries(entries)) {
+            if (value === null) {
+                stackMap.delete(key);
+            } else {
+                stackMap.set(key, value);
+            }
+        }
         loading.value = false;
     }
+
+    /** Sorted raw stacks array (backward-compatible). */
+    const rawStacks = computed(() =>
+        [...stackMap.values()].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    );
 
     /** Enriched managed stacks with status derived from container store. */
     const stacks = computed(() => {
@@ -177,8 +199,9 @@ export const useStackStore = defineStore("stacks", () => {
 
     return {
         rawStacks,
+        stackMap,
         loading,
-        setStacks,
+        mergeStacks,
         stacks,
         unmanagedStacks,
         allStacks,

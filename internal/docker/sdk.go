@@ -106,7 +106,20 @@ func (s *SDKClient) ContainerList(ctx context.Context, all bool, projectFilter s
 // ContainerListDetailed returns enriched container data for the broadcast channel.
 // Includes networks, mounts, ports, and imageId for cross-store joins.
 func (s *SDKClient) ContainerListDetailed(ctx context.Context) ([]ContainerBroadcast, error) {
-    raw, err := s.cli.ContainerList(ctx, container.ListOptions{All: true})
+    return s.containerListDetailedWithOpts(ctx, container.ListOptions{All: true})
+}
+
+// ContainerListDetailedByID returns enriched data for a single container by ID.
+func (s *SDKClient) ContainerListDetailedByID(ctx context.Context, containerID string) ([]ContainerBroadcast, error) {
+    return s.containerListDetailedWithOpts(ctx, container.ListOptions{
+        All:     true,
+        Filters: filters.NewArgs(filters.Arg("id", containerID)),
+    })
+}
+
+// containerListDetailedWithOpts is the shared implementation for detailed container listing.
+func (s *SDKClient) containerListDetailedWithOpts(ctx context.Context, opts container.ListOptions) ([]ContainerBroadcast, error) {
+    raw, err := s.cli.ContainerList(ctx, opts)
     if err != nil {
         return nil, fmt.Errorf("container list detailed: %w", err)
     }
@@ -407,7 +420,17 @@ func (s *SDKClient) DistributionInspect(ctx context.Context, imageRef string) (s
 }
 
 func (s *SDKClient) ImageList(ctx context.Context) ([]ImageSummary, error) {
-    imgs, err := s.cli.ImageList(ctx, image.ListOptions{})
+    return s.imageListWithOpts(ctx, image.ListOptions{})
+}
+
+func (s *SDKClient) ImageListByID(ctx context.Context, imageID string) ([]ImageSummary, error) {
+    return s.imageListWithOpts(ctx, image.ListOptions{
+        Filters: filters.NewArgs(filters.Arg("reference", imageID)),
+    })
+}
+
+func (s *SDKClient) imageListWithOpts(ctx context.Context, opts image.ListOptions) ([]ImageSummary, error) {
+    imgs, err := s.cli.ImageList(ctx, opts)
     if err != nil {
         return nil, fmt.Errorf("image list: %w", err)
     }
@@ -504,7 +527,17 @@ func (s *SDKClient) ImagePrune(ctx context.Context, all bool) (string, error) {
 }
 
 func (s *SDKClient) NetworkList(ctx context.Context) ([]NetworkSummary, error) {
-    networks, err := s.cli.NetworkList(ctx, network.ListOptions{})
+    return s.networkListWithOpts(ctx, network.ListOptions{})
+}
+
+func (s *SDKClient) NetworkListByID(ctx context.Context, networkID string) ([]NetworkSummary, error) {
+    return s.networkListWithOpts(ctx, network.ListOptions{
+        Filters: filters.NewArgs(filters.Arg("id", networkID)),
+    })
+}
+
+func (s *SDKClient) networkListWithOpts(ctx context.Context, opts network.ListOptions) ([]NetworkSummary, error) {
+    networks, err := s.cli.NetworkList(ctx, opts)
     if err != nil {
         return nil, fmt.Errorf("network list: %w", err)
     }
@@ -575,7 +608,17 @@ func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*Netw
 }
 
 func (s *SDKClient) VolumeList(ctx context.Context) ([]VolumeSummary, error) {
-    volResp, err := s.cli.VolumeList(ctx, volume.ListOptions{})
+    return s.volumeListWithOpts(ctx, volume.ListOptions{})
+}
+
+func (s *SDKClient) VolumeListByName(ctx context.Context, volumeName string) ([]VolumeSummary, error) {
+    return s.volumeListWithOpts(ctx, volume.ListOptions{
+        Filters: filters.NewArgs(filters.Arg("name", volumeName)),
+    })
+}
+
+func (s *SDKClient) volumeListWithOpts(ctx context.Context, opts volume.ListOptions) ([]VolumeSummary, error) {
+    volResp, err := s.cli.VolumeList(ctx, opts)
     if err != nil {
         return nil, fmt.Errorf("volume list: %w", err)
     }
@@ -667,9 +710,11 @@ func (s *SDKClient) Events(ctx context.Context) (<-chan DockerEvent, <-chan erro
                 }
 
                 evt := DockerEvent{
-                    Type:   evtType,
-                    Action: action,
-                    Raw:    msg,
+                    Type:    evtType,
+                    Action:  action,
+                    Name:    msg.Actor.Attributes["name"],
+                    ActorID: msg.Actor.ID,
+                    Raw:     msg,
                 }
                 // Extract project/service/container from actor attributes.
                 // Container events carry these directly; network connect/disconnect
