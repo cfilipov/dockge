@@ -8,7 +8,6 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     About: typeof import('./src/components/settings/About.vue')['default']
-    AgentStackList: typeof import('./src/components/AgentStackList.vue')['default']
     Appearance: typeof import('./src/components/settings/Appearance.vue')['default']
     ArrayInput: typeof import('./src/components/ArrayInput.vue')['default']
     ArraySelect: typeof import('./src/components/ArraySelect.vue')['default']
@@ -19,11 +18,11 @@ declare module 'vue' {
     BDropdownItem: typeof import('bootstrap-vue-next')['BDropdownItem']
     BDropdownItemButton: typeof import('bootstrap-vue-next')['BDropdownItemButton']
     BFormCheckbox: typeof import('bootstrap-vue-next')['BFormCheckbox']
-    BModal: typeof import('bootstrap-vue-next')['BModal']
     CollapsibleSection: typeof import('./src/components/CollapsibleSection.vue')['default']
     Confirm: typeof import('./src/components/Confirm.vue')['default']
     ConsoleCheatsheet: typeof import('./src/components/ConsoleCheatsheet.vue')['default']
     Container: typeof import('./src/components/Container.vue')['default']
+    ContainerCard: typeof import('./src/components/ContainerCard.vue')['default']
     ContainerList: typeof import('./src/components/ContainerList.vue')['default']
     ContainerListItem: typeof import('./src/components/ContainerListItem.vue')['default']
     DockerStat: typeof import('./src/components/DockerStat.vue')['default']
@@ -37,6 +36,7 @@ declare module 'vue' {
     NetworkInput: typeof import('./src/components/NetworkInput.vue')['default']
     NetworkList: typeof import('./src/components/NetworkList.vue')['default']
     NetworkListItem: typeof import('./src/components/NetworkListItem.vue')['default']
+    OverviewCard: typeof import('./src/components/OverviewCard.vue')['default']
     ProgressTerminal: typeof import('./src/components/ProgressTerminal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
