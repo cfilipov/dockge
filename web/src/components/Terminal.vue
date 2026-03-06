@@ -11,12 +11,10 @@ import type { ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_COLS, TERMINAL_ROWS } from "../common/util-common";
 import { useSocket } from "../composables/useSocket";
-import { useAppToast } from "../composables/useAppToast";
 import { useTheme } from "../composables/useTheme";
 import { useTerminalSocket, type TerminalSocket } from "../composables/useTerminalSocket";
 
-const { emit: socketEmit, bindTerminal, unbindTerminal } = useSocket();
-const { toastRes } = useAppToast();
+const { bindTerminal, unbindTerminal } = useSocket();
 const { isDark } = useTheme();
 
 // VS Code's default dark terminal palette
@@ -121,12 +119,6 @@ function interactiveTerminalConfig() {
         }
         if (termSocket) {
             termSocket.sendInput(e.key);
-        } else {
-            socketEmit("terminalInput", props.name, e.key, (res: any) => {
-                if (!res.ok) {
-                    toastRes(res);
-                }
-            });
         }
     });
 }
@@ -199,14 +191,18 @@ function updateTerminalSize() {
     terminalFitAddOn.fit();
 }
 
+let lastSentRows = 0;
+let lastSentCols = 0;
+
 function onResizeEvent() {
     terminalFitAddOn?.fit();
     const rows = terminal.value!.rows;
     const cols = terminal.value!.cols;
+    if (rows === lastSentRows && cols === lastSentCols) return;
+    lastSentRows = rows;
+    lastSentCols = cols;
     if (termSocket) {
         termSocket.sendResize(rows, cols);
-    } else {
-        socketEmit("terminalResize", props.name, rows, cols);
     }
 }
 
@@ -222,16 +218,8 @@ async function handlePaste() {
 }
 
 function pasteText(text: string) {
-    if (props.mode === "interactive") {
-        if (termSocket) {
-            termSocket.sendInput(text);
-        } else {
-            socketEmit("terminalInput", props.name, text, (res: any) => {
-                if (!res.ok) {
-                    toastRes(res);
-                }
-            });
-        }
+    if (props.mode === "interactive" && termSocket) {
+        termSocket.sendInput(text);
     }
 }
 

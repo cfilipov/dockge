@@ -20,8 +20,6 @@ var mainTerminalMu sync.Mutex
 
 func RegisterTerminalHandlers(app *App) {
     app.WS.Handle("terminalJoin", app.handleTerminalJoin)
-    app.WS.Handle("terminalInput", app.handleTerminalInput)
-    app.WS.Handle("terminalResize", app.handleTerminalResize)
 }
 
 // handleTerminalJoin joins a client to an existing terminal, returning the
@@ -77,56 +75,6 @@ func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
             OK:     true,
             Buffer: buf,
         })
-    }
-}
-
-// handleTerminalInput writes input to a terminal's PTY stdin.
-func (app *App) handleTerminalInput(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-
-    args := parseArgs(msg)
-    termName := argString(args, 0)
-    input := argString(args, 1)
-
-    term := app.Terms.Get(termName)
-    if term == nil {
-        if msg.ID != nil {
-            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Terminal not found"})
-        }
-        return
-    }
-
-    if err := term.Input(input); err != nil {
-        slog.Warn("terminal input", "err", err, "term", termName)
-    }
-
-    if msg.ID != nil {
-        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
-    }
-}
-
-// handleTerminalResize resizes a terminal's PTY.
-func (app *App) handleTerminalResize(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-
-    args := parseArgs(msg)
-    termName := argString(args, 0)
-    rows := argInt(args, 1)
-    cols := argInt(args, 2)
-
-    term := app.Terms.Get(termName)
-    if term != nil && rows > 0 && cols > 0 {
-        if err := term.Resize(uint16(rows), uint16(cols)); err != nil {
-            slog.Warn("terminal resize", "err", err, "term", termName)
-        }
-    }
-
-    if msg.ID != nil {
-        ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
     }
 }
 
