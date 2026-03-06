@@ -68,24 +68,7 @@ tasks:
 
   dev:
     desc: Run mock daemon + Go backend + Vite HMR (ports 5001 + 5000)
-    deps: [build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
-    cmds:
-      - cmd: |
-          trap 'kill 0' EXIT
-          rm -rf .run/dev-5001 && mkdir -p .run/dev-5001/data && cp -a test-data/stacks .run/dev-5001/stacks
-          MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
-          mkdir -p "$(dirname "$MOCK_SOCK")"
-          ./bin/mock-daemon \
-            --socket "$MOCK_SOCK" \
-            --stacks-source test-data/stacks \
-            --stacks-dir .run/dev-5001/stacks &
-          for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./bin/seed-testdb --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks
-          export DOCKER_HOST="unix://$MOCK_SOCK"
-          export PATH="$(pwd)/bin:$PATH"
-          (cd web && pnpm run dev) &
-          ./bin/{{.BINARY}} --dev --port 5001 --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks &
-          wait
+    deps: [dev-go, dev-web]
 
   dev-web:
     desc: Run Vite dev server only (port 5000)
