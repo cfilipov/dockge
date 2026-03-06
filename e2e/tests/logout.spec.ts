@@ -6,7 +6,7 @@ test.describe("Logout Flow", () => {
         // Create a fresh browser context with stored auth state so we start logged in.
         // This isolates the logout from other tests' shared context.
         const context = await browser.newContext({
-            storageState: ".auth/user.json",
+            storageState: "../.e2e-output/auth/user.json",
             colorScheme: "dark",
             viewport: { width: 1280, height: 720 },
         });

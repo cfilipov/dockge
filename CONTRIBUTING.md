@@ -141,7 +141,7 @@ task test-e2e                    # Playwright E2E tests (builds frontend + backe
 
 ### Visual regression screenshots
 
-Golden screenshots are committed to `e2e/__screenshots__/`. When a screenshot test fails, Playwright writes expected/actual/diff images to `e2e/test-results/`. View the HTML report:
+Golden screenshots are committed to `e2e/__screenshots__/`. When a screenshot test fails, Playwright writes expected/actual/diff images to `.e2e-output/test-results/`. View the HTML report:
 
 ```bash
 task test-e2e-report

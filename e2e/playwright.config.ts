@@ -22,8 +22,8 @@ export default defineConfig({
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
     workers: 1,
-    outputDir: "./test-results",
-    reporter: [["html", { outputFolder: "./playwright-report", open: "on-failure" }]],
+    outputDir: "../.e2e-output/test-results",
+    reporter: [["html", { outputFolder: "../.e2e-output/playwright-report", open: "on-failure" }]],
     use: {
         baseURL: `http://localhost:${port}`,
         trace: "on-first-retry",
@@ -45,7 +45,7 @@ export default defineConfig({
             use: {
                 ...devices["Desktop Chrome"],
                 viewport: { width: 1280, height: 720 },
-                storageState: ".auth/user.json",
+                storageState: "../.e2e-output/auth/user.json",
                 colorScheme: "dark",
             },
             dependencies: ["setup"],

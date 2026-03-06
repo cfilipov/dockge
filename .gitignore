@@ -11,21 +11,15 @@ tmp
 # Runtime ephemera (dev stacks, e2e data, BoltDB files)
 /.run/
 
-# Legacy build artifacts (kept for transition)
+# Playwright E2E output (test-results, reports, auth state)
+/.e2e-output/
+
+# Build artifacts
 /dist
-/gen-mock-yaml
 
 # Dev artifacts
 .task/
-.playwright-mcp
 agent-browser.json
 skills-lock.json
 CLAUDE.md
 PLAN.md
-
-# Playwright E2E test artifacts (golden screenshots ARE committed)
-.auth/
-test-results/
-e2e/test-results/
-e2e/playwright-report/
-e2e/blob-report/

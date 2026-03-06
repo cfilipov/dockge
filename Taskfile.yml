@@ -145,9 +145,19 @@ tasks:
       - cmd: pkill -f 'mock-daemon' 2>/dev/null
         ignore_error: true
 
+  build-gen-mock-yaml:
+    desc: Build gen-mock-yaml utility
+    cmd: go build -o bin/gen-mock-yaml ./cmd/gen-mock-yaml
+    sources:
+      - cmd/gen-mock-yaml/**/*.go
+      - internal/docker/mock/**/*.go
+      - go.mod
+    generates:
+      - bin/gen-mock-yaml
+
   clean:
     desc: Remove build artifacts
-    cmd: rm -rf dist bin .run
+    cmd: rm -rf dist bin .run .e2e-output
 
   check-ts:
     desc: TypeScript type check (tsc --noEmit)

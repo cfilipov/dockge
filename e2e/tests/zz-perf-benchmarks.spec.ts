@@ -6,7 +6,7 @@ import { PerfCollector, PerfResults, ComparisonResult, measureBuildSizes } from 
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPDATE_MODE = !!process.env.UPDATE_BENCHMARKS;
-const REPORT_PATH = join(__dirname, "..", "test-results", "benchmark-report.txt");
+const REPORT_PATH = join(__dirname, "..", "..", ".e2e-output", "test-results", "benchmark-report.txt");
 
 test.describe("Performance Benchmarks", () => {
     test("memory and socket metrics within baseline tolerances", async ({ perfCollector }) => {
