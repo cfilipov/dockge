@@ -16,7 +16,7 @@ import { useTheme } from "../composables/useTheme";
 import { useTerminalSocket, type TerminalSocket } from "../composables/useTerminalSocket";
 
 const { emit: socketEmit, bindTerminal, unbindTerminal } = useSocket();
-const { toastRes, toastError } = useAppToast();
+const { toastRes } = useAppToast();
 const { isDark } = useTheme();
 
 // VS Code's default dark terminal palette
@@ -69,27 +69,17 @@ const lightTheme: ITheme = {
 
 const props = withDefaults(defineProps<{
     name: string;
-    stackName?: string;
-    serviceName?: string;
-    containerName?: string;
-    shell?: string;
     rows?: number;
     cols?: number;
     mode?: string;
-    mainTerminal?: boolean;
     ariaLabel?: string;
     channel?: "control" | "terminal";
     terminalType?: string;
     terminalParams?: Record<string, string>;
 }>(), {
-    stackName: undefined,
-    serviceName: undefined,
-    containerName: undefined,
-    shell: "bash",
     rows: TERMINAL_ROWS,
     cols: TERMINAL_COLS,
     mode: "displayOnly",
-    mainTerminal: false,
     ariaLabel: undefined,
     channel: "control",
     terminalType: undefined,
@@ -104,8 +94,6 @@ const terminalEl = ref<HTMLElement>();
 const terminal = shallowRef<Terminal | null>(null);
 let terminalFitAddOn: FitAddon | null = null;
 let first = true;
-let terminalInputBuffer = "";
-let cursorPosition = 0;
 let stopDarkWatcher: (() => void) | null = null;
 let termSocket: TerminalSocket | null = null;
 let spinnerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -123,81 +111,6 @@ function bind(name?: string) {
     } else {
         console.debug("Terminal name not set");
     }
-}
-
-function removeInput() {
-    const textAfterCursorLength = terminalInputBuffer.length - cursorPosition;
-    const spaces = " ".repeat(textAfterCursorLength);
-    const backspaceCount = terminalInputBuffer.length;
-    const backspaces = "\b \b".repeat(backspaceCount);
-    cursorPosition = 0;
-    terminal.value!.write(spaces + backspaces);
-    terminalInputBuffer = "";
-}
-
-function clearCurrentLine() {
-    const backspaces = "\b".repeat(cursorPosition);
-    const spaces = " ".repeat(terminalInputBuffer.length);
-    const moreBackspaces = "\b".repeat(terminalInputBuffer.length);
-    terminal.value!.write(backspaces + spaces + moreBackspaces);
-}
-
-function mainTerminalConfig() {
-    terminal.value!.onKey(e => {
-        console.debug("Encode: " + JSON.stringify(e.key));
-
-        if (e.key === "\r") {
-            if (terminalInputBuffer.length === 0) {
-                return;
-            }
-            const buffer = terminalInputBuffer;
-            removeInput();
-            socketEmit("terminalInput", props.name, buffer + e.key, (err: any) => {
-                toastError(err.msg);
-            });
-        } else if (e.key === "\u007F") {
-            if (cursorPosition > 0) {
-                const beforeCursor = terminalInputBuffer.slice(0, cursorPosition - 1);
-                const afterCursor = terminalInputBuffer.slice(cursorPosition);
-                terminalInputBuffer = beforeCursor + afterCursor;
-                cursorPosition--;
-                terminal.value!.write("\b" + afterCursor + " \b".repeat(afterCursor.length + 1));
-            }
-        } else if (e.key === "\u001B\u005B\u0033\u007E") {
-            if (cursorPosition < terminalInputBuffer.length) {
-                const beforeCursor = terminalInputBuffer.slice(0, cursorPosition);
-                const afterCursor = terminalInputBuffer.slice(cursorPosition + 1);
-                terminalInputBuffer = beforeCursor + afterCursor;
-                terminal.value!.write(afterCursor + " \b".repeat(afterCursor.length + 1));
-            }
-        } else if (e.key === "\u001B\u005B\u0041" || e.key === "\u001B\u005B\u0042") {
-            // UP OR DOWN - do nothing
-        } else if (e.key === "\u001B\u005B\u0043") {
-            if (cursorPosition < terminalInputBuffer.length) {
-                terminal.value!.write(terminalInputBuffer[cursorPosition]);
-                cursorPosition++;
-            }
-        } else if (e.key === "\u001B\u005B\u0044") {
-            if (cursorPosition > 0) {
-                terminal.value!.write("\b");
-                cursorPosition--;
-            }
-        } else if (e.key === "\u0003") {
-            console.debug("Ctrl + C");
-            socketEmit("terminalInput", props.name, e.key);
-            removeInput();
-        } else if (e.key === "\u0016" || (e.ctrlKey && e.key === "v")) {
-            handlePaste();
-        } else if (e.key === "\u0009" || e.key.startsWith("\u001B")) {
-            // TAB or other special keys - do nothing
-        } else {
-            const textBeforeCursor = terminalInputBuffer.slice(0, cursorPosition);
-            const textAfterCursor = terminalInputBuffer.slice(cursorPosition);
-            terminalInputBuffer = textBeforeCursor + e.key + textAfterCursor;
-            terminal.value!.write(e.key + textAfterCursor + "\b".repeat(textAfterCursor.length));
-            cursorPosition++;
-        }
-    });
 }
 
 function interactiveTerminalConfig() {
@@ -306,16 +219,7 @@ async function handlePaste() {
 }
 
 function pasteText(text: string) {
-    if (props.mode === "mainTerminal") {
-        const beforeCursor = terminalInputBuffer.slice(0, cursorPosition);
-        const afterCursor = terminalInputBuffer.slice(cursorPosition);
-        terminalInputBuffer = beforeCursor + text + afterCursor;
-        clearCurrentLine();
-        terminal.value!.write(terminalInputBuffer);
-        cursorPosition += text.length;
-        const backspaces = "\b".repeat(afterCursor.length);
-        terminal.value!.write(backspaces);
-    } else if (props.mode === "interactive") {
+    if (props.mode === "interactive") {
         if (termSocket) {
             termSocket.sendInput(text);
         } else {
@@ -330,7 +234,7 @@ function pasteText(text: string) {
 
 function handleContextMenu(event: Event) {
     event.preventDefault();
-    if (props.mode === "mainTerminal" || props.mode === "interactive") {
+    if (props.mode === "interactive") {
         handlePaste();
     }
 }
@@ -372,9 +276,7 @@ onMounted(async () => {
         theme: isDark.value ? darkTheme : lightTheme,
     });
 
-    if (props.mode === "mainTerminal") {
-        mainTerminalConfig();
-    } else if (props.mode === "interactive") {
+    if (props.mode === "interactive") {
         interactiveTerminalConfig();
     }
 
@@ -404,41 +306,8 @@ onMounted(async () => {
     if (props.channel === "terminal" && props.terminalType) {
         // Dedicated terminal WebSocket — no control WS lifecycle needed
         connectDedicatedTerminal();
-    } else if (props.mainTerminal) {
-        bind();
-        socketEmit("mainTerminal", props.name, (res: any) => {
-            if (!res.ok) {
-                toastRes(res);
-            }
-        });
-    } else if (props.mode === "mainTerminal") {
-        bind();
-        socketEmit("mainTerminal", props.name, (res: any) => {
-            if (!res.ok) {
-                toastRes(res);
-            }
-        });
-    } else if (props.mode === "interactive" && props.containerName) {
-        // Create the terminal FIRST so any stale terminal is replaced,
-        // then join it in the callback to read the fresh buffer.
-        console.debug("Create container exec terminal:", props.name);
-        socketEmit("containerExec", props.containerName, props.shell, (res: any) => {
-            if (!res.ok) {
-                toastRes(res);
-            }
-            bind();
-        });
-    } else if (props.mode === "interactive") {
-        // Create the terminal FIRST so any stale terminal is replaced,
-        // then join it in the callback to read the fresh buffer.
-        console.debug("Create Interactive terminal:", props.name);
-        socketEmit("interactiveTerminal", props.stackName!, props.serviceName!, props.shell, (res: any) => {
-            if (!res.ok) {
-                toastRes(res);
-            }
-            bind();
-        });
     } else {
+        // Control WS path (compose action ProgressTerminal)
         bind();
     }
 

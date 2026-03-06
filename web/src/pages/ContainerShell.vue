@@ -9,7 +9,8 @@
 
             <Terminal class="terminal" :rows="20" mode="interactive"
                 :name="terminalName"
-                :container-name="containerName" :shell="shell" />
+                channel="terminal" terminal-type="exec-by-name"
+                :terminal-params="{ container: containerName, shell: shell }" />
         </div>
         <div v-else>
             <h1 class="mb-3">{{ $t("shell") }}</h1>
