@@ -330,7 +330,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
     // disabled (every connection is auto-authenticated).
 
     go func() {
-        sendToConn(c, chanStacks, mapPayload{Replace: true, Data: stacksToMap(buildStackBroadcast(app.StacksDir))})
+        sendToConn(c, chanStacks, stacksToMap(buildStackBroadcast(app.StacksDir)))
     }()
     go func() {
         ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -340,7 +340,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
             slog.Warn("afterLogin: containers", "err", err)
             containers = []docker.ContainerBroadcast{}
         }
-        sendToConn(c, chanContainers, mapPayload{Replace: true, Data: containersToMap(containers)})
+        sendToConn(c, chanContainers, containersToMap(containers))
     }()
     go func() {
         ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -350,7 +350,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
             slog.Warn("afterLogin: networks", "err", err)
             networks = []docker.NetworkSummary{}
         }
-        sendToConn(c, chanNetworks, mapPayload{Replace: true, Data: networksToMap(networks)})
+        sendToConn(c, chanNetworks, networksToMap(networks))
     }()
     go func() {
         ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -360,7 +360,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
             slog.Warn("afterLogin: images", "err", err)
             images = []docker.ImageSummary{}
         }
-        sendToConn(c, chanImages, mapPayload{Replace: true, Data: imagesToMap(images)})
+        sendToConn(c, chanImages, imagesToMap(images))
     }()
     go func() {
         ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -370,7 +370,7 @@ func (app *App) AfterLogin(c *ws.Conn) {
             slog.Warn("afterLogin: volumes", "err", err)
             volumes = []docker.VolumeSummary{}
         }
-        sendToConn(c, chanVolumes, mapPayload{Replace: true, Data: volumesToMap(volumes)})
+        sendToConn(c, chanVolumes, volumesToMap(volumes))
     }()
     go func() {
         svcUpdates, _ := app.ImageUpdates.AllServiceUpdates()

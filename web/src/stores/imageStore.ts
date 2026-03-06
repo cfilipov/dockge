@@ -25,19 +25,9 @@ export const useImageStore = defineStore("images", () => {
         [...imageMap.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     );
 
-    /** Merge a map update. If data has replace=true, clears the store first. */
-    function mergeImages(data: Record<string, ImageSummary | null> | { replace: boolean; data: Record<string, ImageSummary | null> }) {
-        let entries: Record<string, ImageSummary | null>;
-        if (typeof data === "object" && data !== null && "replace" in data && typeof (data as any).replace === "boolean") {
-            const wrapper = data as { replace: boolean; data: Record<string, ImageSummary | null> };
-            if (wrapper.replace) {
-                imageMap.clear();
-            }
-            entries = wrapper.data;
-        } else {
-            entries = data as Record<string, ImageSummary | null>;
-        }
-        for (const [key, value] of Object.entries(entries)) {
+    /** Merge a map update. Null values delete the key; non-null values upsert. */
+    function mergeImages(data: Record<string, ImageSummary | null>) {
+        for (const [key, value] of Object.entries(data)) {
             if (value === null) {
                 imageMap.delete(key);
             } else {

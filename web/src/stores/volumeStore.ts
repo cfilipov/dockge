@@ -25,19 +25,9 @@ export const useVolumeStore = defineStore("volumes", () => {
         [...volumeMap.values()].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
     );
 
-    /** Merge a map update. If data has replace=true, clears the store first. */
-    function mergeVolumes(data: Record<string, VolumeSummary | null> | { replace: boolean; data: Record<string, VolumeSummary | null> }) {
-        let entries: Record<string, VolumeSummary | null>;
-        if (typeof data === "object" && data !== null && "replace" in data && typeof (data as any).replace === "boolean") {
-            const wrapper = data as { replace: boolean; data: Record<string, VolumeSummary | null> };
-            if (wrapper.replace) {
-                volumeMap.clear();
-            }
-            entries = wrapper.data;
-        } else {
-            entries = data as Record<string, VolumeSummary | null>;
-        }
-        for (const [key, value] of Object.entries(entries)) {
+    /** Merge a map update. Null values delete the key; non-null values upsert. */
+    function mergeVolumes(data: Record<string, VolumeSummary | null>) {
+        for (const [key, value] of Object.entries(data)) {
             if (value === null) {
                 volumeMap.delete(key);
             } else {

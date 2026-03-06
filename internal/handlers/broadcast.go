@@ -102,14 +102,6 @@ func sendToConn(c *ws.Conn, channel string, data any) {
 
 // --- Map-building helpers ---
 
-// mapPayload wraps a map with a replace flag. When Replace is true, the
-// frontend clears the store before merging. Used for full-list broadcasts
-// (initial load, Trigger*). Event-driven partial updates send bare maps.
-type mapPayload struct {
-	Replace bool           `json:"replace"`
-	Data    map[string]any `json:"data"`
-}
-
 // containersToMap converts a slice of ContainerBroadcast to a map keyed by name.
 func containersToMap(containers []docker.ContainerBroadcast) map[string]any {
 	m := make(map[string]any, len(containers))
@@ -163,7 +155,7 @@ func (app *App) broadcastStacksMap() {
 		return
 	}
 	entries := buildStackBroadcast(app.StacksDir)
-	ws.BroadcastAuthenticated(app.WS, chanStacks, mapPayload{Replace: true, Data: stacksToMap(entries)})
+	ws.BroadcastAuthenticated(app.WS, chanStacks, stacksToMap(entries))
 	app.BcastMetrics.recordSent(chanStacks)
 }
 
@@ -179,7 +171,7 @@ func (app *App) broadcastContainersMap() {
 		slog.Warn("broadcastContainersMap", "err", err)
 		containers = []docker.ContainerBroadcast{}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanContainers, mapPayload{Replace: true, Data: containersToMap(containers)})
+	ws.BroadcastAuthenticated(app.WS, chanContainers, containersToMap(containers))
 	app.BcastMetrics.recordSent(chanContainers)
 }
 
@@ -195,7 +187,7 @@ func (app *App) broadcastNetworksMap() {
 		slog.Warn("broadcastNetworksMap", "err", err)
 		networks = []docker.NetworkSummary{}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanNetworks, mapPayload{Replace: true, Data: networksToMap(networks)})
+	ws.BroadcastAuthenticated(app.WS, chanNetworks, networksToMap(networks))
 	app.BcastMetrics.recordSent(chanNetworks)
 }
 
@@ -211,7 +203,7 @@ func (app *App) broadcastImagesMap() {
 		slog.Warn("broadcastImagesMap", "err", err)
 		images = []docker.ImageSummary{}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanImages, mapPayload{Replace: true, Data: imagesToMap(images)})
+	ws.BroadcastAuthenticated(app.WS, chanImages, imagesToMap(images))
 	app.BcastMetrics.recordSent(chanImages)
 }
 
@@ -227,7 +219,7 @@ func (app *App) broadcastVolumesMap() {
 		slog.Warn("broadcastVolumesMap", "err", err)
 		volumes = []docker.VolumeSummary{}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanVolumes, mapPayload{Replace: true, Data: volumesToMap(volumes)})
+	ws.BroadcastAuthenticated(app.WS, chanVolumes, volumesToMap(volumes))
 	app.BcastMetrics.recordSent(chanVolumes)
 }
 

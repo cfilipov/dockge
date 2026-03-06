@@ -83,19 +83,9 @@ export const useStackStore = defineStore("stacks", () => {
     const stackMap = reactive(new Map<string, StackBroadcastEntry>());
     const loading = ref(true);
 
-    /** Merge a map update. If data has replace=true, clears the store first. */
-    function mergeStacks(data: Record<string, StackBroadcastEntry | null> | { replace: boolean; data: Record<string, StackBroadcastEntry | null> }) {
-        let entries: Record<string, StackBroadcastEntry | null>;
-        if (typeof data === "object" && data !== null && "replace" in data && typeof (data as any).replace === "boolean") {
-            const wrapper = data as { replace: boolean; data: Record<string, StackBroadcastEntry | null> };
-            if (wrapper.replace) {
-                stackMap.clear();
-            }
-            entries = wrapper.data;
-        } else {
-            entries = data as Record<string, StackBroadcastEntry | null>;
-        }
-        for (const [key, value] of Object.entries(entries)) {
+    /** Merge a map update. Null values delete the key; non-null values upsert. */
+    function mergeStacks(data: Record<string, StackBroadcastEntry | null>) {
+        for (const [key, value] of Object.entries(data)) {
             if (value === null) {
                 stackMap.delete(key);
             } else {

@@ -29,19 +29,9 @@ export const useNetworkStore = defineStore("networks", () => {
         [...networkMap.values()].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
     );
 
-    /** Merge a map update. If data has replace=true, clears the store first. */
-    function mergeNetworks(data: Record<string, NetworkSummary | null> | { replace: boolean; data: Record<string, NetworkSummary | null> }) {
-        let entries: Record<string, NetworkSummary | null>;
-        if (typeof data === "object" && data !== null && "replace" in data && typeof (data as any).replace === "boolean") {
-            const wrapper = data as { replace: boolean; data: Record<string, NetworkSummary | null> };
-            if (wrapper.replace) {
-                networkMap.clear();
-            }
-            entries = wrapper.data;
-        } else {
-            entries = data as Record<string, NetworkSummary | null>;
-        }
-        for (const [key, value] of Object.entries(entries)) {
+    /** Merge a map update. Null values delete the key; non-null values upsert. */
+    function mergeNetworks(data: Record<string, NetworkSummary | null>) {
+        for (const [key, value] of Object.entries(data)) {
             if (value === null) {
                 networkMap.delete(key);
             } else {
