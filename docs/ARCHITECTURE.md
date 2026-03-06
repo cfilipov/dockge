@@ -492,7 +492,7 @@ through environment manipulation:
 
 - `DOCKER_HOST=unix:///tmp/dockge-mock-$$/docker.sock` points the SDK client to
   the mock daemon
-- `PATH=test-data/bin:$PATH` makes `exec.Command("docker", ...)` resolve to the
+- `PATH=bin:$PATH` makes `exec.Command("docker", ...)` resolve to the
   mock docker CLI
 
 The only production code exception is `POST /api/mock/reset`, a proxy handler in
@@ -608,7 +608,7 @@ POST /api/mock/reset
 
 `task dev` orchestrates the full startup sequence:
 
-1. **Build** — compiles 4 binaries: `dockge`, `mock-daemon`, `mock-docker`, `seed-testdb`
+1. **Build** — compiles 4 binaries into `bin/`: `dockge`, `mock-daemon`, `docker`, `seed-testdb`
 2. **Start mock daemon** — launches on a Unix socket, polls until ready (up to 5s)
 3. **Seed database** — runs `seed-testdb` to populate BoltDB
 4. **Set environment** — exports `DOCKER_HOST` and prepends mock binaries to `PATH`

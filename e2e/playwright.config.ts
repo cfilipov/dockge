@@ -52,7 +52,7 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: `cd .. && rm -rf test-data/e2e-stacks test-data/e2e-data-${port} && cp -a test-data/stacks test-data/e2e-stacks && task start-mock-env PORT=${port} STACKS_DIR=test-data/e2e-stacks DATA_DIR=test-data/e2e-data-${port}`,
+        command: `cd .. && rm -rf .run/e2e-${port} && mkdir -p .run/e2e-${port}/data && cp -a test-data/stacks .run/e2e-${port}/stacks && task start-mock-env PORT=${port} STACKS_DIR=.run/e2e-${port}/stacks DATA_DIR=.run/e2e-${port}/data`,
         port,
         reuseExistingServer: !process.env.CI,
     },

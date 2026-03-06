@@ -27,36 +27,36 @@ tasks:
 
   build-go:
     desc: Build Go backend
-    cmd: go build -o {{.BINARY}} .
+    cmd: go build -o bin/{{.BINARY}} .
     sources:
       - '**/*.go'
       - go.mod
       - go.sum
     generates:
-      - ./{{.BINARY}}
+      - bin/{{.BINARY}}
 
   build-mock-docker:
     desc: Build mock docker binary for dev/test
-    cmd: go build -o test-data/bin/docker ./cmd/mock-docker
+    cmd: go build -o bin/docker ./cmd/mock-docker
     sources:
       - cmd/mock-docker/**/*.go
       - go.mod
     generates:
-      - test-data/bin/docker
+      - bin/docker
 
   build-mock-daemon:
     desc: Build mock daemon binary for dev/test
-    cmd: go build -o test-data/bin/mock-daemon ./cmd/mock-daemon
+    cmd: go build -o bin/mock-daemon ./cmd/mock-daemon
     sources:
       - cmd/mock-daemon/**/*.go
       - internal/docker/**/*.go
       - go.mod
     generates:
-      - test-data/bin/mock-daemon
+      - bin/mock-daemon
 
   build-seed-testdb:
     desc: Build seed-testdb utility for dev/test
-    cmd: go build -o test-data/bin/seed-testdb ./cmd/seed-testdb
+    cmd: go build -o bin/seed-testdb ./cmd/seed-testdb
     sources:
       - cmd/seed-testdb/**/*.go
       - internal/db/**/*.go
@@ -64,7 +64,7 @@ tasks:
       - internal/docker/mock/**/*.go
       - go.mod
     generates:
-      - test-data/bin/seed-testdb
+      - bin/seed-testdb
 
   dev:
     desc: Run mock daemon + Go backend + Vite HMR (ports 5001 + 5000)
@@ -72,19 +72,19 @@ tasks:
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
-          rm -rf test-data/dev-stacks && cp -a test-data/stacks test-data/dev-stacks
+          rm -rf .run/dev-5001 && mkdir -p .run/dev-5001/data && cp -a test-data/stacks .run/dev-5001/stacks
           MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
           mkdir -p "$(dirname "$MOCK_SOCK")"
-          ./test-data/bin/mock-daemon \
+          ./bin/mock-daemon \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
-            --stacks-dir test-data/dev-stacks &
+            --stacks-dir .run/dev-5001/stacks &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./test-data/bin/seed-testdb --data-dir test-data --stacks-dir test-data/dev-stacks
+          ./bin/seed-testdb --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks
           export DOCKER_HOST="unix://$MOCK_SOCK"
-          export PATH="$(pwd)/test-data/bin:$PATH"
+          export PATH="$(pwd)/bin:$PATH"
           (cd web && pnpm run dev) &
-          ./{{.BINARY}} --dev --port 5001 --data-dir test-data --stacks-dir test-data/dev-stacks &
+          ./bin/{{.BINARY}} --dev --port 5001 --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks &
           wait
 
   dev-web:
@@ -98,46 +98,47 @@ tasks:
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
-          rm -rf test-data/dev-stacks && cp -a test-data/stacks test-data/dev-stacks
+          rm -rf .run/dev-5001 && mkdir -p .run/dev-5001/data && cp -a test-data/stacks .run/dev-5001/stacks
           MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
           mkdir -p "$(dirname "$MOCK_SOCK")"
-          ./test-data/bin/mock-daemon \
+          ./bin/mock-daemon \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
-            --stacks-dir test-data/dev-stacks &
+            --stacks-dir .run/dev-5001/stacks &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./test-data/bin/seed-testdb --data-dir test-data --stacks-dir test-data/dev-stacks
+          ./bin/seed-testdb --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks
           export DOCKER_HOST="unix://$MOCK_SOCK"
-          export PATH="$(pwd)/test-data/bin:$PATH"
-          ./{{.BINARY}} --dev --port 5001 --data-dir test-data --stacks-dir test-data/dev-stacks
+          export PATH="$(pwd)/bin:$PATH"
+          ./bin/{{.BINARY}} --dev --port 5001 --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks
 
   start-mock-env:
     desc: Start mock daemon + dockge for dev/test
     deps: [build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
     vars:
       PORT: '{{.PORT | default "5001"}}'
-      STACKS_DIR: '{{.STACKS_DIR | default "test-data/stacks"}}'
-      DATA_DIR: '{{.DATA_DIR | default "test-data"}}'
+      STACKS_DIR: '{{.STACKS_DIR | default ".run/e2e-{{.PORT}}/stacks"}}'
+      DATA_DIR: '{{.DATA_DIR | default ".run/e2e-{{.PORT}}/data"}}'
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
           MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
           mkdir -p "$(dirname "$MOCK_SOCK")"
-          ./test-data/bin/mock-daemon \
+          mkdir -p {{.DATA_DIR}}
+          ./bin/mock-daemon \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
             --stacks-dir {{.STACKS_DIR}} \
             --no-heartbeat &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./test-data/bin/seed-testdb --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
-          DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/test-data/bin:$PATH" \
-            exec ./{{.BINARY}} --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
+          ./bin/seed-testdb --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
+          DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/bin:$PATH" \
+            exec ./bin/{{.BINARY}} --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
 
   kill:
     desc: Kill any running dockge backend or Vite dev server
     ignore_error: true
     cmds:
-      - cmd: pkill -f './{{.BINARY}}' 2>/dev/null
+      - cmd: pkill -f './bin/{{.BINARY}}' 2>/dev/null
         ignore_error: true
       - cmd: pkill -f 'node.*vite' 2>/dev/null
         ignore_error: true
@@ -146,7 +147,7 @@ tasks:
 
   clean:
     desc: Remove build artifacts
-    cmd: rm -rf dist {{.BINARY}}
+    cmd: rm -rf dist bin .run
 
   check-ts:
     desc: TypeScript type check (tsc --noEmit)
