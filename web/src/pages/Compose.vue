@@ -389,6 +389,11 @@ scrollable size="fullscreen" hide-footer>
     </transition>
 </template>
 
+<script lang="ts">
+// Module-level state — survives component remount across navigation
+let pendingDeployName: string | null = null;
+</script>
+
 <script setup lang="ts">
 import { ref, reactive, computed, watch, provide, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute, useRouter, onBeforeRouteUpdate, onBeforeRouteLeave } from "vue-router";
@@ -711,7 +716,11 @@ onBeforeRouteLeave((to, from, next) => {
 
 // Methods
 function exitConfirm(next: (val?: boolean | undefined) => void) {
-    if (isEditMode.value) {
+    if (pendingDeployName) {
+        // Save-then-start flow: skip the "unsaved changes" prompt
+        exitAction();
+        next();
+    } else if (isEditMode.value) {
         if (confirm(t("confirmLeaveStack"))) {
             exitAction();
             next();
@@ -752,6 +761,12 @@ function loadStack() {
             processing.value = false;
             bindTerminal();
             nextTick(() => { skipConfigSync = false; });
+
+            // Auto-start if this page was reached via deploy from /stacks/new
+            if (pendingDeployName === stack.name) {
+                pendingDeployName = null;
+                nextTick(() => startStack());
+            }
         } else {
             toastRes(res);
         }
@@ -782,18 +797,37 @@ function deployStack() {
         }
     }
 
-    startComposeAction();
-    submitted.value = true;
+    if (isAdd.value) {
+        // New stack: save first, then navigate — auto-start happens on the new page
+        submitted.value = true;
+        processing.value = true;
 
-    emit("deployStack", stack.name, stack.composeYAML, stack.composeENV, stack.composeOverrideYAML || "", isAdd.value, (res: any) => {
-        stopComposeAction();
-        toastRes(res);
+        emit("saveStack", stack.name, stack.composeYAML, stack.composeENV,
+            stack.composeOverrideYAML || "", true, (res: any) => {
+                toastRes(res);
+                if (res.ok) {
+                    pendingDeployName = stack.name;
+                    // Leave processing=true — loadStack() on the new page will clear it.
+                    // This prevents the "not managed" banner from flashing during navigation.
+                    router.push(url.value);
+                } else {
+                    processing.value = false;
+                }
+            });
+    } else {
+        // Existing stack: deploy in-place (save + up in one backend call)
+        startComposeAction();
+        submitted.value = true;
 
-        if (res.ok) {
-            isEditMode.value = false;
-            router.push(url.value);
-        }
-    });
+        emit("deployStack", stack.name, stack.composeYAML, stack.composeENV, stack.composeOverrideYAML || "", false, (res: any) => {
+            stopComposeAction();
+            toastRes(res);
+
+            if (res.ok) {
+                isEditMode.value = false;
+            }
+        });
+    }
 }
 
 function saveStack() {
@@ -1020,13 +1054,16 @@ onMounted(() => {
         // the stack appears in the store (handles both initial load and
         // delayed broadcasts after deploy).
         let loaded = false;
+        const isPendingDeploy = pendingDeployName === stack.name;
         const stopManaged = watch(isManaged, (managed) => {
             if (managed === undefined) return; // stores not ready yet
             if (managed && !loaded) {
                 loaded = true;
                 loadStack();
-            } else if (!managed) {
-                // Unmanaged: services come from container store watcher
+            } else if (!managed && !isPendingDeploy) {
+                // Unmanaged: services come from container store watcher.
+                // Skip this when arriving via deploy — the broadcast
+                // hasn't arrived yet but will momentarily.
                 processing.value = false;
             }
         }, { immediate: true });

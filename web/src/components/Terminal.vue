@@ -86,7 +86,6 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
     (e: "has-data"): void;
-    (e: "has-buffer"): void;
 }>();
 
 const terminalEl = ref<HTMLElement>();
@@ -105,9 +104,7 @@ function bind(name?: string) {
         return;
     }
     unbindTerminal(termName);
-    bindTerminal(termName, terminal.value!, (hasBuffer) => {
-        if (hasBuffer) emit("has-buffer");
-    });
+    bindTerminal(termName, terminal.value!);
     console.debug("Terminal bound: " + termName);
 }
 
@@ -179,6 +176,13 @@ function connectDedicatedTerminal() {
             emit("has-data");
             first = false;
         }
+    });
+
+    // On disconnect, reset state so the spinner/clear logic runs again on reconnect
+    termSocket.onDisconnect(() => {
+        firstMessage = true;
+        stopSpinner();
+        startSpinnerDebounce();
     });
 }
 

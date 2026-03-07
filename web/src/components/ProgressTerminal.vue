@@ -8,7 +8,6 @@
                 ref="progressTerminal"
                 :name="name"
                 :rows="rows"
-                @has-buffer="autoShow"
             ></Terminal>
         </div>
     </transition>
@@ -29,7 +28,7 @@ const visible = ref(false);
 const progressTerminal = ref<InstanceType<any>>();
 
 // Hide when the terminal name changes (Vue Router reuses the component
-// on navigation). autoShow will re-show if the new name has buffered content.
+// on navigation). show() will re-show when the next compose action starts.
 watch(() => props.name, () => {
     visible.value = false;
 });
@@ -47,10 +46,6 @@ function show() {
 
 function hide() {
     visible.value = false;
-}
-
-function autoShow() {
-    visible.value = true;
 }
 
 defineExpose({ show, hide });

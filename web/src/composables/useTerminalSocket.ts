@@ -8,6 +8,7 @@ export interface TerminalSocketOptions {
 export interface TerminalSocket {
     connected: Ref<boolean>;
     onData: (handler: (data: Uint8Array) => void) => void;
+    onDisconnect: (handler: () => void) => void;
     sendInput: (data: string) => void;
     sendResize: (rows: number, cols: number) => void;
     close: () => void;
@@ -16,13 +17,19 @@ export interface TerminalSocket {
 /**
  * Opens a dedicated binary WebSocket to /ws/terminal/{type}?token=...&params...
  * Returns handlers for receiving data and sending input/resize.
- * No auto-reconnect — close WS = clean up terminal.
+ * Auto-reconnects on close/error with exponential backoff (1s → 30s).
+ * Call close() to stop reconnecting and tear down.
  */
 export function useTerminalSocket(options: TerminalSocketOptions): TerminalSocket {
     const connected = ref(false);
     let ws: WebSocket | null = null;
     let dataHandler: ((data: Uint8Array) => void) | null = null;
+    let disconnectHandler: (() => void) | null = null;
     const encoder = new TextEncoder();
+    let shouldReconnect = true;
+    let reconnectDelay = 1000;
+    const maxReconnectDelay = 30000;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Build WebSocket URL
     const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -34,29 +41,49 @@ export function useTerminalSocket(options: TerminalSocketOptions): TerminalSocke
     const paramStr = params.toString();
     const url = `${wsProtocol}//${location.host}/ws/terminal/${options.type}${paramStr ? "?" + paramStr : ""}`;
 
-    ws = new WebSocket(url);
-    ws.binaryType = "arraybuffer";
+    function doConnect() {
+        ws = new WebSocket(url);
+        ws.binaryType = "arraybuffer";
 
-    ws.onopen = () => {
-        connected.value = true;
-    };
+        ws.onopen = () => {
+            connected.value = true;
+            reconnectDelay = 1000;
+        };
 
-    ws.onmessage = (e: MessageEvent) => {
-        if (dataHandler && e.data instanceof ArrayBuffer) {
-            dataHandler(new Uint8Array(e.data));
-        }
-    };
+        ws.onmessage = (e: MessageEvent) => {
+            if (dataHandler && e.data instanceof ArrayBuffer) {
+                dataHandler(new Uint8Array(e.data));
+            }
+        };
 
-    ws.onclose = () => {
-        connected.value = false;
-    };
+        ws.onclose = () => {
+            connected.value = false;
+            disconnectHandler?.();
+            scheduleReconnect();
+        };
 
-    ws.onerror = () => {
-        connected.value = false;
-    };
+        ws.onerror = () => {
+            connected.value = false;
+        };
+    }
+
+    function scheduleReconnect() {
+        if (!shouldReconnect) return;
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+            doConnect();
+        }, reconnectDelay);
+    }
+
+    doConnect();
 
     function onData(handler: (data: Uint8Array) => void) {
         dataHandler = handler;
+    }
+
+    function onDisconnect(handler: () => void) {
+        disconnectHandler = handler;
     }
 
     function sendInput(data: string) {
@@ -79,6 +106,11 @@ export function useTerminalSocket(options: TerminalSocketOptions): TerminalSocke
     }
 
     function close() {
+        shouldReconnect = false;
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
         if (ws) {
             ws.onclose = null; // prevent re-triggering
             ws.close();
@@ -87,5 +119,5 @@ export function useTerminalSocket(options: TerminalSocketOptions): TerminalSocke
         connected.value = false;
     }
 
-    return { connected, onData, sendInput, sendResize, close };
+    return { connected, onData, onDisconnect, sendInput, sendResize, close };
 }
