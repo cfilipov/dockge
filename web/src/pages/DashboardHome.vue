@@ -49,7 +49,7 @@
             </div>
         </div>
     </transition>
-    <router-view ref="child" />
+    <router-view ref="child" :key="$route.path" />
 </template>
 
 <script setup lang="ts">

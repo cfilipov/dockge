@@ -86,6 +86,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
     (e: "has-data"): void;
+    (e: "has-buffer"): void;
 }>();
 
 const terminalEl = ref<HTMLElement>();
@@ -98,17 +99,16 @@ let spinnerTimer: ReturnType<typeof setTimeout> | null = null;
 let spinnerInterval: ReturnType<typeof setInterval> | null = null;
 
 function bind(name?: string) {
-    if (name) {
-        unbindTerminal(name);
-        bindTerminal(name, terminal.value!);
-        console.debug("Terminal bound via parameter: " + name);
-    } else if (props.name) {
-        unbindTerminal(props.name);
-        bindTerminal(props.name, terminal.value!);
-        console.debug("Terminal bound: " + props.name);
-    } else {
+    const termName = name || props.name;
+    if (!termName) {
         console.debug("Terminal name not set");
+        return;
     }
+    unbindTerminal(termName);
+    bindTerminal(termName, terminal.value!, (hasBuffer) => {
+        if (hasBuffer) emit("has-buffer");
+    });
+    console.debug("Terminal bound: " + termName);
 }
 
 function interactiveTerminalConfig() {
@@ -246,13 +246,7 @@ async function copyToClipboard(text: string) {
     }
 }
 
-onMounted(async () => {
-    // Ensure JetBrains Mono is loaded before xterm measures character metrics.
-    // Without this, xterm caches fallback monospace dimensions on first render,
-    // causing inconsistent cell sizes depending on whether the font was
-    // previously loaded by another component (e.g., CodeMirror on compose page).
-    await document.fonts.load("14px 'JetBrains Mono'");
-
+onMounted(() => {
     let cursorBlink = true;
     if (props.mode === "displayOnly") {
         cursorBlink = false;
@@ -294,6 +288,17 @@ onMounted(async () => {
         }
     });
 
+    // Re-bind when the terminal name becomes available after mount.
+    // Compose.vue sets stack.name in its own onMounted (after child mounts),
+    // so the initial bind() below may get an empty name. This watcher
+    // catches the first non-empty name and binds once.
+    watch(() => props.name, (newName, oldName) => {
+        if (!terminal.value || termSocket) return; // only for control WS path
+        if (!oldName && newName) {
+            bind(newName);
+        }
+    });
+
     if (props.channel === "terminal" && props.terminalType) {
         // Dedicated terminal WebSocket — no control WS lifecycle needed
         connectDedicatedTerminal();
@@ -303,6 +308,15 @@ onMounted(async () => {
     }
 
     updateTerminalSize();
+
+    // Re-measure font metrics after fonts finish loading.
+    // Without this, xterm.js may cache fallback monospace metrics
+    // before JetBrains Mono loads, causing misaligned rendering.
+    document.fonts.ready.then(() => {
+        if (!terminal.value) return;
+        terminal.value.options.fontFamily = terminal.value.options.fontFamily;
+        terminalFitAddOn?.fit();
+    });
 });
 
 onUnmounted(() => {
@@ -313,6 +327,7 @@ onUnmounted(() => {
         terminalEl.value.removeEventListener("contextmenu", handleContextMenu);
     }
     if (termSocket) {
+        console.debug("Terminal: closing dedicated WS", props.name);
         termSocket.close();
         termSocket = null;
     } else {

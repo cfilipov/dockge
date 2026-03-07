@@ -244,13 +244,14 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
 	// Handle imageupdates.check transitions
 	app.handleComposeYAMLSave(stackName, composeYAML)
 
-	// Return immediately — validation and deploy run in background
-	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Deployed"})
-	}
-
-	// Validate then deploy in background; errors stream to the terminal
-	go app.runDeployWithValidation(stackName)
+	// Validate then deploy in background; ack after completion so the
+	// frontend stays on the current page showing progress output.
+	go func() {
+		app.runDeployWithValidation(stackName)
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Deployed"})
+		}
+	}()
 }
 
 func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {

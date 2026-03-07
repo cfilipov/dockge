@@ -339,7 +339,7 @@ func (app *App) handleTerminalWSConsole(ws *websocket.Conn, connID, shell string
 func (app *App) terminalWSReadPump(ws *websocket.Conn, connID, termName string, interactive bool) {
 	defer func() {
 		app.Terms.RemoveWriterAndCleanup(termName, connID)
-		ws.Close(websocket.StatusNormalClosure, "")
+		ws.CloseNow()
 		slog.Debug("terminal ws disconnected", "id", connID, "term", termName)
 	}()
 
@@ -348,7 +348,8 @@ func (app *App) terminalWSReadPump(ws *websocket.Conn, connID, termName string, 
 	for {
 		typ, data, err := ws.Read(ctx)
 		if err != nil {
-			return // connection closed
+			slog.Debug("terminal ws read exit", "id", connID, "term", termName, "err", err)
+			return
 		}
 
 		if !interactive || typ != websocket.MessageBinary || len(data) < 1 {

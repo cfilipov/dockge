@@ -67,6 +67,8 @@ func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
         buf = term.JoinAndGetBuffer(c.ID(), makeTermWriter(c, termName))
     }
 
+    slog.Debug("terminalJoin", "term", termName, "bufLen", len(buf), "connID", c.ID())
+
     if msg.ID != nil {
         ws.SendAck(c, *msg.ID, struct {
             OK     bool   `json:"ok"`

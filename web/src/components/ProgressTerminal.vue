@@ -8,13 +8,14 @@
                 ref="progressTerminal"
                 :name="name"
                 :rows="rows"
+                @has-buffer="autoShow"
             ></Terminal>
         </div>
     </transition>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { PROGRESS_TERMINAL_ROWS } from "../common/util-common";
 
 const props = withDefaults(defineProps<{
@@ -26,6 +27,12 @@ const props = withDefaults(defineProps<{
 
 const visible = ref(false);
 const progressTerminal = ref<InstanceType<any>>();
+
+// Hide when the terminal name changes (Vue Router reuses the component
+// on navigation). autoShow will re-show if the new name has buffered content.
+watch(() => props.name, () => {
+    visible.value = false;
+});
 
 function show() {
     const term = progressTerminal.value;
@@ -40,6 +47,10 @@ function show() {
 
 function hide() {
     visible.value = false;
+}
+
+function autoShow() {
+    visible.value = true;
 }
 
 defineExpose({ show, hide });

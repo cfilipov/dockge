@@ -298,12 +298,13 @@ function afterLogin() {
     // are sent automatically by the backend on authenticated connect.
 }
 
-function bindTerminal(terminalName: string, terminal: Terminal) {
+function bindTerminal(terminalName: string, terminal: Terminal, onBound?: (hasBuffer: boolean) => void) {
     // Load terminal, get terminal screen
     emit("terminalJoin", terminalName, (res: any) => {
         if (res.ok) {
             terminal.write(res.buffer);
             terminalMap.set(terminalName, terminal);
+            onBound?.(res.buffer.length > 0);
         } else {
             // Import toast lazily to avoid circular dependency issues at module init
             import("./useAppToast").then(({ useAppToast }) => {
