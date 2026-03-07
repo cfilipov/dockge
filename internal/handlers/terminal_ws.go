@@ -30,12 +30,14 @@ func nextTermWSID() string {
 // Route: /ws/terminal/{type}?token=JWT&stack=...&service=...&container=...&shell=...
 //
 // Terminal types:
-//   - combined         — combined logs for a stack
-//   - container-log    — single service log (by stack+service)
+//   - combined             — combined logs for a stack
+//   - container-log        — single service log (by stack+service)
 //   - container-log-by-name — single container log (by container name)
-//   - exec             — interactive shell (by stack+service)
-//   - exec-by-name     — interactive shell (by container name)
-//   - console          — main server console
+//   - exec                 — interactive shell (by stack+service)
+//   - exec-by-name         — interactive shell (by container name)
+//   - console              — main server console
+//   - compose              — compose action output viewer (by stack)
+//   - container-action     — standalone container action output viewer (by container)
 func (app *App) HandleTerminalWS(w http.ResponseWriter, r *http.Request) {
 	// Authenticate via ?token= query parameter (skip in --no-auth mode)
 	if !app.NoAuth {
@@ -120,6 +122,20 @@ func (app *App) HandleTerminalWS(w http.ResponseWriter, r *http.Request) {
 
 	case "console":
 		app.handleTerminalWSConsole(ws, connID, shell)
+
+	case "compose":
+		if stackName == "" {
+			writeErrorAndClose(ws, "stack parameter required")
+			return
+		}
+		app.handleTerminalWSCompose(ws, connID, stackName)
+
+	case "container-action":
+		if containerName == "" {
+			writeErrorAndClose(ws, "container parameter required")
+			return
+		}
+		app.handleTerminalWSContainerAction(ws, connID, containerName)
 
 	default:
 		writeErrorAndClose(ws, "unknown terminal type: "+termType)
@@ -288,6 +304,30 @@ func (app *App) handleTerminalWSExecByName(ws *websocket.Conn, connID, container
 	}
 
 	app.terminalWSReadPump(ws, connID, termName, true)
+}
+
+// handleTerminalWSCompose joins a compose action terminal (read-only viewer).
+// The terminal is created by the compose action handler; this viewer joins
+// to receive buffered output and live updates.
+func (app *App) handleTerminalWSCompose(ws *websocket.Conn, connID, stackName string) {
+	termName := "compose-" + stackName
+	term := app.Terms.GetOrCreate(termName)
+	buf := term.JoinAndGetBuffer(connID, terminalBinaryWriter(ws))
+	if buf != "" {
+		writeBinary(ws, []byte(buf))
+	}
+	app.terminalWSReadPump(ws, connID, termName, false)
+}
+
+// handleTerminalWSContainerAction joins a standalone container action terminal (read-only viewer).
+func (app *App) handleTerminalWSContainerAction(ws *websocket.Conn, connID, containerName string) {
+	termName := "container-" + containerName
+	term := app.Terms.GetOrCreate(termName)
+	buf := term.JoinAndGetBuffer(connID, terminalBinaryWriter(ws))
+	if buf != "" {
+		writeBinary(ws, []byte(buf))
+	}
+	app.terminalWSReadPump(ws, connID, termName, false)
 }
 
 // handleTerminalWSConsole starts a bash/sh console terminal.

@@ -353,10 +353,6 @@ export function getCryptoRandomInt(min: number, max: number):number {
     }
 }
 
-export function getComposeTerminalName(stack : string) {
-    return "compose-" + stack;
-}
-
 export function getCombinedTerminalName(stack : string) {
     return "combined-" + stack;
 }

@@ -1,46 +1,45 @@
 <template>
     <transition name="slide-fade" appear>
-        <div v-show="visible" class="progress-terminal position-relative" role="region" aria-label="Progress">
+        <div v-if="visible" class="progress-terminal position-relative" role="region" aria-label="Progress">
             <button class="dismiss-button" :title="$t('Close')" @click="hide">
                 <font-awesome-icon icon="times" />
             </button>
             <Terminal
                 ref="progressTerminal"
-                :name="name"
+                :name="terminalName"
                 :rows="rows"
+                :terminal-type="terminalType"
+                :terminal-params="terminalParams"
             ></Terminal>
         </div>
     </transition>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, computed } from "vue";
 import { PROGRESS_TERMINAL_ROWS } from "../common/util-common";
 
 const props = withDefaults(defineProps<{
-    name: string;
+    terminalType: string;
+    terminalParams: Record<string, string>;
     rows?: number;
 }>(), {
     rows: PROGRESS_TERMINAL_ROWS,
 });
 
 const visible = ref(false);
-const progressTerminal = ref<InstanceType<any>>();
 
-// Hide when the terminal name changes (Vue Router reuses the component
-// on navigation). show() will re-show when the next compose action starts.
-watch(() => props.name, () => {
-    visible.value = false;
+const terminalName = computed(() => {
+    if (props.terminalType === "compose") {
+        return "compose-" + (props.terminalParams.stack || "");
+    }
+    if (props.terminalType === "container-action") {
+        return "container-" + (props.terminalParams.container || "");
+    }
+    return props.terminalType;
 });
 
 function show() {
-    const term = progressTerminal.value;
-    if (term) {
-        term.bind(props.name);
-        if (term.terminal) {
-            term.terminal.clear();
-        }
-    }
     visible.value = true;
 }
 

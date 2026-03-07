@@ -10,11 +10,9 @@ import { Terminal } from "@xterm/xterm";
 import type { ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_COLS, TERMINAL_ROWS } from "../common/util-common";
-import { useSocket } from "../composables/useSocket";
 import { useTheme } from "../composables/useTheme";
 import { useTerminalSocket, type TerminalSocket } from "../composables/useTerminalSocket";
 
-const { bindTerminal, unbindTerminal } = useSocket();
 const { isDark } = useTheme();
 
 // VS Code's default dark terminal palette
@@ -71,16 +69,13 @@ const props = withDefaults(defineProps<{
     cols?: number;
     mode?: string;
     ariaLabel?: string;
-    channel?: "control" | "terminal";
-    terminalType?: string;
+    terminalType: string;
     terminalParams?: Record<string, string>;
 }>(), {
     rows: TERMINAL_ROWS,
     cols: TERMINAL_COLS,
     mode: "displayOnly",
     ariaLabel: undefined,
-    channel: "control",
-    terminalType: undefined,
     terminalParams: undefined,
 });
 
@@ -96,17 +91,6 @@ let stopDarkWatcher: (() => void) | null = null;
 let termSocket: TerminalSocket | null = null;
 let spinnerTimer: ReturnType<typeof setTimeout> | null = null;
 let spinnerInterval: ReturnType<typeof setInterval> | null = null;
-
-function bind(name?: string) {
-    const termName = name || props.name;
-    if (!termName) {
-        console.debug("Terminal name not set");
-        return;
-    }
-    unbindTerminal(termName);
-    bindTerminal(termName, terminal.value!);
-    console.debug("Terminal bound: " + termName);
-}
 
 function interactiveTerminalConfig() {
     terminal.value!.onKey(e => {
@@ -148,8 +132,6 @@ function stopSpinner() {
 }
 
 function connectDedicatedTerminal() {
-    if (!props.terminalType) return;
-
     startSpinnerDebounce();
 
     termSocket = useTerminalSocket({
@@ -292,24 +274,7 @@ onMounted(() => {
         }
     });
 
-    // Re-bind when the terminal name becomes available after mount.
-    // Compose.vue sets stack.name in its own onMounted (after child mounts),
-    // so the initial bind() below may get an empty name. This watcher
-    // catches the first non-empty name and binds once.
-    watch(() => props.name, (newName, oldName) => {
-        if (!terminal.value || termSocket) return; // only for control WS path
-        if (!oldName && newName) {
-            bind(newName);
-        }
-    });
-
-    if (props.channel === "terminal" && props.terminalType) {
-        // Dedicated terminal WebSocket — no control WS lifecycle needed
-        connectDedicatedTerminal();
-    } else {
-        // Control WS path (compose action ProgressTerminal)
-        bind();
-    }
+    connectDedicatedTerminal();
 
     updateTerminalSize();
 
@@ -334,13 +299,11 @@ onUnmounted(() => {
         console.debug("Terminal: closing dedicated WS", props.name);
         termSocket.close();
         termSocket = null;
-    } else {
-        unbindTerminal(props.name);
     }
     terminal.value?.dispose();
 });
 
-defineExpose({ terminal, bind });
+defineExpose({ terminal });
 </script>
 
 <style scoped lang="scss">

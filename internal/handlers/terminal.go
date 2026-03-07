@@ -4,7 +4,6 @@ import (
     "bufio"
     "bytes"
     "context"
-    "encoding/json"
     "fmt"
     "log/slog"
     "strings"
@@ -12,74 +11,10 @@ import (
     "time"
 
     "github.com/cfilipov/dockge/internal/terminal"
-    "github.com/cfilipov/dockge/internal/ws"
 )
 
 // mainTerminalMu guards mainTerminalName.
 var mainTerminalMu sync.Mutex
-
-func RegisterTerminalHandlers(app *App) {
-    app.WS.Handle("terminalJoin", app.handleTerminalJoin)
-}
-
-// handleTerminalJoin joins a client to an existing terminal, returning the
-// buffered output and registering the client for live updates.
-// If the terminal name starts with "combined-" and doesn't exist yet, a
-// combined log stream is started lazily.
-func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage) {
-    if checkLogin(c, msg) == 0 {
-        return
-    }
-
-    args := parseArgs(msg)
-    termName := argString(args, 0)
-    if termName == "" {
-        if msg.ID != nil {
-            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Terminal name required"})
-        }
-        return
-    }
-
-    var term *terminal.Terminal
-
-    // Lazy-start combined log terminals
-    if strings.HasPrefix(termName, "combined-") {
-        term = app.Terms.Get(termName)
-        if term == nil {
-            stackName := extractCombinedStackName(termName)
-            if stackName != "" {
-                term = app.startCombinedLogs(termName, stackName)
-            }
-        }
-    } else {
-        // For compose action terminals (compose-*) and others, create the
-        // terminal on join if it doesn't exist yet. This ensures the writer
-        // is registered before the compose action's Recreate() call, which
-        // will carry over the writer to the fresh terminal.
-        term = app.Terms.GetOrCreate(termName)
-    }
-
-    buf := ""
-    if term != nil {
-        // Atomic join: register writer AND read buffer under a single lock.
-        // This prevents a race where data arrives between separate Buffer()
-        // and AddWriter() calls, causing duplicate delivery (double prompt).
-        buf = term.JoinAndGetBuffer(c.ID(), makeTermWriter(c, termName))
-    }
-
-    slog.Debug("terminalJoin", "term", termName, "bufLen", len(buf), "connID", c.ID())
-
-    if msg.ID != nil {
-        ws.SendAck(c, *msg.ID, struct {
-            OK     bool   `json:"ok"`
-            Buffer string `json:"buffer"`
-        }{
-            OK:     true,
-            Buffer: buf,
-        })
-    }
-}
-
 
 // ANSI color palette for per-service log prefixes (6 high-contrast colors).
 var logColors = [...]string{
@@ -509,21 +444,3 @@ func extractCombinedStackName(termName string) string {
     return strings.TrimPrefix(termName, "combined-")
 }
 
-// terminalWritePayload is sent as the data field of terminalWrite events.
-// Custom MarshalJSON outputs a JSON array [name, data] to match the wire format
-// expected by the frontend, avoiding []interface{} allocation and interface boxing.
-type terminalWritePayload struct {
-    Name string
-    Data string
-}
-
-func (p terminalWritePayload) MarshalJSON() ([]byte, error) {
-    return json.Marshal([2]string{p.Name, p.Data})
-}
-
-// makeTermWriter creates a WriteFunc that sends terminalWrite events to a connection.
-func makeTermWriter(c *ws.Conn, termName string) terminal.WriteFunc {
-    return func(data string) {
-        ws.SendEvent(c, "terminalWrite", terminalWritePayload{Name: termName, Data: data})
-    }
-}

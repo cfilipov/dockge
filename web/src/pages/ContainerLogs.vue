@@ -24,7 +24,8 @@
             <ProgressTerminal
                 ref="progressTerminalRef"
                 class="mb-3"
-                :name="composeTerminalName"
+                terminal-type="compose"
+                :terminal-params="{ stack: stackName }"
             />
 
             <Terminal class="terminal flex-grow-1" :rows="20" mode="displayOnly"
@@ -49,7 +50,7 @@ import { useContainerStore } from "../stores/containerStore";
 import { useStackStore } from "../stores/stackStore";
 import { useUpdateStore } from "../stores/updateStore";
 import { useServiceActions } from "../composables/useServiceActions";
-import { ContainerStatusInfo, getComposeTerminalName } from "../common/util-common";
+import { ContainerStatusInfo } from "../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import ServiceActionBar from "../components/ServiceActionBar.vue";
 import { ref } from "vue";
@@ -93,7 +94,6 @@ const recreateNecessary = computed(() => {
     const composeImage = globalStack.value.images[serviceName.value];
     return !!(composeImage && containerInfo.value.image && containerInfo.value.image !== composeImage);
 });
-const composeTerminalName = computed(() => stackName.value ? getComposeTerminalName(stackName.value) : "");
 const terminalName = computed(() => "container-log-by-name-" + containerName.value);
 
 const {

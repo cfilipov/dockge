@@ -118,7 +118,8 @@
             <ProgressTerminal
                 ref="progressTerminalRef"
                 class="mb-3"
-                :name="terminalName"
+                terminal-type="compose"
+                :terminal-params="{ stack: stack.name }"
                 :rows="progressTerminalRows"
             />
 
@@ -407,7 +408,6 @@ import {
     COMBINED_TERMINAL_ROWS,
     copyYAMLComments, envsubstYAML, parseEnv,
     getCombinedTerminalName,
-    getComposeTerminalName,
     PROGRESS_TERMINAL_ROWS,
 } from "../common/util-common";
 import { BModal } from "bootstrap-vue-next";
@@ -594,13 +594,6 @@ const globalStack = computed(() => stackStoreInstance.allStacks.find(s => s.name
 
 const active = computed(() => globalStack.value?.started ?? false);
 
-const terminalName = computed(() => {
-    if (!stack.name) {
-        return "";
-    }
-    return getComposeTerminalName(stack.name);
-});
-
 const combinedTerminalName = computed(() => {
     if (!stack.name) {
         return "";
@@ -739,10 +732,6 @@ function exitAction() {
     // WebSocket — closing the WS triggers server-side cleanup.
 }
 
-function bindTerminal() {
-    // ProgressTerminal handles binding internally via show()
-}
-
 function loadStack() {
     processing.value = true;
     emit("getStack", stack.name, (res: any) => {
@@ -759,7 +748,6 @@ function loadStack() {
             const serviceCount = jsonConfig.services ? Object.keys(jsonConfig.services).length : 0;
             scheduleProgressiveRender(serviceCount);
             processing.value = false;
-            bindTerminal();
             nextTick(() => { skipConfigSync = false; });
 
             // Auto-start if this page was reached via deploy from /stacks/new

@@ -183,7 +183,6 @@ func main() {
 	handlers.RegisterAuthHandlers(app)
 	handlers.RegisterSettingsHandlers(app)
 	handlers.RegisterStackHandlers(app)
-	handlers.RegisterTerminalHandlers(app)
 	handlers.RegisterDockerHandlers(app)
 	handlers.RegisterServiceHandlers(app)
 

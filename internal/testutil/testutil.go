@@ -143,7 +143,6 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     handlers.RegisterAuthHandlers(app)
     handlers.RegisterSettingsHandlers(app)
     handlers.RegisterStackHandlers(app)
-    handlers.RegisterTerminalHandlers(app)
     handlers.RegisterDockerHandlers(app)
     handlers.RegisterServiceHandlers(app)
 

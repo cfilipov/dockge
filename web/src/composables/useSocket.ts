@@ -1,6 +1,5 @@
 import { reactive, ref, computed, watch } from "vue";
 import jwtDecode from "jwt-decode";
-import { Terminal } from "@xterm/xterm";
 import { router } from "../router";
 import { i18n } from "../i18n";
 import type { InfoData } from "../common/types";
@@ -149,7 +148,6 @@ class DockgeWebSocket {
 // --- Module-level state ---
 
 let socket: DockgeWebSocket;
-let terminalMap: Map<string, Terminal> = new Map();
 
 function t(key: string): string {
     return (i18n.global as any).t(key);
@@ -298,25 +296,6 @@ function afterLogin() {
     // are sent automatically by the backend on authenticated connect.
 }
 
-function bindTerminal(terminalName: string, terminal: Terminal) {
-    // Load terminal, get terminal screen
-    emit("terminalJoin", terminalName, (res: any) => {
-        if (res.ok) {
-            terminal.write(res.buffer);
-            terminalMap.set(terminalName, terminal);
-        } else {
-            // Import toast lazily to avoid circular dependency issues at module init
-            import("./useAppToast").then(({ useAppToast }) => {
-                useAppToast().toastRes(res);
-            });
-        }
-    });
-}
-
-function unbindTerminal(terminalName: string) {
-    terminalMap.delete(terminalName);
-}
-
 // --- Initialization ---
 
 export function initWebSocket() {
@@ -402,16 +381,6 @@ export function initWebSocket() {
         router.push("/setup");
     });
 
-    socket.on("terminalWrite", (data: unknown) => {
-        const arr = data as unknown[];
-        const [terminalName, termData] = arr;
-        const terminal = terminalMap.get(terminalName as string);
-        if (!terminal) {
-            return;
-        }
-        terminal.write(termData as string);
-    });
-
     socket.on("refresh", () => {
         location.reload();
     });
@@ -474,7 +443,5 @@ export function useSocket() {
         login,
         loginByToken,
         logout,
-        bindTerminal,
-        unbindTerminal,
     };
 }

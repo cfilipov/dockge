@@ -73,7 +73,8 @@
             <ProgressTerminal
                 ref="progressTerminalRef"
                 class="mb-3"
-                :name="terminalName"
+                :terminal-type="stackName ? 'compose' : 'container-action'"
+                :terminal-params="stackName ? { stack: stackName } : { container: containerName }"
             />
 
             <!-- Metrics Card -->
@@ -377,7 +378,7 @@ import { useStackStore } from "../stores/stackStore";
 import { useUpdateStore } from "../stores/updateStore";
 import { useAppToast } from "../composables/useAppToast";
 import { useServiceActions } from "../composables/useServiceActions";
-import { ContainerStatusInfo, StackStatusInfo, getComposeTerminalName, formatDate } from "../common/util-common";
+import { ContainerStatusInfo, StackStatusInfo, formatDate } from "../common/util-common";
 import ProgressTerminal from "../components/ProgressTerminal.vue";
 import ServiceActionBar from "../components/ServiceActionBar.vue";
 import { useTheme } from "../composables/useTheme";
@@ -445,12 +446,6 @@ const recreateNecessary = computed(() => {
     const composeImage = globalStack.value.images[serviceName.value];
     return !!(composeImage && containerInfo.value.image && containerInfo.value.image !== composeImage);
 });
-const terminalName = computed(() => {
-    if (stackName.value) return getComposeTerminalName(stackName.value);
-    if (containerName.value) return "container-" + containerName.value;
-    return "";
-});
-
 const {
     processing, showUpdateDialog,
     startService, stopService, restartService, recreateService,

@@ -7,9 +7,24 @@ import (
 )
 
 func TestParseFile(t *testing.T) {
+    // Copy pristine test-data/stacks into a temp dir so we never write to the source.
+    srcDir := filepath.Join("..", "..", "test-data", "stacks")
+    tmpDir := t.TempDir()
+
+    for _, name := range []string{"01-web-app", "03-monitoring"} {
+        src := filepath.Join(srcDir, name, "compose.yaml")
+        dst := filepath.Join(tmpDir, name, "compose.yaml")
+        os.MkdirAll(filepath.Dir(dst), 0755)
+        data, err := os.ReadFile(src)
+        if err != nil {
+            t.Fatalf("copy %s: %v", name, err)
+        }
+        os.WriteFile(dst, data, 0644)
+    }
+
     // web-app: nginx (image updates changelog label, no dockge control labels),
     //          redis (status.ignore=true)
-    data := ParseFile("/opt/stacks/01-web-app/compose.yaml")
+    data := ParseFile(filepath.Join(tmpDir, "01-web-app", "compose.yaml"))
     if len(data) != 2 {
         t.Fatalf("web-app: expected 2 services, got %d", len(data))
     }
@@ -35,7 +50,7 @@ func TestParseFile(t *testing.T) {
     }
 
     // monitoring: grafana (imageupdates.check=false)
-    data = ParseFile("/opt/stacks/03-monitoring/compose.yaml")
+    data = ParseFile(filepath.Join(tmpDir, "03-monitoring", "compose.yaml"))
     if grafana, ok := data["grafana"]; !ok {
         t.Error("monitoring: missing grafana")
     } else {
