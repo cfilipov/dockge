@@ -635,6 +635,15 @@ func (d *MockData) SortedImages() []string {
 	return refs
 }
 
+// NetworkProject returns the owning stack name for a project network,
+// or "" if the network is not project-scoped (e.g., bridge, host, none).
+func (d *MockData) NetworkProject(name string) string {
+	if meta, ok := d.networks[name]; ok {
+		return meta.project
+	}
+	return ""
+}
+
 // SortedNetworks returns all network names sorted.
 func (d *MockData) SortedNetworks() []string {
 	var names []string

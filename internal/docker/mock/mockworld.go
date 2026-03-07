@@ -14,33 +14,20 @@ import (
 // implementation that publishes to SSE subscribers.
 type EventSink func(eventType, action, id, project, service string)
 
-// worldSnapshot captures the effective state visible through Docker APIs.
-type worldSnapshot struct {
-	// containerID → effective state ("running", "exited", "paused")
-	// Containers in "inactive" stacks are absent (they don't exist in Docker's view).
-	containers map[string]string
-
-	// containerID → set of network names the container is connected to.
-	containerNetworks map[string]map[string]bool
-
-	// network name → true if the network has any active (non-inactive) containers.
-	activeNetworks map[string]bool
-
-	// containerID → (project, service) for event attribution.
-	containerMeta map[string][2]string
-}
-
 // MockWorld materializes the "live Docker environment" as mutable structs.
 // Built once from MockData + MockState at startup. All FakeDaemon handlers
 // read from this instead of independently reconstructing responses.
 type MockWorld struct {
-	mu         sync.RWMutex
-	containers map[string]*LiveContainer  // containerID → container
-	nameIndex  map[string]*LiveContainer  // container name → container (for lookup by name)
-	networks   map[string]*LiveNetwork    // network name → network
-	data       *MockData
-	state      *MockState
-	stacksDir  string
+	mu              sync.RWMutex
+	containers      map[string]*LiveContainer  // containerID → container
+	nameIndex       map[string]*LiveContainer  // container name → container (for lookup by name)
+	networks        map[string]*LiveNetwork    // network name → network
+	stackContainers map[string][]*LiveContainer // stackName → containers in that stack
+	data            *MockData
+	state           *MockState
+	stacksDir       string
+	startTimes      map[string]time.Time // containerID → last start time
+	stopTimes       map[string]time.Time // containerID → last stop time
 }
 
 // LiveContainer represents a running/exited container in the mock world.
@@ -94,12 +81,15 @@ type LiveNetwork struct {
 // BuildMockWorld materializes the live state from MockData + MockState.
 func BuildMockWorld(data *MockData, state *MockState, stacksDir string) *MockWorld {
 	w := &MockWorld{
-		containers: make(map[string]*LiveContainer),
-		nameIndex:  make(map[string]*LiveContainer),
-		networks:   make(map[string]*LiveNetwork),
-		data:       data,
-		state:      state,
-		stacksDir:  stacksDir,
+		containers:      make(map[string]*LiveContainer),
+		nameIndex:       make(map[string]*LiveContainer),
+		networks:        make(map[string]*LiveNetwork),
+		stackContainers: make(map[string][]*LiveContainer),
+		data:            data,
+		state:           state,
+		stacksDir:       stacksDir,
+		startTimes:      make(map[string]time.Time),
+		stopTimes:       make(map[string]time.Time),
 	}
 
 	w.rebuild()
@@ -111,6 +101,9 @@ func (w *MockWorld) rebuild() {
 	w.containers = make(map[string]*LiveContainer)
 	w.nameIndex = make(map[string]*LiveContainer)
 	w.networks = make(map[string]*LiveNetwork)
+	w.stackContainers = make(map[string][]*LiveContainer)
+	w.startTimes = make(map[string]time.Time)
+	w.stopTimes = make(map[string]time.Time)
 
 	createdTime := time.Date(2026, 2, 18, 0, 0, 0, 0, time.UTC)
 
@@ -478,25 +471,17 @@ func (w *MockWorld) rebuild() {
 			}
 		}
 	}
+
+	// Build stackContainers index from all containers
+	for _, c := range w.containers {
+		if c.StackName != "" {
+			w.stackContainers[c.StackName] = append(w.stackContainers[c.StackName], c)
+		}
+	}
 }
 
 // Reset rebuilds the world from the current MockState.
 func (w *MockWorld) Reset() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.rebuild()
-}
-
-// SetStackState updates all containers in a stack to the given state.
-func (w *MockWorld) SetStackState(stackName, status string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	// Rebuild after state changes - this is the simplest correct approach
-	w.rebuild()
-}
-
-// RemoveStack removes all containers for a stack.
-func (w *MockWorld) RemoveStack(stackName string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.rebuild()
@@ -524,135 +509,135 @@ func (w *MockWorld) effectiveState(c *LiveContainer) string {
 	return w.data.GetServiceState(c.StackName, c.ServiceName, stackStatus)
 }
 
-// snapshot captures the current effective state of all containers and networks.
-// Must be called with w.mu held (at least RLock).
-func (w *MockWorld) snapshot() worldSnapshot {
-	snap := worldSnapshot{
-		containers:    make(map[string]string),
-		containerNetworks: make(map[string]map[string]bool),
-		activeNetworks:    make(map[string]bool),
-		containerMeta:     make(map[string][2]string),
+// emitStackStateChange captures the old effective state for each container in
+// the stack, applies the mutation, then emits events based on old→new transitions.
+func (w *MockWorld) emitStackStateChange(stackName string, mutate func(), sink EventSink) {
+	w.mu.Lock()
+
+	containers := w.stackContainers[stackName]
+	oldStates := make(map[string]string, len(containers))
+	for _, c := range containers {
+		oldStates[c.ID] = w.effectiveState(c)
 	}
 
-	for id, c := range w.containers {
-		// Skip inactive stacks — containers don't exist after compose down.
-		if !c.IsStandalone {
-			stackStatus := w.state.Get(c.StackName)
-			if stackStatus == "inactive" {
-				continue
-			}
-		}
+	mutate()
 
-		state := w.effectiveState(c)
-		snap.containers[id] = state
-		snap.containerMeta[id] = [2]string{c.StackName, c.ServiceName}
-
-		// Record network connections for non-inactive containers.
-		nets := make(map[string]bool, len(c.Networks))
-		for netName := range c.Networks {
-			nets[netName] = true
-			snap.activeNetworks[netName] = true
+	now := time.Now()
+	for _, c := range containers {
+		newState := w.effectiveState(c)
+		oldState := oldStates[c.ID]
+		w.recordTimestamps(c.ID, oldState, newState, now)
+		if sink != nil {
+			emitTransitionEvents(sink, oldState, newState, c)
 		}
-		snap.containerNetworks[id] = nets
 	}
-
-	return snap
+	w.mu.Unlock()
 }
 
-// DiffAndEmit compares two snapshots and calls the sink for each change.
-func DiffAndEmit(before, after worldSnapshot, sink EventSink) {
-	if sink == nil {
+// emitStandaloneStateChange is like emitStackStateChange but for standalone containers.
+func (w *MockWorld) emitStandaloneStateChange(containerName string, mutate func(), sink EventSink) {
+	w.mu.Lock()
+
+	c := w.nameIndex[containerName]
+	var oldState string
+	if c != nil {
+		oldState = w.effectiveState(c)
+	}
+
+	mutate()
+
+	if c != nil {
+		now := time.Now()
+		newState := w.effectiveState(c)
+		w.recordTimestamps(c.ID, oldState, newState, now)
+		if sink != nil {
+			emitTransitionEvents(sink, oldState, newState, c)
+		}
+	}
+	w.mu.Unlock()
+}
+
+// recordTimestamps updates startTimes/stopTimes based on state transitions.
+func (w *MockWorld) recordTimestamps(id, oldState, newState string, now time.Time) {
+	if oldState == newState {
 		return
 	}
-
-	// Container events
-	for id, afterState := range after.containers {
-		meta := after.containerMeta[id]
-		project, svc := meta[0], meta[1]
-
-		beforeState, existed := before.containers[id]
-		if !existed {
-			// New container: create + start (if running)
-			sink("container", "create", id, project, svc)
-			if afterState == "running" || afterState == "paused" {
-				sink("container", "start", id, project, svc)
-			}
-			if afterState == "paused" {
-				sink("container", "pause", id, project, svc)
-			}
-		} else if beforeState != afterState {
-			// State changed
-			switch {
-			case beforeState == "running" && afterState == "exited":
-				sink("container", "die", id, project, svc)
-			case beforeState == "exited" && afterState == "running":
-				sink("container", "start", id, project, svc)
-			case beforeState == "running" && afterState == "paused":
-				sink("container", "pause", id, project, svc)
-			case beforeState == "paused" && afterState == "running":
-				sink("container", "unpause", id, project, svc)
-			case beforeState == "paused" && afterState == "exited":
-				sink("container", "die", id, project, svc)
-			}
-		}
-	}
-
-	for id := range before.containers {
-		if _, exists := after.containers[id]; !exists {
-			meta := before.containerMeta[id]
-			project, svc := meta[0], meta[1]
-			sink("container", "die", id, project, svc)
-			sink("container", "destroy", id, project, svc)
-		}
-	}
-
-	// Network events
-	for netName := range after.activeNetworks {
-		if !before.activeNetworks[netName] {
-			sink("network", "create", netName, "", "")
-		}
-	}
-	for netName := range before.activeNetworks {
-		if !after.activeNetworks[netName] {
-			sink("network", "destroy", netName, "", "")
-		}
-	}
-
-	// Network connect/disconnect per container — include container context
-	// so events carry project/service attribution like real Docker.
-	for id, afterNets := range after.containerNetworks {
-		meta := after.containerMeta[id]
-		project, svc := meta[0], meta[1]
-		beforeNets := before.containerNetworks[id]
-		for netName := range afterNets {
-			if beforeNets == nil || !beforeNets[netName] {
-				sink("network", "connect", id, project, svc)
-			}
-		}
-	}
-	for id, beforeNets := range before.containerNetworks {
-		meta := before.containerMeta[id]
-		project, svc := meta[0], meta[1]
-		afterNets := after.containerNetworks[id]
-		for netName := range beforeNets {
-			if afterNets == nil || !afterNets[netName] {
-				sink("network", "disconnect", id, project, svc)
-			}
-		}
+	switch {
+	case newState == "running" && (oldState == "exited" || oldState == "nonexistent"):
+		w.startTimes[id] = now
+	case newState == "exited" && (oldState == "running" || oldState == "paused"):
+		w.stopTimes[id] = now
 	}
 }
 
-// ApplyStateChange takes a snapshot before calling fn (which mutates state),
-// then takes another snapshot after, and emits events for the diff.
-// This is the single entry point for all state-changing operations.
-func (w *MockWorld) ApplyStateChange(fn func(), sink EventSink) {
-	w.mu.Lock()
-	before := w.snapshot()
-	fn()
-	after := w.snapshot()
-	w.mu.Unlock()
+// emitTransitionEvents emits Docker-style events for a state transition.
+func emitTransitionEvents(sink EventSink, oldState, newState string, c *LiveContainer) {
+	if oldState == newState {
+		return
+	}
+	project := c.StackName
+	svc := c.ServiceName
+	id := c.ID
 
-	DiffAndEmit(before, after, sink)
+	switch {
+	case oldState == "nonexistent" && newState == "running":
+		sink("container", "create", id, project, svc)
+		sink("container", "start", id, project, svc)
+		emitNetworkConnectEvents(sink, c)
+	case oldState == "nonexistent" && newState == "paused":
+		sink("container", "create", id, project, svc)
+		sink("container", "start", id, project, svc)
+		emitNetworkConnectEvents(sink, c)
+		sink("container", "pause", id, project, svc)
+	case oldState == "exited" && newState == "running":
+		sink("container", "start", id, project, svc)
+		emitNetworkConnectEvents(sink, c)
+	case oldState == "running" && newState == "exited":
+		emitNetworkDisconnectEvents(sink, c)
+		sink("container", "die", id, project, svc)
+	case oldState == "running" && newState == "paused":
+		sink("container", "pause", id, project, svc)
+	case oldState == "paused" && newState == "running":
+		sink("container", "unpause", id, project, svc)
+	case oldState == "paused" && newState == "exited":
+		emitNetworkDisconnectEvents(sink, c)
+		sink("container", "die", id, project, svc)
+	case oldState == "running" && newState == "nonexistent":
+		emitNetworkDisconnectEvents(sink, c)
+		sink("container", "die", id, project, svc)
+		sink("container", "destroy", id, project, svc)
+	case oldState == "exited" && newState == "nonexistent":
+		sink("container", "destroy", id, project, svc)
+	}
+}
+
+// emitNetworkConnectEvents emits network connect events for all of a container's networks.
+func emitNetworkConnectEvents(sink EventSink, c *LiveContainer) {
+	for range c.Networks {
+		sink("network", "connect", c.ID, c.StackName, c.ServiceName)
+	}
+}
+
+// emitNetworkDisconnectEvents emits network disconnect events for all of a container's networks.
+func emitNetworkDisconnectEvents(sink EventSink, c *LiveContainer) {
+	for range c.Networks {
+		sink("network", "disconnect", c.ID, c.StackName, c.ServiceName)
+	}
+}
+
+// EmitEventsFor emits events for all containers in a stack by comparing their
+// current effective state against the "nonexistent" baseline. Useful for tests
+// that call MockState.Set() directly and want to trigger events.
+func (w *MockWorld) EmitEventsFor(stackName string, sink EventSink) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	for _, c := range w.stackContainers[stackName] {
+		state := w.effectiveState(c)
+		if state != "exited" {
+			emitTransitionEvents(sink, "exited", state, c)
+		}
+	}
 }
 
 // --- Serialization methods for FakeDaemon handlers ---
@@ -749,6 +734,11 @@ func (w *MockWorld) ContainerInspect(id string) (containerInspectJSON, bool) {
 		return containerInspectJSON{}, false
 	}
 
+	// Containers in inactive stacks don't exist (compose down removes them)
+	if !c.IsStandalone && w.state.Get(c.StackName) == "inactive" {
+		return containerInspectJSON{}, false
+	}
+
 	// Resolve effective state dynamically
 	state := w.effectiveState(c)
 	isRunning := state == "running" || state == "paused"
@@ -777,6 +767,20 @@ func (w *MockWorld) ContainerInspect(id string) (containerInspectJSON, bool) {
 		args = []string{}
 	}
 
+	// Resolve timestamps: use recorded values, falling back to creation time.
+	startedAt := c.StartedAt
+	if t, ok := w.startTimes[c.ID]; ok {
+		startedAt = t
+	}
+	finishedAt := time.Time{}
+	if t, ok := w.stopTimes[c.ID]; ok {
+		finishedAt = t
+	}
+	finishedAtStr := "0001-01-01T00:00:00Z"
+	if !finishedAt.IsZero() {
+		finishedAtStr = finishedAt.Format("2006-01-02T15:04:05.000000000Z")
+	}
+
 	resp := containerInspectJSON{
 		ID:      c.ID,
 		Created: c.Created.Format("2006-01-02T15:04:05.000000000Z"),
@@ -792,8 +796,8 @@ func (w *MockWorld) ContainerInspect(id string) (containerInspectJSON, bool) {
 			Dead:       false,
 			Pid:        pid,
 			ExitCode:   0,
-			StartedAt:  c.StartedAt.Format("2006-01-02T15:04:05.000000000Z"),
-			FinishedAt: "0001-01-01T00:00:00Z",
+			StartedAt:  startedAt.Format("2006-01-02T15:04:05.000000000Z"),
+			FinishedAt: finishedAtStr,
 		},
 		RestartCount: 0,
 		Image:        c.ImageID,
@@ -833,6 +837,14 @@ func (w *MockWorld) NetworkList() []networkJSON {
 	result := make([]networkJSON, 0, len(names))
 	for _, name := range names {
 		net := w.networks[name]
+
+		// Filter out project networks whose owning stack is inactive.
+		// Real Docker removes project networks on `docker compose down`.
+		if project := w.data.NetworkProject(name); project != "" {
+			if w.state.Get(project) == "inactive" {
+				continue
+			}
+		}
 
 		var ipamConfig []ipamConfigJSON
 		if net.Subnet != "" {
@@ -876,7 +888,9 @@ func (w *MockWorld) NetworkInspect(nameOrID string) (networkJSON, bool) {
 		return networkJSON{}, false
 	}
 
-	// Build container list — sorted by ID for determinism
+	// Build container list — sorted by ID for determinism.
+	// Only include running/paused containers (real Docker disconnects
+	// stopped containers from networks, and downed stacks don't exist).
 	ids := make([]string, 0, len(net.Containers))
 	for id := range net.Containers {
 		ids = append(ids, id)
@@ -886,6 +900,17 @@ func (w *MockWorld) NetworkInspect(nameOrID string) (networkJSON, bool) {
 	netContainers := make(map[string]networkContainerJSON, len(ids))
 	for _, id := range ids {
 		c := net.Containers[id]
+		// Skip containers from inactive stacks (compose down removes them)
+		if !c.IsStandalone {
+			if w.state.Get(c.StackName) == "inactive" {
+				continue
+			}
+		}
+		state := w.effectiveState(c)
+		// Only running and paused containers are connected to networks
+		if state != "running" && state != "paused" {
+			continue
+		}
 		ep := c.Networks[net.Name]
 		if ep == nil {
 			continue

@@ -1,7 +1,6 @@
 package mock
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -1263,9 +1261,8 @@ func (fd *FakeDaemon) handleMockServiceStateSet(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	fd.world.ApplyStateChange(func() {
+	fd.world.emitStackStateChange(stack, func() {
 		fd.state.SetService(stack, service, body.Status)
-		fd.world.rebuild()
 	}, fd.eventSink())
 
 	w.WriteHeader(http.StatusOK)
@@ -1283,9 +1280,8 @@ func (fd *FakeDaemon) handleMockStateSet(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fd.world.ApplyStateChange(func() {
+	fd.world.emitStackStateChange(stack, func() {
 		fd.state.Set(stack, body.Status)
-		fd.world.rebuild()
 	}, fd.eventSink())
 
 	w.WriteHeader(http.StatusOK)
@@ -1295,9 +1291,8 @@ func (fd *FakeDaemon) handleMockStateSet(w http.ResponseWriter, r *http.Request)
 func (fd *FakeDaemon) handleMockStateDelete(w http.ResponseWriter, r *http.Request) {
 	stack := r.PathValue("stack")
 
-	fd.world.ApplyStateChange(func() {
+	fd.world.emitStackStateChange(stack, func() {
 		fd.state.Remove(stack)
-		fd.world.rebuild()
 	}, fd.eventSink())
 
 	w.WriteHeader(http.StatusOK)
@@ -1315,9 +1310,8 @@ func (fd *FakeDaemon) handleMockStandaloneStateSet(w http.ResponseWriter, r *htt
 		return
 	}
 
-	fd.world.ApplyStateChange(func() {
+	fd.world.emitStandaloneStateChange(name, func() {
 		fd.state.SetStandalone(name, body.Status)
-		fd.world.rebuild()
 	}, fd.eventSink())
 
 	w.WriteHeader(http.StatusOK)
@@ -1400,74 +1394,6 @@ func (fd *FakeDaemon) handleMockLogs(w http.ResponseWriter, r *http.Request) {
 
 // --- Helpers ---
 
-func (fd *FakeDaemon) getServices(stackName string) []string {
-	prefix := stackName + "/"
-	var services []string
-	for key := range fd.data.serviceImages {
-		if strings.HasPrefix(key, prefix) {
-			svc := strings.TrimPrefix(key, prefix)
-			services = append(services, svc)
-		}
-	}
-	sort.Strings(services)
-
-	// Fallback: parse compose file if MockData doesn't know about this stack
-	if len(services) == 0 {
-		composeFile := findComposeFilePath(filepath.Join(fd.stacksDir, stackName))
-		if composeFile != "" {
-			cd := parseComposeForMock(composeFile)
-			for _, svc := range cd.services {
-				services = append(services, svc.name)
-			}
-		}
-	}
-	return services
-}
-
-// StartEventsPoller starts a goroutine that polls MockState diffs and publishes
-// events. This catches state changes made outside the /_mock/state endpoints
-// (e.g., direct MockState.Set calls during tests).
-func (fd *FakeDaemon) StartEventsPoller(ctx context.Context) {
-	go func() {
-		prev := fd.state.All()
-		ticker := time.NewTicker(60 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				curr := fd.state.All()
-				for stack, status := range curr {
-					oldStatus, existed := prev[stack]
-					if !existed || oldStatus != status {
-						services := fd.getServices(stack)
-						for _, svc := range services {
-							containerID := fmt.Sprintf("mock-%s-%s-1", stack, svc)
-							switch status {
-							case "running":
-								fd.publishEventGeneric("container", "start", containerID, stack, svc)
-							case "exited":
-								fd.publishEventGeneric("container", "die", containerID, stack, svc)
-							}
-						}
-					}
-				}
-				for stack := range prev {
-					if _, exists := curr[stack]; !exists {
-						services := fd.getServices(stack)
-						for _, svc := range services {
-							containerID := fmt.Sprintf("mock-%s-%s-1", stack, svc)
-							fd.publishEventGeneric("container", "destroy", containerID, stack, svc)
-						}
-					}
-				}
-				prev = curr
-			}
-		}
-	}()
-}
 
 // extractStringFilter extracts string values from a Docker API filter value.
 // The SDK may send either array form ["val"] or map form {"val":true}.
