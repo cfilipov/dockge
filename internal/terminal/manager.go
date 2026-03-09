@@ -2,6 +2,7 @@ package terminal
 
 import (
     "bytes"
+    "log/slog"
     "os"
     "os/exec"
     "sync"
@@ -98,6 +99,7 @@ func (m *Manager) Recreate(name string, typ TerminalType) *Terminal {
 
     var writers map[string]WriteFunc
     if old, ok := m.terminals[name]; ok {
+        slog.Debug("terminal recreate: cancelling old", "name", name)
         old.mu.Lock()
         writers = old.writers
         old.writers = make(map[string]WriteFunc) // detach from old terminal
@@ -465,6 +467,7 @@ func (t *Terminal) Close() {
     t.closed = true
 
     if t.cancel != nil {
+        slog.Debug("terminal close: cancelling", "name", t.Name)
         t.cancel()
     }
     if t.ptyFile != nil {

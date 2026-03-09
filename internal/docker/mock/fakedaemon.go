@@ -686,13 +686,17 @@ func (fd *FakeDaemon) handleContainerLogs(w http.ResponseWriter, r *http.Request
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	slog.Debug("daemon: entering follow loop", "container", containerID)
 	n := 0
 	for {
 		select {
 		case <-r.Context().Done():
+			slog.Debug("daemon: follow context cancelled", "container", containerID)
 			return
 		case evt := <-eventCh:
+			slog.Debug("daemon: follow got event", "container", containerID, "evtAction", evt.Action)
 			if evt.ID == containerID && evt.Action == "die" {
+				slog.Debug("daemon: die event, writing shutdown", "container", containerID)
 				for i, line := range logs.Shutdown {
 					expanded := ExpandLogTemplate(line, i, logs.BaseTime, logs.Interval, imageBase)
 					writeStdcopyLine(w, expanded+"\n")
@@ -1291,9 +1295,7 @@ func (fd *FakeDaemon) handleMockStateSet(w http.ResponseWriter, r *http.Request)
 func (fd *FakeDaemon) handleMockStateDelete(w http.ResponseWriter, r *http.Request) {
 	stack := r.PathValue("stack")
 
-	fd.world.emitStackStateChange(stack, func() {
-		fd.state.Remove(stack)
-	}, fd.eventSink())
+	fd.world.emitStackRemoval(stack, fd.state, fd.eventSink())
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))

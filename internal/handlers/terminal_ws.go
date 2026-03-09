@@ -213,7 +213,6 @@ func (app *App) handleTerminalWSContainerLog(ws *websocket.Conn, connID, stackNa
 // handleTerminalWSContainerLogByName streams logs for a container by name.
 func (app *App) handleTerminalWSContainerLogByName(ws *websocket.Conn, connID, containerName string) {
 	termName := "container-log-by-name-" + containerName
-
 	term := app.Terms.Recreate(termName, terminal.TypePipe)
 
 	ctx, cancel := context.WithCancel(context.Background())

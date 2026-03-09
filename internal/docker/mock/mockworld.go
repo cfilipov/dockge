@@ -534,6 +534,33 @@ func (w *MockWorld) emitStackStateChange(stackName string, mutate func(), sink E
 	w.mu.Unlock()
 }
 
+// emitStackRemoval captures old states, removes the stack from MockState, then
+// emits destroy events (running/exited→nonexistent). This models `docker compose
+// down` which removes containers entirely, unlike stop which just transitions to
+// exited.
+func (w *MockWorld) emitStackRemoval(stackName string, state *MockState, sink EventSink) {
+	w.mu.Lock()
+
+	containers := w.stackContainers[stackName]
+	oldStates := make(map[string]string, len(containers))
+	for _, c := range containers {
+		oldStates[c.ID] = w.effectiveState(c)
+	}
+
+	state.Remove(stackName)
+
+	now := time.Now()
+	for _, c := range containers {
+		oldState := oldStates[c.ID]
+		// Force nonexistent as target (compose down removes containers)
+		w.recordTimestamps(c.ID, oldState, "nonexistent", now)
+		if sink != nil {
+			emitTransitionEvents(sink, oldState, "nonexistent", c)
+		}
+	}
+	w.mu.Unlock()
+}
+
 // emitStandaloneStateChange is like emitStackStateChange but for standalone containers.
 func (w *MockWorld) emitStandaloneStateChange(containerName string, mutate func(), sink EventSink) {
 	w.mu.Lock()
