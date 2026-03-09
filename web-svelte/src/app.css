@@ -62,3 +62,17 @@ h2 {
 	background-color: #090c10;
 	color: var(--color-font-dark);
 }
+
+@utility shadow-box {
+	border-radius: 10px;
+	background-color: white;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+@utility bg-brand-gradient {
+	background: linear-gradient(135deg, var(--color-gradient-start) 0%, var(--color-gradient-start) 75%, var(--color-gradient-end));
+}
+
+@utility bg-brand-gradient-hover {
+	background: linear-gradient(135deg, var(--color-gradient-start) 0%, var(--color-gradient-start) 50%, var(--color-gradient-end));
+}
