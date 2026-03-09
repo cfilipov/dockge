@@ -15,5 +15,5 @@ Include `<script lang="ts">` for clarity even if TypeScript is configured - it i
 All styling in `web-svelte/` MUST use Tailwind utility classes inline on elements. Do NOT add `<style>` blocks to Svelte components. Specifically:
 - Use Tailwind's `dark:` variant for dark mode - never use `:global(.dark)` selectors.
 - Use standard Tailwind breakpoints (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`) - never add custom `@media` queries.
-- For styles reused across multiple components, define an `@utility` rule in `app.css` - never duplicate CSS.
+- For styles reused across multiple components, define an `@utility` rule in `app.css` - never duplicate CSS. Existing shared utilities: `shadow-box` (card container), `bg-brand-gradient` / `bg-brand-gradient-hover` (brand gradient backgrounds). `@utility` rules must be stateless (no variants) — apply dark mode overrides inline on each element (e.g., `dark:bg-... dark:shadow-...`).
 - If a style truly cannot be expressed as Tailwind utilities (e.g., complex animations, pseudo-element content), stop and explain why before adding a `<style>` block.
