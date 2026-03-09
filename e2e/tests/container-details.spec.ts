@@ -33,7 +33,7 @@ test.describe("Container Log", () => {
         const logLink = page.getByRole("link", { name: "docker compose logs nginx" });
         await expect(logLink).toBeVisible({ timeout: 10000 });
         await logLink.click();
-        await expect(page).toHaveURL("/logs/01-web-app-nginx-1");
+        await expect(page).toHaveURL("/containers/01-web-app-nginx-1/logs");
     });
 
     test("displays log UI elements", async ({ page }) => {
@@ -59,7 +59,7 @@ test.describe("Container Log Lifecycle Banners", () => {
 
     test("shows shutdown logs, stop banner, start banner, and startup logs", async ({ page }) => {
         // Navigate to the individual log view for alpine (running in DefaultDevState)
-        await page.goto("/logs/00-single-service-alpine-1");
+        await page.goto("/containers/00-single-service-alpine-1/logs");
         await waitForApp(page);
 
         // The page has two Terminal regions: the progress terminal (inside
@@ -113,7 +113,7 @@ test.describe("Container Log Lifecycle Banners", () => {
 
     test("restart triggers banners and logs", async ({ page, request }) => {
         await request.post("/api/mock/reset");
-        await page.goto("/logs/00-single-service-alpine-1");
+        await page.goto("/containers/00-single-service-alpine-1/logs");
         await waitForApp(page);
 
         const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
@@ -141,7 +141,7 @@ test.describe("Container Log Lifecycle Banners", () => {
 
     test("recreate triggers banners and logs", async ({ page, request }) => {
         await request.post("/api/mock/reset");
-        await page.goto("/logs/00-single-service-alpine-1");
+        await page.goto("/containers/00-single-service-alpine-1/logs");
         await waitForApp(page);
 
         const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
@@ -168,7 +168,7 @@ test.describe("Container Log Lifecycle Banners", () => {
 
     test("update triggers banners and logs", async ({ page, request }) => {
         await request.post("/api/mock/reset");
-        await page.goto("/logs/00-single-service-alpine-1");
+        await page.goto("/containers/00-single-service-alpine-1/logs");
         await waitForApp(page);
 
         const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");

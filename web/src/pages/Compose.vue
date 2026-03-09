@@ -78,32 +78,25 @@
                 </div>
 
                 <!-- Parsed / Raw toggle -->
-                <div v-if="!isAdd" class="btn-group" role="group">
-                    <input
-                        id="view-parsed"
-                        v-model="viewMode"
-                        type="radio"
-                        class="btn-check"
-                        name="viewMode"
-                        autocomplete="off"
-                        value="parsed"
-                    />
-                    <label class="btn btn-outline-primary" for="view-parsed" :title="$t('showUI')" :aria-label="$t('showUI')">
+                <div v-if="!isAdd" class="btn-group" role="group" aria-label="View mode">
+                    <button
+                        class="btn"
+                        :class="viewMode === 'parsed' ? 'btn-primary' : 'btn-normal'"
+                        :title="$t('showUI')"
+                        :aria-label="$t('showUI')"
+                        @click="viewMode = 'parsed'"
+                    >
                         <font-awesome-icon icon="list" />
-                    </label>
-
-                    <input
-                        id="view-raw"
-                        v-model="viewMode"
-                        type="radio"
-                        class="btn-check"
-                        name="viewMode"
-                        autocomplete="off"
-                        value="raw"
-                    />
-                    <label class="btn btn-outline-primary" for="view-raw" :title="$t('showYAML')" :aria-label="$t('showYAML')">
+                    </button>
+                    <button
+                        class="btn"
+                        :class="viewMode === 'raw' ? 'btn-primary' : 'btn-normal'"
+                        :title="$t('showYAML')"
+                        :aria-label="$t('showYAML')"
+                        @click="viewMode = 'raw'"
+                    >
                         <font-awesome-icon icon="code" />
-                    </label>
+                    </button>
                 </div>
             </div>
 
@@ -1122,13 +1115,8 @@ onUnmounted(() => {
     font-size: 14px;
 }
 
-.btn-check:active + .btn-outline-primary,
-.btn-check:checked + .btn-outline-primary {
-    color: #fff;
-
-    .dark & {
-        color: #000;
-    }
+[aria-label="View mode"] > .btn {
+    width: 58px;
 }
 
 </style>

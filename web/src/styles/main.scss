@@ -160,7 +160,8 @@ optgroup {
 }
 
 .btn-group > .btn + .btn,
-.btn-group > .btn + .dropdown > .btn {
+.btn-group > .btn + .dropdown > .btn,
+.btn-group > .btn + .btn-group {
     margin-left: 1px !important;
 }
 

@@ -8,15 +8,29 @@ import { ref } from "vue";
  * Layout reads the appropriate scope to reset on tab re-click.
  */
 
+export type ContainersSubView = "parsed" | "raw" | "logs" | "shell";
+
 const stacksRawMode = ref(false);
-const containersRawMode = ref(false);
+const containersSubView = ref<ContainersSubView>("parsed");
 
 export function useViewMode(scope: "stacks" | "containers" = "stacks") {
-    const isRawMode = scope === "stacks" ? stacksRawMode : containersRawMode;
+    const isRawMode = scope === "stacks" ? stacksRawMode : ref(containersSubView.value === "raw");
 
     function setRawMode(raw: boolean) {
-        isRawMode.value = raw;
+        if (scope === "stacks") {
+            stacksRawMode.value = raw;
+        } else {
+            containersSubView.value = raw ? "raw" : "parsed";
+        }
     }
 
-    return { isRawMode, setRawMode };
+    function getContainersSubView(): ContainersSubView {
+        return containersSubView.value;
+    }
+
+    function setContainersSubView(view: ContainersSubView) {
+        containersSubView.value = view;
+    }
+
+    return { isRawMode, setRawMode, getContainersSubView, setContainersSubView };
 }

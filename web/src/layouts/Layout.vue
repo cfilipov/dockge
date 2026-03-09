@@ -89,18 +89,6 @@
                 </li>
 
                 <li v-if="loggedIn" class="nav-item me-1">
-                    <router-link :to="logsTabLink" class="nav-link">
-                        <font-awesome-icon icon="file-lines" class="me-1" /> {{ $t("logs") }}
-                    </router-link>
-                </li>
-
-                <li v-if="loggedIn" class="nav-item me-1">
-                    <router-link :to="shellTabLink" class="nav-link">
-                        <font-awesome-icon icon="code" class="me-1" /> {{ $t("shell") }}
-                    </router-link>
-                </li>
-
-                <li v-if="loggedIn" class="nav-item me-1">
                     <router-link :to="imagesTabLink" class="nav-link">
                         <font-awesome-icon icon="box-archive" class="me-1" /> {{ $t("imagesNav") }}
                     </router-link>
@@ -160,7 +148,7 @@ const {
 const containerStore = useContainerStore();
 const stackStore = useStackStore();
 const { setRawMode: setStacksRawMode } = useViewMode("stacks");
-const { setRawMode: setContainersRawMode } = useViewMode("containers");
+const { setContainersSubView, getContainersSubView } = useViewMode("containers");
 
 const {
     lastStack,
@@ -187,7 +175,7 @@ function onStacksTabClick() {
 
 function onContainersTabClick() {
     if (route.path.startsWith("/containers")) {
-        setContainersRawMode(false);
+        setContainersSubView("parsed");
     }
 }
 
@@ -199,52 +187,34 @@ function containerExists(name: string): boolean {
 // Which container-centric tab we're currently on (if any)
 const currentTab = computed(() => {
     if (route.path.startsWith("/containers")) return "containers";
-    if (route.path.startsWith("/logs")) return "logs";
-    if (route.path.startsWith("/shell")) return "shell";
     return "";
 });
 
 // The currently selected container name (shared across containers/logs/shell tabs)
 const selectedContainer = computed(() => (route.params.containerName as string) || "");
 
+// Map sub-view to route name for container tab links
+function subViewRouteName(subView: string): string {
+    if (subView === "raw") return "containerRaw";
+    if (subView === "logs") return "containerLogs";
+    if (subView === "shell") return "containerShell";
+    return "containerDetail";
+}
+
 // Tab links: prefer last remembered item, fall back to smart guess from current context
 const containersTabLink = computed(() => {
     if (currentTab.value === "containers") return "/containers";
+    const subView = getContainersSubView();
+    const routeName = subViewRouteName(subView);
     if (lastContainer.value && containerExists(lastContainer.value)) {
-        return { name: "containerDetail", params: { containerName: lastContainer.value } };
+        return { name: routeName, params: { containerName: lastContainer.value } };
     }
-    if (selectedContainer.value) return { name: "containerDetail", params: { containerName: selectedContainer.value } };
+    if (selectedContainer.value) return { name: routeName, params: { containerName: selectedContainer.value } };
     if (selectedStack.value) {
         const c = containerStore.containers.find(c => c.stackName === selectedStack.value);
-        if (c) return { name: "containerDetail", params: { containerName: c.name } };
+        if (c) return { name: routeName, params: { containerName: c.name } };
     }
     return "/containers";
-});
-
-const logsTabLink = computed(() => {
-    if (currentTab.value === "logs") return "/logs";
-    if (lastContainer.value && containerExists(lastContainer.value)) {
-        return { name: "containerLogs", params: { containerName: lastContainer.value } };
-    }
-    if (selectedContainer.value) return { name: "containerLogs", params: { containerName: selectedContainer.value } };
-    if (selectedStack.value) {
-        const c = containerStore.containers.find(c => c.stackName === selectedStack.value);
-        if (c) return { name: "containerLogs", params: { containerName: c.name } };
-    }
-    return "/logs";
-});
-
-const shellTabLink = computed(() => {
-    if (currentTab.value === "shell") return "/shell";
-    if (lastContainer.value && containerExists(lastContainer.value)) {
-        return { name: "containerShell", params: { containerName: lastContainer.value, type: "bash" } };
-    }
-    if (selectedContainer.value) return { name: "containerShell", params: { containerName: selectedContainer.value, type: "bash" } };
-    if (selectedStack.value) {
-        const c = containerStore.containers.find(c => c.stackName === selectedStack.value);
-        if (c) return { name: "containerShell", params: { containerName: c.name, type: "bash" } };
-    }
-    return "/shell";
 });
 
 // The currently selected stack name (shared across stacks tabs)

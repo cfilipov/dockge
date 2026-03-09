@@ -3,16 +3,20 @@ import { waitForApp } from "../helpers/wait-for-app";
 import { takeLightScreenshot } from "../helpers/light-mode";
 
 /**
- * Tests for the Containers/Logs/Shell tab navigation system.
+ * Tests for the Containers sub-view navigation system.
+ *
+ * Logs and Shell are now sub-views of the Containers tab, not separate nav tabs.
+ * The view mode toggle (parsed/raw/logs/shell) controls which sub-view is shown.
  *
  * Covers:
- * 1. Clicking container card buttons in stacks view navigates to the correct tab
- * 2. Sidebar container selection switches the detail view
- * 3. Tab switching preserves container selection; re-clicking a tab clears it
+ * 1. Clicking container card buttons in stacks view navigates to the correct sub-view
+ * 2. Sidebar container selection switches the detail view and preserves sub-view
+ * 3. Sub-view toggle switches between parsed/raw/logs/shell
+ * 4. Clicking the Containers tab while already on it resets to parsed and clears selection
  */
 
 test.describe("Container Tabs — Stacks to Logs", () => {
-    test("log button navigates to Logs tab with container selected", async ({ page }) => {
+    test("log button navigates to Containers tab with logs sub-view", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
 
@@ -21,12 +25,16 @@ test.describe("Container Tabs — Stacks to Logs", () => {
         await logLink.click();
 
         // URL and heading
-        await expect(page).toHaveURL("/logs/01-web-app-nginx-1");
+        await expect(page).toHaveURL("/containers/01-web-app-nginx-1/logs");
         await expect(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
 
-        // Logs nav tab is active
-        const logsNav = page.getByRole("link", { name: "Logs" }).first();
-        await expect(logsNav).toHaveClass(/active/);
+        // Containers nav tab is active
+        const containersNav = page.getByRole("link", { name: "Containers" }).first();
+        await expect(containersNav).toHaveClass(/active/);
+
+        // Logs sub-view toggle is active
+        const logsToggle = page.getByRole("link", { name: "Logs" });
+        await expect(logsToggle).toHaveClass(/btn-primary/);
 
         // Terminal region is visible (log output)
         await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
@@ -82,7 +90,7 @@ test.describe("Container Tabs — Stacks to Containers", () => {
 });
 
 test.describe("Container Tabs — Stacks to Shell", () => {
-    test("shell button navigates to Shell tab with container selected", async ({ page }) => {
+    test("shell button navigates to Containers tab with shell sub-view", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
 
@@ -91,12 +99,16 @@ test.describe("Container Tabs — Stacks to Shell", () => {
         await shellLink.click();
 
         // URL and heading
-        await expect(page).toHaveURL("/shell/01-web-app-nginx-1/bash");
+        await expect(page).toHaveURL("/containers/01-web-app-nginx-1/shell/bash");
         await expect(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
 
-        // Shell nav tab is active
-        const shellNav = page.getByRole("link", { name: "Shell" }).first();
-        await expect(shellNav).toHaveClass(/active/);
+        // Containers nav tab is active
+        const containersNav = page.getByRole("link", { name: "Containers" }).first();
+        await expect(containersNav).toHaveClass(/active/);
+
+        // Shell sub-view toggle is active
+        const shellToggle = page.getByRole("link", { name: "Shell" });
+        await expect(shellToggle).toHaveClass(/btn-primary/);
 
         // Terminal region is visible
         await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
@@ -121,8 +133,8 @@ test.describe("Container Tabs — Stacks to Shell", () => {
 
 test.describe("Container Tabs — Sidebar switching", () => {
     test("clicking a different container in the sidebar switches the detail view", async ({ page }) => {
-        // Start on logs tab with nginx selected
-        await page.goto("/logs/01-web-app-nginx-1");
+        // Start on logs sub-view with nginx selected
+        await page.goto("/containers/01-web-app-nginx-1/logs");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
 
@@ -131,8 +143,8 @@ test.describe("Container Tabs — Sidebar switching", () => {
         await expect(redisItem).toBeVisible({ timeout: 10000 });
         await redisItem.click();
 
-        // URL and heading update to the new container
-        await expect(page).toHaveURL("/logs/01-web-app-redis-1");
+        // URL and heading update to the new container, staying on logs sub-view
+        await expect(page).toHaveURL("/containers/01-web-app-redis-1/logs");
         await expect(page.getByRole("heading", { name: /exited\s+01-web-app-redis-1/i })).toBeVisible({ timeout: 10000 });
 
         // The redis item is now active, nginx is not
@@ -155,7 +167,7 @@ test.describe("Container Tabs — Sidebar switching", () => {
     });
 
     test("screenshot: sidebar switch", async ({ page }) => {
-        await page.goto("/logs/01-web-app-nginx-1");
+        await page.goto("/containers/01-web-app-nginx-1/logs");
         await waitForApp(page);
         await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
         await page.locator(".item", { hasText: "01-web-app-redis-1" }).click();
@@ -165,57 +177,57 @@ test.describe("Container Tabs — Sidebar switching", () => {
     });
 });
 
-test.describe("Container Tabs — Tab switching preserves selection", () => {
-    test("switching from Containers to Logs preserves container selection", async ({ page }) => {
+test.describe("Container Tabs — Sub-view toggle preserves selection", () => {
+    test("switching from parsed to logs via toggle preserves container selection", async ({ page }) => {
         await page.goto("/containers/02-blog-mysql-1");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
 
-        // Click Logs tab
-        const logsNav = page.getByRole("link", { name: "Logs" }).first();
-        await logsNav.click();
+        // Click Logs toggle button
+        const logsToggle = page.getByRole("link", { name: "Logs" });
+        await logsToggle.click();
 
         // Should navigate to logs for the same container
-        await expect(page).toHaveURL("/logs/02-blog-mysql-1");
+        await expect(page).toHaveURL("/containers/02-blog-mysql-1/logs");
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
     });
 
-    test("switching from Logs to Shell preserves container selection", async ({ page }) => {
-        await page.goto("/logs/02-blog-mysql-1");
+    test("switching from logs to shell via toggle preserves container selection", async ({ page }) => {
+        await page.goto("/containers/02-blog-mysql-1/logs");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
 
-        // Click Shell tab
-        const shellNav = page.getByRole("link", { name: "Shell" }).first();
-        await shellNav.click();
+        // Click Shell toggle button
+        const shellToggle = page.getByRole("link", { name: "Shell" });
+        await shellToggle.click();
 
-        await expect(page).toHaveURL("/shell/02-blog-mysql-1/bash");
+        await expect(page).toHaveURL("/containers/02-blog-mysql-1/shell");
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
     });
 
-    test("switching from Shell to Containers preserves container selection", async ({ page }) => {
-        await page.goto("/shell/02-blog-mysql-1/bash");
+    test("switching from shell to parsed via toggle preserves container selection", async ({ page }) => {
+        await page.goto("/containers/02-blog-mysql-1/shell");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
 
-        // Click Containers tab
-        const containersNav = page.getByRole("link", { name: "Containers" }).first();
-        await containersNav.click();
+        // Click parsed toggle button (Show UI)
+        const parsedToggle = page.getByRole("link", { name: "Show UI" });
+        await parsedToggle.click();
 
         await expect(page).toHaveURL("/containers/02-blog-mysql-1");
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
     });
 
-    test("clicking the same tab clears selection and goes to home view", async ({ page }) => {
-        await page.goto("/logs/02-blog-mysql-1");
+    test("clicking Containers tab while on it clears selection and goes to home view", async ({ page }) => {
+        await page.goto("/containers/02-blog-mysql-1/logs");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
 
-        // Click Logs tab again — should go to /logs (home)
-        const logsNav = page.getByRole("link", { name: "Logs" }).first();
-        await logsNav.click();
+        // Click Containers tab again — should go to /containers (home)
+        const containersNav = page.getByRole("link", { name: "Containers" }).first();
+        await containersNav.click();
 
-        await expect(page).toHaveURL("/logs");
+        await expect(page).toHaveURL("/containers");
         // Home view shows "Select a container" text
         await expect(page.getByText("Select a container from the list.")).toBeVisible({ timeout: 10000 });
         // No container should be highlighted in the sidebar
@@ -223,13 +235,13 @@ test.describe("Container Tabs — Tab switching preserves selection", () => {
     });
 
     test("screenshot: tab switching preserves selection", async ({ page }) => {
-        // Start on Containers tab with a container selected
+        // Start on Containers tab with a container selected (parsed view)
         await page.goto("/containers/02-blog-mysql-1");
         await waitForApp(page);
         await expect(page.getByRole("region", { name: "Overview" })).toBeVisible({ timeout: 10000 });
 
-        // Switch to Logs tab
-        await page.getByRole("link", { name: "Logs" }).first().click();
+        // Switch to Logs sub-view via toggle
+        await page.getByRole("link", { name: "Logs" }).click();
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-preserved-selection.png");
         await takeLightScreenshot(page, "container-tabs-preserved-selection-light.png");

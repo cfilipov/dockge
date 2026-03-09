@@ -9,8 +9,6 @@ import Compose from "./pages/Compose.vue";
 import ContainerTerminal from "./pages/ContainerTerminal.vue";
 import ContainerLog from "./pages/ContainerLog.vue";
 import ContainerInspect from "./pages/ContainerInspect.vue";
-import ContainerShell from "./pages/ContainerShell.vue";
-import ContainerLogs from "./pages/ContainerLogs.vue";
 const Settings = () => import("./pages/Settings.vue");
 
 // Settings - Sub Pages
@@ -76,6 +74,21 @@ const routes = [
                                 component: ContainerInspect,
                                 name: "containerDetail",
                             },
+                            {
+                                path: ":containerName/raw",
+                                component: ContainerInspect,
+                                name: "containerRaw",
+                            },
+                            {
+                                path: ":containerName/logs",
+                                component: ContainerInspect,
+                                name: "containerLogs",
+                            },
+                            {
+                                path: ":containerName/shell/:type?",
+                                component: ContainerInspect,
+                                name: "containerShell",
+                            },
                         ],
                     },
                     {
@@ -90,36 +103,6 @@ const routes = [
                                 path: ":networkName",
                                 component: () => import("./pages/NetworkInspect.vue"),
                                 name: "networkDetail",
-                            },
-                        ],
-                    },
-                    {
-                        path: "/logs",
-                        children: [
-                            {
-                                path: "",
-                                component: ContainerLogs,
-                                name: "logsHome",
-                            },
-                            {
-                                path: ":containerName",
-                                component: ContainerLogs,
-                                name: "containerLogs",
-                            },
-                        ],
-                    },
-                    {
-                        path: "/shell",
-                        children: [
-                            {
-                                path: "",
-                                component: ContainerShell,
-                                name: "shellHome",
-                            },
-                            {
-                                path: ":containerName/:type",
-                                component: ContainerShell,
-                                name: "containerShell",
                             },
                         ],
                     },
@@ -208,6 +191,24 @@ const routes = [
     {
         path: "/stacks/:stackName/raw",
         redirect: (to: any) => `/stacks/${to.params.stackName}`,
+    },
+    // Legacy /logs URLs — redirect to /containers/:name/logs
+    {
+        path: "/logs/:containerName",
+        redirect: (to: any) => `/containers/${to.params.containerName}/logs`,
+    },
+    {
+        path: "/logs",
+        redirect: "/containers",
+    },
+    // Legacy /shell URLs — redirect to /containers/:name/shell/:type
+    {
+        path: "/shell/:containerName/:type",
+        redirect: (to: any) => `/containers/${to.params.containerName}/shell/${to.params.type}`,
+    },
+    {
+        path: "/shell",
+        redirect: "/containers",
     },
 ];
 

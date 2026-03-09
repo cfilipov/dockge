@@ -1,10 +1,13 @@
 <template>
     <transition name="slide-fade" appear>
-        <div v-if="containerName">
+        <div v-if="containerName" :class="{ 'logs-page': viewMode === 'logs' }">
             <h1 class="mb-3"><span v-if="badgeLabel" :class="badgeClass">{{ badgeLabel }}</span> {{ containerName }}</h1>
 
             <div class="d-flex align-items-center justify-content-between mb-3">
-                <div v-if="stackName" class="d-flex align-items-center">
+                <div v-if="viewMode === 'shell'" class="d-flex align-items-center">
+                    <router-link :to="switchShellLink" class="btn btn-normal">{{ $t(switchShellLabel) }}</router-link>
+                </div>
+                <div v-else-if="stackName" class="d-flex align-items-center">
                     <ServiceActionBar
                         :active="containerActive"
                         :processing="processing"
@@ -39,46 +42,58 @@
                 </div>
                 <div v-else></div>
 
-                <!-- Parsed / Raw toggle -->
-                <div class="btn-group" role="group">
-                    <input
-                        id="view-parsed"
-                        v-model="viewMode"
-                        type="radio"
-                        class="btn-check"
-                        name="viewMode"
-                        autocomplete="off"
-                        value="parsed"
-                    />
-                    <label class="btn btn-outline-primary" for="view-parsed" :title="$t('showUI')" :aria-label="$t('showUI')">
+                <!-- View mode toggle -->
+                <div class="btn-group" role="group" aria-label="View mode">
+                    <router-link
+                        :to="{ name: 'containerDetail', params: { containerName } }"
+                        class="btn"
+                        :class="viewMode === 'parsed' ? 'btn-primary' : 'btn-normal'"
+                        :title="$t('showUI')"
+                        :aria-label="$t('showUI')"
+                    >
                         <font-awesome-icon icon="list" />
-                    </label>
-
-                    <input
-                        id="view-raw"
-                        v-model="viewMode"
-                        type="radio"
-                        class="btn-check"
-                        name="viewMode"
-                        autocomplete="off"
-                        value="raw"
-                    />
-                    <label class="btn btn-outline-primary" for="view-raw" :title="$t('showYAML')" :aria-label="$t('showYAML')">
+                    </router-link>
+                    <router-link
+                        :to="{ name: 'containerRaw', params: { containerName } }"
+                        class="btn"
+                        :class="viewMode === 'raw' ? 'btn-primary' : 'btn-normal'"
+                        :title="$t('showYAML')"
+                        :aria-label="$t('showYAML')"
+                    >
                         <font-awesome-icon icon="code" />
-                    </label>
+                    </router-link>
+                    <router-link
+                        :to="{ name: 'containerLogs', params: { containerName } }"
+                        class="btn"
+                        :class="viewMode === 'logs' ? 'btn-primary' : 'btn-normal'"
+                        :title="$t('logs')"
+                        :aria-label="$t('logs')"
+                    >
+                        <font-awesome-icon icon="file-lines" />
+                    </router-link>
+                    <router-link
+                        :to="{ name: 'containerShell', params: { containerName } }"
+                        class="btn"
+                        :class="viewMode === 'shell' ? 'btn-primary' : 'btn-normal'"
+                        :title="$t('shell')"
+                        :aria-label="$t('shell')"
+                    >
+                        <font-awesome-icon icon="terminal" />
+                    </router-link>
                 </div>
             </div>
 
-            <!-- Progress Terminal -->
+            <!-- Progress Terminal (not shown on shell view) -->
             <ProgressTerminal
+                v-if="viewMode !== 'shell'"
                 ref="progressTerminalRef"
                 class="mb-3"
                 :terminal-type="stackName ? 'compose' : 'container-action'"
                 :terminal-params="stackName ? { stack: stackName } : { container: containerName }"
             />
 
-            <!-- Metrics Card -->
-            <div class="shadow-box big-padding text-center mb-3">
+            <!-- Metrics Card (parsed/raw views only) -->
+            <div v-if="viewMode === 'parsed' || viewMode === 'raw'" class="shadow-box big-padding text-center mb-3">
                 <div class="row g-3">
                     <div class="col">
                         <div class="metric-cell">
@@ -351,6 +366,16 @@
                     :disabled="true"
                 />
             </div>
+
+            <!-- Logs View -->
+            <Terminal v-if="viewMode === 'logs'" class="terminal flex-grow-1" :rows="20" mode="displayOnly"
+                :name="logTerminalName" channel="terminal" terminal-type="container-log-by-name"
+                :terminal-params="{ container: containerName }" />
+
+            <!-- Shell View -->
+            <Terminal v-if="viewMode === 'shell'" class="terminal shell-terminal" :rows="20" mode="interactive"
+                :name="shellTerminalName" channel="terminal" terminal-type="exec-by-name"
+                :terminal-params="{ container: containerName, shell: shell }" />
         </div>
         <div v-else>
             <h1 class="mb-3">{{ $t("containersNav") }}</h1>
@@ -383,6 +408,7 @@ import ProgressTerminal from "../components/ProgressTerminal.vue";
 import ServiceActionBar from "../components/ServiceActionBar.vue";
 import { useTheme } from "../composables/useTheme";
 import { useViewMode } from "../composables/useViewMode";
+import type { ContainersSubView } from "../composables/useViewMode";
 
 const route = useRoute();
 const { t } = useI18n();
@@ -406,9 +432,19 @@ const badgeLabel = computed(() =>
     statusInfo.value ? t(statusInfo.value.label) : ""
 );
 
-const { isRawMode, setRawMode } = useViewMode("containers");
-const viewMode = ref<"parsed" | "raw">(isRawMode.value ? "raw" : "parsed");
-watch(viewMode, (mode) => setRawMode(mode === "raw"));
+const { setContainersSubView } = useViewMode("containers");
+
+// View mode is driven by the route name
+const viewMode = computed<ContainersSubView>(() => {
+    if (route.name === "containerRaw") return "raw";
+    if (route.name === "containerLogs") return "logs";
+    if (route.name === "containerShell") return "shell";
+    return "parsed";
+});
+
+// Keep the shared ref in sync so sidebar links and tab links work correctly
+watch(viewMode, (mode) => setContainersSubView(mode), { immediate: true });
+
 const inspectData = ref("fetching ...");
 const inspectObj = ref<any>(null);
 const dockerStats = ref<Record<string, any>>({});
@@ -641,6 +677,22 @@ function fetchProcesses() {
     });
 }
 
+// Logs terminal name
+const logTerminalName = computed(() => "container-log-by-name-" + containerName.value);
+
+// Shell-related computed properties
+const shell = computed(() => (route.params.type as string) || "bash");
+const shellTerminalName = computed(() => "container-exec-by-name-" + containerName.value);
+const alternateShell = computed(() => shell.value === "bash" ? "sh" : "bash");
+const switchShellLabel = computed(() => shell.value === "bash" ? "Switch to sh" : "Switch to bash");
+const switchShellLink = computed(() => ({
+    name: "containerShell",
+    params: {
+        containerName: containerName.value,
+        type: alternateShell.value,
+    },
+}));
+
 onMounted(() => {
     if (containerName.value) {
         emit("containerInspect", containerName.value, (res: any) => {
@@ -746,13 +798,8 @@ onUnmounted(() => {
     }
 }
 
-.btn-check:active + .btn-outline-primary,
-.btn-check:checked + .btn-outline-primary {
-    color: #fff;
-
-    .dark & {
-        color: #000;
-    }
+[aria-label="View mode"] > .btn {
+    width: 58px;
 }
 
 .metric-cell {
@@ -829,4 +876,19 @@ onUnmounted(() => {
     display: block;
 }
 
+.logs-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.terminal {
+    min-height: 0;
+    margin-bottom: 1rem;
+}
+
+.shell-terminal {
+    height: 410px;
+}
 </style>
+

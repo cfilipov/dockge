@@ -61,7 +61,7 @@
 
             <div ref="containerRef" class="col-12 col-md-8 col-xl-9 mb-3">
                 <!-- Add :key to disable vue router re-use the same component -->
-                <router-view :key="$route.path" :calculatedHeight="height" />
+                <router-view :key="($route.params.containerName as string) || ($route.params.stackName as string) || $route.path" :calculatedHeight="height" />
             </div>
         </div>
     </div>
@@ -91,9 +91,7 @@ const imageListRef = ref<InstanceType<typeof ImageList>>();
 const volumeListRef = ref<InstanceType<typeof VolumeList>>();
 
 const showContainerSidebar = computed(() => {
-    return route.path.startsWith("/containers") ||
-           route.path.startsWith("/logs") ||
-           route.path.startsWith("/shell");
+    return route.path.startsWith("/containers");
 });
 
 const showNetworkSidebar = computed(() => {

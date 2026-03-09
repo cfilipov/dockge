@@ -14,36 +14,38 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { ContainerStatusInfo } from "../common/util-common";
+import { useViewMode } from "../composables/useViewMode";
 
 const { t } = useI18n();
 const route = useRoute();
+const { getContainersSubView } = useViewMode("containers");
 
 const props = defineProps<{
     container: Record<string, any>;
 }>();
 
-const currentTab = computed(() => {
-    if (route.path.startsWith("/logs")) return "logs";
-    if (route.path.startsWith("/containers")) return "containers";
-    return "shell";
-});
-
 const itemLink = computed(() => {
     const name = props.container.name;
-    if (currentTab.value === "logs") {
+    const subView = getContainersSubView();
+    if (subView === "raw") {
+        return { name: "containerRaw", params: { containerName: name } };
+    }
+    if (subView === "logs") {
         return { name: "containerLogs", params: { containerName: name } };
     }
-    if (currentTab.value === "containers") {
-        return { name: "containerDetail", params: { containerName: name } };
+    if (subView === "shell") {
+        const type = (route.params.type as string) || "bash";
+        return { name: "containerShell", params: { containerName: name, type } };
     }
-    return { name: "containerShell", params: { containerName: name, type: "bash" } };
+    return { name: "containerDetail", params: { containerName: name } };
 });
 
 const tooltip = computed(() => {
     const name = props.container.name;
-    if (currentTab.value === "logs") return t("tooltipContainerLogs", [name]);
-    if (currentTab.value === "containers") return t("tooltipContainerInspect", [name]);
-    return t("tooltipContainerShell", [name]);
+    const subView = getContainersSubView();
+    if (subView === "logs") return t("tooltipContainerLogs", [name]);
+    if (subView === "shell") return t("tooltipContainerShell", [name]);
+    return t("tooltipContainerInspect", [name]);
 });
 
 const statusInfo = computed(() => ContainerStatusInfo.from(props.container));
