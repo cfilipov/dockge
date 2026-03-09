@@ -16,6 +16,10 @@ tmp
 
 # Build artifacts
 /dist
+/dist-svelte
+
+# SvelteKit
+web-svelte/.svelte-kit/
 
 # Dev artifacts
 .task/

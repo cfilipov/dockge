@@ -13,6 +13,7 @@ tasks:
     desc: Install all dependencies (first-time dev setup)
     cmds:
       - cd web && pnpm install
+      - cd web-svelte && pnpm install
       - cd e2e && pnpm install
       - cd e2e && npx playwright install chromium
 
@@ -116,6 +117,44 @@ tasks:
           ./bin/seed-testdb --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
           DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/bin:$PATH" \
             exec ./bin/{{.BINARY}} --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
+
+  dev-svelte:
+    desc: Run mock daemon + Go backend + Svelte Vite HMR (ports 6001 + 6100)
+    deps: [dev-svelte-go, dev-svelte-web]
+
+  dev-svelte-web:
+    desc: Run Svelte Vite dev server only (port 6100)
+    dir: web-svelte
+    cmd: pnpm run dev
+
+  dev-svelte-go:
+    desc: Run mock daemon + Go backend for Svelte (port 6001)
+    deps: [build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    cmds:
+      - cmd: |
+          trap 'kill 0' EXIT
+          rm -rf .run/dev-6001 && mkdir -p .run/dev-6001/data && cp -a test-data/stacks .run/dev-6001/stacks
+          MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
+          mkdir -p "$(dirname "$MOCK_SOCK")"
+          ./bin/mock-daemon \
+            --socket "$MOCK_SOCK" \
+            --stacks-source test-data/stacks \
+            --stacks-dir .run/dev-6001/stacks &
+          for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
+          ./bin/seed-testdb --data-dir .run/dev-6001/data --stacks-dir .run/dev-6001/stacks
+          export DOCKER_HOST="unix://$MOCK_SOCK"
+          export PATH="$(pwd)/bin:$PATH"
+          ./bin/{{.BINARY}} --dev --port 6001 --data-dir .run/dev-6001/data --stacks-dir .run/dev-6001/stacks
+
+  build-svelte:
+    desc: Build Svelte frontend (Vite → dist-svelte/)
+    dir: web-svelte
+    cmd: pnpm run build
+
+  check-svelte:
+    desc: Svelte type check
+    dir: web-svelte
+    cmd: pnpm run check
 
   kill:
     desc: Kill any running dockge backend or Vite dev server
