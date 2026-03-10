@@ -2,12 +2,40 @@
 	import Icon from "./Icon.svelte";
 	import { faMagnifyingGlass, faXmark, faFilter } from "@fortawesome/free-solid-svg-icons";
 
-	const stacks = [
-		{ name: "test-alpine", status: "running", services: "1 service" },
-		{ name: "web-app", status: "running", services: "nginx, redis" },
-		{ name: "monitoring", status: "exited", services: "grafana" },
-		{ name: "blog", status: "inactive", services: "wordpress, mysql" },
+	const stackNames = [
+		"test-alpine", "web-app", "monitoring", "blog", "postgres-db", "redis-cache",
+		"nginx-proxy", "traefik-lb", "portainer", "grafana-stack", "prometheus",
+		"loki-logging", "minio-storage", "vault-secrets", "consul-discovery",
+		"keycloak-auth", "gitea-forge", "drone-ci", "harbor-registry", "argocd",
+		"jellyfin", "plex-media", "sonarr", "radarr", "prowlarr", "bazarr",
+		"jackett", "lidarr", "readarr", "overseerr", "tautulli", "sabnzbd",
+		"qbittorrent", "deluge", "transmission", "wireguard-vpn", "pihole-dns",
+		"adguard-home", "unbound-dns", "technitium-dns", "homeassistant",
+		"node-red", "zigbee2mqtt", "mosquitto", "esphome", "frigate-nvr",
+		"nextcloud", "immich-photos", "photoprism", "syncthing", "filebrowser",
+		"vaultwarden", "authelia", "crowdsec", "fail2ban", "uptime-kuma",
+		"healthchecks", "gatus-monitor", "changedetection", "n8n-automation",
+		"huginn", "homepage-dash", "homarr-dash", "dashy", "flame-startpage",
+		"bookstack-wiki", "outline-docs", "hedgedoc", "trilium-notes",
+		"paperless-ngx", "stirling-pdf", "ghost-blog", "wordpress-site",
+		"matomo-analytics", "plausible", "umami-stats", "mailcow", "mailu",
+		"roundcube", "matrix-synapse", "element-web", "mattermost",
+		"rocket-chat", "mumble-voice", "teamspeak", "minecraft-server",
+		"valheim-server", "satisfactory", "factorio-server", "terraria",
+		"code-server", "gitpod-ws", "jupyter-lab", "rstudio-server",
+		"pgadmin", "phpmyadmin", "adminer", "mongo-express", "redis-commander",
+		"elasticsearch", "kibana", "logstash", "fluentd", "telegraf",
+		"influxdb", "chronograf", "kapacitor", "victoriametrics", "thanos",
+		"jaeger-tracing", "zipkin", "tempo-traces", "mimir-metrics",
+		"semaphore-ansible", "awx-tower", "rundeck", "salt-master",
+		"netbox-dcim", "librenms", "cacti-monitor", "zabbix-server",
 	];
+	const statuses = ["running", "running", "running", "exited", "inactive"];
+	const stacks = stackNames.map((name, i) => ({
+		name,
+		status: statuses[i % statuses.length],
+		services: `${(i % 3) + 1} service${(i % 3) > 0 ? "s" : ""}`,
+	}));
 
 	let activeStack = $state("test-alpine");
 	let searchText = $state("");
