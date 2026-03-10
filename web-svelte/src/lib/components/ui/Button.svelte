@@ -26,7 +26,7 @@
 	}: Props = $props();
 
 	const variantClasses: Record<ButtonVariant, string> = {
-		ghost: "bg-transparent text-(--color-primary) border border-transparent hover:bg-(--color-primary)/10",
+		ghost: "bg-transparent text-(--color-primary) border border-transparent",
 		brand: "bg-brand-gradient text-(--color-font-dark-contrast) border border-transparent hover:bg-brand-gradient-hover",
 	};
 
