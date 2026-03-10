@@ -1,7 +1,8 @@
 <script lang="ts">
 	import IconButton from "./ui/IconButton.svelte";
 	import TextInput from "./ui/TextInput.svelte";
-	import Badge from "./ui/Badge.svelte";
+	import ListItem from "./ui/ListItem.svelte";
+	import StatusLabel from "./ui/StatusLabel.svelte";
 	import type { BadgeStatus } from "./ui/Badge.svelte";
 	import * as m from "$lib/paraglide/messages";
 	import { faMagnifyingGlass, faXmark, faFilter } from "@fortawesome/free-solid-svg-icons";
@@ -73,20 +74,16 @@
 	<div class="flex-1 overflow-y-auto p-[10px]">
 		<div class="pr-[6px]">
 		{#each stacks as stack}
-			<a
+			<ListItem
 				href="/stacks/{stack.name}"
-				class="flex items-center h-[46px] no-underline rounded-[10px] w-full px-2 my-[3px] text-inherit transition-none
-					{activeStack === stack.name
-					? 'bg-[#e8f4ff] border-l-4 border-l-(--color-primary) rounded-tl-none rounded-bl-none dark:bg-(--color-header-dark)'
-					: 'hover:bg-(--color-body-light) dark:hover:bg-(--color-header-dark)'}"
+				active={activeStack === stack.name}
 				onclick={(e: MouseEvent) => {
 					e.preventDefault();
 					activeStack = stack.name;
 				}}
 			>
-				<Badge status={stack.status} />
-				<span class="ml-2 truncate">{stack.name}</span>
-			</a>
+				<StatusLabel status={stack.status} name={stack.name} size="sm" />
+			</ListItem>
 		{/each}
 		</div>
 	</div>
