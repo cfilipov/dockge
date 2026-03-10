@@ -40,6 +40,8 @@
 		name,
 		status: statuses[i % statuses.length],
 		services: `${(i % 3) + 1} service${(i % 3) > 0 ? "s" : ""}`,
+		updateAvailable: name === "web-app",
+		recreateNecessary: name === "monitoring",
 	}));
 
 	let activeStack = $state("test-alpine");
@@ -80,7 +82,7 @@
 					activeStack = stack.name;
 				}}
 			>
-				<StatusLabel status={stack.status} name={stack.name} size="sm" />
+				<StatusLabel status={stack.status} name={stack.name} size="sm" recreateNecessary={stack.recreateNecessary} updateAvailable={stack.updateAvailable} />
 			</ListItem>
 		{/each}
 		</div>

@@ -24,5 +24,7 @@
   "badgeDown": "down",
   "badgeInUse": "in use",
   "badgeUnused": "unused",
-  "badgeDangling": "dangling"
+  "badgeDangling": "dangling",
+  "tooltipIconRecreate": "Container needs recreation",
+  "tooltipIconUpdate": "Image update available"
 }

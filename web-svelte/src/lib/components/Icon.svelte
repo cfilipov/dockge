@@ -4,9 +4,10 @@
 	interface Props {
 		icon: IconDefinition;
 		class?: string;
+		title?: string;
 	}
 
-	let { icon, class: className = "" }: Props = $props();
+	let { icon, class: className = "", title }: Props = $props();
 
 	const viewBox = $derived(`0 0 ${icon.icon[0]} ${icon.icon[1]}`);
 	const pathData = $derived(icon.icon[4] as string);
@@ -21,5 +22,6 @@
 	style:width={aspectWidth}
 	aria-hidden="true"
 >
+	{#if title}<title>{title}</title>{/if}
 	<path d={pathData} />
 </svg>

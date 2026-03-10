@@ -1,6 +1,9 @@
 <script lang="ts">
 	import Badge from "./Badge.svelte";
 	import type { BadgeStatus } from "./Badge.svelte";
+	import Icon from "../Icon.svelte";
+	import { faRocket, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+	import * as m from "$lib/paraglide/messages";
 
 	type StatusLabelSize = "sm" | "md" | "lg";
 
@@ -9,6 +12,8 @@
 		name: string;
 		size?: StatusLabelSize;
 		href?: string;
+		recreateNecessary?: boolean;
+		updateAvailable?: boolean;
 	}
 
 	let {
@@ -16,6 +21,8 @@
 		name,
 		size = "sm",
 		href,
+		recreateNecessary = false,
+		updateAvailable = false,
 	}: Props = $props();
 
 	// sm = sidebar list item (body text size)
@@ -45,5 +52,11 @@
 	{:else}
 		<Badge {status} />
 		<span class="truncate">{name}</span>
+	{/if}
+	{#if recreateNecessary}
+		<Icon icon={faRocket} class="text-(--color-info) shrink-0" title={m.tooltipIconRecreate()} />
+	{/if}
+	{#if updateAvailable}
+		<Icon icon={faArrowUp} class="text-(--color-info) shrink-0" title={m.tooltipIconUpdate()} />
 	{/if}
 </svelte:element>

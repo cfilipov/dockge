@@ -45,3 +45,34 @@
 		<StatusLabel status="running" name="my-extremely-long-stack-name-that-should-be-truncated-in-the-ui" />
 	</div>
 </Story>
+
+<Story name="Notification Icons">
+	<div class="flex flex-col gap-4">
+		<div class="flex flex-col gap-2">
+			<p class="text-sm text-gray-500">Recreate necessary (sm)</p>
+			<StatusLabel status="running" name="web-app" recreateNecessary />
+		</div>
+		<div class="flex flex-col gap-2">
+			<p class="text-sm text-gray-500">Update available (sm)</p>
+			<StatusLabel status="running" name="monitoring" updateAvailable />
+		</div>
+		<div class="flex flex-col gap-2">
+			<p class="text-sm text-gray-500">Both icons (sm)</p>
+			<StatusLabel status="running" name="full-stack" recreateNecessary updateAvailable />
+		</div>
+		<div class="flex flex-col gap-2">
+			<p class="text-sm text-gray-500">Both icons (md)</p>
+			<StatusLabel status="running" name="full-stack" size="md" recreateNecessary updateAvailable />
+		</div>
+		<div class="flex flex-col gap-2">
+			<p class="text-sm text-gray-500">Both icons (lg)</p>
+			<StatusLabel status="running" name="full-stack" size="lg" recreateNecessary updateAvailable />
+		</div>
+		<div class="flex flex-col gap-2">
+			<p class="text-sm text-gray-500">Long name with icons (truncation test)</p>
+			<div class="w-60">
+				<StatusLabel status="running" name="my-very-long-stack-name-that-truncates" recreateNecessary updateAvailable />
+			</div>
+		</div>
+	</div>
+</Story>
