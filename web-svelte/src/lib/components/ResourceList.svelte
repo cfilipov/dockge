@@ -1,5 +1,6 @@
 <script lang="ts">
-	import Icon from "./Icon.svelte";
+	import IconButton from "./ui/IconButton.svelte";
+	import TextInput from "./ui/TextInput.svelte";
 	import Badge from "./ui/Badge.svelte";
 	import type { BadgeStatus } from "./ui/Badge.svelte";
 	import * as m from "$lib/paraglide/messages";
@@ -46,32 +47,26 @@
 
 <div class="shadow-box dark:bg-(--color-body-dark) dark:shadow-[0_15px_70px_rgba(0,0,0,0.1)] flex min-h-0 flex-1 flex-col overflow-hidden">
 	<!-- Header with search + filter -->
-	<div class="flex items-center border-b border-gray-200 rounded-t-[10px] px-[5px] py-2 dark:border-transparent dark:bg-(--color-header-dark)">
-		<button
-			class="shrink-0 border-none bg-transparent px-2.5 py-2.5 text-gray-400 cursor-default"
-			class:cursor-pointer={searchText !== ""}
+	<div class="flex items-center border-b border-gray-200 rounded-t-[10px] p-[10px] dark:border-transparent dark:bg-(--color-header-dark)">
+		<IconButton
+			icon={searchText ? faXmark : faMagnifyingGlass}
 			aria-label={searchText ? m.clearSearch() : m.search()}
+			variant="ghost"
+			size="md"
 			onclick={() => { if (searchText) searchText = ""; }}
-		>
-			{#if searchText}
-				<Icon icon={faXmark} />
-			{:else}
-				<Icon icon={faMagnifyingGlass} />
-			{/if}
-		</button>
-		<input
-			type="text"
+		/>
+		<TextInput
 			bind:value={searchText}
 			placeholder={m.search()}
 			autocomplete="off"
-			class="min-w-0 max-w-60 flex-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 outline-none focus:border-(--color-primary) focus:ring-1 focus:ring-(--color-primary) placeholder:text-gray-400 dark:border-(--color-border-dark) dark:bg-(--color-body-dark-deep) dark:text-(--color-font-dark)"
+			class="max-w-60 flex-1"
 		/>
-		<button
-			class="shrink-0 border border-transparent bg-transparent px-2.5 py-2.5 text-[var(--color-font-dark-muted)] cursor-pointer rounded hover:text-[var(--color-font-dark)]"
+		<IconButton
+			icon={faFilter}
 			aria-label={m.filter()}
-		>
-			<Icon icon={faFilter} />
-		</button>
+			variant="ghost"
+			size="md"
+		/>
 	</div>
 
 	<!-- Stack list -->
