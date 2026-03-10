@@ -26,5 +26,20 @@
   "badgeUnused": "unused",
   "badgeDangling": "dangling",
   "tooltipIconRecreate": "Container needs recreation",
-  "tooltipIconUpdate": "Image update available"
+  "tooltipIconUpdate": "Image update available",
+  "start": "Start",
+  "stop": "Stop",
+  "restart": "Restart",
+  "deploy": "Deploy",
+  "save": "Save",
+  "edit": "Edit",
+  "update": "Update",
+  "recreate": "Recreate",
+  "down": "Stop & Inactive",
+  "delete": "Delete",
+  "forceDelete": "Force Delete",
+  "checkUpdates": "Check Updates",
+  "logs": "Logs",
+  "terminal": "Terminal",
+  "moreActions": "More actions"
 }
