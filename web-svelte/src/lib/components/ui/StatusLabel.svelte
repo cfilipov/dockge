@@ -18,10 +18,13 @@
 		href,
 	}: Props = $props();
 
+	// sm = sidebar list item (body text size)
+	// md = card heading (Bootstrap h5 = 1.25rem)
+	// lg = page title (Bootstrap h1 = 2rem)
 	const sizeClasses: Record<StatusLabelSize, string> = {
 		sm: "text-base",
-		md: "text-lg font-medium",
-		lg: "text-2xl font-semibold",
+		md: "text-[1.25rem] font-medium",
+		lg: "text-[2rem] font-semibold",
 	};
 
 	const tagMap: Record<StatusLabelSize, string> = {
@@ -36,11 +39,11 @@
 <svelte:element this={tag} class="inline-flex min-w-0 items-center gap-2 {sizeClasses[size]}">
 	{#if href}
 		<a {href} class="contents no-underline text-inherit">
-			<Badge {status} {size} />
+			<Badge {status} />
 			<span class="truncate">{name}</span>
 		</a>
 	{:else}
-		<Badge {status} {size} />
+		<Badge {status} />
 		<span class="truncate">{name}</span>
 	{/if}
 </svelte:element>

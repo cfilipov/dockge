@@ -26,7 +26,7 @@
 <header class="flex flex-wrap items-center py-4 mb-4 bg-white border-b border-gray-200 dark:bg-(--color-header-dark) dark:border-(--color-header-dark)">
 	<a href="/" class="flex items-center gap-2 ml-6 mr-auto no-underline">
 		<img src="/icon.svg" alt="Dockge" class="w-10 h-10" />
-		<span class="text-2xl font-bold text-[#111] dark:text-[#f0f6fc]">{m.dockge()}</span>
+		<span class="text-2xl font-bold text-(--color-font-heading) dark:text-(--color-font-dark-heading)">{m.dockge()}</span>
 	</a>
 
 	<nav class="order-1 w-full flex flex-wrap justify-center gap-1 px-6 pt-2 pb-0 m-0 xl:order-0 xl:w-auto xl:flex-auto xl:flex-nowrap xl:p-0">
@@ -35,7 +35,7 @@
 				href={item.href}
 				class="flex items-center gap-[8px] px-4 py-2 rounded-full text-base no-underline transition-none
 					{activeHref === item.href
-					? 'text-[#020b05] bg-brand-gradient'
+					? 'text-(--color-font-dark-contrast) bg-brand-gradient'
 					: 'text-gray-500 hover:bg-gray-100 dark:text-(--color-font-dark) dark:hover:bg-(--color-body-dark-deep)'}"
 				onclick={(e: MouseEvent) => {
 					e.preventDefault();

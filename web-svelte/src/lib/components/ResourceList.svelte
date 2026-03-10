@@ -52,7 +52,6 @@
 		<IconButton
 			icon={searchText ? faXmark : faMagnifyingGlass}
 			aria-label={searchText ? m.clearSearch() : m.search()}
-			variant="ghost"
 			size="md"
 			onclick={() => { if (searchText) searchText = ""; }}
 		/>
@@ -65,7 +64,6 @@
 		<IconButton
 			icon={faFilter}
 			aria-label={m.filter()}
-			variant="ghost"
 			size="md"
 		/>
 	</div>

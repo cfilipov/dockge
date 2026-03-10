@@ -17,6 +17,15 @@
 
 	--color-body-light: #f0f2f5;
 	--color-highlight: #9dd1ff;
+	--color-highlight-active: #e8f4ff;
+
+	--color-font-body: #1f2328;
+	--color-font-heading: #111;
+	--color-font-dark-heading: #f0f6fc;
+	--color-font-dark-contrast: #020b05;
+	--color-font-dark-body: #212529;
+
+	--color-purple: #a78bfa;
 
 	--color-gradient-start: #74c2ff;
 	--color-gradient-end: #86e6a9;
@@ -50,7 +59,7 @@ body {
 		segoe ui symbol,
 		noto color emoji;
 	background-color: var(--color-body-light);
-	color: #1f2328;
+	color: var(--color-font-body);
 }
 
 h1 {
@@ -66,7 +75,7 @@ h2 {
 }
 
 .dark {
-	background-color: #090c10;
+	background-color: var(--color-body-dark-deep);
 	color: var(--color-font-dark);
 }
 

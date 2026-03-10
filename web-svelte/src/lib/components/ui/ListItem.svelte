@@ -16,7 +16,7 @@
 	}: Props = $props();
 
 	const baseClasses = "flex items-center min-h-[46px] rounded-[10px] w-full px-2 my-[3px] overflow-hidden min-w-0 no-underline text-inherit transition-none";
-	const activeClasses = "bg-[#e8f4ff] border-l-4 border-l-(--color-primary) rounded-tl-none rounded-bl-none dark:bg-(--color-header-dark)";
+	const activeClasses = "bg-(--color-highlight-active) border-l-4 border-l-(--color-primary) rounded-tl-none rounded-bl-none dark:bg-(--color-header-dark)";
 	const inactiveClasses = "hover:bg-(--color-body-light) dark:hover:bg-(--color-header-dark)";
 </script>
 

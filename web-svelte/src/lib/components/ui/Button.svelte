@@ -2,7 +2,7 @@
 	import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 	import Icon from "../Icon.svelte";
 
-	type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "brand";
+	type ButtonVariant = "ghost" | "brand";
 	type ButtonSize = "sm" | "md" | "lg";
 
 	interface Props {
@@ -18,7 +18,7 @@
 	let {
 		text,
 		icon,
-		variant = "primary",
+		variant = "ghost",
 		size = "md",
 		disabled = false,
 		type = "button",
@@ -26,12 +26,8 @@
 	}: Props = $props();
 
 	const variantClasses: Record<ButtonVariant, string> = {
-		primary: "bg-(--color-primary) text-white border border-transparent hover:brightness-110",
-		secondary: "bg-gray-500 text-white border border-transparent hover:bg-gray-600",
-		outline: "bg-transparent text-(--color-primary) border border-(--color-primary) hover:bg-(--color-primary)/10",
 		ghost: "bg-transparent text-(--color-primary) border border-transparent hover:bg-(--color-primary)/10",
-		danger: "bg-(--color-danger) text-white border border-transparent hover:brightness-110",
-		brand: "bg-brand-gradient text-[#020b05] border border-transparent hover:bg-brand-gradient-hover",
+		brand: "bg-brand-gradient text-(--color-font-dark-contrast) border border-transparent hover:bg-brand-gradient-hover",
 	};
 
 	const sizeClasses: Record<ButtonSize, string> = {

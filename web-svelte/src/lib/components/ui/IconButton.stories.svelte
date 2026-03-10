@@ -8,16 +8,12 @@
 </script>
 
 <script lang="ts">
-	import { faXmark, faFilter, faEllipsisVertical, faGear, faTrash } from "@fortawesome/free-solid-svg-icons";
+	import { faXmark, faFilter, faEllipsisVertical, faGear } from "@fortawesome/free-solid-svg-icons";
 </script>
 
-<Story name="All Variants">
+<Story name="Default">
 	<div class="flex flex-wrap items-center gap-2">
-		<IconButton icon={faGear} aria-label="Settings" variant="primary" />
-		<IconButton icon={faGear} aria-label="Settings" variant="secondary" />
-		<IconButton icon={faGear} aria-label="Settings" variant="outline" />
-		<IconButton icon={faGear} aria-label="Settings" variant="ghost" />
-		<IconButton icon={faGear} aria-label="Settings" variant="danger" />
+		<IconButton icon={faGear} aria-label="Settings" />
 	</div>
 </Story>
 
@@ -31,20 +27,15 @@
 
 <Story name="Common Actions">
 	<div class="flex flex-wrap items-center gap-2">
-		<IconButton icon={faXmark} aria-label="Close" variant="ghost" />
-		<IconButton icon={faFilter} aria-label="Filter" variant="ghost" />
-		<IconButton icon={faEllipsisVertical} aria-label="More actions" variant="ghost" />
-		<IconButton icon={faGear} aria-label="Settings" variant="outline" />
-		<IconButton icon={faTrash} aria-label="Delete" variant="danger" />
+		<IconButton icon={faXmark} aria-label="Close" />
+		<IconButton icon={faFilter} aria-label="Filter" />
+		<IconButton icon={faEllipsisVertical} aria-label="More actions" />
+		<IconButton icon={faGear} aria-label="Settings" />
 	</div>
 </Story>
 
 <Story name="Disabled">
 	<div class="flex flex-wrap items-center gap-2">
-		<IconButton icon={faGear} aria-label="Settings" variant="primary" disabled />
-		<IconButton icon={faGear} aria-label="Settings" variant="secondary" disabled />
-		<IconButton icon={faGear} aria-label="Settings" variant="outline" disabled />
-		<IconButton icon={faGear} aria-label="Settings" variant="ghost" disabled />
-		<IconButton icon={faGear} aria-label="Settings" variant="danger" disabled />
+		<IconButton icon={faGear} aria-label="Settings" disabled />
 	</div>
 </Story>
