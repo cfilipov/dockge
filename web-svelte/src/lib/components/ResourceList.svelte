@@ -2,6 +2,7 @@
 	import Icon from "./Icon.svelte";
 	import Badge from "./ui/Badge.svelte";
 	import type { BadgeStatus } from "./ui/Badge.svelte";
+	import * as m from "$lib/paraglide/messages";
 	import { faMagnifyingGlass, faXmark, faFilter } from "@fortawesome/free-solid-svg-icons";
 
 	const stackNames = [
@@ -49,7 +50,7 @@
 		<button
 			class="shrink-0 border-none bg-transparent px-2.5 py-2.5 text-gray-400 cursor-default"
 			class:cursor-pointer={searchText !== ""}
-			aria-label={searchText ? "Clear search" : "Search"}
+			aria-label={searchText ? m.clearSearch() : m.search()}
 			onclick={() => { if (searchText) searchText = ""; }}
 		>
 			{#if searchText}
@@ -61,13 +62,13 @@
 		<input
 			type="text"
 			bind:value={searchText}
-			placeholder="Search"
+			placeholder={m.search()}
 			autocomplete="off"
 			class="min-w-0 max-w-60 flex-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 outline-none focus:border-(--color-primary) focus:ring-1 focus:ring-(--color-primary) placeholder:text-gray-400 dark:border-(--color-border-dark) dark:bg-(--color-body-dark-deep) dark:text-(--color-font-dark)"
 		/>
 		<button
 			class="shrink-0 border border-transparent bg-transparent px-2.5 py-2.5 text-[var(--color-font-dark-muted)] cursor-pointer rounded hover:text-[var(--color-font-dark)]"
-			aria-label="Filter"
+			aria-label={m.filter()}
 		>
 			<Icon icon={faFilter} />
 		</button>

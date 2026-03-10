@@ -4,16 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --port 6100",
-    "build": "vite build",
+    "paraglide": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --emit-ts-declarations",
+    "dev": "npm run paraglide && vite dev --port 6100",
+    "build": "npm run paraglide && vite build",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "storybook": "storybook dev -p 6200",
+    "check": "npm run paraglide && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "storybook": "npm run paraglide && storybook dev -p 6200",
     "build-storybook": "storybook build -o storybook-static"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@inlang/paraglide-js": "^2.14.0",
     "bits-ui": "^2.16.3"
   },
   "devDependencies": {

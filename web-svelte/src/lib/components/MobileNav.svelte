@@ -6,13 +6,13 @@
 		faNetworkWired,
 		faTerminal,
 	} from "@fortawesome/free-solid-svg-icons";
-	import { m } from "$lib/i18n/messages";
+	import * as m from "$lib/paraglide/messages";
 
 	const navItems = [
-		{ label: m.stacks, icon: faLayerGroup, href: "/stacks" },
-		{ label: m.containersNav, icon: faCubes, href: "/containers" },
-		{ label: m.networksNav, icon: faNetworkWired, href: "/networks" },
-		{ label: m.console, icon: faTerminal, href: "/console" },
+		{ label: () => m.stacks(), icon: faLayerGroup, href: "/stacks" },
+		{ label: () => m.containersNav(), icon: faCubes, href: "/containers" },
+		{ label: () => m.networksNav(), icon: faNetworkWired, href: "/networks" },
+		{ label: () => m.console(), icon: faTerminal, href: "/console" },
 	];
 
 	let activeHref = $state("/stacks");
@@ -35,7 +35,7 @@
 			}}
 		>
 			<Icon icon={item.icon} class="text-xl" />
-			<span>{item.label}</span>
+			<span>{item.label()}</span>
 		</a>
 	{/each}
 </nav>

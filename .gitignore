@@ -21,6 +21,7 @@ tmp
 # SvelteKit
 web-svelte/.svelte-kit/
 web-svelte/storybook-static/
+web-svelte/src/lib/paraglide/
 
 # Dev artifacts
 .task/

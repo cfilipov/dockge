@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { m } from "$lib/i18n/messages";
+	import * as m from "$lib/paraglide/messages";
 
 	export type BadgeStatus =
 		| "active" | "running" | "unhealthy" | "exited"
@@ -15,7 +15,7 @@
 
 	let { status, size = "sm" }: Props = $props();
 
-	const statusConfig: Record<BadgeStatus, { label: string; color: string }> = {
+	const statusConfig: Record<BadgeStatus, { label: () => string; color: string }> = {
 		active:    { label: m.badgeActive,    color: "bg-(--color-primary) text-white dark:bg-brand-gradient dark:text-[#020b05]" },
 		running:   { label: m.badgeRunning,   color: "bg-(--color-primary) text-white dark:bg-brand-gradient dark:text-[#020b05]" },
 		unhealthy: { label: m.badgeUnhealthy, color: "bg-(--color-danger) text-white" },
@@ -41,4 +41,4 @@
 	const config = $derived(statusConfig[status]);
 </script>
 
-<span class="inline-block whitespace-nowrap rounded-full text-center align-baseline font-bold leading-none {config.color} {sizeClasses[size]}">{config.label}</span>
+<span class="inline-block whitespace-nowrap rounded-full text-center align-baseline font-bold leading-none {config.color} {sizeClasses[size]}">{config.label()}</span>
