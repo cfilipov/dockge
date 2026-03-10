@@ -156,6 +156,16 @@ tasks:
     dir: web-svelte
     cmd: pnpm run check
 
+  storybook:
+    desc: Run Storybook for Svelte components
+    dir: web-svelte
+    cmd: pnpm storybook
+
+  build-storybook:
+    desc: Build static Storybook site
+    dir: web-svelte
+    cmd: pnpm build-storybook
+
   kill:
     desc: Kill any running dockge backend or Vite dev server
     ignore_error: true

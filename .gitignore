@@ -20,6 +20,7 @@ tmp
 
 # SvelteKit
 web-svelte/.svelte-kit/
+web-svelte/storybook-static/
 
 # Dev artifacts
 .task/
