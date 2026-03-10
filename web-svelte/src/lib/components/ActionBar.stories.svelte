@@ -4,8 +4,26 @@
 
 	const { Story } = defineMeta({
 		title: "UI/ActionBar",
+		argTypes: {
+			size: { control: "select", options: ["sm", "lg"] },
+			processing: { control: "boolean" },
+			actions: { control: "object" },
+			overflow: { control: "object" },
+		},
+		args: {
+			size: "lg",
+			processing: false,
+			actions: ["edit", "restart", "update", "stop"],
+			overflow: ["checkUpdates", "down", "delete"],
+		},
 	});
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<ActionBar {...args} />
+	{/snippet}
+</Story>
 
 <Story name="Stack View Mode (Large)">
 	<ActionBar

@@ -4,8 +4,23 @@
 
 	const { Story } = defineMeta({
 		title: "UI/Badge",
+		argTypes: {
+			status: {
+				control: "select",
+				options: ["active", "running", "unhealthy", "exited", "partially", "paused", "created", "dead", "down", "inUse", "unused", "dangling"],
+			},
+		},
+		args: {
+			status: "running",
+		},
 	});
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<Badge {...args} />
+	{/snippet}
+</Story>
 
 <Story name="Stack Status">
 	<div class="flex flex-wrap items-center gap-2">

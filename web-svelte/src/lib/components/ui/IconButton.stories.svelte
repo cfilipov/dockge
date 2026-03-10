@@ -4,12 +4,28 @@
 
 	const { Story } = defineMeta({
 		title: "UI/IconButton",
+		argTypes: {
+			size: { control: "select", options: ["sm", "md", "lg"] },
+			disabled: { control: "boolean" },
+			"aria-label": { control: "text" },
+		},
+		args: {
+			size: "md",
+			disabled: false,
+			"aria-label": "Settings",
+		},
 	});
 </script>
 
 <script lang="ts">
 	import { faXmark, faFilter, faEllipsisVertical, faGear } from "@fortawesome/free-solid-svg-icons";
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<IconButton {...args} icon={faGear} />
+	{/snippet}
+</Story>
 
 <Story name="Default">
 	<div class="flex flex-wrap items-center gap-2">

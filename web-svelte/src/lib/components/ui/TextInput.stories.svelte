@@ -4,8 +4,26 @@
 
 	const { Story } = defineMeta({
 		title: "UI/TextInput",
+		argTypes: {
+			value: { control: "text" },
+			placeholder: { control: "text" },
+			type: { control: "select", options: ["text", "password", "email", "search", "url"] },
+			disabled: { control: "boolean" },
+		},
+		args: {
+			value: "",
+			placeholder: "Search stacks...",
+			type: "text",
+			disabled: false,
+		},
 	});
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<TextInput {...args} />
+	{/snippet}
+</Story>
 
 <Story name="Default">
 	<TextInput placeholder="Search stacks..." />

@@ -4,12 +4,30 @@
 
 	const { Story } = defineMeta({
 		title: "UI/Button",
+		argTypes: {
+			text: { control: "text" },
+			variant: { control: "select", options: ["ghost", "brand"] },
+			size: { control: "select", options: ["sm", "md", "lg"] },
+			disabled: { control: "boolean" },
+		},
+		args: {
+			text: "Button",
+			variant: "ghost",
+			size: "md",
+			disabled: false,
+		},
 	});
 </script>
 
 <script lang="ts">
 	import { faPlus } from "@fortawesome/free-solid-svg-icons";
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<Button {...args} icon={faPlus} />
+	{/snippet}
+</Story>
 
 <Story name="All Variants">
 	<div class="flex flex-wrap items-center gap-2">

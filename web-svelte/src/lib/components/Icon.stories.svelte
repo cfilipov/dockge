@@ -6,8 +6,22 @@
 
 	const { Story } = defineMeta({
 		title: "Components/Icon",
+		argTypes: {
+			class: { control: "text" },
+			title: { control: "text" },
+		},
+		args: {
+			class: "text-2xl",
+			title: "",
+		},
 	});
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<Icon {...args} icon={faLayerGroup} />
+	{/snippet}
+</Story>
 
 <Story name="Default">
 	<Icon icon={faLayerGroup} class="text-2xl" />

@@ -4,8 +4,22 @@
 
 	const { Story } = defineMeta({
 		title: "UI/Chip",
+		argTypes: {
+			label: { control: "text" },
+			values: { control: "object" },
+		},
+		args: {
+			label: "IMAGE",
+			values: [{ text: "nginx:latest", href: "#" }],
+		},
 	});
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<Chip {...args} />
+	{/snippet}
+</Story>
 
 <Story name="Image Chip">
 	<div class="p-4">

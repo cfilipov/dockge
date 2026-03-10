@@ -4,8 +4,31 @@
 
 	const { Story } = defineMeta({
 		title: "UI/Metric",
+		argTypes: {
+			label: { control: "text" },
+			value1: { control: "text" },
+			unit1: { control: "text" },
+			tag1: { control: "text" },
+			value2: { control: "text" },
+			unit2: { control: "text" },
+			tag2: { control: "text" },
+			loading: { control: "boolean" },
+		},
+		args: {
+			label: "CPU",
+			value1: "1.60",
+			unit1: "%",
+			tag1: "usage",
+			loading: false,
+		},
 	});
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<Metric {...args} />
+	{/snippet}
+</Story>
 
 <Story name="CPU">
 	<div class="p-4 w-52">

@@ -4,8 +4,32 @@
 
 	const { Story } = defineMeta({
 		title: "UI/StatusLabel",
+		argTypes: {
+			status: {
+				control: "select",
+				options: ["active", "running", "unhealthy", "exited", "partially", "paused", "created", "dead", "down", "inUse", "unused", "dangling"],
+			},
+			name: { control: "text" },
+			size: { control: "select", options: ["sm", "md", "lg"] },
+			href: { control: "text" },
+			recreateNecessary: { control: "boolean" },
+			updateAvailable: { control: "boolean" },
+		},
+		args: {
+			status: "running",
+			name: "my-stack",
+			size: "sm",
+			recreateNecessary: false,
+			updateAvailable: false,
+		},
 	});
 </script>
+
+<Story name="Playground">
+	{#snippet template(args)}
+		<StatusLabel {...args} />
+	{/snippet}
+</Story>
 
 <Story name="All Sizes">
 	<div class="flex flex-col gap-4">
