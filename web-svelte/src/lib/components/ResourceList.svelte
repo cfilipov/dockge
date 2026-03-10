@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Icon from "./Icon.svelte";
+	import Badge from "./ui/Badge.svelte";
+	import type { BadgeStatus } from "./ui/Badge.svelte";
 	import { faMagnifyingGlass, faXmark, faFilter } from "@fortawesome/free-solid-svg-icons";
 
 	const stackNames = [
@@ -30,7 +32,7 @@
 		"semaphore-ansible", "awx-tower", "rundeck", "salt-master",
 		"netbox-dcim", "librenms", "cacti-monitor", "zabbix-server",
 	];
-	const statuses = ["running", "running", "running", "exited", "inactive"];
+	const statuses: BadgeStatus[] = ["running", "running", "running", "exited", "down"];
 	const stacks = stackNames.map((name, i) => ({
 		name,
 		status: statuses[i % statuses.length],
@@ -39,12 +41,6 @@
 
 	let activeStack = $state("test-alpine");
 	let searchText = $state("");
-
-	function statusColor(status: string): string {
-		if (status === "running") return "bg-green-500";
-		if (status === "exited") return "bg-warning";
-		return "bg-gray-400";
-	}
 </script>
 
 <div class="shadow-box dark:bg-(--color-body-dark) dark:shadow-[0_15px_70px_rgba(0,0,0,0.1)] flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -92,10 +88,8 @@
 					activeStack = stack.name;
 				}}
 			>
-				<span
-					class="mr-2 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full {statusColor(stack.status)}"
-				></span>
-				<span class="truncate">{stack.name}</span>
+				<Badge status={stack.status} />
+				<span class="ml-2 truncate">{stack.name}</span>
 			</a>
 		{/each}
 		</div>
