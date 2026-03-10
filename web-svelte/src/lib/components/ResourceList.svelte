@@ -71,7 +71,7 @@
 	</div>
 
 	<!-- Stack list -->
-	<div class="flex-1 overflow-y-auto p-[10px]">
+	<div class="flex-1 overflow-y-auto py-[10px] pl-[10px] mr-[10px] mt-[10px] mb-[10px]">
 		<div class="pr-[6px]">
 		{#each stacks as stack}
 			<ListItem

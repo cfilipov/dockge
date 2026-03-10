@@ -39,6 +39,20 @@ body {
 	overflow: hidden;
 }
 
+::-webkit-scrollbar {
+	width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #ccc;
+	border-radius: 20px;
+}
+
+.dark ::-webkit-scrollbar-thumb,
+.dark::-webkit-scrollbar-thumb {
+	background: var(--color-border-dark);
+}
+
 input,
 textarea,
 select {

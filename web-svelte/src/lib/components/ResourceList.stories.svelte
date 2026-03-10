@@ -4,12 +4,14 @@
 
 	const { Story } = defineMeta({
 		title: "Components/ResourceList",
-		component: ResourceList,
-		});
+		parameters: {
+			layout: "fullscreen",
+		},
+	});
 </script>
 
 <Story name="Default">
-	<div class="flex h-screen w-80">
+	<div class="flex h-full min-h-0 flex-col p-3" style="width: 25vw; min-width: 320px;">
 		<ResourceList />
 	</div>
 </Story>
