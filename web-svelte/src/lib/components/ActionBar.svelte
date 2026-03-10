@@ -31,7 +31,7 @@
 </script>
 
 <div
-	class="inline-flex items-stretch rounded-full overflow-hidden bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] dark:bg-(--color-body-dark) dark:shadow-none"
+	class="inline-flex items-stretch rounded-full overflow-hidden bg-[#c0c0c0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] dark:bg-(--color-body-dark) dark:shadow-none"
 	role="group"
 >
 	{#each actions as action}
@@ -58,7 +58,7 @@
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content
-				class="z-50 min-w-44 rounded-lg border bg-white p-1 shadow-lg dark:border-(--color-border-dark) dark:bg-(--color-body-dark)"
+				class="z-50 min-w-44 rounded-lg border border-[#c0c0c0] bg-white p-1 shadow-lg origin-top dark:border-(--color-border-dark) dark:bg-(--color-body-dark) data-[state=open]:animate-dropdown-in data-[state=closed]:animate-dropdown-out"
 			>
 				{#each overflow as action}
 					{@const def = actionDefs[action]}
