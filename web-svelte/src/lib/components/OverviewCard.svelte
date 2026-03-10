@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { slide } from "svelte/transition";
 	import OverviewItemComponent from "./ui/OverviewItem.svelte";
 	import type { OverviewItem } from "./ui/OverviewItem.svelte";
 
@@ -19,7 +20,7 @@
 	{#if loading}
 		<span class="text-(--color-font-dark-muted)">Loading...</span>
 	{:else}
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-2" transition:slide={{ duration: 250 }}>
 			{#each items as item}
 				<OverviewItemComponent {item} />
 			{/each}

@@ -45,13 +45,17 @@
 </Story>
 
 <Story name="Network Overview">
-	<div class="p-4 max-w-md">
-		<OverviewCard items={networkItems} ariaLabel="Network: my-network" />
-	</div>
+	{#snippet template(args)}
+		<div class="p-4 max-w-md">
+			<OverviewCard items={networkItems} loading={args.loading} ariaLabel="Network: my-network" />
+		</div>
+	{/snippet}
 </Story>
 
-<Story name="Loading">
-	<div class="p-4 max-w-md">
-		<OverviewCard items={[]} loading ariaLabel="Loading container" />
-	</div>
+<Story name="Loading" args={{ loading: true }}>
+	{#snippet template(args)}
+		<div class="p-4 max-w-md">
+			<OverviewCard items={containerItems} loading={args.loading} ariaLabel="Container overview" />
+		</div>
+	{/snippet}
 </Story>

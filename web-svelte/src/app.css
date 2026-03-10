@@ -53,6 +53,10 @@ body {
 	background: var(--color-border-dark);
 }
 
+th {
+	text-align: left;
+}
+
 input,
 textarea,
 select {
