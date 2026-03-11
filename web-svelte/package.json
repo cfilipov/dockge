@@ -13,10 +13,18 @@
     "build-storybook": "storybook build -o storybook-static"
   },
   "dependencies": {
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/lang-yaml": "^6.1.2",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.17",
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@inlang/paraglide-js": "^2.14.0",
-    "bits-ui": "^2.16.3"
+    "@lezer/highlight": "^1.2.3",
+    "bits-ui": "^2.16.3",
+    "codemirror": "^6.0.2"
   },
   "devDependencies": {
     "@storybook/addon-svelte-csf": "^5.0.11",

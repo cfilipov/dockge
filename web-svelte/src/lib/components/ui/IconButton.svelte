@@ -32,7 +32,7 @@
 	aria-label={ariaLabel}
 	{disabled}
 	{onclick}
-	class="inline-flex items-center justify-center rounded-md cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent text-gray-500 border border-transparent hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 {sizeClasses[size]}"
+	class="inline-flex items-center justify-center rounded-md cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent text-gray-500 border border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 {sizeClasses[size]}"
 >
 	<Icon {icon} />
 </button>
