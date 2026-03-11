@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Checkbox from "./ui/Checkbox.svelte";
+	import Checkbox from "$lib/components/ui/Checkbox.svelte";
 
 	interface Props {
 		version?: string;

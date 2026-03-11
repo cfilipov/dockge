@@ -3,7 +3,7 @@
 	import About from "./About.svelte";
 
 	const { Story } = defineMeta({
-		title: "Components/About",
+		title: "Features/Settings/About",
 		argTypes: {
 			version: { control: "text" },
 			frontendVersion: { control: "text" },

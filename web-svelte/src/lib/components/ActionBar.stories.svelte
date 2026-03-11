@@ -3,7 +3,7 @@
 	import ActionBar from "./ActionBar.svelte";
 
 	const { Story } = defineMeta({
-		title: "UI/ActionBar",
+		title: "Components/ActionBar",
 		argTypes: {
 			size: { control: "select", options: ["sm", "lg"] },
 			processing: { control: "boolean" },
