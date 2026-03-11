@@ -19,6 +19,16 @@
 	});
 </script>
 
+<script lang="ts">
+	import { faEye, faEyeSlash, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
+	import Icon from "../Icon.svelte";
+	import Button from "./Button.svelte";
+	import Chip from "./Chip.svelte";
+	import IconButton from "./IconButton.svelte";
+
+	let passwordVisible = $state(false);
+</script>
+
 <Story name="Playground">
 	{#snippet template(args)}
 		<TextInput {...args} />
@@ -48,4 +58,56 @@
 		<TextInput type="search" placeholder="Search" />
 		<TextInput type="url" placeholder="URL" />
 	</div>
+</Story>
+
+<Story name="With Right Chip">
+	<TextInput placeholder="Image Update Checking" value="https://registry.example.com">
+		{#snippet right()}
+			<Chip label="Enabled" values={[]} />
+		{/snippet}
+	</TextInput>
+</Story>
+
+<Story name="With Right Button">
+	<TextInput placeholder="Primary Hostname" value="dockge.example.com">
+		{#snippet right()}
+			<Button text="Auto Get" variant="brand" size="sm" />
+		{/snippet}
+	</TextInput>
+</Story>
+
+<Story name="Password with Toggle">
+	<TextInput
+		type={passwordVisible ? "text" : "password"}
+		placeholder="Enter password"
+		value="supersecret"
+	>
+		{#snippet right()}
+			<IconButton
+				icon={passwordVisible ? faEyeSlash : faEye}
+				aria-label={passwordVisible ? "Hide password" : "Show password"}
+				size="sm"
+				onclick={() => (passwordVisible = !passwordVisible)}
+			/>
+		{/snippet}
+	</TextInput>
+</Story>
+
+<Story name="With Left Icon">
+	<TextInput placeholder="Search stacks...">
+		{#snippet left()}
+			<Icon icon={faMagnifyingGlass} class="text-gray-400" />
+		{/snippet}
+	</TextInput>
+</Story>
+
+<Story name="Combined">
+	<TextInput placeholder="Search stacks...">
+		{#snippet left()}
+			<Icon icon={faMagnifyingGlass} class="text-gray-400" />
+		{/snippet}
+		{#snippet right()}
+			<Button text="Search" variant="brand" size="sm" />
+		{/snippet}
+	</TextInput>
 </Story>

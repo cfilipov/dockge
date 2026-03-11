@@ -51,23 +51,28 @@
 <div class="shadow-box dark:bg-(--color-body-dark) dark:shadow-[0_15px_70px_rgba(0,0,0,0.1)] flex min-h-0 flex-1 flex-col overflow-hidden">
 	<!-- Header with search + filter -->
 	<div class="flex items-center border-b border-gray-200 rounded-t-[10px] p-[10px] dark:border-transparent dark:bg-(--color-header-dark)">
-		<IconButton
-			icon={searchText ? faXmark : faMagnifyingGlass}
-			aria-label={searchText ? m.clearSearch() : m.search()}
-			size="md"
-			onclick={() => { if (searchText) searchText = ""; }}
-		/>
 		<TextInput
 			bind:value={searchText}
 			placeholder={m.search()}
 			autocomplete="off"
-			class="max-w-60 flex-1"
-		/>
-		<IconButton
-			icon={faFilter}
-			aria-label={m.filter()}
-			size="md"
-		/>
+			class="flex-1"
+		>
+			{#snippet left()}
+				<IconButton
+					icon={searchText ? faXmark : faMagnifyingGlass}
+					aria-label={searchText ? m.clearSearch() : m.search()}
+					size="sm"
+					onclick={() => { if (searchText) searchText = ""; }}
+				/>
+			{/snippet}
+			{#snippet right()}
+				<IconButton
+					icon={faFilter}
+					aria-label={m.filter()}
+					size="sm"
+				/>
+			{/snippet}
+		</TextInput>
 	</div>
 
 	<!-- Stack list -->
