@@ -1,57 +1,35 @@
 <script lang="ts">
+	import type { Snippet } from "svelte";
 	import Card from "./ui/Card.svelte";
 	import IconButton from "./ui/IconButton.svelte";
 	import TextInput from "./ui/TextInput.svelte";
-	import ListItem from "./ui/ListItem.svelte";
-	import StatusLabel from "./ui/StatusLabel.svelte";
-	import type { BadgeStatus } from "./ui/Badge.svelte";
+	import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu";
+	import Icon from "./Icon.svelte";
 	import * as m from "$lib/paraglide/messages";
 	import { faMagnifyingGlass, faXmark, faFilter } from "@fortawesome/free-solid-svg-icons";
 
-	const stackNames = [
-		"test-alpine", "web-app", "monitoring", "blog", "postgres-db", "redis-cache",
-		"nginx-proxy", "traefik-lb", "portainer", "grafana-stack", "prometheus",
-		"loki-logging", "minio-storage", "vault-secrets", "consul-discovery",
-		"keycloak-auth", "gitea-forge", "drone-ci", "harbor-registry", "argocd",
-		"jellyfin", "plex-media", "sonarr", "radarr", "prowlarr", "bazarr",
-		"jackett", "lidarr", "readarr", "overseerr", "tautulli", "sabnzbd",
-		"qbittorrent", "deluge", "transmission", "wireguard-vpn", "pihole-dns",
-		"adguard-home", "unbound-dns", "technitium-dns", "homeassistant",
-		"node-red", "zigbee2mqtt", "mosquitto", "esphome", "frigate-nvr",
-		"nextcloud", "immich-photos", "photoprism", "syncthing", "filebrowser",
-		"vaultwarden", "authelia", "crowdsec", "fail2ban", "uptime-kuma",
-		"healthchecks", "gatus-monitor", "changedetection", "n8n-automation",
-		"huginn", "homepage-dash", "homarr-dash", "dashy", "flame-startpage",
-		"bookstack-wiki", "outline-docs", "hedgedoc", "trilium-notes",
-		"paperless-ngx", "stirling-pdf", "ghost-blog", "wordpress-site",
-		"matomo-analytics", "plausible", "umami-stats", "mailcow", "mailu",
-		"roundcube", "matrix-synapse", "element-web", "mattermost",
-		"rocket-chat", "mumble-voice", "teamspeak", "minecraft-server",
-		"valheim-server", "satisfactory", "factorio-server", "terraria",
-		"code-server", "gitpod-ws", "jupyter-lab", "rstudio-server",
-		"pgadmin", "phpmyadmin", "adminer", "mongo-express", "redis-commander",
-		"elasticsearch", "kibana", "logstash", "fluentd", "telegraf",
-		"influxdb", "chronograf", "kapacitor", "victoriametrics", "thanos",
-		"jaeger-tracing", "zipkin", "tempo-traces", "mimir-metrics",
-		"semaphore-ansible", "awx-tower", "rundeck", "salt-master",
-		"netbox-dcim", "librenms", "cacti-monitor", "zabbix-server",
-	];
-	const statuses: BadgeStatus[] = ["running", "running", "running", "exited", "down"];
-	const stacks = stackNames.map((name, i) => ({
-		name,
-		status: statuses[i % statuses.length],
-		services: `${(i % 3) + 1} service${(i % 3) > 0 ? "s" : ""}`,
-		updateAvailable: name === "web-app",
-		recreateNecessary: name === "monitoring",
-	}));
+	interface Props {
+		searchText?: string;
+		filterMenu?: Snippet;
+		filterActive?: boolean;
+		count?: number;
+		children: Snippet;
+		class?: string;
+	}
 
-	let activeStack = $state("test-alpine");
-	let searchText = $state("");
+	let {
+		searchText = $bindable(""),
+		filterMenu,
+		filterActive = false,
+		count,
+		children,
+		class: className,
+	}: Props = $props();
 </script>
 
-<Card class="flex min-h-0 flex-1 flex-col overflow-hidden dark:shadow-[0_15px_70px_rgba(0,0,0,0.1)]">
+<Card class="flex min-h-0 flex-1 flex-col overflow-hidden dark:shadow-[0_15px_70px_rgba(0,0,0,0.1)] {className ?? ''}">
 	{#snippet header()}
-		<div class="flex items-center">
+		<div class="flex items-center gap-1">
 		<TextInput
 			bind:value={searchText}
 			placeholder={m.search()}
@@ -66,32 +44,32 @@
 					onclick={() => { if (searchText) searchText = ""; }}
 				/>
 			{/snippet}
-			{#snippet right()}
-				<IconButton
-					icon={faFilter}
-					aria-label={m.filter()}
-					size="sm"
-				/>
-			{/snippet}
 		</TextInput>
+		{#if filterMenu}
+			<DropdownMenuRoot>
+				<DropdownMenuTrigger>
+					{#snippet child({ props })}
+						<button
+							{...props}
+							aria-label={m.filter()}
+							class="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-transparent text-sm transition-colors
+								{filterActive ? 'text-blue-500 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}"
+						>
+							<Icon icon={faFilter} />
+						</button>
+					{/snippet}
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					{@render filterMenu()}
+				</DropdownMenuContent>
+			</DropdownMenuRoot>
+		{/if}
 	</div>
 	{/snippet}
 
-	<!-- Stack list -->
 	<div class="flex-1 overflow-y-auto py-[10px] pl-[10px] mr-[10px] mt-[10px] mb-[10px]">
 		<div class="pr-[6px]">
-		{#each stacks as stack}
-			<ListItem
-				href="/stacks/{stack.name}"
-				active={activeStack === stack.name}
-				onclick={(e: MouseEvent) => {
-					e.preventDefault();
-					activeStack = stack.name;
-				}}
-			>
-				<StatusLabel status={stack.status} name={stack.name} size="sm" recreateNecessary={stack.recreateNecessary} updateAvailable={stack.updateAvailable} />
-			</ListItem>
-		{/each}
+			{@render children()}
 		</div>
 	</div>
 </Card>

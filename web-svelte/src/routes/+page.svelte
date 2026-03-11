@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Header from "$lib/components/Header.svelte";
 	import ComposeButton from "$lib/components/ComposeButton.svelte";
-	import ResourceList from "$lib/components/ResourceList.svelte";
+	import StacksList from "$lib/features/stacks/StacksList.svelte";
 	import ContentPane from "$lib/components/ContentPane.svelte";
 	import MobileNav from "$lib/components/MobileNav.svelte";
 	import { theme } from "$lib/theme.svelte";
@@ -18,7 +18,7 @@
 				<div class="mb-4 flex items-center">
 					<ComposeButton />
 				</div>
-				<ResourceList />
+				<StacksList />
 			</aside>
 		{/if}
 		<ContentPane />
