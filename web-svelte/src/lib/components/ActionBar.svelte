@@ -1,10 +1,15 @@
 <script lang="ts">
-	import { DropdownMenu } from "bits-ui";
 	import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 	import Icon from "./Icon.svelte";
 	import * as m from "$lib/paraglide/messages";
 	import ActionButton from "./ui/ActionButton.svelte";
 	import { type ActionType, actionDefs } from "./ui/action-types";
+	import {
+		DropdownMenuRoot,
+		DropdownMenuTrigger,
+		DropdownMenuContent,
+		DropdownMenuItem,
+	} from "./ui/dropdown-menu";
 
 	type ActionBarSize = "sm" | "lg";
 
@@ -43,8 +48,8 @@
 		/>
 	{/each}
 	{#if overflow.length > 0}
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
+		<DropdownMenuRoot>
+			<DropdownMenuTrigger>
 				{#snippet child({ props })}
 					<button
 						{...props}
@@ -56,21 +61,19 @@
 						<Icon icon={faChevronDown} class="text-[0.7em]" />
 					</button>
 				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content
-				class="z-50 min-w-44 rounded-lg border border-[#c0c0c0] bg-white p-1 shadow-lg origin-top dark:border-(--color-border-dark) dark:bg-(--color-body-dark) data-[state=open]:animate-dropdown-in data-[state=closed]:animate-dropdown-out"
-			>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent>
 				{#each overflow as action}
 					{@const def = actionDefs[action]}
-					<DropdownMenu.Item
-						class="flex items-center gap-2 rounded px-3 py-1.5 text-sm cursor-pointer transition-colors hover:bg-gray-100 data-highlighted:bg-gray-100 dark:hover:bg-white/10 dark:data-highlighted:bg-white/10 {action === 'delete' || action === 'forceDelete' ? 'text-(--color-danger)' : 'text-(--color-font-body) dark:text-(--color-font-dark)'}"
+					<DropdownMenuItem
+						variant={action === 'delete' || action === 'forceDelete' ? 'danger' : 'default'}
 						onclick={() => onaction?.(action)}
 					>
 						<Icon icon={def.icon} />
 						{def.label()}
-					</DropdownMenu.Item>
+					</DropdownMenuItem>
 				{/each}
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
+			</DropdownMenuContent>
+		</DropdownMenuRoot>
 	{/if}
 </div>
