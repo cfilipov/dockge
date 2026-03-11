@@ -19,10 +19,10 @@
 	{#snippet child({ props })}
 		<button
 			{...props}
-			class="flex min-h-10 w-full items-center gap-2 rounded-full border border-gray-300 bg-white py-1 pl-4 pr-3
-				focus:border-(--color-primary) focus:ring-1 focus:ring-(--color-primary) focus:outline-none
+			class="group flex min-h-10 w-full items-center gap-2 py-1 pl-4 pr-3
+				focus:outline-none
 				disabled:opacity-50 disabled:cursor-not-allowed
-				dark:border-(--color-border-dark) dark:bg-(--color-body-dark-deep) dark:text-(--color-font-dark)
+				dark:text-(--color-font-dark)
 				{className}"
 		>
 			<span class="flex-1 text-left text-sm">
@@ -34,7 +34,7 @@
 			</span>
 			<Icon
 				icon={faChevronDown}
-				class="text-[0.7em] text-gray-400"
+				class="text-[0.7em] text-gray-400 transition-transform duration-200 group-data-[state=open]:rotate-180"
 			/>
 		</button>
 	{/snippet}

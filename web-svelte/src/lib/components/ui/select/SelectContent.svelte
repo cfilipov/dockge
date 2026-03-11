@@ -1,19 +1,26 @@
 <script lang="ts">
-	import { Select, type SelectContentProps } from "bits-ui";
+	import { Select, type SelectContentStaticProps } from "bits-ui";
 
 	let {
 		class: className = "",
 		children,
 		...rest
-	}: SelectContentProps = $props();
+	}: SelectContentStaticProps = $props();
 </script>
 
-<Select.Content
-	class="z-50 min-w-44 rounded-lg border border-[#c0c0c0] bg-white p-1 shadow-lg origin-top
-		dark:border-(--color-border-dark) dark:bg-(--color-body-dark)
-		data-[state=open]:animate-dropdown-in data-[state=closed]:animate-dropdown-out
-		{className}"
-	{...rest}
->
-	{@render children?.()}
-</Select.Content>
+<Select.ContentStatic forceMount {...rest}>
+	{#snippet child({ props, open })}
+		<div
+			class="grid transition-[grid-template-rows] duration-200
+				{open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}
+				{className}"
+		>
+			<div {...props} class="overflow-hidden min-h-0">
+				<div class="mx-3 border-t border-gray-200 dark:border-(--color-border-dark)"></div>
+				<div class="p-1">
+					{@render children?.()}
+				</div>
+			</div>
+		</div>
+	{/snippet}
+</Select.ContentStatic>
