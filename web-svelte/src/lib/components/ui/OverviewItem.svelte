@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CardInner from "./CardInner.svelte";
 	import StatusLabel from "./StatusLabel.svelte";
 	import type { BadgeStatus } from "./Badge.svelte";
 
@@ -16,7 +17,7 @@
 	let { item }: Props = $props();
 </script>
 
-<div class="flex flex-col rounded-[10px] bg-(--color-body-light) dark:bg-(--color-header-dark) px-4 py-3">
+<CardInner class="flex flex-col px-4 py-3">
 	<span class="text-[0.8em] font-semibold uppercase tracking-wide text-(--color-font-dark-muted) mb-0.5">
 		{item.label}
 	</span>
@@ -54,4 +55,4 @@
 			{/each}
 		</div>
 	{/if}
-</div>
+</CardInner>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Card from "./ui/Card.svelte";
 	import IconButton from "./ui/IconButton.svelte";
 	import TextInput from "./ui/TextInput.svelte";
 	import ListItem from "./ui/ListItem.svelte";
@@ -48,9 +49,9 @@
 	let searchText = $state("");
 </script>
 
-<div class="shadow-box dark:bg-(--color-body-dark) dark:shadow-[0_15px_70px_rgba(0,0,0,0.1)] flex min-h-0 flex-1 flex-col overflow-hidden">
-	<!-- Header with search + filter -->
-	<div class="flex items-center border-b border-gray-200 rounded-t-[10px] p-[10px] dark:border-transparent dark:bg-(--color-header-dark)">
+<Card class="flex min-h-0 flex-1 flex-col overflow-hidden dark:shadow-[0_15px_70px_rgba(0,0,0,0.1)]">
+	{#snippet header()}
+		<div class="flex items-center">
 		<TextInput
 			bind:value={searchText}
 			placeholder={m.search()}
@@ -74,6 +75,7 @@
 			{/snippet}
 		</TextInput>
 	</div>
+	{/snippet}
 
 	<!-- Stack list -->
 	<div class="flex-1 overflow-y-auto py-[10px] pl-[10px] mr-[10px] mt-[10px] mb-[10px]">
@@ -92,4 +94,4 @@
 		{/each}
 		</div>
 	</div>
-</div>
+</Card>

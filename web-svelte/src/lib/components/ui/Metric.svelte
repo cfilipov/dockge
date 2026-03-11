@@ -1,4 +1,6 @@
 <script lang="ts">
+	import CardInner from "./CardInner.svelte";
+
 	export type MetricColor = "primary" | "info" | "danger" | "warning";
 
 	interface Props {
@@ -39,7 +41,7 @@
 	</div>
 {/snippet}
 
-<div class="rounded-[10px] bg-(--color-body-light) dark:bg-(--color-header-dark) px-2 py-3 flex flex-col text-center">
+<CardInner class="px-2 py-3 flex flex-col text-center">
 	<div class="text-[0.95rem] font-semibold mb-1">{label}</div>
 	{#if dual}
 		{@render valuePair(value1, unit1, tag1)}
@@ -49,4 +51,4 @@
 			{@render valuePair(value1, unit1, tag1)}
 		</div>
 	{/if}
-</div>
+</CardInner>

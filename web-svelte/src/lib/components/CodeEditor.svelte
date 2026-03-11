@@ -3,6 +3,7 @@
 	import { EditorView, lineNumbers } from "@codemirror/view";
 	import { tomorrowNightEighties, tomorrowLight } from "$lib/editor-theme";
 	import { faArrowTurnDown, faArrowRight, faExpand } from "@fortawesome/free-solid-svg-icons";
+	import Card from "./ui/Card.svelte";
 	import IconButton from "./ui/IconButton.svelte";
 	import { untrack } from "svelte";
 
@@ -143,11 +144,11 @@
 	});
 </script>
 
-<div
-	class="relative overflow-hidden rounded-[10px] p-[10px] shadow-box
+<Card
+	class="relative overflow-hidden p-[10px] dark:shadow-lg
 		[&_.cm-focused]:!outline-none [&_.cm-editor]:font-mono [&_.cm-editor]:text-sm
 		[&_.cm-gutters]:!bg-white dark:[&_.cm-gutters]:!bg-(--color-body-dark)
-		dark:bg-(--color-body-dark) dark:shadow-lg {className}"
+		{className}"
 >
 	<div bind:this={container}></div>
 	<div class="absolute right-[10px] top-[10px] z-10 flex gap-1">
@@ -166,4 +167,4 @@
 			/>
 		{/if}
 	</div>
-</div>
+</Card>
