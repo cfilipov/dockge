@@ -1,0 +1,7 @@
+services:
+  your-spotify-client:
+    state: exited
+    exit_code: 0
+  your-spotify-mongo:
+    state: exited
+    exit_code: 1

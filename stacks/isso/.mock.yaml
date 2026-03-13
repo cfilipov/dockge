@@ -1,0 +1,4 @@
+services:
+  isso:
+    state: exited
+    exit_code: 1

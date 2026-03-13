@@ -1,0 +1,4 @@
+services:
+  octobot:
+    state: paused
+    needs_recreation: true

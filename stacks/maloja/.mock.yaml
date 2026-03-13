@@ -1,0 +1,3 @@
+services:
+  maloja:
+    update_available: true

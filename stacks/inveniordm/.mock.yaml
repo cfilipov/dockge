@@ -1,0 +1,7 @@
+services:
+  cache:
+    health: starting
+  db:
+    health: unhealthy
+  search:
+    state: paused

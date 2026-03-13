@@ -1,0 +1,3 @@
+services:
+  rsshub:
+    update_available: true

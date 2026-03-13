@@ -1,0 +1,4 @@
+services:
+  drupal:
+    state: exited
+    exit_code: 0

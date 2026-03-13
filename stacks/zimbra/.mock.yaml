@@ -1,0 +1,4 @@
+services:
+  zimbra:
+    state: exited
+    exit_code: 0

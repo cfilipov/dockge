@@ -1,0 +1,3 @@
+services:
+  termix:
+    state: paused

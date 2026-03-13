@@ -1,0 +1,9 @@
+services:
+  st2sensorcontainer:
+    state: exited
+    exit_code: 0
+  st2web:
+    state: exited
+    exit_code: 0
+  redis:
+    state: paused

@@ -1,0 +1,3 @@
+services:
+  typesense:
+    update_available: true

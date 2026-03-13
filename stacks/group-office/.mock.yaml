@@ -1,0 +1,6 @@
+services:
+  groupoffice:
+    state: exited
+    exit_code: 0
+  db:
+    update_available: true

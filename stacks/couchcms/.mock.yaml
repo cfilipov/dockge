@@ -1,0 +1,4 @@
+services:
+  couchcms:
+    health: starting
+    update_available: true

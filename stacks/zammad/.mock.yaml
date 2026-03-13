@@ -1,0 +1,8 @@
+services:
+  zammad-elasticsearch:
+    state: exited
+    exit_code: 0
+    health: starting
+  zammad-memcached:
+    state: exited
+    exit_code: 1

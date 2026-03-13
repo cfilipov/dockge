@@ -1,0 +1,4 @@
+services:
+  api-worker:
+    state: exited
+    exit_code: 1

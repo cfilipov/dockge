@@ -1,0 +1,8 @@
+services:
+  postgres:
+    needs_recreation: true
+  fcrepo:
+    health: starting
+  fits:
+    state: exited
+    exit_code: 0

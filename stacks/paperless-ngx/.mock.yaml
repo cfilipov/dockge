@@ -1,0 +1,3 @@
+services:
+  db:
+    update_available: true

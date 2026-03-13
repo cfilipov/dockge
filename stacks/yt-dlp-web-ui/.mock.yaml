@@ -1,0 +1,4 @@
+services:
+  yt-dlp-webui:
+    state: exited
+    exit_code: 0

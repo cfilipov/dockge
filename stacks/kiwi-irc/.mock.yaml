@@ -1,0 +1,3 @@
+services:
+  kiwiirc:
+    update_available: true

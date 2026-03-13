@@ -1,0 +1,5 @@
+services:
+  db:
+    health: unhealthy
+  api:
+    needs_recreation: true

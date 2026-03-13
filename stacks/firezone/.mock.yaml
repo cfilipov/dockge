@@ -1,0 +1,7 @@
+services:
+  firezone:
+    update_available: true
+  postgres:
+    state: exited
+    exit_code: 1
+    health: starting

@@ -1,0 +1,4 @@
+services:
+  flexisip:
+    state: paused
+    needs_recreation: true

@@ -1,0 +1,5 @@
+services:
+  lite:
+    state: paused
+  postgres:
+    state: paused

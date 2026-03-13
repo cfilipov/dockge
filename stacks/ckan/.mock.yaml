@@ -1,0 +1,3 @@
+services:
+  ckan:
+    update_available: true

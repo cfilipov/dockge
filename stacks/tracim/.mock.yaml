@@ -1,0 +1,7 @@
+services:
+  tracim:
+    state: exited
+    exit_code: 0
+  db:
+    state: paused
+    update_available: true

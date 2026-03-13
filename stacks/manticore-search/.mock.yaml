@@ -1,0 +1,4 @@
+services:
+  manticore:
+    state: exited
+    exit_code: 0

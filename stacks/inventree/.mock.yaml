@@ -1,0 +1,8 @@
+services:
+  inventree-db:
+    state: exited
+    exit_code: 1
+  inventree-proxy:
+    state: exited
+    exit_code: 0
+    update_available: true

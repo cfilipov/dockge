@@ -1,0 +1,7 @@
+services:
+  web:
+    state: exited
+    exit_code: 1
+  postgres:
+    state: exited
+    exit_code: 0

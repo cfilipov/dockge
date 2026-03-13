@@ -1,0 +1,7 @@
+services:
+  lychee_db:
+    state: exited
+    exit_code: 0
+  lychee:
+    state: exited
+    exit_code: 0

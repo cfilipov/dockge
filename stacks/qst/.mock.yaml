@@ -1,0 +1,4 @@
+services:
+  postgres:
+    state: paused
+    needs_recreation: true

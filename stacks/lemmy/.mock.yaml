@@ -1,0 +1,4 @@
+services:
+  lemmy:
+    state: exited
+    exit_code: 0

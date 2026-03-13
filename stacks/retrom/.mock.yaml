@@ -1,0 +1,4 @@
+services:
+  retrom:
+    state: exited
+    exit_code: 1

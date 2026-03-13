@@ -1,0 +1,4 @@
+services:
+  inboxen:
+    state: exited
+    exit_code: 0

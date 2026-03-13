@@ -1,0 +1,9 @@
+services:
+  db:
+    state: exited
+    exit_code: 0
+  mautic_web:
+    state: paused
+  mautic_worker:
+    state: exited
+    exit_code: 0

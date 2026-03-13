@@ -1,0 +1,4 @@
+services:
+  psono-fileserver:
+    state: exited
+    exit_code: 0

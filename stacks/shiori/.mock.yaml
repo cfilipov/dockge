@@ -1,0 +1,3 @@
+services:
+  shiori:
+    update_available: true

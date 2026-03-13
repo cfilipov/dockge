@@ -1,0 +1,8 @@
+services:
+  typebot-redis:
+    state: paused
+  typebot-builder:
+    state: exited
+    exit_code: 1
+  typebot-viewer:
+    state: paused

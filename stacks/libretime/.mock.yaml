@@ -1,0 +1,14 @@
+services:
+  rabbitmq:
+    state: exited
+    exit_code: 0
+  worker:
+    state: exited
+    exit_code: 0
+  legacy:
+    health: starting
+  nginx:
+    state: exited
+    exit_code: 0
+  icecast:
+    update_available: true

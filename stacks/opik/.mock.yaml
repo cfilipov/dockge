@@ -1,0 +1,3 @@
+services:
+  redis:
+    update_available: true

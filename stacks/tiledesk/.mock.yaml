@@ -1,0 +1,12 @@
+services:
+  dashboard:
+    update_available: true
+  chat21-server:
+    state: exited
+    exit_code: 1
+  redis:
+    state: exited
+    exit_code: 1
+  rabbitmq:
+    state: exited
+    exit_code: 0

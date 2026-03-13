@@ -1,0 +1,4 @@
+services:
+  bitmagnet:
+    health: starting
+    update_available: true

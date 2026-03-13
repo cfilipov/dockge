@@ -1,0 +1,3 @@
+services:
+  espocrm-websocket:
+    needs_recreation: true

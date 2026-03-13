@@ -1,0 +1,3 @@
+services:
+  grimoire:
+    needs_recreation: true

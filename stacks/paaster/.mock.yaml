@@ -1,0 +1,5 @@
+services:
+  paaster:
+    update_available: true
+  paaster-minio:
+    health: starting

@@ -1,0 +1,3 @@
+services:
+  recorder:
+    health: starting

@@ -1,0 +1,3 @@
+services:
+  surfer:
+    needs_recreation: true

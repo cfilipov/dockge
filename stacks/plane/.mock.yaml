@@ -1,0 +1,11 @@
+services:
+  web:
+    state: exited
+    exit_code: 1
+  worker:
+    state: exited
+    exit_code: 1
+  beat-worker:
+    state: paused
+  plane-minio:
+    update_available: true

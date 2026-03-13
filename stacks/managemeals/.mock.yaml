@@ -1,0 +1,6 @@
+services:
+  manage-meals-api:
+    state: exited
+    exit_code: 0
+  recipe-scraper:
+    needs_recreation: true

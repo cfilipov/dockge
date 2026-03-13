@@ -1,0 +1,16 @@
+services:
+  front:
+    state: exited
+    exit_code: 0
+  auth:
+    update_available: true
+  api:
+    state: exited
+    exit_code: 1
+  scanner:
+    state: exited
+    exit_code: 0
+  transcoder:
+    health: starting
+  postgres:
+    state: paused

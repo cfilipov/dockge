@@ -1,0 +1,9 @@
+services:
+  sharelatex:
+    state: exited
+    exit_code: 0
+  mongo:
+    state: exited
+    exit_code: 0
+  redis:
+    state: paused

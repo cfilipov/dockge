@@ -1,0 +1,3 @@
+services:
+  dawarich_redis:
+    needs_recreation: true

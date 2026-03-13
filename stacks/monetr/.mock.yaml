@@ -1,0 +1,7 @@
+services:
+  valkey:
+    state: exited
+    exit_code: 0
+  monetr:
+    state: exited
+    exit_code: 0

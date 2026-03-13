@@ -1,0 +1,4 @@
+services:
+  database:
+    state: paused
+    needs_recreation: true

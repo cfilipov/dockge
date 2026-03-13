@@ -1,0 +1,4 @@
+services:
+  pretix:
+    state: exited
+    exit_code: 0

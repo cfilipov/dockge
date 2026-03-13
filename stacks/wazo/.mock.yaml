@@ -1,0 +1,7 @@
+services:
+  nginx:
+    state: exited
+    exit_code: 0
+  confd:
+    state: exited
+    exit_code: 0

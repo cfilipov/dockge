@@ -1,0 +1,14 @@
+services:
+  create-site:
+    state: paused
+  queue-short:
+    needs_recreation: true
+  redis-queue:
+    state: exited
+    exit_code: 0
+  redis-cache:
+    state: exited
+    exit_code: 0
+  scheduler:
+    state: exited
+    exit_code: 0

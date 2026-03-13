@@ -1,0 +1,8 @@
+services:
+  indico-celery-beat:
+    update_available: true
+  indico-postgres:
+    state: paused
+    health: starting
+  indico-nginx:
+    state: paused

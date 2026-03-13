@@ -1,0 +1,6 @@
+services:
+  postgres:
+    state: exited
+    exit_code: 0
+    update_available: true
+    needs_recreation: true

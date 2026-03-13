@@ -1,0 +1,3 @@
+services:
+  ampache:
+    needs_recreation: true

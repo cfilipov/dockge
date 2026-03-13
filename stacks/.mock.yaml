@@ -1,0 +1,63 @@
+networks:
+  proxy_default:
+    driver: bridge
+  monitoring_default:
+    driver: bridge
+  database_shared:
+    driver: bridge
+    internal: true
+volumes:
+  shared_certs:
+    driver: local
+  backup_staging:
+    driver: local
+containers:
+  - name: nginx-proxy
+    image: nginx:alpine
+    state: running
+    ports:
+      - 8080:80/tcp
+    networks:
+      - proxy_default
+    labels:
+      maintainer: ops-team
+  - name: redis-cache
+    image: redis:7-alpine
+    state: running
+    ports:
+      - 6379:6379/tcp
+  - name: postgres-shared
+    image: postgres:16-alpine
+    state: running
+    ports:
+      - 5432:5432/tcp
+    networks:
+      - database_shared
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=devpass
+      - POSTGRES_DB=shared
+  - name: alpine-cron
+    image: alpine:3.19
+    state: running
+    command: crond -f
+  - name: dev-mailhog
+    image: mailhog/mailhog:latest
+    state: running
+    ports:
+      - 1025:1025/tcp
+      - 8025:8025/tcp
+  - name: portainer-agent
+    image: portainer/agent:2.19.4
+    state: running
+    ports:
+      - 9001:9001/tcp
+  - name: watchtower
+    image: containrrr/watchtower:latest
+    state: running
+  - name: debug-busybox
+    image: busybox:1.36
+    state: exited
+    exit_code: 0
+    command: sh -c 'echo done'

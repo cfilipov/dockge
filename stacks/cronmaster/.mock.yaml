@@ -1,0 +1,4 @@
+services:
+  cronmaster:
+    state: exited
+    exit_code: 1

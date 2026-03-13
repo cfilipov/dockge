@@ -1,0 +1,5 @@
+services:
+  api:
+    needs_recreation: true
+  db:
+    needs_recreation: true

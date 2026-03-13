@@ -4,15 +4,22 @@ import { fileURLToPath } from "node:url";
 import { MockState } from "./state.js";
 import { parseCompose, findComposeFile } from "./compose-parser.js";
 import { parseStackMockConfig, parseGlobalMockConfig } from "./mock-config.js";
-import type { MockGlobalConfig } from "./mock-config.js";
+import type { MockGlobalConfig, MockStandaloneContainer } from "./mock-config.js";
 import { generateStack } from "./generator.js";
 import type { Clock } from "./clock.js";
-import type { NetworkInspect, VolumeInspect, ImageInspect } from "./types.js";
+import type {
+    ContainerInspect, ContainerState, NetworkInspect, VolumeInspect, ImageInspect,
+    EndpointSettings, PortBinding,
+} from "./types.js";
 import {
     deterministicId,
+    deterministicMac,
+    deterministicIp,
     deterministicTimestamp,
     deterministicInt,
+    hashToSeed,
     networkSeed,
+    imageSeed,
 } from "./deterministic.js";
 import { parseEnvironment } from "./compose-parser.js";
 
@@ -50,7 +57,20 @@ export async function initState(opts: InitOptions): Promise<MockState> {
         state.volumes.set(vol.Name, vol);
     }
 
-    // Step 2b: Load pre-captured images
+    // Step 2b: Create standalone containers (not part of any compose stack)
+    for (const cDef of globalConfig.containers) {
+        const container = createStandaloneContainer(cDef, state.networks, baseTime);
+        state.containers.set(container.Id, container);
+        // Create image if not already present
+        const imageRef = normalizeRef(cDef.image);
+        const imgSeed = imageSeed(imageRef);
+        const imgId = `sha256:${deterministicId(imgSeed, "image-id")}`;
+        if (!state.images.has(imgId)) {
+            state.images.set(imgId, generateSyntheticImage(imageRef, baseTime));
+        }
+    }
+
+    // Step 2c: Load pre-captured images
     const precapturedImages = loadPrecapturedImages(opts);
 
     // Step 3: Scan stacks dir for subdirectories
@@ -270,5 +290,224 @@ function createGlobalVolume(
         CreatedAt: deterministicTimestamp(seed + "vol-created", baseTime),
         Labels: {},
         Scope: "local",
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Standalone containers (no compose labels)
+// ---------------------------------------------------------------------------
+
+function normalizeRef(ref: string): string {
+    return ref.includes(":") ? ref : ref + ":latest";
+}
+
+function standaloneSeed(name: string): string {
+    return hashToSeed(["standalone", name]);
+}
+
+function createStandaloneContainer(
+    def: MockStandaloneContainer,
+    existingNetworks: Map<string, NetworkInspect>,
+    baseTime: string,
+): ContainerInspect {
+    const s = standaloneSeed(def.name);
+    const containerId = deterministicId(s, "container-id");
+    const imageRef = normalizeRef(def.image);
+    const imgId = `sha256:${deterministicId(imageSeed(imageRef), "image-id")}`;
+
+    // State
+    const stateStr = def.state || "running";
+    const running = stateStr === "running";
+    const paused = stateStr === "paused";
+    const exitCode = def.exitCode ?? 0;
+    const startedAt = deterministicTimestamp(s + "started", baseTime);
+    const finishedAt = running || paused ? "0001-01-01T00:00:00Z" : deterministicTimestamp(s + "finished", baseTime);
+
+    const state: ContainerState = {
+        Status: stateStr,
+        Running: running,
+        Paused: paused,
+        Restarting: false,
+        OOMKilled: false,
+        Dead: false,
+        Pid: running || paused ? deterministicInt(s + "pid", 1000, 65535) : 0,
+        ExitCode: exitCode,
+        Error: "",
+        StartedAt: startedAt,
+        FinishedAt: finishedAt,
+    };
+
+    // Command
+    const cmdParts = def.command ? def.command.split(/\s+/).filter(Boolean) : [];
+    const path = cmdParts.length > 0 ? cmdParts[0] : "";
+    const args = cmdParts.slice(1);
+
+    // Ports
+    const ports: Record<string, PortBinding[] | null> = {};
+    const portBindings: Record<string, PortBinding[]> = {};
+    const exposedPorts: Record<string, Record<string, never>> = {};
+
+    for (const portStr of def.ports || []) {
+        const parsed = parsePortSpec(portStr);
+        const key = `${parsed.containerPort}/${parsed.protocol}`;
+        exposedPorts[key] = {};
+        if (parsed.hostPort !== undefined) {
+            const binding: PortBinding = { HostIp: parsed.hostIp || "0.0.0.0", HostPort: String(parsed.hostPort) };
+            if (!ports[key]) ports[key] = [];
+            (ports[key] as PortBinding[]).push(binding);
+            if (!portBindings[key]) portBindings[key] = [];
+            portBindings[key].push({ HostIp: parsed.hostIp || "", HostPort: String(parsed.hostPort) });
+        } else {
+            ports[key] = null;
+        }
+    }
+
+    // Volumes / mounts
+    const mounts = (def.volumes || []).map((v) => {
+        const [src, dst] = v.split(":");
+        return {
+            Type: "volume" as const,
+            Name: src,
+            Source: `/var/lib/docker/volumes/${src}/_data`,
+            Destination: dst || src,
+            Driver: "local",
+            Mode: "z",
+            RW: true,
+        };
+    });
+
+    // Networks — attach to bridge by default
+    const networkNames = def.networks && def.networks.length > 0 ? def.networks : ["bridge"];
+    const networks: Record<string, EndpointSettings> = {};
+    for (const netName of networkNames) {
+        // Find existing network
+        let network: NetworkInspect | undefined;
+        for (const n of existingNetworks.values()) {
+            if (n.Name === netName) { network = n; break; }
+        }
+        const networkId = network?.Id || deterministicId(networkSeed(netName), "network-id");
+        const subnet = network?.IPAM?.Config?.[0]?.Subnet || "172.17.0.0/16";
+        const gateway = network?.IPAM?.Config?.[0]?.Gateway || "172.17.0.1";
+        const epSeed = s + netName;
+
+        networks[netName] = {
+            NetworkID: networkId,
+            EndpointID: deterministicId(epSeed, "endpoint-id"),
+            Gateway: gateway,
+            IPAddress: deterministicIp(epSeed, subnet),
+            IPPrefixLen: parseInt(subnet.split("/")[1] || "16", 10),
+            MacAddress: deterministicMac(epSeed),
+            DNSNames: [def.name],
+        };
+    }
+
+    // Primary network info
+    const firstNet = Object.values(networks)[0];
+
+    const container: ContainerInspect = {
+        Id: containerId,
+        Created: deterministicTimestamp(s + "created", baseTime),
+        Path: path,
+        Args: args,
+        State: state,
+        Image: imgId,
+        ResolvConfPath: `/var/lib/docker/containers/${containerId}/resolv.conf`,
+        HostnamePath: `/var/lib/docker/containers/${containerId}/hostname`,
+        HostsPath: `/var/lib/docker/containers/${containerId}/hosts`,
+        LogPath: `/var/lib/docker/containers/${containerId}/${containerId}-json.log`,
+        Name: `/${def.name}`,
+        RestartCount: 0,
+        Driver: "overlay2",
+        Platform: "linux",
+        MountLabel: "",
+        ProcessLabel: "",
+        AppArmorProfile: "",
+        ExecIDs: null,
+        HostConfig: {
+            NetworkMode: networkNames[0],
+            RestartPolicy: { Name: "", MaximumRetryCount: 0 },
+            AutoRemove: false,
+            PublishAllPorts: false,
+            ReadonlyRootfs: false,
+            Privileged: false,
+            ConsoleSize: [0, 0],
+            Isolation: "",
+            ...(Object.keys(portBindings).length > 0 ? { PortBindings: portBindings } : {}),
+        },
+        Mounts: mounts,
+        Config: {
+            Hostname: containerId.slice(0, 12),
+            Domainname: "",
+            User: "",
+            AttachStdin: false,
+            AttachStdout: true,
+            AttachStderr: true,
+            ExposedPorts: Object.keys(exposedPorts).length > 0 ? exposedPorts : undefined,
+            Tty: false,
+            OpenStdin: false,
+            StdinOnce: false,
+            Env: def.environment || ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+            Cmd: cmdParts.length > 0 ? cmdParts : undefined,
+            Image: imageRef,
+            WorkingDir: "",
+            Labels: def.labels || {},  // No com.docker.compose.* labels
+            StopSignal: "SIGTERM",
+        },
+        NetworkSettings: {
+            Bridge: "",
+            SandboxID: deterministicId(s, "sandbox-id"),
+            HairpinMode: false,
+            LinkLocalIPv6Address: "",
+            LinkLocalIPv6PrefixLen: 0,
+            Ports: ports,
+            SandboxKey: `/var/run/docker/netns/${deterministicId(s, "netns").slice(0, 12)}`,
+            SecondaryIPAddresses: null as unknown as undefined,
+            SecondaryIPv6Addresses: null as unknown as undefined,
+            Networks: networks,
+            Gateway: firstNet?.Gateway,
+            IPAddress: firstNet?.IPAddress,
+            IPPrefixLen: firstNet?.IPPrefixLen,
+            MacAddress: firstNet?.MacAddress,
+        },
+    };
+
+    return container;
+}
+
+function parsePortSpec(spec: string): { hostIp?: string; hostPort?: number; containerPort: number; protocol: string } {
+    let protocol = "tcp";
+    let portStr = spec;
+    if (portStr.endsWith("/udp")) { protocol = "udp"; portStr = portStr.slice(0, -4); }
+    else if (portStr.endsWith("/tcp")) { portStr = portStr.slice(0, -4); }
+
+    const parts = portStr.split(":");
+    if (parts.length === 3) {
+        return { hostIp: parts[0], hostPort: parseInt(parts[1], 10), containerPort: parseInt(parts[2], 10), protocol };
+    } else if (parts.length === 2) {
+        if (parts[0].includes(".")) {
+            return { hostIp: parts[0], containerPort: parseInt(parts[1], 10), protocol };
+        }
+        return { hostPort: parseInt(parts[0], 10), containerPort: parseInt(parts[1], 10), protocol };
+    }
+    return { containerPort: parseInt(parts[0], 10), protocol };
+}
+
+function generateSyntheticImage(ref: string, baseTime: string): ImageInspect {
+    const s = imageSeed(ref);
+    const id = deterministicId(s, "image-id");
+    return {
+        Id: `sha256:${id}`,
+        RepoTags: [ref],
+        RepoDigests: [`${ref.split(":")[0]}@sha256:${deterministicId(s, "image-digest")}`],
+        Created: deterministicTimestamp(s + "created", baseTime),
+        Architecture: "amd64",
+        Os: "linux",
+        Size: deterministicInt(s + "size", 10_000_000, 500_000_000),
+        RootFS: { Type: "layers", Layers: [`sha256:${deterministicId(s, "layer-0")}`] },
+        Config: {
+            Cmd: ["/bin/sh"],
+            Env: ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+            Labels: {},
+        },
     };
 }

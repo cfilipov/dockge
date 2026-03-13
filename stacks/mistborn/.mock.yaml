@@ -1,0 +1,15 @@
+services:
+  postgres:
+    state: paused
+  redis:
+    state: exited
+    exit_code: 0
+  celeryworker:
+    state: exited
+    exit_code: 0
+    update_available: true
+  traefik:
+    health: starting
+  pihole:
+    state: exited
+    exit_code: 1

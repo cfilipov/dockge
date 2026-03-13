@@ -27,9 +27,24 @@ export interface MockGlobalVolumeDef {
     driver: string;
 }
 
+/** Standalone container not part of any compose stack. */
+export interface MockStandaloneContainer {
+    name: string;
+    image: string;
+    state?: "running" | "exited" | "paused" | "created";
+    exitCode?: number;
+    command?: string;
+    ports?: string[];           // e.g. ["8080:80/tcp", "443/tcp"]
+    networks?: string[];        // global network names to attach to
+    volumes?: string[];         // e.g. ["pgdata:/var/lib/postgresql/data"]
+    environment?: string[];     // e.g. ["KEY=value"]
+    labels?: Record<string, string>;
+}
+
 export interface MockGlobalConfig {
     networks: Record<string, MockGlobalNetworkDef>;
     volumes: Record<string, MockGlobalVolumeDef>;
+    containers: MockStandaloneContainer[];
 }
 
 function parseServiceOverride(raw: Record<string, unknown>): MockServiceOverride {
@@ -90,6 +105,7 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
     const defaults: MockGlobalConfig = {
         networks: {},
         volumes: {},
+        containers: [],
     };
 
     if (yamlContent === null || yamlContent.trim() === "") {
@@ -104,6 +120,7 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
     const config: MockGlobalConfig = {
         networks: {},
         volumes: {},
+        containers: [],
     };
 
     if (raw.networks && typeof raw.networks === "object") {
@@ -127,6 +144,26 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
                 config.volumes[name] = {
                     driver: (volRaw.driver as string) || "local",
                 };
+            }
+        }
+    }
+
+    if (raw.containers && Array.isArray(raw.containers)) {
+        for (const cRaw of raw.containers) {
+            if (cRaw && typeof cRaw === "object") {
+                const c = cRaw as Record<string, unknown>;
+                config.containers.push({
+                    name: (c.name as string) || "",
+                    image: (c.image as string) || "",
+                    state: c.state as MockStandaloneContainer["state"],
+                    exitCode: c.exit_code as number | undefined,
+                    command: c.command as string | undefined,
+                    ports: c.ports as string[] | undefined,
+                    networks: c.networks as string[] | undefined,
+                    volumes: c.volumes as string[] | undefined,
+                    environment: c.environment as string[] | undefined,
+                    labels: c.labels as Record<string, string> | undefined,
+                });
             }
         }
     }

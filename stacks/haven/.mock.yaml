@@ -1,0 +1,4 @@
+services:
+  haven:
+    state: exited
+    exit_code: 1

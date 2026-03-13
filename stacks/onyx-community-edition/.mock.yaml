@@ -1,0 +1,13 @@
+services:
+  background:
+    update_available: true
+  web_server:
+    state: exited
+    exit_code: 0
+  inference_model_server:
+    state: exited
+    exit_code: 1
+  relational_db:
+    state: paused
+  index:
+    update_available: true

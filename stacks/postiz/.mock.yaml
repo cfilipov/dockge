@@ -1,0 +1,6 @@
+services:
+  postiz:
+    state: paused
+  temporal-postgresql:
+    state: exited
+    exit_code: 1

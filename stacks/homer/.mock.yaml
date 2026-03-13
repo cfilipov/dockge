@@ -1,0 +1,4 @@
+services:
+  homer:
+    state: exited
+    exit_code: 0

@@ -1,0 +1,7 @@
+services:
+  superset-init:
+    state: exited
+    exit_code: 0
+  superset-worker:
+    state: exited
+    exit_code: 1

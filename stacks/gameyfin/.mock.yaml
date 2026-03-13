@@ -1,0 +1,3 @@
+services:
+  gameyfin:
+    update_available: true

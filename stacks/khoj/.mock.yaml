@@ -1,0 +1,5 @@
+services:
+  search:
+    state: exited
+    exit_code: 0
+    update_available: true

@@ -1,0 +1,3 @@
+services:
+  swingmusic:
+    needs_recreation: true

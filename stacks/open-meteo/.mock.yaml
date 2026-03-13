@@ -1,0 +1,5 @@
+services:
+  open-meteo:
+    state: exited
+    exit_code: 1
+    health: starting

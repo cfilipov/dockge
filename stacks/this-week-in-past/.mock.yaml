@@ -1,0 +1,3 @@
+services:
+  this-week-in-past:
+    needs_recreation: true

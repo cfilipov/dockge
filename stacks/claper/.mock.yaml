@@ -1,0 +1,5 @@
+services:
+  app:
+    state: paused
+  db:
+    state: paused

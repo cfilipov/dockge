@@ -1,0 +1,6 @@
+services:
+  postgres:
+    state: exited
+    exit_code: 0
+  backend:
+    update_available: true

@@ -1,0 +1,3 @@
+services:
+  gocron:
+    update_available: true

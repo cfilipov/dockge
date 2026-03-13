@@ -1,0 +1,4 @@
+services:
+  smf:
+    state: exited
+    exit_code: 0

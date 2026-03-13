@@ -1,0 +1,3 @@
+services:
+  xmpp:
+    update_available: true

@@ -1,0 +1,7 @@
+services:
+  sogo:
+    state: exited
+    exit_code: 1
+  memcached:
+    state: exited
+    exit_code: 0

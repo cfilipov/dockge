@@ -1,0 +1,5 @@
+services:
+  inventaire:
+    state: paused
+  elasticsearch:
+    update_available: true

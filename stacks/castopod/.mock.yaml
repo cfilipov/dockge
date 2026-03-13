@@ -1,0 +1,3 @@
+services:
+  mariadb:
+    update_available: true

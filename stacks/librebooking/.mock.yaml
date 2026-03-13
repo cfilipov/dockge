@@ -1,0 +1,4 @@
+services:
+  db:
+    health: starting
+    update_available: true

@@ -1,0 +1,4 @@
+services:
+  redis:
+    state: exited
+    exit_code: 0

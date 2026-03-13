@@ -1,0 +1,6 @@
+services:
+  valkey:
+    update_available: true
+  meilisearch:
+    state: exited
+    exit_code: 0

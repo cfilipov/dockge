@@ -1,0 +1,7 @@
+services:
+  lms:
+    needs_recreation: true
+  mongodb:
+    state: paused
+  redis:
+    needs_recreation: true

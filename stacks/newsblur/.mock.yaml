@@ -1,0 +1,6 @@
+services:
+  newsblur:
+    needs_recreation: true
+  newsblur-db:
+    state: exited
+    exit_code: 0

@@ -1,0 +1,7 @@
+services:
+  langfuse-web:
+    state: exited
+    exit_code: 0
+  postgres:
+    state: exited
+    exit_code: 0

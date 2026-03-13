@@ -1,0 +1,6 @@
+services:
+  api-server:
+    state: paused
+    needs_recreation: true
+  postgresql:
+    state: paused

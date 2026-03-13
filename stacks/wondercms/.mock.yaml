@@ -1,0 +1,3 @@
+services:
+  wondercms:
+    update_available: true

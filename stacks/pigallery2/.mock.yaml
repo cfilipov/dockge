@@ -1,0 +1,4 @@
+services:
+  pigallery2:
+    state: exited
+    exit_code: 1

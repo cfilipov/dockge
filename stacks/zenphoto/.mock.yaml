@@ -1,0 +1,5 @@
+services:
+  zenphoto:
+    health: starting
+  mariadb:
+    health: starting

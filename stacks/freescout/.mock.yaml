@@ -1,0 +1,4 @@
+services:
+  freescout-db:
+    state: exited
+    exit_code: 0

@@ -1,0 +1,10 @@
+services:
+  clickhouse:
+    state: exited
+    exit_code: 0
+  worker:
+    state: exited
+    exit_code: 1
+    health: unhealthy
+  plugins:
+    update_available: true

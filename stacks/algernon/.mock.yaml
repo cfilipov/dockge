@@ -1,0 +1,3 @@
+services:
+  algernon:
+    update_available: true

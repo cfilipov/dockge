@@ -1,0 +1,7 @@
+services:
+  app:
+    needs_recreation: true
+  worker:
+    health: starting
+  db:
+    health: unhealthy

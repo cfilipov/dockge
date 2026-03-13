@@ -1,0 +1,6 @@
+services:
+  varnish:
+    state: exited
+    exit_code: 0
+  backend:
+    needs_recreation: true

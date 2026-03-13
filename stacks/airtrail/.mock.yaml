@@ -1,0 +1,3 @@
+services:
+  airtrail:
+    state: paused

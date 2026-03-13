@@ -1,0 +1,3 @@
+services:
+  nodebb:
+    needs_recreation: true

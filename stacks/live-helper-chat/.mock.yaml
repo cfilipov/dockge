@@ -1,0 +1,9 @@
+services:
+  web:
+    state: exited
+    exit_code: 0
+  php:
+    state: exited
+    exit_code: 0
+  php-resque:
+    needs_recreation: true

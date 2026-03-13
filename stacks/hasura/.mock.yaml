@@ -1,0 +1,7 @@
+services:
+  graphql-engine:
+    state: exited
+    exit_code: 0
+  postgres:
+    state: exited
+    exit_code: 0

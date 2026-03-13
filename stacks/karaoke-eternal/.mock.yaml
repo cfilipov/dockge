@@ -1,0 +1,3 @@
+services:
+  karaoke-eternal:
+    health: starting

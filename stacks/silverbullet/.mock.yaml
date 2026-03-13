@@ -1,0 +1,4 @@
+services:
+  silverbullet:
+    health: unhealthy
+    update_available: true

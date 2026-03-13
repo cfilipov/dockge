@@ -1,0 +1,3 @@
+services:
+  everydocs_core:
+    health: unhealthy

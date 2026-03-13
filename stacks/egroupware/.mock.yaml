@@ -1,0 +1,6 @@
+services:
+  db:
+    state: exited
+    exit_code: 0
+    health: unhealthy
+    update_available: true

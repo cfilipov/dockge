@@ -1,0 +1,4 @@
+services:
+  sftp:
+    state: exited
+    exit_code: 0

@@ -1,0 +1,7 @@
+services:
+  db:
+    state: exited
+    exit_code: 0
+  rabbitmq:
+    state: exited
+    exit_code: 0

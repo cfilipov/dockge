@@ -1,0 +1,7 @@
+services:
+  restserver:
+    state: exited
+    exit_code: 0
+  solr:
+    state: exited
+    exit_code: 0

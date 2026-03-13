@@ -1,0 +1,5 @@
+services:
+  tine:
+    health: unhealthy
+  redis:
+    state: paused

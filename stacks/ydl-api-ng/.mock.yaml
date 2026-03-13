@@ -1,0 +1,4 @@
+services:
+  ydl_api_ng_redis:
+    state: exited
+    exit_code: 1

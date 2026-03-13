@@ -1,0 +1,5 @@
+services:
+  rei3:
+    state: exited
+    exit_code: 0
+    health: starting

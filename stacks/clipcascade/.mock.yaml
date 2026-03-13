@@ -1,0 +1,4 @@
+services:
+  clipcascade:
+    state: exited
+    exit_code: 0

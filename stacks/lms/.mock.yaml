@@ -1,0 +1,3 @@
+services:
+  lms:
+    state: paused

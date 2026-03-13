@@ -1,0 +1,3 @@
+services:
+  guacamole-db:
+    update_available: true

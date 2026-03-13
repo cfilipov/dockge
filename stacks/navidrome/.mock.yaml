@@ -1,0 +1,5 @@
+services:
+  navidrome:
+    state: exited
+    exit_code: 0
+    health: starting

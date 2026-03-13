@@ -1,0 +1,3 @@
+services:
+  ocular:
+    update_available: true

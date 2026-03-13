@@ -1,0 +1,3 @@
+services:
+  redis:
+    needs_recreation: true

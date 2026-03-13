@@ -1,0 +1,5 @@
+services:
+  web:
+    state: paused
+  elastic:
+    health: unhealthy

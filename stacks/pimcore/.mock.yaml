@@ -1,0 +1,5 @@
+services:
+  php:
+    update_available: true
+  supervisord:
+    update_available: true

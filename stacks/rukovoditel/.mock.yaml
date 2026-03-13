@@ -1,0 +1,7 @@
+services:
+  rukovoditel:
+    state: exited
+    exit_code: 1
+  db:
+    state: exited
+    exit_code: 0

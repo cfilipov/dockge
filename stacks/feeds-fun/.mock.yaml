@@ -1,0 +1,3 @@
+services:
+  postgresql:
+    needs_recreation: true

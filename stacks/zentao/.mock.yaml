@@ -1,0 +1,3 @@
+services:
+  zentao:
+    needs_recreation: true

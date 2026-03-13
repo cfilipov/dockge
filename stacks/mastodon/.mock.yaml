@@ -1,0 +1,5 @@
+services:
+  web:
+    update_available: true
+  sidekiq:
+    update_available: true

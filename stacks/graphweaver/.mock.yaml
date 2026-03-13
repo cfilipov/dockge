@@ -1,0 +1,3 @@
+services:
+  graphweaver:
+    update_available: true

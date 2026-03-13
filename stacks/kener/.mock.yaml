@@ -1,0 +1,3 @@
+services:
+  kener:
+    state: paused

@@ -1,0 +1,6 @@
+services:
+  celery_worker:
+    state: exited
+    exit_code: 1
+  celery_beat:
+    needs_recreation: true

@@ -1,0 +1,17 @@
+services:
+  appwrite-realtime:
+    state: exited
+    exit_code: 0
+    update_available: true
+  appwrite-worker-webhooks:
+    state: paused
+  appwrite-worker-functions:
+    state: paused
+  appwrite-worker-mails:
+    state: exited
+    exit_code: 0
+  appwrite-worker-messaging:
+    needs_recreation: true
+  appwrite-task-maintenance:
+    state: exited
+    exit_code: 1

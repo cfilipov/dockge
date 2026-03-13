@@ -1,0 +1,6 @@
+services:
+  moodle:
+    update_available: true
+  mariadb:
+    state: exited
+    exit_code: 0

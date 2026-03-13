@@ -1,0 +1,3 @@
+services:
+  uptime-kuma:
+    state: paused

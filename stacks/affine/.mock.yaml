@@ -1,0 +1,5 @@
+services:
+  affine:
+    needs_recreation: true
+  postgres:
+    needs_recreation: true

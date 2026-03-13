@@ -1,0 +1,6 @@
+services:
+  leantime_db:
+    state: exited
+    exit_code: 0
+  leantime:
+    update_available: true

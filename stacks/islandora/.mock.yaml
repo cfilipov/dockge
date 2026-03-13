@@ -1,0 +1,14 @@
+services:
+  cantaloupe:
+    update_available: true
+    needs_recreation: true
+  fcrepo:
+    state: exited
+    exit_code: 0
+  homarus:
+    state: paused
+  hypercube:
+    state: paused
+  solr:
+    state: exited
+    exit_code: 1

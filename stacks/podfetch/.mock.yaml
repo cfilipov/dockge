@@ -1,0 +1,3 @@
+services:
+  podfetch:
+    update_available: true

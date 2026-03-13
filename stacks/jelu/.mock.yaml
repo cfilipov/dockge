@@ -1,0 +1,3 @@
+services:
+  jelu:
+    update_available: true

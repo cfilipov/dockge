@@ -1,0 +1,5 @@
+services:
+  yaade:
+    state: exited
+    exit_code: 0
+    needs_recreation: true

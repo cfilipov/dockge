@@ -1,0 +1,4 @@
+services:
+  fossbilling:
+    state: exited
+    exit_code: 0

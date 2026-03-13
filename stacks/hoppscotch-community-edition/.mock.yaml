@@ -1,0 +1,5 @@
+services:
+  hoppscotch-aio:
+    needs_recreation: true
+  hoppscotch-db:
+    needs_recreation: true

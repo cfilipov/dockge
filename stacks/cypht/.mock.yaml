@@ -1,0 +1,6 @@
+services:
+  db:
+    health: unhealthy
+    needs_recreation: true
+  cypht:
+    needs_recreation: true

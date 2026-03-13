@@ -1,0 +1,7 @@
+services:
+  heplify-server:
+    state: exited
+    exit_code: 0
+  db:
+    state: exited
+    exit_code: 0

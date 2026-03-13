@@ -1,0 +1,3 @@
+services:
+  switchboard:
+    needs_recreation: true

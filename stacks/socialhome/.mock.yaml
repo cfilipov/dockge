@@ -1,0 +1,6 @@
+services:
+  socialhome:
+    needs_recreation: true
+  db:
+    state: exited
+    exit_code: 0

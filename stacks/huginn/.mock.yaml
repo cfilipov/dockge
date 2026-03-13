@@ -1,0 +1,8 @@
+services:
+  huginn:
+    state: exited
+    exit_code: 1
+    update_available: true
+  mysql:
+    state: exited
+    exit_code: 1

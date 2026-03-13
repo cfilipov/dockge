@@ -1,0 +1,3 @@
+services:
+  awstats:
+    needs_recreation: true

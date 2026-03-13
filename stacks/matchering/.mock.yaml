@@ -1,0 +1,4 @@
+services:
+  matchering:
+    state: exited
+    exit_code: 1

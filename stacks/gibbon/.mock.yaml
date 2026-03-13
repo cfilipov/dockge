@@ -1,0 +1,7 @@
+services:
+  gibbon:
+    state: exited
+    exit_code: 1
+  mariadb:
+    state: exited
+    exit_code: 0

@@ -1,0 +1,10 @@
+services:
+  alfresco:
+    needs_recreation: true
+  postgres:
+    health: unhealthy
+  solr6:
+    needs_recreation: true
+  activemq:
+    state: exited
+    exit_code: 0

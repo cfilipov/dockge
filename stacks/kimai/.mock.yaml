@@ -1,0 +1,3 @@
+services:
+  kimai:
+    update_available: true

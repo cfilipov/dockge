@@ -1,0 +1,4 @@
+services:
+  penpot-valkey:
+    state: exited
+    exit_code: 0

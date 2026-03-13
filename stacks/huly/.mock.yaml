@@ -1,0 +1,11 @@
+services:
+  mongodb:
+    state: exited
+    exit_code: 1
+    needs_recreation: true
+  account:
+    state: paused
+  front:
+    update_available: true
+  collaborator:
+    health: starting

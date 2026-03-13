@@ -1,0 +1,3 @@
+services:
+  gotify:
+    update_available: true

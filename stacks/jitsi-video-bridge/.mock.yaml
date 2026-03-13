@@ -1,0 +1,3 @@
+services:
+  jicofo:
+    update_available: true

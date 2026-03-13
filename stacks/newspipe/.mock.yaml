@@ -1,0 +1,6 @@
+services:
+  newspipe:
+    state: exited
+    exit_code: 0
+  newspipe-db:
+    needs_recreation: true

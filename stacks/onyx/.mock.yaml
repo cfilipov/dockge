@@ -1,0 +1,16 @@
+services:
+  api_server:
+    state: exited
+    exit_code: 0
+  web_server:
+    state: paused
+  inference_model_server:
+    state: exited
+    exit_code: 0
+  indexing_model_server:
+    needs_recreation: true
+  cache:
+    state: exited
+    exit_code: 0
+  nginx:
+    update_available: true

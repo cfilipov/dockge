@@ -1,0 +1,12 @@
+services:
+  redis:
+    state: exited
+    exit_code: 0
+  mongodb:
+    needs_recreation: true
+  api:
+    state: exited
+    exit_code: 0
+  worker:
+    state: exited
+    exit_code: 1

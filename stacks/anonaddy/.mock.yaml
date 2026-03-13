@@ -1,0 +1,6 @@
+services:
+  redis:
+    health: starting
+  addy:
+    state: exited
+    exit_code: 0

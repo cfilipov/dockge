@@ -1,0 +1,4 @@
+services:
+  mysql:
+    health: unhealthy
+    needs_recreation: true

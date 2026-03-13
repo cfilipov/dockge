@@ -1,0 +1,15 @@
+services:
+  backendAction:
+    needs_recreation: true
+  autoupdate:
+    state: paused
+  search:
+    state: exited
+    exit_code: 1
+  auth:
+    update_available: true
+  redis:
+    state: exited
+    exit_code: 0
+  media:
+    needs_recreation: true

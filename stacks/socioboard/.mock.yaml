@@ -1,0 +1,4 @@
+services:
+  socioboard-mysql:
+    state: paused
+    needs_recreation: true

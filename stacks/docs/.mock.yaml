@@ -1,0 +1,6 @@
+services:
+  docs-frontend:
+    state: exited
+    exit_code: 0
+  redis:
+    health: starting

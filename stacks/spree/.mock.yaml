@@ -1,0 +1,5 @@
+services:
+  postgres:
+    state: paused
+  redis:
+    health: unhealthy

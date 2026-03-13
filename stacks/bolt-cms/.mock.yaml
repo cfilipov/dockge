@@ -1,0 +1,6 @@
+services:
+  php:
+    health: starting
+    update_available: true
+  db:
+    update_available: true

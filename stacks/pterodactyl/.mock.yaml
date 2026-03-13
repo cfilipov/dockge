@@ -1,0 +1,5 @@
+services:
+  panel:
+    state: exited
+    exit_code: 0
+    health: unhealthy

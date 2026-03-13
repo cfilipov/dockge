@@ -1,0 +1,3 @@
+services:
+  mediagoblin:
+    update_available: true
