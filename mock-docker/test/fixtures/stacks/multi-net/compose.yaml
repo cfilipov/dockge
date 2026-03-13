@@ -1,0 +1,19 @@
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    networks:
+      - frontend
+    depends_on:
+      - api
+  api:
+    image: node:20-alpine
+    command: node server.js
+    networks:
+      - frontend
+      - backend
+
+networks:
+  frontend:
+  backend:

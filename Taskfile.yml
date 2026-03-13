@@ -45,6 +45,18 @@ tasks:
     generates:
       - bin/docker
 
+  build-mock-docker-ts:
+    desc: Build TypeScript mock docker CLI binary
+    dir: mock-docker
+    cmds:
+      - npm run build:cli
+      - cp dist/docker ../bin/docker
+    sources:
+      - mock-docker/cli/**/*.ts
+      - mock-docker/src/**/*.ts
+    generates:
+      - bin/docker
+
   build-mock-daemon:
     desc: Build mock daemon binary for dev/test
     cmd: go build -o bin/mock-daemon ./cmd/mock-daemon

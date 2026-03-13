@@ -1,0 +1,8 @@
+services:
+  app:
+    image: node:20-alpine
+    command: node server.js
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production

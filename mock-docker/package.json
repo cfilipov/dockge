@@ -1,0 +1,20 @@
+{
+    "name": "@dockge/mock-docker",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "tsc",
+        "build:cli": "bun build --compile cli/index.ts --outfile dist/docker",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "dependencies": {
+        "yaml": "^2.7.1"
+    },
+    "devDependencies": {
+        "@types/node": "^22.15.3",
+"typescript": "^5.8.3",
+        "vitest": "^3.1.3"
+    }
+}

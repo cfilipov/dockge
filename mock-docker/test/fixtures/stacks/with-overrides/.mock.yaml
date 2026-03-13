@@ -1,0 +1,11 @@
+services:
+  web:
+    state: running
+    health: healthy
+  worker:
+    state: exited
+    exit_code: 137
+  db:
+    state: running
+    health: unhealthy
+    update_available: true
