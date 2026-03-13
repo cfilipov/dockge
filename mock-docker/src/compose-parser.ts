@@ -201,6 +201,26 @@ export function parsePorts(raw: unknown): ParsedPort[] {
     });
 }
 
+/**
+ * Resolve env var references in a string by extracting their default values.
+ * ${VAR:-default} → default, ${VAR-default} → default, ${VAR} → "" (removed).
+ * This is needed before splitting port strings on ":" since the env var syntax
+ * contains colons that would break the host:port splitting.
+ */
+function resolveEnvVarDefaults(s: string): string {
+    // Match ${...} patterns, handling nested braces is not needed for port strings
+    return s.replace(/\$\{([^}]*)\}/g, (_match, inner: string) => {
+        // ${VAR:-default} — use default
+        const colonDash = inner.indexOf(":-");
+        if (colonDash !== -1) return inner.slice(colonDash + 2);
+        // ${VAR-default} — use default
+        const dash = inner.indexOf("-");
+        if (dash !== -1) return inner.slice(dash + 1);
+        // ${VAR} with no default — remove entirely
+        return "";
+    });
+}
+
 function parsePortShort(str: string): ParsedPort[] {
     let protocol: "tcp" | "udp" = "tcp";
     let portStr = str;
@@ -212,6 +232,10 @@ function parsePortShort(str: string): ParsedPort[] {
     } else if (portStr.endsWith("/tcp")) {
         portStr = portStr.slice(0, -4);
     }
+
+    // Resolve env var references like ${VAR:-default} or ${VAR} before splitting on ":"
+    // This prevents "${PORT:-8080}:80" from being mis-split on the ":-" colon.
+    portStr = resolveEnvVarDefaults(portStr);
 
     let hostIp = "";
     let published: number | undefined;
@@ -258,7 +282,8 @@ function parsePortShort(str: string): ParsedPort[] {
 }
 
 function parsePortNum(s: string): number {
-    return parseInt(s, 10);
+    const n = parseInt(s, 10);
+    return isNaN(n) ? 0 : n;
 }
 
 function parsePortLong(obj: Record<string, unknown>): ParsedPort {

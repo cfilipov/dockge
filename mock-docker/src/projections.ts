@@ -79,7 +79,10 @@ function flattenPorts(ports: Record<string, Array<{ HostIp: string; HostPort: st
             for (const b of bindings) {
                 const entry: PortInfo = { PrivatePort: privatePort, Type: type };
                 if (b.HostPort) {
-                    entry.PublicPort = parseInt(b.HostPort, 10);
+                    const pubPort = parseInt(b.HostPort, 10);
+                    if (!isNaN(pubPort) && pubPort >= 0 && pubPort <= 65535) {
+                        entry.PublicPort = pubPort;
+                    }
                 }
                 if (b.HostIp) {
                     entry.IP = b.HostIp;

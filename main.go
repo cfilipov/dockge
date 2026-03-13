@@ -237,9 +237,18 @@ func main() {
 
 	// No-auth mode: auto-authenticate every connection as user 1
 	// and send initial state (afterLogin starts the watcher + sends all 6 channels).
+	// NOTE: This overrides the HandleConnect set in RegisterAuth, so we must
+	// also send the "info" event that the auth handler's connect callback sends.
 	if cfg.NoAuth {
 		slog.Warn("authentication disabled (--no-auth)")
 		wss.HandleConnect(func(c *ws.Conn) {
+			// Send server info (normally sent by auth's connect handler)
+			ws.SendEvent(c, "info", map[string]interface{}{
+				"version":       app.Version,
+				"latestVersion": app.Version,
+				"isContainer":   true,
+				"dev":           app.Dev,
+			})
 			c.SetUser(1)
 			app.AfterLogin(c)
 		})
