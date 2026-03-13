@@ -1,0 +1,37 @@
+services:
+  anchr:
+    image: ghcr.io/muety/anchr:latest
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    volumes:
+      - anchr_data:/app/data
+    environment:
+      - PORT=${PORT:-3000}
+      - LISTEN_ADDR=0.0.0.0
+      - ANCHR_PUBLIC_URL=${ANCHR_PUBLIC_URL:-http://localhost:3000}
+      - ANCHR_DB_HOST=mongo
+      - ANCHR_DB_PORT=27017
+      - ANCHR_DB_USER=${ANCHR_DB_USER:-anchr}
+      - ANCHR_DB_PASSWORD=${ANCHR_DB_PASSWORD:-anchr_secret}
+      - ANCHR_DB_NAME=${ANCHR_DB_NAME:-anchr}
+      - ANCHR_UPLOAD_DIR=/app/data
+      - ANCHR_SECRET=${ANCHR_SECRET:-changeme_random_secret}
+      - ANCHR_BASIC_AUTH=${ANCHR_BASIC_AUTH:-true}
+      - ANCHR_ALLOW_SIGNUP=${ANCHR_ALLOW_SIGNUP:-true}
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:6.0
+    volumes:
+      - anchr_db_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${ANCHR_DB_USER:-anchr}
+      - MONGO_INITDB_ROOT_PASSWORD=${ANCHR_DB_PASSWORD:-anchr_secret}
+      - MONGO_INITDB_DATABASE=${ANCHR_DB_NAME:-anchr}
+    restart: unless-stopped
+
+volumes:
+  anchr_data:
+  anchr_db_data:

@@ -1,0 +1,15 @@
+services:
+  picoshare:
+    image: mtlynch/picoshare:latest
+    container_name: picoshare
+    restart: unless-stopped
+    ports:
+      - "${PICOSHARE_PORT:-4001}:4001"
+    volumes:
+      - data:/data
+    environment:
+      PORT: "4001"
+      PS_SHARED_SECRET: ${PS_SHARED_SECRET:-somesecretpass}
+
+volumes:
+  data:

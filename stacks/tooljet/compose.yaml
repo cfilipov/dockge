@@ -1,0 +1,41 @@
+services:
+  tooljet:
+    image: tooljet/tooljet-ce:latest
+    container_name: tooljet
+    tty: true
+    stdin_open: true
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      SERVE_CLIENT: "true"
+      PORT: "80"
+      TOOLJET_HOST: ${TOOLJET_HOST}
+      LOCKBOX_MASTER_KEY: ${LOCKBOX_MASTER_KEY}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      PG_DB: ${PG_DB}
+      PG_USER: ${PG_USER}
+      PG_HOST: postgres
+      PG_PASS: ${PG_PASS}
+      TOOLJET_DB: ${TOOLJET_DB}
+      TOOLJET_DB_USER: ${TOOLJET_DB_USER}
+      TOOLJET_DB_HOST: postgres
+      TOOLJET_DB_PASS: ${TOOLJET_DB_PASS}
+      DEPLOYMENT_PLATFORM: docker
+    depends_on:
+      - postgres
+    command: npm run start:prod
+
+  postgres:
+    image: postgres:13
+    container_name: tooljet-postgres
+    restart: always
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASS}
+      POSTGRES_DB: ${PG_DB}
+
+volumes:
+  postgres:

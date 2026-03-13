@@ -1,0 +1,29 @@
+services:
+  typo3:
+    image: martinhelmich/typo3:13
+    ports:
+      - "8080:80"
+    volumes:
+      - fileadmin:/var/www/html/fileadmin
+      - typo3conf:/var/www/html/typo3conf
+      - typo3temp:/var/www/html/typo3temp
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: typo3
+      MYSQL_USER: typo3
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  fileadmin:
+  typo3conf:
+  typo3temp:
+  db_data:

@@ -1,0 +1,11 @@
+services:
+  openreader:
+    image: richardr1126/openreader-webui:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:7860"
+    volumes:
+      - openreader_data:/app/data
+
+volumes:
+  openreader_data:

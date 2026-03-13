@@ -1,0 +1,16 @@
+pages:
+  - name: Home
+    columns:
+      - size: small
+        widgets:
+          - type: calendar
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://hnrss.org/frontpage
+                title: Hacker News
+      - size: small
+        widgets:
+          - type: weather
+            location: New York, USA

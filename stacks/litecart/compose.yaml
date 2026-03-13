@@ -1,0 +1,17 @@
+services:
+  litecart:
+    image: shurco/litecart:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - lc-base:/lc_base
+      - lc-digitals:/lc_digitals
+      - lc-uploads:/lc_uploads
+      - site:/site
+
+volumes:
+  lc-base:
+  lc-digitals:
+  lc-uploads:
+  site:

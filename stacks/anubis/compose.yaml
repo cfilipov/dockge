@@ -1,0 +1,21 @@
+services:
+  anubis:
+    image: ghcr.io/techarohq/anubis:latest
+    container_name: anubis
+    ports:
+      - "${PORT:-8923}:8923"
+    environment:
+      - BIND=:8923
+      - DIFFICULTY=${DIFFICULTY:-4}
+      - METRICS_BIND=${METRICS_BIND:-:9090}
+      - SERVE_ROBOTS_TXT=${SERVE_ROBOTS_TXT:-true}
+      - TARGET=${TARGET:-http://backend:80}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    image: nginx:alpine
+    restart: unless-stopped
+
+volumes: {}

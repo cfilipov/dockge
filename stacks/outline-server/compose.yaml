@@ -1,0 +1,17 @@
+services:
+  shadowbox:
+    image: quay.io/nicedream2/outline-shadowbox:latest
+    container_name: outline-shadowbox
+    restart: always
+    ports:
+      - "${API_PORT}:${API_PORT}"
+      - "${SS_PORT}:${SS_PORT}"
+      - "${SS_PORT}:${SS_PORT}/udp"
+    environment:
+      - SB_API_PORT=${API_PORT}
+      - SB_API_PREFIX=${API_PREFIX}
+      - SB_CERTIFICATE_FILE=/tmp/shadowbox-selfsigned-dev.crt
+      - SB_PRIVATE_KEY_FILE=/tmp/shadowbox-selfsigned-dev.key
+    volumes:
+      - ./persisted-state:/root/shadowbox/persisted-state
+      - ./shadowbox_config.json:/opt/outline/shadowbox_config.json

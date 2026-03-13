@@ -1,0 +1,9 @@
+services:
+  wbo:
+    image: lovasoa/wbo:latest
+    container_name: wbo
+    ports:
+      - "5001:80"
+    volumes:
+      - ./wbo-boards:/opt/app/server-data
+    restart: unless-stopped

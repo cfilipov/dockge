@@ -1,0 +1,10 @@
+services:
+  bifroest:
+    image: ghcr.io/engity-com/bifroest
+    container_name: bifroest
+    restart: unless-stopped
+    ports:
+      - "${SSH_PORT}:22"
+    volumes:
+      - ./configuration.yaml:/etc/engity/bifroest/configuration.yaml:ro
+      - ./data:/var/lib/engity/bifroest

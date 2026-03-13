@@ -1,0 +1,15 @@
+services:
+  rgit:
+    image: ghcr.io/w4/rgit:main
+    restart: unless-stopped
+    command:
+      - "[::]:8000"
+      - /git
+      - -d
+      - /tmp/rgit-cache.db
+    ports:
+      - "${HTTP_PORT:-8000}:8000"
+    environment:
+      REFRESH_INTERVAL: ${REFRESH_INTERVAL:-5m}
+    volumes:
+      - ${GIT_REPOS_PATH:-./repos}:/git:ro

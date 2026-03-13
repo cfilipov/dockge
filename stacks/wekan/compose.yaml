@@ -1,0 +1,36 @@
+services:
+  wekandb:
+    image: mongo:7
+    restart: unless-stopped
+    command: mongod --logpath /dev/null --oplogSize 128 --quiet
+    volumes:
+      - wekan-db:/data/db
+      - wekan-db-dump:/dump
+    networks:
+      - wekan-tier
+
+  wekan:
+    image: ghcr.io/wekan/wekan:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-80}:8080"
+    environment:
+      WRITABLE_PATH: /data
+      MONGO_URL: mongodb://wekandb:27017/wekan
+      ROOT_URL: ${ROOT_URL}
+      MAIL_URL: ${MAIL_URL:-smtp://localhost:25/?ignoreTLS=true}
+      MAIL_FROM: ${MAIL_FROM:-Wekan Notifications <noreply@example.com>}
+    volumes:
+      - wekan-data:/data
+    networks:
+      - wekan-tier
+    depends_on:
+      - wekandb
+
+volumes:
+  wekan-db:
+  wekan-db-dump:
+  wekan-data:
+
+networks:
+  wekan-tier:

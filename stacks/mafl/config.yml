@@ -1,0 +1,8 @@
+title: Mafl Dashboard
+services:
+  - title: Example
+    description: An example service
+    link: https://example.com
+    icon:
+      name: globe
+      wrap: true

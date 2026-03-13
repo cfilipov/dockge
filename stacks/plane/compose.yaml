@@ -1,0 +1,101 @@
+services:
+  web:
+    image: makeplane/plane-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: node web/server.js web
+
+  space:
+    image: makeplane/plane-space:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: node space/server.js space
+
+  admin:
+    image: makeplane/plane-admin:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: node admin/server.js admin
+
+  api:
+    image: makeplane/plane-backend:latest
+    restart: unless-stopped
+    command: ./bin/docker-entrypoint-api.sh
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@plane-db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://plane-redis:6379/
+      SECRET_KEY: ${SECRET_KEY}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    depends_on:
+      - plane-db
+      - plane-redis
+
+  worker:
+    image: makeplane/plane-backend:latest
+    restart: unless-stopped
+    command: ./bin/docker-entrypoint-worker.sh
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@plane-db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://plane-redis:6379/
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - api
+      - plane-db
+      - plane-redis
+
+  beat-worker:
+    image: makeplane/plane-backend:latest
+    restart: unless-stopped
+    command: ./bin/docker-entrypoint-beat.sh
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@plane-db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://plane-redis:6379/
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - api
+      - plane-db
+      - plane-redis
+
+  proxy:
+    image: makeplane/plane-proxy:latest
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8082}:80"
+    depends_on:
+      - web
+      - api
+      - space
+
+  plane-db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  plane-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  plane-minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /export --console-address ":9090"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - uploads:/export
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:

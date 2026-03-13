@@ -1,0 +1,32 @@
+services:
+  wackowiki:
+    image: trojer/wackowiki:${WACKOWIKI_VERSION:-latest}
+    container_name: wackowiki
+    restart: unless-stopped
+    ports:
+      - "${WACKOWIKI_PORT:-8080}:80"
+    volumes:
+      - wackowiki-data:/var/www/html
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${MYSQL_DATABASE:-wackowiki}
+      - DB_USER=${MYSQL_USER:-wackowiki}
+      - DB_PASSWORD=${MYSQL_PASSWORD:-changeme}
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: wackowiki-db
+    restart: unless-stopped
+    volumes:
+      - wackowiki-db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootchangeme}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-wackowiki}
+      - MYSQL_USER=${MYSQL_USER:-wackowiki}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+
+volumes:
+  wackowiki-data:
+  wackowiki-db:

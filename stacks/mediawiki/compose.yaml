@@ -1,0 +1,33 @@
+services:
+  mediawiki:
+    image: mediawiki:stable
+    container_name: mediawiki
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "${MEDIAWIKI_PORT:-8080}:80"
+    environment:
+      - MEDIAWIKI_DB_HOST=db
+      - MEDIAWIKI_DB_NAME=${MEDIAWIKI_DB_NAME:-mediawiki}
+      - MEDIAWIKI_DB_USER=${MEDIAWIKI_DB_USER:-mediawiki}
+      - MEDIAWIKI_DB_PASSWORD=${MEDIAWIKI_DB_PASSWORD:-mediawiki_secret}
+    volumes:
+      - mediawiki_images:/var/www/html/images
+      - ./LocalSettings.php:/var/www/html/LocalSettings.php:ro
+
+  db:
+    image: mariadb:11
+    container_name: mediawiki-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_secret}
+      - MYSQL_DATABASE=${MEDIAWIKI_DB_NAME:-mediawiki}
+      - MYSQL_USER=${MEDIAWIKI_DB_USER:-mediawiki}
+      - MYSQL_PASSWORD=${MEDIAWIKI_DB_PASSWORD:-mediawiki_secret}
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  mediawiki_images:
+  db_data:

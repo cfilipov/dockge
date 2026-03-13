@@ -1,0 +1,9 @@
+services:
+  glance:
+    image: glanceapp/glance:latest
+    container_name: glance
+    ports:
+      - "${GLANCE_PORT:-8080}:8080"
+    volumes:
+      - ./glance.yml:/app/glance.yml
+    restart: unless-stopped

@@ -1,0 +1,14 @@
+services:
+  graphhopper:
+    image: israelhikingmap/graphhopper:latest
+    container_name: graphhopper
+    restart: unless-stopped
+    ports:
+      - "${GRAPHHOPPER_PORT}:8989"
+    volumes:
+      - graphhopper_data:/data
+    environment:
+      JAVA_OPTS: ${JAVA_OPTS}
+
+volumes:
+  graphhopper_data:

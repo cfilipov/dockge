@@ -1,0 +1,45 @@
+services:
+  medusa:
+    image: medusajs/medusa:latest
+    restart: unless-stopped
+    ports:
+      - "${MEDUSA_PORT:-9000}:9000"
+    environment:
+      DATABASE_URL: postgres://${DB_USERNAME:-medusa}:${DB_PASSWORD:-medusa}@postgres:5432/${DB_DATABASE:-medusa}
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-supersecret}
+      COOKIE_SECRET: ${COOKIE_SECRET:-supersecret}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - medusa
+
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-medusa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-medusa}
+      POSTGRES_DB: ${DB_DATABASE:-medusa}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - medusa
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - medusa
+
+networks:
+  medusa:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:

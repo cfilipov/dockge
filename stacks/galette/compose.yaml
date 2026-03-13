@@ -1,0 +1,46 @@
+services:
+  mariadb:
+    image: mariadb:${MARIADB_VERSION}
+    restart: always
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+
+  galette:
+    image: galette/galette:${GALETTE_VERSION}
+    restart: always
+    depends_on:
+      - mariadb
+    ports:
+      - "${PORT:-8080}:80"
+    environment:
+      - TZ=${TZ}
+      - RM_INSTALL_FOLDER=0
+    volumes:
+      - galette-attachments:/var/www/galette/data/attachments
+      - galette-cache:/var/www/galette/data/cache
+      - galette-files:/var/www/galette/data/files
+      - galette-plugins:/var/www/galette/data/plugins
+      - galette-logs:/var/www/galette/data/logs
+      - galette-photos:/var/www/galette/data/photos
+      - galette-tempimages:/var/www/galette/data/tempimages
+      - galette-templates:/var/www/galette/data/templates_c
+      - galette-config:/var/www/galette/config
+
+volumes:
+  mariadb-data:
+  galette-attachments:
+  galette-cache:
+  galette-files:
+  galette-plugins:
+  galette-logs:
+  galette-photos:
+  galette-tempimages:
+  galette-templates:
+  galette-config:

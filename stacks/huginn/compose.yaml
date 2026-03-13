@@ -1,0 +1,32 @@
+services:
+  huginn:
+    image: ghcr.io/huginn/huginn
+    container_name: huginn
+    ports:
+      - "3000:3000"
+    environment:
+      - HUGINN_DATABASE_ADAPTER=mysql2
+      - HUGINN_DATABASE_HOST=mysql
+      - HUGINN_DATABASE_PORT=3306
+      - HUGINN_DATABASE_NAME=huginn
+      - HUGINN_DATABASE_USERNAME=huginn
+      - HUGINN_DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - APP_SECRET_TOKEN=${APP_SECRET_TOKEN}
+    depends_on:
+      - mysql
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: huginn-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+      MYSQL_DATABASE: huginn
+      MYSQL_USER: huginn
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

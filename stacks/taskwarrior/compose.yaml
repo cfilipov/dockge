@@ -1,0 +1,16 @@
+services:
+  taskchampion-sync-server:
+    image: agileit/taskchampion-sync-server:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - data:/var/lib/taskchampion-sync-server
+    environment:
+      LISTEN: "0.0.0.0:8080"
+      DATA_DIR: /var/lib/taskchampion-sync-server
+      SNAPSHOT_DAYS: "${SNAPSHOT_DAYS:-14}"
+      SNAPSHOT_VERSIONS: "${SNAPSHOT_VERSIONS:-100}"
+
+volumes:
+  data:

@@ -1,0 +1,11 @@
+services:
+  yaade:
+    image: esperotech/yaade:latest
+    restart: unless-stopped
+    ports:
+      - "${YAADE_PORT:-9339}:9339"
+    volumes:
+      - yaade-data:/app/data
+
+volumes:
+  yaade-data:

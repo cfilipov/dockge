@@ -1,0 +1,16 @@
+services:
+  cups:
+    image: ydkn/cups:latest
+    container_name: cups
+    ports:
+      - "${PORT:-631}:631"
+    volumes:
+      - cups_config:/etc/cups
+      - cups_spool:/var/spool/cups
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+    restart: unless-stopped
+
+volumes:
+  cups_config:
+  cups_spool:

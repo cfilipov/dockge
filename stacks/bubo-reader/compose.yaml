@@ -1,0 +1,14 @@
+services:
+  bubo-reader:
+    image: node:20-alpine
+    container_name: bubo-reader
+    restart: unless-stopped
+    ports:
+      - "${BUBO_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - bubo_data:/app/data
+
+volumes:
+  bubo_data:

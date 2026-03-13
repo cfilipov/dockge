@@ -1,0 +1,11 @@
+services:
+  gerbera:
+    image: gerbera/gerbera:latest
+    container_name: gerbera
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config:/var/run/gerbera
+      - ${MEDIA_PATH}:/content:ro

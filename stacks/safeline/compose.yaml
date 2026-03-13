@@ -1,0 +1,69 @@
+networks:
+  safeline-ce:
+    name: safeline-ce
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - gateway: ${SUBNET_PREFIX:-172.22.222}.1
+          subnet: ${SUBNET_PREFIX:-172.22.222}.0/24
+    driver_opts:
+      com.docker.network.bridge.name: safeline-ce
+
+services:
+  postgres:
+    image: ${IMAGE_PREFIX:-swr.cn-east-3.myhuaweicloud.com/chaitin-safeline}/safeline-postgres:15.2
+    container_name: safeline-pg
+    restart: always
+    volumes:
+      - ./resources/postgres/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=safeline-ce
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+    networks:
+      safeline-ce:
+        ipv4_address: ${SUBNET_PREFIX:-172.22.222}.2
+    command: [postgres, -c, max_connections=600]
+    healthcheck:
+      test: pg_isready -U safeline-ce -d safeline-ce
+
+  mgt:
+    image: ${IMAGE_PREFIX:-swr.cn-east-3.myhuaweicloud.com/chaitin-safeline}/safeline-mgt:${IMAGE_TAG:-latest}
+    container_name: safeline-mgt
+    restart: always
+    ports:
+      - "${MGT_PORT:-9443}:1443"
+    environment:
+      - MGT_PG=postgres://safeline-ce:${POSTGRES_PASSWORD:-changeme}@safeline-pg/safeline-ce?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      safeline-ce:
+        ipv4_address: ${SUBNET_PREFIX:-172.22.222}.4
+
+  detect:
+    image: ${IMAGE_PREFIX:-swr.cn-east-3.myhuaweicloud.com/chaitin-safeline}/safeline-detector:${IMAGE_TAG:-latest}
+    container_name: safeline-detector
+    restart: always
+    volumes:
+      - ./resources/detector:/resources/detector
+      - ./logs/detector:/logs/detector
+    environment:
+      - LOG_DIR=/logs/detector
+    networks:
+      safeline-ce:
+        ipv4_address: ${SUBNET_PREFIX:-172.22.222}.5
+
+  tengine:
+    image: ${IMAGE_PREFIX:-swr.cn-east-3.myhuaweicloud.com/chaitin-safeline}/safeline-tengine:${IMAGE_TAG:-latest}
+    container_name: safeline-tengine
+    restart: always
+    volumes:
+      - ./resources/nginx:/etc/nginx
+      - ./logs/nginx:/var/log/nginx:z
+    environment:
+      - TCD_SNSERVER=${SUBNET_PREFIX:-172.22.222}.5:8000
+    ulimits:
+      nofile: 131072
+    network_mode: host

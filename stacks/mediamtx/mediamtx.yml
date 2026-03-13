@@ -1,0 +1,38 @@
+# MediaMTX configuration
+# Full reference: https://github.com/bluenviron/mediamtx/blob/main/mediamtx.yml
+
+# Global settings
+logLevel: info
+logDestinations: [stdout]
+
+# API
+api: yes
+apiAddress: :9997
+
+# RTSP server
+rtsp: yes
+rtspAddress: :8554
+protocols: [tcp]
+
+# RTMP server
+rtmp: yes
+rtmpAddress: :1935
+
+# HLS server
+hls: yes
+hlsAddress: :8888
+
+# WebRTC server
+webrtc: yes
+webrtcAddress: :8889
+
+# SRT server
+srt: yes
+srtAddress: :8890
+
+# Default path settings
+pathDefaults:
+  source: publisher
+
+paths:
+  all_others:

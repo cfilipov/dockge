@@ -1,0 +1,47 @@
+services:
+  invidious:
+    image: quay.io/invidious/invidious:latest
+    container_name: invidious
+    restart: unless-stopped
+    ports:
+      - "${INVIDIOUS_PORT:-3000}:3000"
+    environment:
+      INVIDIOUS_CONFIG: |
+        db:
+          dbname: ${POSTGRES_DB}
+          user: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+          host: invidious-db
+          port: 5432
+        check_tables: true
+        external_port: 443
+        domain: ${INVIDIOUS_DOMAIN}
+        https_only: false
+        hmac_key: ${HMAC_KEY}
+    healthcheck:
+      test: ["CMD", "wget", "-nv", "--tries=1", "--spider", "http://127.0.0.1:3000/api/v1/stats"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+    depends_on:
+      invidious-db:
+        condition: service_healthy
+
+  invidious-db:
+    image: postgres:14-alpine
+    container_name: invidious-db
+    restart: unless-stopped
+    volumes:
+      - invidious-db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  invidious-db:

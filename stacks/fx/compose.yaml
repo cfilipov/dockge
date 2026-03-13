@@ -1,0 +1,18 @@
+services:
+  fx:
+    image: rikhuijzer/fx:1
+    container_name: fx
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data:rw
+    environment:
+      FX_USERNAME: ${FX_USERNAME}
+      FX_PASSWORD: ${FX_PASSWORD}
+      FX_DOMAIN: ${FX_DOMAIN}
+    healthcheck:
+      test: ["/fx", "check-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped

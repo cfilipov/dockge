@@ -1,0 +1,18 @@
+services:
+  opentrashmail:
+    image: hascheksolutions/opentrashmail:1
+    container_name: opentrashmail
+    volumes:
+      - ./data:/var/www/opentrashmail/data
+      - ./logs:/var/www/opentrashmail/logs
+    environment:
+      - URL=http://localhost:8080
+      - DOMAINS=example.com
+      - DATEFORMAT=D.M.YYYY HH:mm
+      - SKIP_FILEPERMISSIONS=true
+      - DISCARD_UNKNOWN=false
+      - ADMIN_ENABLED=true
+    ports:
+      - "2525:25"
+      - "8080:80"
+    restart: unless-stopped

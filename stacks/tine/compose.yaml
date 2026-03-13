@@ -1,0 +1,65 @@
+services:
+  tine:
+    image: tinegroupware/tine:${TINE_VERSION:-latest}
+    container_name: tine
+    restart: unless-stopped
+    ports:
+      - "${TINE_PORT:-8080}:80"
+    environment:
+      TINE20_DATABASE_HOST: db
+      TINE20_DATABASE_DBNAME: ${TINE20_DATABASE_DBNAME}
+      TINE20_DATABASE_USERNAME: ${TINE20_DATABASE_USERNAME}
+      TINE20_DATABASE_PASSWORD: ${TINE20_DATABASE_PASSWORD}
+      TINE20_DATABASE_ADAPTER: pdo_mysql
+      TINE20_SETUPUSER_USERNAME: ${TINE20_SETUPUSER_USERNAME}
+      TINE20_SETUPUSER_PASSWORD: ${TINE20_SETUPUSER_PASSWORD}
+      TINE20_LOGIN_USERNAME: ${TINE20_LOGIN_USERNAME}
+      TINE20_LOGIN_PASSWORD: ${TINE20_LOGIN_PASSWORD}
+      TINE20_CACHING_ACTIVE: "true"
+      TINE20_CACHING_BACKEND: Redis
+      TINE20_CACHING_REDIS_HOST: redis
+      TINE20_SESSION_BACKEND: Redis
+      TINE20_SESSION_HOST: redis
+      TINE20_CREDENTIALCACHESCHAREDKEY: ${TINE20_CREDENTIALCACHESCHAREDKEY}
+    volumes:
+      - tine_files:/var/lib/tine20/files
+      - tine_tmp:/var/lib/tine20/tmp
+    depends_on:
+      - db
+      - redis
+    networks:
+      - tine
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: tine-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${TINE20_DATABASE_DBNAME}
+      MYSQL_USER: ${TINE20_DATABASE_USERNAME}
+      MYSQL_PASSWORD: ${TINE20_DATABASE_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - tine
+
+  redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: tine-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - tine
+
+volumes:
+  tine_files:
+  tine_tmp:
+  db_data:
+  redis_data:
+
+networks:
+  tine:
+    driver: bridge

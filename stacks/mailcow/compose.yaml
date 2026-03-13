@@ -1,0 +1,219 @@
+services:
+  unbound:
+    image: ghcr.io/mailcow/unbound:1.25
+    container_name: mailcow-unbound
+    restart: always
+    networks:
+      mailcow:
+        ipv4_address: 172.22.1.254
+
+  mysql:
+    image: mariadb:10.11
+    container_name: mailcow-mysql
+    volumes:
+      - mysql-vol:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DBROOT}
+      - MYSQL_DATABASE=${DBNAME}
+      - MYSQL_USER=${DBUSER}
+      - MYSQL_PASSWORD=${DBPASS}
+    restart: always
+    networks:
+      mailcow:
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: mailcow-redis
+    volumes:
+      - redis-vol:/data
+    restart: always
+    networks:
+      mailcow:
+
+  rspamd:
+    image: ghcr.io/mailcow/rspamd:3.14.3-1
+    container_name: mailcow-rspamd
+    depends_on:
+      - redis
+    volumes:
+      - rspamd-vol:/var/lib/rspamd
+    restart: always
+    networks:
+      mailcow:
+
+  clamd:
+    image: ghcr.io/mailcow/clamd:1.71
+    container_name: mailcow-clamd
+    volumes:
+      - clamd-vol:/var/lib/clamav
+    restart: always
+    networks:
+      mailcow:
+
+  php-fpm:
+    image: ghcr.io/mailcow/phpfpm:8.2.29-2
+    container_name: mailcow-phpfpm
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      - DBNAME=${DBNAME}
+      - DBUSER=${DBUSER}
+      - DBPASS=${DBPASS}
+      - DBHOST=mysql
+      - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+    restart: always
+    networks:
+      mailcow:
+
+  sogo:
+    image: ghcr.io/mailcow/sogo:5.12.5-3
+    container_name: mailcow-sogo
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      - DBNAME=${DBNAME}
+      - DBUSER=${DBUSER}
+      - DBPASS=${DBPASS}
+      - DBHOST=mysql
+      - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+    restart: always
+    networks:
+      mailcow:
+
+  dovecot:
+    image: ghcr.io/mailcow/dovecot:2.3.21.1-1
+    container_name: mailcow-dovecot
+    depends_on:
+      - mysql
+    volumes:
+      - vmail-vol:/var/vmail
+    ports:
+      - "143:143"
+      - "993:993"
+      - "110:110"
+      - "995:995"
+      - "4190:4190"
+    environment:
+      - DBNAME=${DBNAME}
+      - DBUSER=${DBUSER}
+      - DBPASS=${DBPASS}
+      - DBHOST=mysql
+    restart: always
+    networks:
+      mailcow:
+
+  postfix:
+    image: ghcr.io/mailcow/postfix:3.7.11-2
+    container_name: mailcow-postfix
+    depends_on:
+      - mysql
+      - unbound
+    ports:
+      - "25:25"
+      - "465:465"
+      - "587:587"
+    environment:
+      - DBNAME=${DBNAME}
+      - DBUSER=${DBUSER}
+      - DBPASS=${DBPASS}
+      - DBHOST=mysql
+    restart: always
+    networks:
+      mailcow:
+
+  nginx:
+    image: ghcr.io/mailcow/nginx:1.06
+    container_name: mailcow-nginx
+    depends_on:
+      - php-fpm
+      - sogo
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+    restart: always
+    networks:
+      mailcow:
+
+  acme:
+    image: ghcr.io/mailcow/acme:1.96
+    container_name: mailcow-acme
+    depends_on:
+      - nginx
+    environment:
+      - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+    restart: always
+    networks:
+      mailcow:
+
+  watchdog:
+    image: ghcr.io/mailcow/watchdog:2.11
+    container_name: mailcow-watchdog
+    depends_on:
+      - postfix
+      - dovecot
+      - mysql
+      - redis
+    restart: always
+    networks:
+      mailcow:
+
+  netfilter:
+    image: ghcr.io/mailcow/netfilter:1.64
+    container_name: mailcow-netfilter
+    restart: always
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  dockerapi:
+    image: ghcr.io/mailcow/dockerapi:2.12
+    container_name: mailcow-dockerapi
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: always
+    networks:
+      mailcow:
+
+  olefy:
+    image: ghcr.io/mailcow/olefy:1.15
+    container_name: mailcow-olefy
+    restart: always
+    networks:
+      mailcow:
+
+  ofelia:
+    image: mcuadros/ofelia:latest
+    container_name: mailcow-ofelia
+    depends_on:
+      - dovecot
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: always
+    networks:
+      mailcow:
+
+  memcached:
+    image: memcached:alpine
+    container_name: mailcow-memcached
+    restart: always
+    networks:
+      mailcow:
+
+volumes:
+  mysql-vol:
+  redis-vol:
+  rspamd-vol:
+  clamd-vol:
+  vmail-vol:
+
+networks:
+  mailcow:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.1.0/24

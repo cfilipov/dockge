@@ -1,0 +1,11 @@
+services:
+  expenseowl:
+    image: tanq16/expenseowl:main
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - expenseowl-data:/app/data
+
+volumes:
+  expenseowl-data:

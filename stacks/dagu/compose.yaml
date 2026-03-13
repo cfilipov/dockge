@@ -1,0 +1,23 @@
+services:
+  dagu:
+    image: ghcr.io/dagu-org/dagu:latest
+    container_name: dagu
+    hostname: dagu
+    ports:
+      - "8080:8080"
+    command: ["dagu", "start-all"]
+    environment:
+      - DAGU_HOST=0.0.0.0
+      - DAGU_PORT=8080
+      - DAGU_DAGS_DIR=/var/lib/dagu/dags
+      - DAGU_AUTH_MODE=builtin
+    volumes:
+      - dagu-data:/var/lib/dagu
+      - ./dags:/var/lib/dagu/dags:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    user: "0:0"
+    restart: unless-stopped
+
+volumes:
+  dagu-data:
+    driver: local

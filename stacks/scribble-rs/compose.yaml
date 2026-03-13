@@ -1,0 +1,13 @@
+services:
+  app:
+    image: biosmarcel/scribble.rs:${SCRIBBLE_VERSION:-latest}
+    container_name: scribble-rs
+    restart: unless-stopped
+    ports:
+      - "${SCRIBBLE_PORT:-8080}:8080"
+    environment:
+      - PORT=${SCRIBBLE_INTERNAL_PORT:-8080}
+      - NETWORK_ADDRESS=${NETWORK_ADDRESS:-}
+      - ROOT_PATH=${ROOT_PATH:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
+      - LOBBY_CLEANUP_INTERVAL=${LOBBY_CLEANUP_INTERVAL:-90s}

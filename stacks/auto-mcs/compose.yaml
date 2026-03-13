@@ -1,0 +1,12 @@
+services:
+  auto-mcs:
+    image: macarooniman/auto-mcs:latest
+    container_name: auto-mcs
+    restart: unless-stopped
+    ports:
+      - "${WEBUI_PORT:-8080}:8080"
+    volumes:
+      - ./servers:/home/auto-mcs/servers
+      - ./backups:/home/auto-mcs/backups
+    environment:
+      TZ: ${TZ:-UTC}

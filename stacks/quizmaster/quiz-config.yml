@@ -1,0 +1,34 @@
+# Quizmaster Quiz Configuration
+# See: https://github.com/nymanjens/quizmaster
+
+title: "Sample Quiz"
+author: "Quiz Master"
+masterSecret: "change-me-in-production"
+
+rounds:
+  - name: "Round 1 - General Knowledge"
+    questions:
+      - question: "What is the capital of France?"
+        questionType: standard
+        choices:
+          - "Berlin"
+          - "Paris"
+          - "London"
+          - "Madrid"
+        answer: "Paris"
+        pointsToGain: 10
+
+      - question: "What year did the first Moon landing occur?"
+        questionType: standard
+        answer: "1969"
+        pointsToGain: 10
+
+      - question: "Which planet is known as the Red Planet?"
+        questionType: standard
+        choices:
+          - "Venus"
+          - "Mars"
+          - "Jupiter"
+          - "Saturn"
+        answer: "Mars"
+        pointsToGain: 10

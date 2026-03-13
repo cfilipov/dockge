@@ -1,0 +1,36 @@
+services:
+  eclass:
+    image: openeclass/php:latest
+    container_name: open-eclass
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    environment:
+      - ECLASS_DB_HOST=mariadb
+      - ECLASS_DB_NAME=${DB_NAME:-eclass}
+      - ECLASS_DB_USER=${DB_USER:-eclass}
+      - ECLASS_DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - ECLASS_URL=${ECLASS_URL:-http://localhost:8080}
+      - ECLASS_ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+    volumes:
+      - eclass_data:/var/www/html/courses
+      - eclass_config:/var/www/html/config
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: eclass-mariadb
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpass}
+      - MYSQL_DATABASE=${DB_NAME:-eclass}
+      - MYSQL_USER=${DB_USER:-eclass}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-changeme}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  eclass_data:
+  eclass_config:
+  mariadb_data:

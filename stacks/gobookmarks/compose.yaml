@@ -1,0 +1,14 @@
+services:
+  gobookmarks:
+    image: ghcr.io/arran4/gobookmarks:latest
+    container_name: gobookmarks
+    ports:
+      - "${GOBOOKMARKS_PORT:-8080}:8080"
+    volumes:
+      - gobookmarks-data:/data
+    environment:
+      - GIN_MODE=release
+    restart: unless-stopped
+
+volumes:
+  gobookmarks-data:

@@ -1,0 +1,81 @@
+services:
+  db:
+    image: postgres:12.1
+    container_name: sl-db
+    environment:
+      - POSTGRES_DB=simplelogin
+      - POSTGRES_USER=simplelogin
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      sl-network:
+
+  app:
+    image: simplelogin/app:4.6.2-beta
+    container_name: sl-app
+    depends_on:
+      - db
+    ports:
+      - "7777:7777"
+    environment:
+      - URL=https://${SL_DOMAIN}
+      - DB_URI=postgresql://simplelogin:${DB_PASSWORD}@db:5432/simplelogin
+      - FLASK_SECRET=${FLASK_SECRET}
+      - EMAIL_DOMAIN=${EMAIL_DOMAIN}
+      - SUPPORT_EMAIL=support@${EMAIL_DOMAIN}
+      - EMAIL_SERVERS_WITH_PRIORITY=[(10, "mail.${EMAIL_DOMAIN}.")]
+      - DKIM_PRIVATE_KEY_PATH=/dkim.key
+      - GNUPGHOME=/sl/pgp
+      - LOCAL_FILE_UPLOAD=1
+    volumes:
+      - ./sl-data:/sl
+    restart: unless-stopped
+    networks:
+      sl-network:
+
+  email-handler:
+    image: simplelogin/app:4.6.2-beta
+    container_name: sl-email
+    depends_on:
+      - db
+    command: python email_handler.py
+    ports:
+      - "20381:20381"
+    environment:
+      - URL=https://${SL_DOMAIN}
+      - DB_URI=postgresql://simplelogin:${DB_PASSWORD}@db:5432/simplelogin
+      - FLASK_SECRET=${FLASK_SECRET}
+      - EMAIL_DOMAIN=${EMAIL_DOMAIN}
+      - POSTFIX_SERVER=10.0.0.1
+    volumes:
+      - ./sl-data:/sl
+    restart: unless-stopped
+    networks:
+      sl-network:
+
+  job-runner:
+    image: simplelogin/app:4.6.2-beta
+    container_name: sl-job-runner
+    depends_on:
+      - db
+    command: python job_runner.py
+    environment:
+      - URL=https://${SL_DOMAIN}
+      - DB_URI=postgresql://simplelogin:${DB_PASSWORD}@db:5432/simplelogin
+      - FLASK_SECRET=${FLASK_SECRET}
+      - EMAIL_DOMAIN=${EMAIL_DOMAIN}
+    volumes:
+      - ./sl-data:/sl
+    restart: unless-stopped
+    networks:
+      sl-network:
+
+networks:
+  sl-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.0.0/24
+          gateway: 10.0.0.1

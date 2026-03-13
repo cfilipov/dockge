@@ -1,0 +1,32 @@
+services:
+  friendica:
+    image: friendica:2024-apache
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: friendica
+      MYSQL_USER: friendica
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      FRIENDICA_ADMIN_MAIL: ${ADMIN_EMAIL}
+      FRIENDICA_URL: ${FRIENDICA_URL}
+    volumes:
+      - friendica-data:/var/www/html
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: friendica
+      MYSQL_USER: friendica
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  friendica-data:
+  db-data:

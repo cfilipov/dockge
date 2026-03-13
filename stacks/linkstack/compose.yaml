@@ -1,0 +1,20 @@
+services:
+  linkstack:
+    image: linkstackorg/linkstack:latest
+    container_name: linkstack
+    ports:
+      - "${LINKSTACK_PORT:-8080}:80"
+      - "${LINKSTACK_HTTPS_PORT:-8443}:443"
+    volumes:
+      - linkstack-data:/htdocs
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+      - SERVER_ADMIN=${SERVER_ADMIN:-admin@example.com}
+      - HTTP_SERVER_NAME=${HTTP_SERVER_NAME:-localhost}
+      - HTTPS_SERVER_NAME=${HTTPS_SERVER_NAME:-localhost}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PHP_MEMORY_LIMIT=${PHP_MEMORY_LIMIT:-256M}
+    restart: unless-stopped
+
+volumes:
+  linkstack-data:

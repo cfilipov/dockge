@@ -1,0 +1,45 @@
+services:
+  moodle:
+    image: bitnami/moodle:${MOODLE_VERSION:-4}
+    container_name: moodle
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+      - "${HTTPS_PORT:-8443}:8443"
+    environment:
+      - MOODLE_DATABASE_HOST=mariadb
+      - MOODLE_DATABASE_PORT_NUMBER=3306
+      - MOODLE_DATABASE_USER=${DB_USER:-moodle}
+      - MOODLE_DATABASE_PASSWORD=${DB_PASSWORD:-changeme}
+      - MOODLE_DATABASE_NAME=${DB_NAME:-moodle}
+      - MOODLE_USERNAME=${ADMIN_USER:-admin}
+      - MOODLE_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - MOODLE_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - MOODLE_SITE_NAME=${SITE_NAME:-Moodle}
+      - MOODLE_SKIP_BOOTSTRAP=${SKIP_BOOTSTRAP:-no}
+      - ALLOW_EMPTY_PASSWORD=no
+    volumes:
+      - moodle_data:/bitnami/moodle
+      - moodledata:/bitnami/moodledata
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: bitnami/mariadb:${MARIADB_VERSION:-10.11}
+    container_name: moodle-mariadb
+    restart: unless-stopped
+    environment:
+      - MARIADB_USER=${DB_USER:-moodle}
+      - MARIADB_PASSWORD=${DB_PASSWORD:-changeme}
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpass}
+      - MARIADB_DATABASE=${DB_NAME:-moodle}
+      - MARIADB_CHARACTER_SET=utf8mb4
+      - MARIADB_COLLATE=utf8mb4_unicode_ci
+      - ALLOW_EMPTY_PASSWORD=no
+    volumes:
+      - mariadb_data:/bitnami/mariadb
+
+volumes:
+  moodle_data:
+  moodledata:
+  mariadb_data:

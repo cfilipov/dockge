@@ -1,0 +1,14 @@
+services:
+  neko:
+    image: ghcr.io/m1k1o/neko/firefox:latest
+    restart: unless-stopped
+    shm_size: 2gb
+    ports:
+      - "${NEKO_PORT:-8080}:8080"
+      - "52000-52100:52000-52100/udp"
+    environment:
+      NEKO_DESKTOP_SCREEN: ${NEKO_SCREEN:-1920x1080@30}
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: ${NEKO_USER_PASS:-neko}
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: ${NEKO_ADMIN_PASS:-admin}
+      NEKO_WEBRTC_EPR: 52000-52100
+      NEKO_WEBRTC_ICELITE: 1

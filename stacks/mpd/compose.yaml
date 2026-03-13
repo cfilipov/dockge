@@ -1,0 +1,12 @@
+services:
+  mpd:
+    image: vimagick/mpd:latest
+    container_name: mpd
+    ports:
+      - "${MPD_PORT:-6600}:6600"
+      - "${HTTP_PORT:-8800}:8800"
+    volumes:
+      - ${MUSIC_DIR:-./music}:/var/lib/mpd/music:ro
+      - ${DATA_DIR:-./data}:/var/lib/mpd
+      - ./mpd.conf:/etc/mpd.conf:ro
+    restart: unless-stopped

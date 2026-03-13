@@ -1,0 +1,23 @@
+name: "selfhosted"
+is_done_tick_dot_com: false
+is_user_creation_disabled: false
+database:
+  type: "sqlite"
+  migration: true
+jwt:
+  secret: "change_this_to_a_secure_random_string_32_characters_long"
+  session_time: 168h
+  max_refresh: 1440h
+server:
+  port: 2021
+  read_timeout: 10s
+  write_timeout: 10s
+  rate_period: 60s
+  rate_limit: 300
+  cors_allow_origins:
+    - "http://localhost:2021"
+  serve_frontend: true
+logging:
+  level: "info"
+  encoding: "json"
+  development: false

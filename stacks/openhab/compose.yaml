@@ -1,0 +1,23 @@
+services:
+  openhab:
+    image: openhab/openhab:${OPENHAB_VERSION:-latest}
+    container_name: openhab
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - openhab-addons:/openhab/addons
+      - openhab-conf:/openhab/conf
+      - openhab-userdata:/openhab/userdata
+    environment:
+      OPENHAB_HTTP_PORT: ${OPENHAB_HTTP_PORT:-8080}
+      OPENHAB_HTTPS_PORT: ${OPENHAB_HTTPS_PORT:-8443}
+      CRYPTO_POLICY: ${CRYPTO_POLICY:-unlimited}
+      EXTRA_JAVA_OPTS: ${EXTRA_JAVA_OPTS:--Xms256m -Xmx512m}
+      USER_ID: ${USER_ID:-1000}
+      GROUP_ID: ${GROUP_ID:-1000}
+      TZ: ${TZ:-UTC}
+
+volumes:
+  openhab-addons:
+  openhab-conf:
+  openhab-userdata:

@@ -1,0 +1,14 @@
+services:
+  srs:
+    image: ossrs/srs:v6
+    container_name: srs
+    restart: unless-stopped
+    ports:
+      - "${SRS_RTMP_PORT:-1935}:1935"
+      - "${SRS_HTTP_API_PORT:-1985}:1985"
+      - "${SRS_HTTP_PORT:-8080}:8080"
+      - "${SRS_WEBRTC_PORT:-8000}:8000/udp"
+    volumes:
+      - ./srs.conf:/usr/local/srs/conf/docker.conf:ro
+    environment:
+      - CANDIDATE=${SRS_CANDIDATE}

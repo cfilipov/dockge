@@ -1,0 +1,12 @@
+services:
+  perplexica:
+    image: itzcrazykns1337/vane:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - data:/home/vane/data
+    restart: unless-stopped
+
+volumes:
+  data:
+    name: vane-data

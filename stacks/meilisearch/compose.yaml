@@ -1,0 +1,16 @@
+services:
+  meilisearch:
+    image: getmeili/meilisearch:${MEILI_TAG}
+    container_name: meilisearch
+    ports:
+      - "${MEILI_PORT}:7700"
+    volumes:
+      - meili-data:/meili_data
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_ENV: ${MEILI_ENV}
+      MEILI_NO_ANALYTICS: ${MEILI_NO_ANALYTICS}
+    restart: unless-stopped
+
+volumes:
+  meili-data:

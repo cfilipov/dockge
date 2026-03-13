@@ -1,0 +1,45 @@
+services:
+  limesurvey:
+    image: limesurvey/limesurvey:latest
+    ports:
+      - "${LIMESURVEY_PORT:-8080}:8080"
+    volumes:
+      - limesurvey_uploads:/var/www/html/upload/surveys
+      - limesurvey_plugins:/var/www/html/plugins
+    environment:
+      DB_HOST: db
+      DB_TYPE: mysql
+      DB_PORT: "3306"
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      ADMIN_USER: ${ADMIN_USER}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_NAME: ${ADMIN_NAME}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - limesurvey
+
+  db:
+    image: mariadb:11.4
+    volumes:
+      - limesurvey_db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    restart: unless-stopped
+    networks:
+      - limesurvey
+
+networks:
+  limesurvey:
+
+volumes:
+  limesurvey_db:
+  limesurvey_uploads:
+  limesurvey_plugins:

@@ -1,0 +1,18 @@
+services:
+  scanservjs:
+    image: sbs20/scanservjs:latest
+    restart: unless-stopped
+    ports:
+      - "${SCANSERVJS_PORT:-8280}:8080"
+    volumes:
+      - scans:/app/data/output
+      - ./scanservjs.conf:/etc/scanservjs/config.local.js:ro
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    environment:
+      - SANED_NET_HOSTS=${SANED_NET_HOSTS:-}
+      - AIRSCAN_DEVICES=${AIRSCAN_DEVICES:-}
+      - PIXMA_HOSTS=${PIXMA_HOSTS:-}
+
+volumes:
+  scans:

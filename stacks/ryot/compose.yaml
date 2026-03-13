@@ -1,0 +1,32 @@
+services:
+  ryot:
+    image: ghcr.io/ignisda/ryot:latest
+    container_name: ryot
+    ports:
+      - "${RYOT_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-ryot}:${POSTGRES_PASSWORD:-changeme}@ryot-db:5432/${POSTGRES_DB:-ryot}
+      - SERVER_INSECURE_COOKIE=${SERVER_INSECURE_COOKIE:-true}
+    depends_on:
+      ryot-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ryot-db:
+    image: postgres:16-alpine
+    container_name: ryot-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-ryot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_DB=${POSTGRES_DB:-ryot}
+    volumes:
+      - ryot-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ryot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  ryot-db-data:

@@ -1,0 +1,31 @@
+services:
+  vod2pod:
+    image: madiele/vod2pod-rss:latest
+    container_name: vod2pod-rss
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - TZ=${TZ:-Europe/London}
+      - MP3_BITRATE=${MP3_BITRATE:-192}
+      - TRANSCODE=${TRANSCODE:-true}
+      - SUBFOLDER=${SUBFOLDER:-/}
+      - RUST_LOG=${RUST_LOG:-INFO}
+      - REDIS_ADDRESS=redis
+      - REDIS_PORT=6379
+      - YT_API_KEY=${YT_API_KEY:-}
+      - TWITCH_SECRET=${TWITCH_SECRET:-}
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID:-}
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    container_name: vod2pod-redis
+    command: redis-server --save 20 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

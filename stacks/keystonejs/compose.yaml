@@ -1,0 +1,28 @@
+services:
+  keystone:
+    image: node:18-alpine
+    container_name: keystone
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://keystone:${DB_PASSWORD}@postgres:5432/keystone
+    depends_on:
+      - postgres
+    volumes:
+      - keystone_data:/app
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: keystone-postgres
+    environment:
+      POSTGRES_DB: keystone
+      POSTGRES_USER: keystone
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  keystone_data:
+  postgres_data:

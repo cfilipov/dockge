@@ -1,0 +1,38 @@
+services:
+  app:
+    image: ruby:3.3-slim
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-solidus}:${POSTGRES_PASSWORD:-solidus}@postgres/${POSTGRES_DB:-solidus}
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: ${RAILS_ENV:-production}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-changeme}
+      RAILS_SERVE_STATIC_FILES: "true"
+    volumes:
+      - app_data:/app
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-solidus}
+      POSTGRES_USER: ${POSTGRES_USER:-solidus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-solidus}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  app_data:
+  postgres_data:
+  redis_data:

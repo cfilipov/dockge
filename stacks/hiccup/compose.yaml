@@ -1,0 +1,9 @@
+services:
+  hiccup:
+    image: bleckbeard/hiccup:latest
+    container_name: hiccup
+    ports:
+      - "${HICCUP_PORT:-8899}:80"
+    volumes:
+      - ./config.json:/usr/share/nginx/html/configs/config.json
+    restart: unless-stopped

@@ -1,0 +1,16 @@
+services:
+  econumo:
+    image: econumo/econumo-ce:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8181}:80"
+    volumes:
+      - db:/var/www/var/db
+    environment:
+      - ECONUMO_ALLOW_REGISTRATION=${ECONUMO_ALLOW_REGISTRATION}
+      - ECONUMO_CONNECT_USERS=${ECONUMO_CONNECT_USERS}
+      - APP_ENV=${APP_ENV}
+      - APP_SECRET=${APP_SECRET}
+
+volumes:
+  db:

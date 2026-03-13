@@ -1,0 +1,7 @@
+services:
+  homepage:
+    image: danuke/homepage:latest
+    container_name: homepage-tomershvueli
+    ports:
+      - "${PORT}:80"
+    restart: unless-stopped

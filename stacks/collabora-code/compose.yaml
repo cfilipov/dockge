@@ -1,0 +1,20 @@
+services:
+  collabora:
+    image: collabora/code
+    container_name: collabora-code
+    restart: always
+    privileged: true
+    ports:
+      - "9980:9980"
+    environment:
+      - aliasgroup1=${COLLABORA_ALIAS_GROUP:-https://localhost:443}
+      - username=${COLLABORA_ADMIN_USER:-admin}
+      - password=${COLLABORA_ADMIN_PASS:-changeme}
+      - DONT_GEN_SSL_CERT=${DONT_GEN_SSL_CERT:-}
+      - dictionaries=${COLLABORA_DICTIONARIES:-en_US}
+      - extra_params=--o:ssl.enable=false
+    volumes:
+      - collabora-data:/etc/coolwsd
+
+volumes:
+  collabora-data:

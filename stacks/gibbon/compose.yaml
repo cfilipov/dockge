@@ -1,0 +1,36 @@
+services:
+  gibbon:
+    image: crookiecookie/gibbonedu:latest
+    container_name: gibbon
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    environment:
+      - GIBBON_DB_HOST=mariadb
+      - GIBBON_DB_NAME=${DB_NAME:-gibbon}
+      - GIBBON_DB_USER=${DB_USER:-gibbon}
+      - GIBBON_DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - GIBBON_ABSOLUTE_URL=${GIBBON_URL:-http://localhost:8080}
+      - GIBBON_ABSOLUTE_PATH=/var/www/html/
+      - GIBBON_SYSTEM_NAME=${SYSTEM_NAME:-Gibbon}
+      - GIBBON_TIMEZONE=${TIMEZONE:-UTC}
+    volumes:
+      - gibbon_data:/var/www/html/uploads
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: gibbon-mariadb
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpass}
+      - MYSQL_DATABASE=${DB_NAME:-gibbon}
+      - MYSQL_USER=${DB_USER:-gibbon}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-changeme}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  gibbon_data:
+  mariadb_data:

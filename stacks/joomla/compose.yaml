@@ -1,0 +1,32 @@
+services:
+  joomla:
+    image: joomla:5-apache
+    container_name: joomla
+    ports:
+      - "8080:80"
+    environment:
+      JOOMLA_DB_HOST: mysql
+      JOOMLA_DB_USER: joomla
+      JOOMLA_DB_PASSWORD: ${DB_PASSWORD}
+      JOOMLA_DB_NAME: joomla
+    depends_on:
+      - mysql
+    volumes:
+      - joomla_data:/var/www/html
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: joomla-mysql
+    environment:
+      MYSQL_DATABASE: joomla
+      MYSQL_USER: joomla
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  joomla_data:
+  mysql_data:

@@ -1,0 +1,20 @@
+services:
+  fhem:
+    image: fhem/fhem:${FHEM_VERSION:-bullseye}
+    container_name: fhem
+    restart: unless-stopped
+    ports:
+      - "${FHEM_PORT:-8083}:8083"
+      - "${FHEM_TELNET_PORT:-7072}:7072"
+    volumes:
+      - fhem-data:/opt/fhem
+    environment:
+      FHEM_UID: ${FHEM_UID:-6061}
+      FHEM_GID: ${FHEM_GID:-6061}
+      TIMEOUT: ${FHEM_TIMEOUT:-10}
+      RESTART: ${FHEM_RESTART:-1}
+      TELNETPORT: ${FHEM_TELNET_PORT:-7072}
+      TZ: ${TZ:-UTC}
+
+volumes:
+  fhem-data:

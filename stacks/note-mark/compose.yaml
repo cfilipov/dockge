@@ -1,0 +1,13 @@
+services:
+  note-mark:
+    image: ghcr.io/enchant97/note-mark:latest
+    container_name: note-mark
+    restart: unless-stopped
+    ports:
+      - "${NOTE_MARK_PORT:-8095}:8000"
+    environment:
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - DATA_PATH=/data
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
+    volumes:
+      - ./data:/data

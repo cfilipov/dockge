@@ -1,0 +1,11 @@
+services:
+  webdb:
+    image: webdb/app:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - webdb-data:/usr/src/app/data
+
+volumes:
+  webdb-data:

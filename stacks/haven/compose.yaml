@@ -1,0 +1,36 @@
+services:
+  haven:
+    image: ghcr.io/havenweb/haven:latest
+    container_name: haven
+    depends_on:
+      - postgresql
+    ports:
+      - "3000:3000"
+    volumes:
+      - haven_storage:/app/storage
+    tmpfs:
+      - /tmp/pids/
+    environment:
+      PIDFILE: /tmp/pids/server.pid
+      RAILS_ENV: production
+      HAVEN_DB_HOST: postgresql
+      HAVEN_DB_NAME: haven
+      HAVEN_DB_ROLE: haven
+      HAVEN_DB_PASSWORD: ${HAVEN_DB_PASSWORD}
+      HAVEN_USER_EMAIL: ${HAVEN_USER_EMAIL}
+      HAVEN_USER_PASS: ${HAVEN_USER_PASS}
+    restart: unless-stopped
+
+  postgresql:
+    image: postgres:16-alpine
+    container_name: haven-db
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: haven
+    volumes:
+      - postgresqldata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgresqldata:
+  haven_storage:

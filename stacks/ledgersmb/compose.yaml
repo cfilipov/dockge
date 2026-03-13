@@ -1,0 +1,34 @@
+# LedgerSMB - Open source ERP and accounting
+# Based on: https://github.com/ledgersmb/ledgersmb-docker/blob/1.13/docker-compose.yml
+# Docs: https://github.com/ledgersmb/LedgerSMB
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-abc}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    networks:
+      - internal
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  lsmb:
+    image: ghcr.io/ledgersmb/ledgersmb:1.13
+    depends_on:
+      - postgres
+    networks:
+      - internal
+      - default
+    ports:
+      - "5762:5762"
+    environment:
+      LSMB_WORKERS: ${LSMB_WORKERS:-5}
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+
+networks:
+  internal:

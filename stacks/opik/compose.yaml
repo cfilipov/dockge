@@ -1,0 +1,69 @@
+services:
+  opik:
+    image: ghcr.io/comet-ml/opik:latest
+    restart: unless-stopped
+    ports:
+      - "${OPIK_PORT:-5173}:5173"
+      - "${OPIK_API_PORT:-8080}:8080"
+    environment:
+      OPIK_BASE_URL: http://localhost:${OPIK_PORT:-5173}
+      DATABASE_URL: "jdbc:mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}"
+      ANALYTICS_DB_PROTOCOL: HTTP
+      ANALYTICS_DB_HOST: clickhouse
+      ANALYTICS_DB_PORT: "8123"
+      ANALYTICS_DB_DATABASE_NAME: ${CLICKHOUSE_DB}
+      REDIS_URL: "redis://redis:6379"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mysql-data:
+  clickhouse-data:
+  redis-data:

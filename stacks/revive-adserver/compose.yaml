@@ -1,0 +1,36 @@
+services:
+  revive:
+    image: rodig03/revive-adserver:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-revive}
+      MYSQL_USER: ${MYSQL_USER:-revive}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-revive}
+    volumes:
+      - revive_data:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-revive}
+      MYSQL_USER: ${MYSQL_USER:-revive}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-revive}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-reviveroot}
+    volumes:
+      - revive_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  revive_data:
+  revive_db:

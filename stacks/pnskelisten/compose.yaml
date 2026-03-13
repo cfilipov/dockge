@@ -1,0 +1,11 @@
+services:
+  poenskelisten:
+    image: aunefyren/poenskelisten:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - poenskelisten_data:/app/files
+
+volumes:
+  poenskelisten_data:

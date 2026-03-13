@@ -1,0 +1,28 @@
+services:
+  hemmelig:
+    image: hemmeligapp/hemmelig:latest
+    container_name: hemmelig
+    hostname: hemmelig
+    init: true
+    restart: always
+    stop_grace_period: 1m
+    ports:
+      - "${HEMMELIG_PORT:-3000}:3000"
+    volumes:
+      - ./data/hemmelig:/var/tmp/hemmelig/upload/files
+      - ./database:/home/node/hemmelig/database
+    environment:
+      - SECRET_LOCAL_HOSTNAME=0.0.0.0
+      - SECRET_PORT=3000
+      - SECRET_HOST=${SECRET_HOST:-localhost}
+      - SECRET_ROOT_USER=${SECRET_ROOT_USER:-admin}
+      - SECRET_ROOT_PASSWORD=${SECRET_ROOT_PASSWORD:-changeme}
+      - SECRET_ROOT_EMAIL=${SECRET_ROOT_EMAIL:-admin@hemmelig.app}
+      - SECRET_FILE_SIZE=${SECRET_FILE_SIZE:-4}
+      - SECRET_FORCED_LANGUAGE=${SECRET_FORCED_LANGUAGE:-en}
+      - SECRET_JWT_SECRET=${SECRET_JWT_SECRET:-changeme-jwt-secret}
+      - SECRET_MAX_TEXT_SIZE=${SECRET_MAX_TEXT_SIZE:-256}
+    healthcheck:
+      test: "curl -o /dev/null localhost:3000/api/healthz || exit 1"
+      timeout: 5s
+      retries: 3

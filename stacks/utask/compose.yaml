@@ -1,0 +1,29 @@
+services:
+  utask:
+    image: ovhcom/utask:latest
+    container_name: utask
+    ports:
+      - "8081:8081"
+    environment:
+      - UTASK_DB_HOST=postgres
+      - UTASK_DB_PORT=5432
+      - UTASK_DB_USER=utask
+      - UTASK_DB_PASSWORD=${DB_PASSWORD}
+      - UTASK_DB_NAME=utask
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    container_name: utask-postgres
+    environment:
+      POSTGRES_USER: utask
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: utask
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

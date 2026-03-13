@@ -1,0 +1,35 @@
+services:
+  humhub:
+    image: mrfoxpro/humhub:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    environment:
+      HUMHUB_DB_HOST: db
+      HUMHUB_DB_NAME: humhub
+      HUMHUB_DB_USER: humhub
+      HUMHUB_DB_PASSWORD: ${DB_PASSWORD}
+      HUMHUB_AUTO_INSTALL: "1"
+      HUMHUB_ADMIN_LOGIN: admin
+      HUMHUB_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    volumes:
+      - humhub-config:/var/www/html/protected/config
+      - humhub-uploads:/var/www/html/uploads
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: humhub
+      MYSQL_USER: humhub
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  humhub-config:
+  humhub-uploads:
+  db-data:

@@ -1,0 +1,30 @@
+services:
+  solr:
+    image: solr:${SOLR_TAG}
+    container_name: solr
+    ports:
+      - "${SOLR_PORT}:8983"
+    volumes:
+      - solr-data:/var/solr
+    environment:
+      SOLR_JAVA_MEM: ${SOLR_JAVA_MEM}
+      ZK_HOST: zookeeper:2181
+    depends_on:
+      - zookeeper
+    restart: unless-stopped
+
+  zookeeper:
+    image: zookeeper:${ZK_TAG}
+    container_name: solr-zookeeper
+    volumes:
+      - zk-data:/data
+      - zk-datalog:/datalog
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_4LW_COMMANDS_WHITELIST: mntr,conf,ruok
+    restart: unless-stopped
+
+volumes:
+  solr-data:
+  zk-data:
+  zk-datalog:

@@ -1,0 +1,12 @@
+services:
+  scm-manager:
+    image: scmmanager/scm-manager:latest
+    container_name: scm-manager
+    ports:
+      - "${SCM_PORT:-8080}:8080"
+    volumes:
+      - scm_data:/var/lib/scm
+    restart: unless-stopped
+
+volumes:
+  scm_data:

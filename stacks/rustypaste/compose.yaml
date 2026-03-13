@@ -1,0 +1,12 @@
+services:
+  rustypaste:
+    image: orhunp/rustypaste:latest
+    container_name: rustypaste
+    restart: always
+    ports:
+      - "${RUSTYPASTE_PORT:-8000}:8000"
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    volumes:
+      - ./upload:/app/upload
+      - ./config.toml:/app/config.toml:ro

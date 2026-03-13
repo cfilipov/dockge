@@ -1,0 +1,9 @@
+services:
+  halo:
+    image: halohub/halo:2.22
+    container_name: halo
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./data:/root/.halo2

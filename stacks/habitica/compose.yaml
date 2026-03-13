@@ -1,0 +1,31 @@
+services:
+  habitica:
+    image: habitica/habitica:4.60.3
+    container_name: habitica
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_DB_URI: mongodb://mongo/habitrpg
+    ports:
+      - "${HABITICA_PORT:-3000}:3000"
+
+  mongo:
+    image: mongo:7.0
+    container_name: habitica-mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    entrypoint: ["/usr/bin/mongod", "--bind_ip_all", "--replSet", "rs"]
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate() }" | mongosh --port 27017 --quiet
+      interval: 10s
+      timeout: 30s
+      start_period: 0s
+      retries: 30
+
+volumes:
+  mongodb_data:

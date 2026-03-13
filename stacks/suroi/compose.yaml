@@ -1,0 +1,33 @@
+services:
+  server:
+    image: oven/bun:1-alpine
+    container_name: suroi-server
+    restart: unless-stopped
+    ports:
+      - "${SUROI_GAME_PORT:-8000}:8000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - REGION=${SUROI_REGION:-NA}
+      - MAX_GAMES=${SUROI_MAX_GAMES:-5}
+    volumes:
+      - server-data:/app
+
+  client:
+    image: oven/bun:1-alpine
+    container_name: suroi-client
+    restart: unless-stopped
+    ports:
+      - "${SUROI_CLIENT_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - VITE_API_URL=http://server:8000
+    depends_on:
+      - server
+    volumes:
+      - client-data:/app
+
+volumes:
+  server-data:
+  client-data:

@@ -1,0 +1,18 @@
+services:
+  gameyfin:
+    image: ghcr.io/gameyfin/gameyfin:2
+    container_name: gameyfin
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ./db:/opt/gameyfin/db
+      - ./data:/opt/gameyfin/data
+      - ./plugindata:/opt/gameyfin/plugindata
+      - ./logs:/opt/gameyfin/logs
+      - ${LIBRARY_PATH:-./library}:/opt/gameyfin/library
+    environment:
+      APP_KEY: ${APP_KEY:-changeme_generate_with_openssl_rand_base64_32}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}

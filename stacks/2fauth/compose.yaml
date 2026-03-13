@@ -1,0 +1,20 @@
+services:
+  2fauth:
+    image: 2fauth/2fauth:${TAG:-latest}
+    container_name: 2fauth
+    volumes:
+      - 2fauth_data:/2fauth
+    ports:
+      - "${PORT:-8000}:8000/tcp"
+    environment:
+      - APP_NAME=${APP_NAME:-2FAuth}
+      - APP_ENV=${APP_ENV:-local}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
+      - SITE_OWNER=${SITE_OWNER:-mail@example.com}
+      - IS_DEMO_APP=false
+    restart: unless-stopped
+
+volumes:
+  2fauth_data:

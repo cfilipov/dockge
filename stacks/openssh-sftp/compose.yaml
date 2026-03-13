@@ -1,0 +1,13 @@
+services:
+  sftp:
+    image: atmoz/sftp:${SFTP_VERSION}
+    restart: unless-stopped
+    ports:
+      - "${SFTP_PORT}:22"
+    volumes:
+      - sftp-data:/home/${SFTP_USER}/upload
+    command: "${SFTP_USER}:${SFTP_PASSWORD}:1001"
+
+volumes:
+  sftp-data:
+    driver: local

@@ -1,0 +1,27 @@
+services:
+  contao:
+    image: php:8.2-apache
+    container_name: contao
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    volumes:
+      - contao_data:/var/www/html
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: contao-mysql
+    environment:
+      MYSQL_DATABASE: contao
+      MYSQL_USER: contao
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  contao_data:
+  mysql_data:

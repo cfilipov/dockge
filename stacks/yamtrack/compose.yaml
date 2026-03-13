@@ -1,0 +1,23 @@
+services:
+  yamtrack:
+    image: ghcr.io/fuzzygrim/yamtrack:latest
+    restart: unless-stopped
+    ports:
+      - "${YAMTRACK_PORT:-8000}:8000"
+    environment:
+      - TZ=${TZ:-UTC}
+      - SECRET=${SECRET:-change-this-to-a-long-random-string}
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./db:/yamtrack/db
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

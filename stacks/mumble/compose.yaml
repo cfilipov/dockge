@@ -1,0 +1,15 @@
+services:
+  mumble-server:
+    image: mumblevoip/mumble-server:latest
+    container_name: mumble-server
+    ports:
+      - "64738:64738"
+      - "64738:64738/udp"
+    environment:
+      MUMBLE_SUPERUSER_PASSWORD: ${MUMBLE_SUPERUSER_PASSWORD}
+    volumes:
+      - mumble_data:/data
+    restart: unless-stopped
+
+volumes:
+  mumble_data:

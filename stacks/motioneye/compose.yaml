@@ -1,0 +1,15 @@
+services:
+  motioneye:
+    image: ghcr.io/motioneye-project/motioneye:edge
+    container_name: motioneye
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+      - "8765:8765"
+    volumes:
+      - etc_motioneye:/etc/motioneye
+      - var_lib_motioneye:/var/lib/motioneye
+
+volumes:
+  etc_motioneye:
+  var_lib_motioneye:

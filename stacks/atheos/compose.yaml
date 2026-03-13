@@ -1,0 +1,12 @@
+services:
+  atheos:
+    image: hlsiira/atheos:latest
+    container_name: atheos
+    ports:
+      - "8443:80"
+    volumes:
+      - data:/var/www/html
+    restart: unless-stopped
+
+volumes:
+  data:

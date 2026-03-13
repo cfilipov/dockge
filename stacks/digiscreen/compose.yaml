@@ -1,0 +1,17 @@
+services:
+  digiscreen:
+    image: node:20-alpine
+    container_name: digiscreen
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+    volumes:
+      - app_data:/app/data
+    working_dir: /app
+    command: ["node", "server.js"]
+
+volumes:
+  app_data:

@@ -1,0 +1,12 @@
+services:
+  webhook-tester:
+    image: ghcr.io/tarampampam/webhook-tester:2
+    container_name: webhook-tester
+    ports:
+      - 8080:8080
+    environment:
+      - LOG_LEVEL=info
+      - STORAGE_DRIVER=memory
+      - AUTO_CREATE_SESSIONS=true
+      - MAX_REQUESTS=128
+      - SESSION_TTL=168h

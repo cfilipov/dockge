@@ -1,0 +1,23 @@
+services:
+  umbraco:
+    image: mcr.microsoft.com/dotnet/aspnet:9.0
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__umbracoDbDSN: Server=db;Database=umbraco;User=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+    volumes:
+      - db_data:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  db_data:

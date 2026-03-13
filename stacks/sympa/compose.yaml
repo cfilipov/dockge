@@ -1,0 +1,17 @@
+services:
+  sympa:
+    image: tozd/sympa:latest
+    restart: unless-stopped
+    ports:
+      - "${SYMPA_WEB_PORT:-8080}:80"
+      - "${SYMPA_SMTP_PORT:-25}:25"
+    environment:
+      SYMPA_DOMAIN: ${SYMPA_DOMAIN:-lists.example.com}
+      SYMPA_LISTMASTER: ${SYMPA_LISTMASTER:-admin@example.com}
+    volumes:
+      - sympa-data:/var/lib/sympa
+      - sympa-config:/etc/sympa
+
+volumes:
+  sympa-data:
+  sympa-config:

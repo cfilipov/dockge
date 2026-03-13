@@ -1,0 +1,32 @@
+services:
+  plainpad:
+    image: alextselegidis/plainpad:latest
+    container_name: plainpad
+    restart: unless-stopped
+    ports:
+      - "${PLAINPAD_PORT:-8585}:80"
+    environment:
+      - DB_HOST=mysql
+      - DB_DATABASE=${MYSQL_DATABASE}
+      - DB_USERNAME=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - plainpad_data:/var/www/html/storage
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    container_name: plainpad-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  plainpad_data:
+  mysql_data:

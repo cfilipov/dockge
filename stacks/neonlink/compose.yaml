@@ -1,0 +1,10 @@
+services:
+  neonlink:
+    image: alexscifier/neonlink:latest
+    container_name: neonlink
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3333}:3333"
+    volumes:
+      - ./data:/app/data
+      - ./backgrounds:/app/public/static/media/background

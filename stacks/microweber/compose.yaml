@@ -1,0 +1,43 @@
+services:
+  microweber:
+    image: microweber/microweber:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: 1
+      DB_CONNECTION: mysql
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-microweber}
+      DB_USERNAME: ${DB_USERNAME:-microweber}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - app-data:/var/www/html
+    networks:
+      - microweber
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: mariadb:10.6
+    restart: unless-stopped
+    ports:
+      - "${FORWARD_DB_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-microweber}
+      MYSQL_USER: ${DB_USERNAME:-microweber}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      - microweber
+
+networks:
+  microweber:
+    driver: bridge
+
+volumes:
+  app-data:
+  mariadb-data:

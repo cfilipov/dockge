@@ -1,0 +1,62 @@
+services:
+  app:
+    image: mayanedms/mayanedms:s4.7
+    restart: unless-stopped
+    depends_on:
+      - postgresql
+      - redis
+      - rabbitmq
+    environment:
+      MAYAN_CELERY_BROKER_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/${RABBITMQ_VHOST}"
+      MAYAN_CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis:6379/1"
+      MAYAN_DATABASES: "{'default':{'ENGINE':'django.db.backends.postgresql','NAME':'${DB_NAME}','PASSWORD':'${DB_PASSWORD}','USER':'${DB_USER}','HOST':'postgresql'}}"
+      MAYAN_LOCK_MANAGER_BACKEND: "mayan.apps.lock_manager.backends.redis_lock.RedisLock"
+      MAYAN_LOCK_MANAGER_BACKEND_ARGUMENTS: "{'redis_url':'redis://:${REDIS_PASSWORD}@redis:6379/2'}"
+    ports:
+      - "80:8000"
+    volumes:
+      - app_data:/var/lib/mayan
+
+  postgresql:
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${DB_NAME}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_USER: "${DB_USER}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "no"
+      - --databases
+      - "3"
+      - --maxmemory
+      - "100mb"
+      - --maxmemory-policy
+      - "allkeys-lru"
+      - --requirepass
+      - "${REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD}"
+      RABBITMQ_DEFAULT_VHOST: "${RABBITMQ_VHOST}"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  app_data:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:

@@ -1,0 +1,14 @@
+services:
+  sip:
+    image: daninca/sip:${SIP_VERSION:-latest}
+    container_name: sip-irrigation
+    restart: unless-stopped
+    ports:
+      - "${SIP_PORT:-8080}:8080"
+    volumes:
+      - sip-data:/home/sip/data
+    environment:
+      TZ: ${TZ:-UTC}
+
+volumes:
+  sip-data:

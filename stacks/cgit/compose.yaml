@@ -1,0 +1,15 @@
+services:
+  cgit:
+    image: invokr/cgit:latest
+    container_name: cgit
+    restart: unless-stopped
+    ports:
+      - "${CGIT_PORT:-3000}:80"
+    volumes:
+      - git-repos:/srv/git
+    environment:
+      - CGIT_TITLE=${CGIT_TITLE:-My Git Repositories}
+      - CGIT_DESC=${CGIT_DESC:-Hosted with cgit}
+
+volumes:
+  git-repos:

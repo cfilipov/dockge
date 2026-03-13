@@ -1,0 +1,11 @@
+services:
+  qloapps:
+    image: webkul/qloapps_docker:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "3306:3306"
+    environment:
+      - USER_PASSWORD=${USER_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}

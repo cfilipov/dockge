@@ -1,0 +1,12 @@
+services:
+  dropserver:
+    image: teleclimber/ds-host:latest
+    container_name: dropserver
+    ports:
+      - "${DS_PORT:-3003}:3003"
+    volumes:
+      - dropserver-data:/data
+    restart: unless-stopped
+
+volumes:
+  dropserver-data:

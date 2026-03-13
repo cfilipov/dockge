@@ -1,0 +1,13 @@
+services:
+  chasquid:
+    image: registry.gitlab.com/albertito/chasquid:main
+    container_name: chasquid
+    environment:
+      - AUTO_CERTS=${CHASQUID_DOMAIN:-mail.example.com}
+    volumes:
+      - chasquid-data:/data
+    network_mode: host
+    restart: unless-stopped
+
+volumes:
+  chasquid-data:

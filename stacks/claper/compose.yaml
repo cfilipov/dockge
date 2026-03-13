@@ -1,0 +1,41 @@
+services:
+  app:
+    image: ghcr.io/claperco/claper:latest
+    ports:
+      - "${CLAPER_PORT:-4000}:4000"
+    volumes:
+      - claper_uploads:/app/uploads
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-local}
+      BASE_URL: ${BASE_URL:-http://localhost:4000}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - claper-net
+
+  db:
+    image: postgres:15
+    volumes:
+      - claper_db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
+      retries: 3
+      timeout: 5s
+    restart: unless-stopped
+    networks:
+      - claper-net
+
+volumes:
+  claper_db:
+  claper_uploads:
+
+networks:
+  claper-net:

@@ -1,0 +1,31 @@
+services:
+  squidex_mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  squidex:
+    image: squidex/squidex:7
+    environment:
+      URLS__BASEURL: ${SQUIDEX_BASE_URL}
+      EVENTSTORE__TYPE: MongoDB
+      EVENTSTORE__MONGODB__CONFIGURATION: mongodb://squidex_mongo
+      STORE__MONGODB__CONFIGURATION: mongodb://squidex_mongo
+      IDENTITY__ADMINEMAIL: ${SQUIDEX_ADMIN_EMAIL}
+      IDENTITY__ADMINPASSWORD: ${SQUIDEX_ADMIN_PASSWORD}
+      ASPNETCORE_URLS: http://+:5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/healthz"]
+      start_period: 60s
+    depends_on:
+      - squidex_mongo
+    ports:
+      - "5000:5000"
+    volumes:
+      - assets:/app/Assets
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  assets:

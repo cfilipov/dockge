@@ -1,0 +1,15 @@
+services:
+  pyload:
+    image: pyload/pyload:latest
+    container_name: pyload
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ./config:/config
+      - ./downloads:/downloads
+    ports:
+      - "8000:8000"
+      - "9666:9666"
+    restart: unless-stopped

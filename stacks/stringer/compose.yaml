@@ -1,0 +1,30 @@
+services:
+  stringer:
+    image: stringerrss/stringer:latest
+    container_name: stringer
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "${STRINGER_PORT:-8080}:8080"
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-stringer}:${POSTGRES_PASSWORD:-stringer}@postgres:5432/${POSTGRES_DB:-stringer}
+      - SECRET_TOKEN=${SECRET_TOKEN:-changeme_secret_token_here}
+      - FETCH_INTERVAL=${FETCH_INTERVAL:-30}
+    volumes:
+      - stringer-data:/app
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: stringer-postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-stringer}
+      - POSTGRES_USER=${POSTGRES_USER:-stringer}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-stringer}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  stringer-data:
+  postgres-data:

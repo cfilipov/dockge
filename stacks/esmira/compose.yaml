@@ -1,0 +1,12 @@
+services:
+  esmira:
+    image: jodlidev/esmira:latest
+    container_name: esmira
+    restart: unless-stopped
+    ports:
+      - "${ESMIRA_PORT:-8080}:80"
+    volumes:
+      - esmira_data:/var/www/html/data
+
+volumes:
+  esmira_data:

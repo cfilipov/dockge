@@ -1,0 +1,36 @@
+services:
+  invoiceplane:
+    image: invoiceplane/invoiceplane:latest
+    restart: unless-stopped
+    ports:
+      - "${INVOICEPLANE_PORT:-80}:80"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_USER=${MYSQL_USER:-invoiceplane}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+      - MYSQL_DB=${MYSQL_DB:-invoiceplane}
+    volumes:
+      - invoiceplane_uploads:/var/www/html/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootchangeme}
+      - MARIADB_USER=${MYSQL_USER:-invoiceplane}
+      - MARIADB_PASSWORD=${MYSQL_PASSWORD:-changeme}
+      - MARIADB_DATABASE=${MYSQL_DB:-invoiceplane}
+    volumes:
+      - invoiceplane_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  invoiceplane_db:
+  invoiceplane_uploads:

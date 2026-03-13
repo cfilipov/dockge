@@ -1,0 +1,31 @@
+services:
+  piler:
+    image: ubuntu:24.04
+    ports:
+      - "25:25"
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - piler_data:/var/piler/store
+      - piler_etc:/etc/piler
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=piler
+      - MYSQL_USER=piler
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+  memcached:
+    image: memcached:1.6-alpine
+    restart: unless-stopped
+
+volumes:
+  piler_data:
+  piler_etc:
+  mysql_data:

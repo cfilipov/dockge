@@ -1,0 +1,16 @@
+services:
+  mtasa:
+    image: makkmarci13/mtasa:latest
+    container_name: mtasa-server
+    restart: unless-stopped
+    ports:
+      - "${MTASA_PORT:-22003}:22003/udp"
+      - "${MTASA_HTTP_PORT:-22005}:22005/tcp"
+      - "${MTASA_ASE_PORT:-22126}:22126/udp"
+    volumes:
+      - mtasa-data:/mtasa/mods/deathmatch
+    environment:
+      - MTASA_SERVER_NAME=${MTASA_SERVER_NAME:-My MTA:SA Server}
+
+volumes:
+  mtasa-data:

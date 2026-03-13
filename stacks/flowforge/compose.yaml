@@ -1,0 +1,45 @@
+services:
+  forge:
+    image: flowfuse/forge-k8s:${FLOWFORGE_VERSION:-latest}
+    container_name: flowforge
+    restart: unless-stopped
+    ports:
+      - "${FLOWFORGE_PORT:-3000}:3000"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      broker:
+        condition: service_started
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16-alpine}
+    container_name: flowforge-postgres
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER:-forge}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      POSTGRES_DB: ${DB_NAME:-flowforge}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-forge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  broker:
+    image: eclipse-mosquitto:${MOSQUITTO_VERSION:-2}
+    container_name: flowforge-broker
+    restart: unless-stopped
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+    volumes:
+      - broker-data:/mosquitto/data
+
+volumes:
+  postgres-data:
+  broker-data:

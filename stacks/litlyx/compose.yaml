@@ -1,0 +1,67 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: litlyx-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+    volumes:
+      - mongodb-data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: litlyx-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  producer:
+    image: litlyx/litlyx-producer:latest
+    container_name: litlyx-producer
+    ports:
+      - "3001:3001"
+    environment:
+      - MONGO_CONNECTION_STRING=mongodb://root:${MONGO_PASSWORD}@mongodb:27017
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    restart: unless-stopped
+
+  consumer:
+    image: litlyx/litlyx-consumer:latest
+    container_name: litlyx-consumer
+    environment:
+      - MONGO_CONNECTION_STRING=mongodb://root:${MONGO_PASSWORD}@mongodb:27017
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    restart: unless-stopped
+
+  dashboard:
+    image: litlyx/litlyx-dashboard:latest
+    container_name: litlyx-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_CONNECTION_STRING=mongodb://root:${MONGO_PASSWORD}@mongodb:27017
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
+      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    depends_on:
+      - mongodb
+      - redis
+      - producer
+      - consumer
+    restart: unless-stopped
+
+volumes:
+  mongodb-data:
+  redis-data:

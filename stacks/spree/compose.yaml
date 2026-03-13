@@ -1,0 +1,68 @@
+services:
+  web:
+    image: ruby:3.3-slim
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_URL: postgres://${POSTGRES_USER:-spree}:${POSTGRES_PASSWORD:-spree}@postgres/${POSTGRES_DB:-spree}
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: ${RAILS_ENV:-production}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-changeme}
+    volumes:
+      - app_data:/app
+
+  worker:
+    image: ruby:3.3-slim
+    command: bundle exec sidekiq
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-spree}:${POSTGRES_PASSWORD:-spree}@postgres/${POSTGRES_DB:-spree}
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: ${RAILS_ENV:-production}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-changeme}
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-spree}
+      POSTGRES_USER: ${POSTGRES_USER:-spree}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spree}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U ${POSTGRES_USER:-spree}
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: redis-cli ping
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+    restart: unless-stopped
+
+volumes:
+  app_data:
+  postgres_data:
+  redis_data:

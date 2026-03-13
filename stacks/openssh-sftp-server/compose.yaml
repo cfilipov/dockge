@@ -1,0 +1,13 @@
+services:
+  sftp:
+    image: atmoz/sftp:latest
+    container_name: openssh-sftp-server
+    restart: unless-stopped
+    ports:
+      - "${SFTP_PORT:-2222}:22"
+    volumes:
+      - sftp-data:/home/${SFTP_USER:-sftpuser}/upload
+    command: "${SFTP_USER:-sftpuser}:${SFTP_PASSWORD:-changeme}:1001"
+
+volumes:
+  sftp-data:

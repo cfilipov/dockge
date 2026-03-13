@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  routr:
+    image: fonoster/routr-one:latest
+    container_name: routr
+    restart: unless-stopped
+    environment:
+      EXTERNAL_ADDRS: ${DOCKER_HOST_ADDRESS}
+    ports:
+      - "51908:51908"
+      - "5060:5060/udp"
+    volumes:
+      - routr-data:/var/lib/postgresql/data
+
+volumes:
+  routr-data:

@@ -1,0 +1,27 @@
+services:
+  notifo:
+    image: squidex/notifo:1
+    container_name: notifo
+    ports:
+      - "5000:80"
+    environment:
+      URLS__BASEURL: "http://localhost:5000"
+      MONGODB__CONNECTIONSTRING: "mongodb://mongo"
+    depends_on:
+      - mongo
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:5
+    container_name: notifo-mongo
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

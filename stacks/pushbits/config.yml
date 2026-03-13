@@ -1,0 +1,22 @@
+debug: false
+
+http:
+    listenaddress: ''
+    port: 8080
+
+database:
+    dialect: 'sqlite3'
+    connection: '/data/pushbits.db'
+
+admin:
+    name: 'admin'
+    password: 'admin'
+    matrixid: '@bot:matrix.org'
+
+matrix:
+    homeserver: 'https://matrix.org'
+    username: 'pushbits-bot'
+    password: 'changeme'
+
+security:
+    checkhibp: false

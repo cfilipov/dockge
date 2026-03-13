@@ -1,0 +1,35 @@
+x-environment: &default-environment
+  DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+  SECRET_KEY: change_me_to_something_random
+  EMAIL_URL: "consolemail://"
+  GLITCHTIP_DOMAIN: https://glitchtip.example.com
+  DEFAULT_FROM_EMAIL: email@example.com
+  ENABLE_ADMIN: "False"
+
+x-depends_on: &default-depends_on
+  - postgres
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+    restart: unless-stopped
+    volumes:
+      - pg-data:/var/lib/postgresql
+
+  web:
+    image: glitchtip/glitchtip:6
+    depends_on: *default-depends_on
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *default-environment
+      SERVER_ROLE: all_in_one
+    restart: unless-stopped
+    volumes:
+      - uploads:/code/uploads
+
+volumes:
+  pg-data:
+  uploads:

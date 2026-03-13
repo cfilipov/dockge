@@ -1,0 +1,22 @@
+services:
+  puter:
+    image: ghcr.io/heyputer/puter:${PUTER_VERSION}
+    restart: unless-stopped
+    ports:
+      - "${PUTER_PORT}:4100"
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+    volumes:
+      - puter-config:/etc/puter
+      - puter-data:/var/puter
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://puter.localhost:4100/test || exit 1
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  puter-config:
+  puter-data:

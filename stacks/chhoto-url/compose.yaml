@@ -1,0 +1,15 @@
+services:
+  chhoto-url:
+    image: sintan1729/chhoto-url:latest
+    container_name: chhoto-url
+    ports:
+      - "4567:4567"
+    environment:
+      - CHHOTO_PASSWORD=TopSecretPass
+      - CHHOTO_SITE_URL=http://localhost:4567
+    volumes:
+      - chhoto-db:/db
+    restart: unless-stopped
+
+volumes:
+  chhoto-db:

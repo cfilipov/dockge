@@ -1,0 +1,14 @@
+services:
+  gotosocial:
+    image: superseriousbusiness/gotosocial:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      GTS_HOST: ${GTS_HOST}
+      GTS_DB_TYPE: sqlite
+      GTS_DB_ADDRESS: /gotosocial/storage/sqlite.db
+      GTS_LETSENCRYPT_ENABLED: "false"
+      GTS_ACCOUNTS_REGISTRATION_OPEN: "false"
+    volumes:
+      - ./data:/gotosocial/storage

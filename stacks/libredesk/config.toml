@@ -1,0 +1,38 @@
+[app]
+log_level = "info"
+env = "prod"
+check_updates = true
+encryption_key = "your-32-char-random-string-here!"
+
+[app.server]
+address = "0.0.0.0:9000"
+socket = ""
+disable_secure_cookies = true
+read_timeout = "5s"
+write_timeout = "5s"
+max_body_size = 104857600
+read_buffer_size = 65536
+keepalive_timeout = "10s"
+
+[upload]
+provider = "fs"
+
+[upload.fs]
+upload_path = "uploads"
+
+[db]
+host = "db"
+port = 5432
+user = "libredesk"
+password = "libredesk"
+database = "libredesk"
+ssl_mode = "disable"
+max_open = 30
+max_idle = 30
+max_lifetime = "300s"
+
+[redis]
+address = "redis:6379"
+user = ""
+password = ""
+db = 0

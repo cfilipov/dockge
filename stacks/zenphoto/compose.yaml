@@ -1,0 +1,35 @@
+services:
+  zenphoto:
+    image: emieza/zenphoto:latest
+    container_name: zenphoto
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_started
+    ports:
+      - "${ZENPHOTO_PORT:-8080}:80"
+    environment:
+      MYSQL_HOST: mariadb
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-zenphoto}
+      MYSQL_USER: ${MYSQL_USER:-zenphoto}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-zenphoto_secret}
+    volumes:
+      - zenphoto-albums:/var/www/html/albums
+      - zenphoto-cache:/var/www/html/cache
+
+  mariadb:
+    image: mariadb:11
+    container_name: zenphoto-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE:-zenphoto}
+      MARIADB_USER: ${MYSQL_USER:-zenphoto}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD:-zenphoto_secret}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootsecret}
+    volumes:
+      - zenphoto-db:/var/lib/mysql
+
+volumes:
+  zenphoto-albums:
+  zenphoto-cache:
+  zenphoto-db:

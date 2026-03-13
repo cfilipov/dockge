@@ -1,0 +1,30 @@
+services:
+  mybb:
+    image: mybb/mybb:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_NAME: mybb
+      DB_USER: mybb
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mybb-data:/var/www/html
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: mybb
+      MYSQL_USER: mybb
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  mybb-data:
+  db-data:

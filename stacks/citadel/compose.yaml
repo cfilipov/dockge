@@ -1,0 +1,19 @@
+services:
+  citadel:
+    image: citadeldotorg/citadel:${CITADEL_VERSION:-latest}
+    container_name: citadel
+    restart: unless-stopped
+    ports:
+      - "${CITADEL_HTTP_PORT:-8080}:80"
+      - "${CITADEL_HTTPS_PORT:-8443}:443"
+      - "${CITADEL_SMTP_PORT:-25}:25"
+      - "${CITADEL_IMAP_PORT:-143}:143"
+    volumes:
+      - citadel_data:/var/lib/citadel
+      - citadel_run:/run/citadel
+    environment:
+      CITADEL_ADMIN_PASSWORD: ${CITADEL_ADMIN_PASSWORD}
+
+volumes:
+  citadel_data:
+  citadel_run:

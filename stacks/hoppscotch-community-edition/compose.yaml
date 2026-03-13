@@ -1,0 +1,44 @@
+services:
+  hoppscotch-aio:
+    image: hoppscotch/hoppscotch:latest
+    container_name: hoppscotch-aio
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@hoppscotch-db:5432/${POSTGRES_DB}?connect_timeout=300
+      - PORT=3000
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}
+      - WHITELISTED_ORIGINS=${WHITELISTED_ORIGINS}
+      - VITE_BASE_URL=${VITE_BASE_URL}
+      - VITE_SHORTCODE_BASE_URL=${VITE_SHORTCODE_BASE_URL}
+      - VITE_ADMIN_URL=${VITE_ADMIN_URL}
+      - VITE_BACKEND_GQL_URL=${VITE_BACKEND_GQL_URL}
+      - VITE_BACKEND_WS_URL=${VITE_BACKEND_WS_URL}
+      - VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}
+      - ENABLE_SUBPATH_BASED_ACCESS=${ENABLE_SUBPATH_BASED_ACCESS}
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+      - "3170:3170"
+      - "3080:80"
+    depends_on:
+      hoppscotch-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  hoppscotch-db:
+    image: postgres:15
+    container_name: hoppscotch-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - hoppscotch-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  hoppscotch-db-data:

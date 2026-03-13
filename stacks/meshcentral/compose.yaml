@@ -1,0 +1,27 @@
+services:
+  meshcentral:
+    image: ghcr.io/ylianst/meshcentral:latest
+    container_name: meshcentral
+    restart: unless-stopped
+    environment:
+      - DYNAMIC_CONFIG=false
+      - HOSTNAME=localhost
+      - PORT=443
+      - REDIR_PORT=80
+      - ALLOW_NEW_ACCOUNTS=false
+      - USE_MONGODB=true
+      - MONGO_URL=mongodb://username:password@mongodb:27017/meshcentral
+    volumes:
+      - meshcentral-data:/opt/meshcentral/meshcentral-data
+      - meshcentral-files:/opt/meshcentral/meshcentral-files
+      - meshcentral-web:/opt/meshcentral/meshcentral-web
+      - meshcentral-backups:/opt/meshcentral/meshcentral-backups
+    ports:
+      - "443:443"
+      - "80:80"
+
+volumes:
+  meshcentral-data:
+  meshcentral-files:
+  meshcentral-web:
+  meshcentral-backups:

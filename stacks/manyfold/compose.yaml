@@ -1,0 +1,46 @@
+services:
+  app:
+    image: ghcr.io/manyfold3d/manyfold:latest
+    ports:
+      - "3214:3214"
+    volumes:
+      - ./models:/models
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Please set SECRET_KEY_BASE}
+      REDIS_URL: redis://redis:6379/1
+      DATABASE_ADAPTER: postgresql
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: manyfold
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-password}
+      DATABASE_NAME: manyfold
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - manyfold
+
+  postgres:
+    image: postgres:15
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: manyfold
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-password}
+    restart: on-failure
+    networks:
+      - manyfold
+
+  redis:
+    image: redis:7
+    restart: on-failure
+    networks:
+      - manyfold
+
+volumes:
+  db_data:
+
+networks:
+  manyfold:

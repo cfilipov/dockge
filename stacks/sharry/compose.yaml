@@ -1,0 +1,26 @@
+services:
+  sharry:
+    image: eikek/sharry:latest
+    container_name: sharry
+    restart: unless-stopped
+    ports:
+      - "${SHARRY_PORT:-9090}:9090"
+    command: /opt/sharry.conf
+    volumes:
+      - ./sharry.conf:/opt/sharry.conf:ro
+    depends_on:
+      - sharry-db
+
+  sharry-db:
+    image: postgres:16-alpine
+    container_name: sharry-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - sharry-db:/var/lib/postgresql/data
+
+volumes:
+  sharry-db:

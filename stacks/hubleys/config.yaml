@@ -1,0 +1,6 @@
+title: Hubleys Dashboard
+apps:
+  - name: Example
+    url: https://example.com
+    icon: globe
+    description: An example link

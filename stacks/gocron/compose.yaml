@@ -1,0 +1,10 @@
+services:
+  gocron:
+    image: ghcr.io/flohoss/gocron:latest
+    container_name: gocron
+    hostname: gocron
+    restart: always
+    volumes:
+      - ./config/:/app/config/
+    ports:
+      - "8156:8156"

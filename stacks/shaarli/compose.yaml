@@ -1,0 +1,14 @@
+services:
+  shaarli:
+    image: ghcr.io/shaarli/shaarli:latest
+    container_name: shaarli
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      - shaarli_cache:/var/www/shaarli/cache
+      - shaarli_data:/var/www/shaarli/data
+
+volumes:
+  shaarli_cache:
+  shaarli_data:

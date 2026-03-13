@@ -1,0 +1,15 @@
+services:
+  ifm:
+    image: misterunknown/ifm:latest
+    container_name: ifm
+    restart: unless-stopped
+    ports:
+      - "${IFM_PORT:-8080}:80"
+    volumes:
+      - data:/var/www
+    environment:
+      - IFM_AUTH=${IFM_AUTH:-0}
+      - TZ=${TZ:-UTC}
+
+volumes:
+  data:

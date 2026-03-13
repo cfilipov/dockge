@@ -1,0 +1,56 @@
+networks:
+  schoco:
+    name: schoco
+
+services:
+  backend:
+    image: phitux/schoco-backend:${SCHOCO_VERSION:-latest}
+    container_name: schoco-backend
+    restart: always
+    user: "${PUID:-1000}:${PGID:-1000}"
+    group_add:
+      - "${DOCKER_GROUP_ID:-999}"
+    environment:
+      - FULL_DATA_PATH=${DATA_PATH:-/opt/schoco/data}
+      - MAX_CONTAINERS=${MAX_CONTAINERS:-4}
+      - SECRET_KEY=${SECRET_KEY:-changeme}
+      - TEACHER_KEY=${TEACHER_KEY:-teacherkey}
+      - GITEA_USERNAME=${GITEA_USER:-schoco}
+      - GITEA_PASSWORD=${GITEA_PASSWORD:-schoco1234}
+      - GITEA_HOST=http://schoco-gitea:3000
+    networks:
+      - schoco
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  frontend:
+    image: phitux/schoco-frontend:${SCHOCO_VERSION:-latest}
+    container_name: schoco-frontend
+    restart: always
+    group_add:
+      - "${DOCKER_GROUP_ID:-999}"
+    networks:
+      - schoco
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+
+  gitea:
+    image: gitea/gitea:${GITEA_VERSION:-1.17.3}
+    container_name: schoco-gitea
+    restart: always
+    environment:
+      - USER_UID=${PUID:-1000}
+      - USER_GID=${PGID:-1000}
+      - GITEA__security__INSTALL_LOCK=true
+    networks:
+      - schoco
+    volumes:
+      - gitea_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+volumes:
+  gitea_data:

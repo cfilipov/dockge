@@ -1,0 +1,12 @@
+services:
+  jelu:
+    image: wabayang/jelu:latest
+    container_name: jelu
+    restart: unless-stopped
+    ports:
+      - "${PORT:-11111}:11111"
+    volumes:
+      - config:/config
+      - images:/database/images
+    environment:
+      - TZ=${TZ:-UTC}

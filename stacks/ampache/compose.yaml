@@ -1,0 +1,18 @@
+services:
+  ampache:
+    image: ampache/ampache:${AMPACHE_VERSION:-latest}
+    container_name: ampache
+    restart: unless-stopped
+    ports:
+      - "${AMPACHE_PORT:-8080}:80"
+    volumes:
+      - ./data/config:/var/www/config
+      - ./data/log:/var/log/ampache
+      - ./data/media:/media
+      - ./data/mysql:/var/lib/mysql
+    environment:
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASS: ${MYSQL_PASS}
+      AMPACHE_ADMIN_USER: ${AMPACHE_ADMIN_USER}
+      AMPACHE_ADMIN_PASSWORD: ${AMPACHE_ADMIN_PASSWORD}
+      AMPACHE_ADMIN_EMAIL: ${AMPACHE_ADMIN_EMAIL}

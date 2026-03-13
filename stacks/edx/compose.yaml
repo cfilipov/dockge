@@ -1,0 +1,81 @@
+services:
+  lms:
+    image: treehouses/openedx:latest
+    container_name: edx-lms
+    restart: unless-stopped
+    ports:
+      - "${LMS_PORT:-8000}:8000"
+    environment:
+      - EDXAPP_LMS_BASE=${LMS_HOST:-localhost:8000}
+      - EDXAPP_CMS_BASE=${CMS_HOST:-localhost:8001}
+      - EDXAPP_PLATFORM_NAME=${PLATFORM_NAME:-Open edX}
+      - EDXAPP_MYSQL_HOST=mysql
+      - EDXAPP_MYSQL_USER=${MYSQL_USER:-edxapp}
+      - EDXAPP_MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+      - EDXAPP_MYSQL_DB=${MYSQL_DB:-edxapp}
+      - EDXAPP_MONGO_HOST=mongodb
+      - EDXAPP_MONGO_DB=${MONGO_DB:-edxapp}
+      - EDXAPP_REDIS_HOST=redis
+    volumes:
+      - edx_data:/edx/var
+      - edx_media:/edx/app/edxapp/media
+    depends_on:
+      - mysql
+      - mongodb
+      - redis
+
+  cms:
+    image: treehouses/openedx:latest
+    container_name: edx-cms
+    restart: unless-stopped
+    ports:
+      - "${CMS_PORT:-8001}:8001"
+    environment:
+      - SERVICE_VARIANT=cms
+      - EDXAPP_LMS_BASE=${LMS_HOST:-localhost:8000}
+      - EDXAPP_CMS_BASE=${CMS_HOST:-localhost:8001}
+      - EDXAPP_MYSQL_HOST=mysql
+      - EDXAPP_MYSQL_USER=${MYSQL_USER:-edxapp}
+      - EDXAPP_MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+      - EDXAPP_MYSQL_DB=${MYSQL_DB:-edxapp}
+      - EDXAPP_MONGO_HOST=mongodb
+      - EDXAPP_REDIS_HOST=redis
+    volumes:
+      - edx_data:/edx/var
+    depends_on:
+      - mysql
+      - mongodb
+      - redis
+
+  mysql:
+    image: mysql:8.0
+    container_name: edx-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpass}
+      - MYSQL_DATABASE=${MYSQL_DB:-edxapp}
+      - MYSQL_USER=${MYSQL_USER:-edxapp}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  mongodb:
+    image: mongo:7
+    container_name: edx-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: edx-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  edx_data:
+  edx_media:
+  mysql_data:
+  mongo_data:
+  redis_data:

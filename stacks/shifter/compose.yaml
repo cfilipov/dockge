@@ -1,0 +1,21 @@
+services:
+  shifter:
+    image: ghcr.io/tobysuch/shifter:latest
+    container_name: shifter
+    restart: unless-stopped
+    ports:
+      - "${SHIFTER_PORT:-8000}:8000"
+    environment:
+      DEBUG: "0"
+      SECRET_KEY: ${SECRET_KEY}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+      SHIFTER_URL: ${SHIFTER_URL}
+    env_file:
+      - .env
+    volumes:
+      - shifter-media:/home/app/web/media
+      - shifter-db:/home/app/web/db
+
+volumes:
+  shifter-media:
+  shifter-db:

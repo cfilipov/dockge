@@ -1,0 +1,8 @@
+# Sample feature flags configuration
+# See https://gofeatureflag.org/docs/ for flag format documentation
+example-flag:
+  variations:
+    enabled: true
+    disabled: false
+  defaultRule:
+    variation: disabled

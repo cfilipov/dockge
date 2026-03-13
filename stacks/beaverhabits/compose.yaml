@@ -1,0 +1,13 @@
+services:
+  beaverhabits:
+    container_name: beaverhabits
+    image: daya0576/beaverhabits:latest
+    user: 1000:1000
+    environment:
+      - HABITS_STORAGE=USER_DISK
+      - ENABLE_IOS_STANDALONE=true
+    volumes:
+      - ./beaver/:/app/.user/
+    ports:
+      - 8080:8080
+    restart: unless-stopped

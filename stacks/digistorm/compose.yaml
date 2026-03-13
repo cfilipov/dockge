@@ -1,0 +1,14 @@
+services:
+  digistorm:
+    image: ladigitale/digistorm:${DIGISTORM_VERSION:-latest}
+    container_name: digistorm
+    restart: unless-stopped
+    ports:
+      - "${DIGISTORM_PORT:-8080}:8080"
+    environment:
+      NODE_ENV: production
+    volumes:
+      - digistorm_data:/app/data
+
+volumes:
+  digistorm_data:

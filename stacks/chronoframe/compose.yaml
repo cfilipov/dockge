@@ -1,0 +1,19 @@
+services:
+  chronoframe:
+    image: ghcr.io/hoshinosuzumi/chronoframe:latest
+    container_name: chronoframe
+    restart: unless-stopped
+    ports:
+      - "${CHRONOFRAME_PORT:-3000}:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      CFRAME_ADMIN_EMAIL: ${CFRAME_ADMIN_EMAIL}
+      CFRAME_ADMIN_NAME: ${CFRAME_ADMIN_NAME}
+      CFRAME_ADMIN_PASSWORD: ${CFRAME_ADMIN_PASSWORD}
+      NUXT_PUBLIC_APP_TITLE: ${NUXT_PUBLIC_APP_TITLE:-ChronoFrame}
+      NUXT_PUBLIC_COLOR_MODE_PREFERENCE: ${NUXT_PUBLIC_COLOR_MODE_PREFERENCE:-system}
+      NUXT_STORAGE_PROVIDER: ${NUXT_STORAGE_PROVIDER:-local}
+      NUXT_PROVIDER_LOCAL_PATH: ./data/storage
+      NUXT_PROVIDER_LOCAL_BASE_URL: /storage
+      NUXT_SESSION_PASSWORD: ${NUXT_SESSION_PASSWORD}

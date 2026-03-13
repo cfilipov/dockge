@@ -1,0 +1,15 @@
+services:
+  gogs:
+    image: gogs/gogs:${GOGS_VERSION:-latest}
+    container_name: gogs
+    restart: unless-stopped
+    ports:
+      - "${GOGS_HTTP_PORT:-3000}:3000"
+      - "${GOGS_SSH_PORT:-2222}:22"
+    volumes:
+      - gogs-data:/data
+    environment:
+      - RUN_CROND=true
+
+volumes:
+  gogs-data:

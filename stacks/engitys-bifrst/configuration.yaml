@@ -1,0 +1,11 @@
+# Bifröst configuration
+# See: https://github.com/engity-com/bifroest
+ssh:
+  addresses:
+    - ":22"
+flows:
+  - name: default
+    authorization:
+      type: local
+    environment:
+      type: local

@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  homer-webapp:
+    image: ghcr.io/sipcapture/homer-app:latest
+    container_name: homer-webapp
+    restart: unless-stopped
+    ports:
+      - "9080:80"
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASS=homerSeven
+      - LOKI_HOST=loki
+      - PROM_HOST=prometheus
+    depends_on:
+      - db
+
+  heplify-server:
+    image: ghcr.io/sipcapture/heplify-server:latest
+    container_name: heplify-server
+    restart: unless-stopped
+    ports:
+      - "9060:9060"
+      - "9060:9060/udp"
+      - "9061:9061/tcp"
+    command: ['./heplify-server']
+    environment:
+      - HEPLIFYSERVER_HEPADDR=0.0.0.0:9060
+      - HEPLIFYSERVER_HEPTCPADDR=0.0.0.0:9061
+      - HEPLIFYSERVER_DBSHEMA=homer7
+      - HEPLIFYSERVER_DBDRIVER=postgres
+      - HEPLIFYSERVER_DBADDR=db:5432
+      - HEPLIFYSERVER_DBUSER=root
+      - HEPLIFYSERVER_DBPASS=homerSeven
+      - HEPLIFYSERVER_DBDATATABLE=homer_data
+      - HEPLIFYSERVER_DBCONFTABLE=homer_config
+      - HEPLIFYSERVER_DBROTATE=true
+      - HEPLIFYSERVER_DBDROPDAYS=5
+      - HEPLIFYSERVER_LOGLVL=info
+      - HEPLIFYSERVER_LOGSTD=true
+      - HEPLIFYSERVER_PROMADDR=0.0.0.0:9096
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    container_name: homer-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_PASSWORD=homerSeven
+      - POSTGRES_USER=root
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: homer-grafana
+    restart: unless-stopped
+    ports:
+      - "9030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  db-data:
+  grafana-data:

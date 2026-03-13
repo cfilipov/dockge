@@ -1,0 +1,24 @@
+services:
+  iredmail:
+    image: iredmail/mariadb:stable
+    container_name: iredmail
+    hostname: mail.example.com
+    ports:
+      - "80:80"
+      - "443:443"
+      - "25:25"
+      - "587:587"
+      - "465:465"
+      - "143:143"
+      - "993:993"
+      - "110:110"
+      - "995:995"
+    volumes:
+      - ./data:/opt/iredmail
+      - ./data-mysql:/var/lib/mysql
+    environment:
+      - HOSTNAME=mail.example.com
+      - FIRST_MAIL_DOMAIN=${FIRST_MAIL_DOMAIN}
+      - FIRST_MAIL_DOMAIN_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ROUNDCUBE_DES_KEY=${ROUNDCUBE_DES_KEY}
+    restart: unless-stopped

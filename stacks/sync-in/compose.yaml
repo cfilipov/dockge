@@ -1,0 +1,40 @@
+services:
+  syncin:
+    image: syncin/server:${SYNCIN_VERSION:-latest}
+    container_name: sync-in
+    restart: unless-stopped
+    ports:
+      - "${SYNCIN_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-syncin}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-syncin}
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-key}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+    volumes:
+      - syncin_data:/data
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16-alpine}
+    container_name: sync-in-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-syncin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-syncin}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: sync-in-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  syncin_data:
+  postgres_data:
+  redis_data:

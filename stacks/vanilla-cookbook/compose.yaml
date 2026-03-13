@@ -1,0 +1,15 @@
+services:
+  app:
+    image: jt196/vanilla-cookbook:latest
+    container_name: vanilla-cookbook
+    restart: unless-stopped
+    ports:
+      - "${COOKBOOK_PORT}:3000"
+    volumes:
+      - ./db:/app/prisma/db
+      - ./uploads:/app/uploads
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    env_file:
+      - .env

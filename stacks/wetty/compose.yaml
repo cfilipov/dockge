@@ -1,0 +1,13 @@
+services:
+  wetty:
+    image: wettyoss/wetty:latest
+    restart: unless-stopped
+    ports:
+      - "${WETTY_PORT:-3000}:3000"
+    environment:
+      - SSHHOST=${SSHHOST:-host.docker.internal}
+      - SSHPORT=${SSHPORT:-22}
+      - SSHUSER=${SSHUSER:-}
+      - BASE=${BASE:-/wetty}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

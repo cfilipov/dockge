@@ -1,0 +1,12 @@
+services:
+  slash:
+    image: yourselfhosted/slash:latest
+    container_name: slash
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5231}:5231"
+    volumes:
+      - slash_data:/var/opt/slash
+
+volumes:
+  slash_data:

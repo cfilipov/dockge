@@ -1,0 +1,14 @@
+services:
+  wikidocs:
+    image: zavy86/wikidocs:${WIKIDOCS_VERSION:-latest}
+    container_name: wikidocs
+    restart: unless-stopped
+    ports:
+      - "${WIKIDOCS_PORT:-8080}:80"
+    volumes:
+      - wikidocs-data:/var/www/html/datasets
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  wikidocs-data:

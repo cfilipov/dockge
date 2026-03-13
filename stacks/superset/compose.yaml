@@ -1,0 +1,106 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: superset-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: superset-postgres
+    environment:
+      - POSTGRES_USER=superset
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=superset
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  superset-init:
+    image: apache/superset:latest
+    container_name: superset-init
+    command: >
+      /bin/sh -c "
+      superset db upgrade &&
+      superset fab create-admin --username admin --firstname Admin --lastname User --email admin@example.com --password admin &&
+      superset init
+      "
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=superset
+      - DATABASE_PASSWORD=${DB_PASSWORD}
+      - DATABASE_DB=superset
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SECRET_KEY=${SECRET_KEY}
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:${DB_PASSWORD}@postgres:5432/superset
+    depends_on:
+      - postgres
+      - redis
+
+  superset:
+    image: apache/superset:latest
+    container_name: superset
+    ports:
+      - "8088:8088"
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=superset
+      - DATABASE_PASSWORD=${DB_PASSWORD}
+      - DATABASE_DB=superset
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SECRET_KEY=${SECRET_KEY}
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:${DB_PASSWORD}@postgres:5432/superset
+    depends_on:
+      - postgres
+      - redis
+      - superset-init
+    restart: unless-stopped
+
+  superset-worker:
+    image: apache/superset:latest
+    container_name: superset-worker
+    command: celery --app=superset.tasks.celery_app:app worker -Ofair -c 2
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=superset
+      - DATABASE_PASSWORD=${DB_PASSWORD}
+      - DATABASE_DB=superset
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SECRET_KEY=${SECRET_KEY}
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:${DB_PASSWORD}@postgres:5432/superset
+    depends_on:
+      - postgres
+      - redis
+      - superset-init
+    restart: unless-stopped
+
+  superset-worker-beat:
+    image: apache/superset:latest
+    container_name: superset-worker-beat
+    command: celery --app=superset.tasks.celery_app:app beat --pidfile /tmp/celerybeat.pid -s /tmp/celerybeat-schedule
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=superset
+      - DATABASE_PASSWORD=${DB_PASSWORD}
+      - DATABASE_DB=superset
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SECRET_KEY=${SECRET_KEY}
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:${DB_PASSWORD}@postgres:5432/superset
+    depends_on:
+      - postgres
+      - redis
+      - superset-init
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  postgres-data:

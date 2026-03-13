@@ -1,0 +1,46 @@
+# Admidio - Free open source user management system
+# https://github.com/Admidio/admidio/blob/master/README-Docker.md
+
+services:
+  db:
+    image: mariadb:lts-noble
+    restart: unless-stopped
+    volumes:
+      - db-config:/etc/mysql/conf.d
+      - db-data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpasswd}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-admidio}
+      - MYSQL_USER=${MYSQL_USER:-admidio}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-password}
+
+  admidio:
+    image: admidio/admidio:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    volumes:
+      - admidio-files:/opt/app-root/src/adm_my_files
+      - admidio-plugins:/opt/app-root/src/adm_plugins
+      - admidio-themes:/opt/app-root/src/themes
+    ports:
+      - "${ADMIDIO_PORT:-8080}:8080"
+    environment:
+      - ADMIDIO_DB_TYPE=mysql
+      - ADMIDIO_DB_HOST=db:3306
+      - ADMIDIO_DB_NAME=${MYSQL_DATABASE:-admidio}
+      - ADMIDIO_DB_USER=${MYSQL_USER:-admidio}
+      - ADMIDIO_DB_PASSWORD=${MYSQL_PASSWORD:-password}
+      - ADMIDIO_DB_TABLE_PRAEFIX=adm
+      - ADMIDIO_LOGIN_FOR_UPDATE=1
+      - ADMIDIO_ORGANISATION=MyOrg
+      - ADMIDIO_PASSWORD_HASH_ALGORITHM=DEFAULT
+      - TZ=${TZ:-UTC}
+      - ADMIDIO_ROOT_PATH=http://localhost:${ADMIDIO_PORT:-8080}
+
+volumes:
+  db-config:
+  db-data:
+  admidio-files:
+  admidio-plugins:
+  admidio-themes:

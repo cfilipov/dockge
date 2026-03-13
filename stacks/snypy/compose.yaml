@@ -1,0 +1,35 @@
+services:
+  snypy-backend:
+    image: snypy/snypy-backend:latest
+    container_name: snypy-backend
+    restart: unless-stopped
+    ports:
+      - "${SNYPY_PORT:-8000}:8000"
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-changeme-django-secret}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-snypy}:${POSTGRES_PASSWORD:-snypy}@db:5432/${POSTGRES_DB:-snypy}
+    depends_on:
+      - db
+
+  snypy-frontend:
+    image: snypy/snypy-frontend:latest
+    container_name: snypy-frontend
+    restart: unless-stopped
+    ports:
+      - "${SNYPY_FRONTEND_PORT:-4200}:80"
+    environment:
+      - API_URL=http://snypy-backend:8000
+
+  db:
+    image: postgres:16-alpine
+    container_name: snypy-db
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-snypy}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-snypy}
+      - POSTGRES_DB=${POSTGRES_DB:-snypy}
+
+volumes:
+  db-data:

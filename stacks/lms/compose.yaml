@@ -1,0 +1,11 @@
+services:
+  lms:
+    image: epoupon/lms:${LMS_VERSION:-latest}
+    container_name: lms
+    restart: unless-stopped
+    user: ${PUID:-1000}:${PGID:-1000}
+    ports:
+      - "${LMS_PORT:-5082}:5082"
+    volumes:
+      - ./data:/var/lms
+      - ./music:/music:ro

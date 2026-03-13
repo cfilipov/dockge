@@ -1,0 +1,58 @@
+services:
+  magento:
+    image: bitnami/magento:latest
+    restart: unless-stopped
+    ports:
+      - "${MAGENTO_PORT:-8080}:8080"
+      - "${MAGENTO_HTTPS_PORT:-8443}:8443"
+    environment:
+      MAGENTO_HOST: ${MAGENTO_HOST:-localhost}
+      MAGENTO_DATABASE_HOST: mariadb
+      MAGENTO_DATABASE_PORT_NUMBER: 3306
+      MAGENTO_DATABASE_USER: ${DB_USERNAME:-magento}
+      MAGENTO_DATABASE_PASSWORD: ${DB_PASSWORD:-magento}
+      MAGENTO_DATABASE_NAME: ${DB_DATABASE:-magento}
+      MAGENTO_ELASTICSEARCH_HOST: elasticsearch
+      MAGENTO_ELASTICSEARCH_PORT_NUMBER: 9200
+      MAGENTO_USERNAME: ${MAGENTO_USERNAME:-admin}
+      MAGENTO_PASSWORD: ${MAGENTO_PASSWORD:-Admin123!}
+      MAGENTO_EMAIL: ${MAGENTO_EMAIL:-admin@example.com}
+    volumes:
+      - magento-data:/bitnami/magento
+    depends_on:
+      - mariadb
+      - elasticsearch
+    networks:
+      - magento
+
+  mariadb:
+    image: bitnami/mariadb:10.6
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+      MARIADB_USER: ${DB_USERNAME:-magento}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-magento}
+      MARIADB_DATABASE: ${DB_DATABASE:-magento}
+    volumes:
+      - mariadb-data:/bitnami/mariadb
+    networks:
+      - magento
+
+  elasticsearch:
+    image: bitnami/elasticsearch:7
+    restart: unless-stopped
+    environment:
+      ELASTICSEARCH_HEAP_SIZE: 512m
+    volumes:
+      - elasticsearch-data:/bitnami/elasticsearch/data
+    networks:
+      - magento
+
+networks:
+  magento:
+    driver: bridge
+
+volumes:
+  magento-data:
+  mariadb-data:
+  elasticsearch-data:

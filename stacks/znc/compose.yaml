@@ -1,0 +1,11 @@
+services:
+  znc:
+    image: znc:latest
+    ports:
+      - "6501:6501"
+    volumes:
+      - znc-data:/znc-data
+    restart: unless-stopped
+
+volumes:
+  znc-data:

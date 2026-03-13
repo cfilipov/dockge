@@ -1,0 +1,15 @@
+services:
+  jina:
+    image: jinaai/jina:${JINA_TAG}
+    container_name: jina
+    ports:
+      - "${JINA_PORT}:8080"
+      - "${JINA_GRPC_PORT}:8081"
+    volumes:
+      - jina-data:/data
+    environment:
+      JINA_LOG_LEVEL: ${JINA_LOG_LEVEL}
+    restart: unless-stopped
+
+volumes:
+  jina-data:

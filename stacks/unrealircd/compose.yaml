@@ -1,0 +1,13 @@
+services:
+  unrealircd:
+    image: bbriggs/unrealircd:latest
+    container_name: unrealircd
+    restart: unless-stopped
+    ports:
+      - "${IRC_PORT:-6667}:6667"
+      - "${IRC_SSL_PORT:-6697}:6697"
+    volumes:
+      - unrealircd-data:/data
+
+volumes:
+  unrealircd-data:

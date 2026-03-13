@@ -1,0 +1,14 @@
+services:
+  minus-games-server:
+    image: ghcr.io/accessory/minus_games_server:latest
+    container_name: minus-games-server
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8415}:8415"
+    volumes:
+      - ./data:/var/lib/minus_games_server/data
+      - ./games:/var/lib/minus_games_server/games
+    environment:
+      DATA_FOLDER: /var/lib/minus_games_server/data/
+      GAMES_FOLDER: /var/lib/minus_games_server/games/
+      IP: 0.0.0.0

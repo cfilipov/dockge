@@ -1,0 +1,36 @@
+# Frappe HR (HRMS) - Development setup
+# https://github.com/frappe/hrms/tree/develop/docker
+
+services:
+  mariadb:
+    image: mariadb:10.8
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+
+  frappe:
+    image: frappe/bench:latest
+    restart: unless-stopped
+    environment:
+      - SHELL=/bin/bash
+    working_dir: /home/frappe
+    ports:
+      - "${FRAPPE_PORT:-8000}:8000"
+      - "9000:9000"
+    depends_on:
+      - mariadb
+      - redis
+
+volumes:
+  mariadb-data:

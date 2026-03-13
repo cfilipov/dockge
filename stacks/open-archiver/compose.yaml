@@ -1,0 +1,54 @@
+services:
+  open-archiver:
+    image: logiclabshq/open-archiver:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - POSTGRES_DB=open_archive
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
+    volumes:
+      - ./storage:/storage
+    depends_on:
+      - postgres
+      - valkey
+      - meilisearch
+      - tika
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_DB=open_archive
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: valkey-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - valkeydata:/data
+    restart: unless-stopped
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.15
+    environment:
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
+      - MEILI_SCHEDULE_SNAPSHOT=86400
+    volumes:
+      - meilidata:/meili_data
+    restart: unless-stopped
+
+  tika:
+    image: apache/tika:3.2.2.0-full
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  valkeydata:
+  meilidata:

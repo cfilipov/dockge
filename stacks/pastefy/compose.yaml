@@ -1,0 +1,34 @@
+services:
+  pastefy:
+    image: interaapps/pastefy:latest
+    container_name: pastefy
+    restart: unless-stopped
+    ports:
+      - "${PASTEFY_PORT:-9999}:80"
+    environment:
+      - HTTP_SERVER_PORT=80
+      - HTTP_SERVER_CORS=*
+      - DATABASE_DRIVER=mysql
+      - DATABASE_NAME=${DATABASE_NAME:-pastefy}
+      - DATABASE_USER=${DATABASE_USER:-pastefy}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-pastefy}
+      - DATABASE_HOST=db
+      - DATABASE_PORT=3306
+      - SERVER_NAME=${SERVER_NAME:-http://localhost:9999}
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:10.11
+    container_name: pastefy-db
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-pastefy}
+      - MYSQL_DATABASE=${DATABASE_NAME:-pastefy}
+      - MYSQL_USER=${DATABASE_USER:-pastefy}
+      - MYSQL_PASSWORD=${DATABASE_PASSWORD:-pastefy}
+
+volumes:
+  db-data:

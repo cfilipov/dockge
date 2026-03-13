@@ -1,0 +1,10 @@
+services:
+  imgproxy:
+    image: ghcr.io/imgproxy/imgproxy:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - IMGPROXY_BIND=:8080
+      - IMGPROXY_MAX_SRC_RESOLUTION=50
+      - IMGPROXY_QUALITY=80
+    restart: unless-stopped

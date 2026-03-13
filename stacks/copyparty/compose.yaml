@@ -1,0 +1,16 @@
+services:
+  copyparty:
+    image: copyparty/ac:latest
+    container_name: copyparty
+    restart: unless-stopped
+    ports:
+      - "${COPYPARTY_PORT:-3923}:3923"
+    volumes:
+      - uploads:/w
+      - config:/cfg
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  uploads:
+  config:

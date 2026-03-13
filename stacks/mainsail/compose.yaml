@@ -1,0 +1,9 @@
+services:
+  mainsail:
+    image: ghcr.io/mainsail-crew/mainsail:latest
+    container_name: mainsail
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config.json:/usr/share/nginx/html/config.json

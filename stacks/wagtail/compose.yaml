@@ -1,0 +1,27 @@
+services:
+  wagtail:
+    image: python:3.12-slim
+    working_dir: /app
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://wagtail:${DB_PASSWORD}@db:5432/wagtail
+      DJANGO_SETTINGS_MODULE: mysite.settings.production
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: wagtail
+      POSTGRES_USER: wagtail
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  db_data:

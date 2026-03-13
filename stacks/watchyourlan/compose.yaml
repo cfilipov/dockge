@@ -1,0 +1,14 @@
+services:
+  wyl:
+    image: aceberg/watchyourlan
+    container_name: watchyourlan
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - wyl-data:/data/WatchYourLAN
+    environment:
+      TZ: Etc/UTC
+      IFACES: "eth0"
+
+volumes:
+  wyl-data:

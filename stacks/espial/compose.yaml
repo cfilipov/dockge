@@ -1,0 +1,12 @@
+services:
+  espial:
+    image: jonschoning/espial:latest
+    container_name: espial
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - IP_FROM_HEADER=true
+      - SQLITE_DATABASE=/app/data/espial.sqlite3
+    volumes:
+      - ./data:/app/data

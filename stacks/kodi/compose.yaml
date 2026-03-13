@@ -1,0 +1,15 @@
+services:
+  kodi-headless:
+    image: linuxserver/kodi-headless:Leia
+    container_name: kodi-headless
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - "${WEBUI_PORT}:8080"
+      - "${WS_PORT}:9090"
+      - "${ESALL_PORT}:9777/udp"
+    volumes:
+      - ./config:/config/.kodi

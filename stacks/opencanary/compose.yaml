@@ -1,0 +1,15 @@
+services:
+  opencanary:
+    image: thinkst/opencanary
+    container_name: opencanary
+    restart: unless-stopped
+    network_mode: host
+    tmpfs:
+      - /run
+    volumes:
+      - ./data/.opencanary.conf:/root/.opencanary.conf
+    ports:
+      # FTP
+      - "21:21"
+      # HTTP
+      - "80:80"

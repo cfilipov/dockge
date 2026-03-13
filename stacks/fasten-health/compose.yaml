@@ -1,0 +1,13 @@
+services:
+  fasten:
+    image: ghcr.io/fastenhealth/fasten-onprem:main
+    hostname: ${HOSTNAME:-fasten}
+    environment:
+      - HOST_IP=${IP}
+      - HOST_PORT=${PORT}
+    ports:
+      - "${PORT:-9090}:8080"
+    volumes:
+      - ./db:/opt/fasten/db
+      - ./certs:/opt/fasten/certs/shared
+    restart: unless-stopped

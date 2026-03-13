@@ -1,0 +1,35 @@
+services:
+  pixelfed:
+    image: ghcr.io/pixelfed/pixelfed:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - pixelfed-storage:/var/www/storage
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: pixelfed
+      MYSQL_USER: pixelfed
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  pixelfed-storage:
+  db-data:
+  redis-data:

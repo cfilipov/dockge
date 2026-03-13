@@ -1,0 +1,9 @@
+services:
+  homepage:
+    image: ghcr.io/tomershvueli/homepage:latest
+    container_name: homepage-tomershvueli
+    ports:
+      - "${HOMEPAGE_PORT:-3000}:3000"
+    environment:
+      - HOMEPAGE_TITLE=${HOMEPAGE_TITLE:-My Homepage}
+    restart: unless-stopped

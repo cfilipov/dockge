@@ -1,0 +1,16 @@
+services:
+  filerise:
+    image: error311/filerise-docker:latest
+    container_name: filerise
+    restart: unless-stopped
+    ports:
+      - "${FILERISE_PORT:-8080}:80"
+    volumes:
+      - uploads:/var/www/html/uploads
+      - config:/var/www/html/config
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  uploads:
+  config:

@@ -1,0 +1,41 @@
+services:
+  thingsboard:
+    image: thingsboard/tb-postgres:${TB_VERSION:-latest}
+    container_name: thingsboard
+    restart: unless-stopped
+    ports:
+      - "${TB_HTTP_PORT:-8080}:9090"
+      - "${TB_MQTT_PORT:-1883}:1883"
+      - "${TB_COAP_PORT:-5683}:5683/udp"
+    volumes:
+      - tb-data:/data
+      - tb-logs:/var/log/thingsboard
+    environment:
+      TB_QUEUE_TYPE: ${TB_QUEUE_TYPE:-in-memory}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${TB_DB_NAME:-thingsboard}
+      SPRING_DATASOURCE_USERNAME: ${TB_DB_USER:-thingsboard}
+      SPRING_DATASOURCE_PASSWORD: ${TB_DB_PASSWORD:-thingsboard}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16-alpine}
+    container_name: thingsboard-postgres
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${TB_DB_NAME:-thingsboard}
+      POSTGRES_USER: ${TB_DB_USER:-thingsboard}
+      POSTGRES_PASSWORD: ${TB_DB_PASSWORD:-thingsboard}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TB_DB_USER:-thingsboard}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  tb-data:
+  tb-logs:
+  postgres-data:

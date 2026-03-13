@@ -1,0 +1,16 @@
+services:
+  yarr:
+    image: ghcr.io/nkanaev/yarr:latest
+    container_name: yarr
+    restart: unless-stopped
+    ports:
+      - "${YARR_PORT:-7070}:7070"
+    volumes:
+      - yarr-data:/data
+    environment:
+      - YARR_ADDR=0.0.0.0:7070
+      - YARR_DB=/data/yarr.db
+      - YARR_AUTH_FILE=${YARR_AUTH_FILE:-}
+
+volumes:
+  yarr-data:

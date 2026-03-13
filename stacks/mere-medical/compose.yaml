@@ -1,0 +1,18 @@
+services:
+  app:
+    image: cfu288/mere-medical:latest
+    ports:
+      - "4200:80"
+    healthcheck:
+      test: ["CMD", "node", "/app/healthcheck.js"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    environment:
+      - EPIC_CLIENT_ID=${EPIC_CLIENT_ID}
+      - EPIC_CLIENT_ID_R4=${EPIC_CLIENT_ID_R4}
+      - CERNER_CLIENT_ID=${CERNER_CLIENT_ID}
+      - VA_CLIENT_ID=${VA_CLIENT_ID}
+      - PUBLIC_URL=${PUBLIC_URL}
+    restart: unless-stopped

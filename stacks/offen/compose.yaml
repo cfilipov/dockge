@@ -1,0 +1,14 @@
+services:
+  offen:
+    image: offen/offen:latest
+    container_name: offen
+    restart: unless-stopped
+    ports:
+      - "${OFFEN_PORT:-9876}:80"
+    volumes:
+      - offen-data:/var/opt/offen
+    environment:
+      - OFFEN_SECRET=${OFFEN_SECRET:-changeme-generate-a-real-secret}
+
+volumes:
+  offen-data:

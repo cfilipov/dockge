@@ -1,0 +1,25 @@
+services:
+  syncthing:
+    image: syncthing/syncthing:${SYNCTHING_VERSION:-latest}
+    container_name: syncthing
+    hostname: ${SYNCTHING_HOSTNAME:-my-syncthing}
+    restart: unless-stopped
+    ports:
+      - "${SYNCTHING_GUI_PORT:-8384}:8384"
+      - "${SYNCTHING_LISTEN_PORT:-22000}:22000/tcp"
+      - "${SYNCTHING_LISTEN_PORT:-22000}:22000/udp"
+      - "${SYNCTHING_DISCOVERY_PORT:-21027}:21027/udp"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      STGUIADDRESS: "0.0.0.0:8384"
+    volumes:
+      - syncthing_data:/var/syncthing
+    healthcheck:
+      test: ["CMD", "curl", "-fkLsS", "-m", "2", "127.0.0.1:8384/rest/noauth/health"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+
+volumes:
+  syncthing_data:

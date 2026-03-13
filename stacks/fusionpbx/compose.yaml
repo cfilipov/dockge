@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  fusionpbx:
+    image: kinsamanka/fusionpbx:latest
+    container_name: fusionpbx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "5080:5080/udp"
+      - "5080:5080/tcp"
+      - "16384-16394:16384-16394/udp"
+    volumes:
+      - fusionpbx-data:/var/lib/freeswitch
+      - ./config:/etc/freeswitch
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: fusionpbx-db
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+volumes:
+  fusionpbx-data:
+  db-data:

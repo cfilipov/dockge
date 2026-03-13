@@ -1,0 +1,15 @@
+services:
+  robustirc:
+    image: robustirc/robustirc:latest
+    container_name: robustirc
+    restart: unless-stopped
+    ports:
+      - "${ROBUSTIRC_PORT:-6667}:6667"
+      - "${ROBUSTIRC_HTTPS_PORT:-8443}:443"
+    volumes:
+      - robustirc-data:/var/lib/robustirc
+    environment:
+      - ROBUSTIRC_NETWORK_NAME=${NETWORK_NAME:-mynetwork}
+
+volumes:
+  robustirc-data:

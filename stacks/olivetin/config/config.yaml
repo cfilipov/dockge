@@ -1,0 +1,3 @@
+actions:
+  - title: "Hello World"
+    shell: echo "Hello World!"

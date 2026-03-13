@@ -1,0 +1,10 @@
+services:
+  isponsorblocktv:
+    image: ghcr.io/dmunozv04/isponsorblocktv:latest
+    container_name: isponsorblocktv
+    restart: unless-stopped
+    volumes:
+      - data:/app/data
+
+volumes:
+  data:

@@ -1,0 +1,12 @@
+services:
+  lyrion:
+    image: lmscommunity/lyrionmusicserver:${LYRION_VERSION:-stable}
+    container_name: lyrion-music-server
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      HTTP_PORT: ${LYRION_HTTP_PORT:-9000}
+    volumes:
+      - ./config:/config
+      - ./music:/music:ro
+      - ./playlists:/playlists

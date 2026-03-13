@@ -1,0 +1,21 @@
+services:
+  tinode:
+    image: tinode/tinode-mysql:latest
+    container_name: tinode
+    ports:
+      - "6060:6060"
+    depends_on:
+      - mysql
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:5.7
+    container_name: tinode-mysql
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

@@ -1,0 +1,16 @@
+services:
+  cncjs:
+    image: cncjs/cncjs:latest
+    container_name: cncjs
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - data:/home/cncjs
+    privileged: true
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyACM0:/dev/ttyACM0
+
+volumes:
+  data:

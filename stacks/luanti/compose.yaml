@@ -1,0 +1,14 @@
+services:
+  luanti:
+    image: lscr.io/linuxserver/luanti:latest
+    container_name: luanti
+    restart: unless-stopped
+    ports:
+      - "${GAME_PORT:-30000}:30000/udp"
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Etc/UTC}
+      - CLI_ARGS=${CLI_ARGS:---gameid devtest}
+    volumes:
+      - ./config:/config/.luanti

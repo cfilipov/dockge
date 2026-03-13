@@ -1,0 +1,30 @@
+services:
+  flare:
+    image: flintsh/flare:latest
+    container_name: flare
+    restart: unless-stopped
+    ports:
+      - "${FLARE_PORT:-3000}:3000"
+    volumes:
+      - uploads:/app/uploads
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-flare}:${POSTGRES_PASSWORD:-flarepassword}@postgres:5432/${POSTGRES_DB:-flare}?schema=public
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me-to-a-random-secret}
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: flare-postgres
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-flare}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flarepassword}
+      POSTGRES_DB: ${POSTGRES_DB:-flare}
+
+volumes:
+  postgres-data:
+  uploads:

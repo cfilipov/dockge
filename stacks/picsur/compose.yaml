@@ -1,0 +1,32 @@
+services:
+  picsur:
+    image: ghcr.io/caramelfur/picsur-alpha:latest
+    container_name: picsur
+    restart: unless-stopped
+    ports:
+      - "${PICSUR_PORT:-8080}:8080"
+    environment:
+      PICSUR_DB_HOST: picsur-postgres
+      PICSUR_DB_PORT: "5432"
+      PICSUR_DB_USERNAME: ${POSTGRES_USER}
+      PICSUR_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PICSUR_DB_DATABASE: ${POSTGRES_DB}
+      PICSUR_ADMIN_PASSWORD: ${PICSUR_ADMIN_PASSWORD}
+      PICSUR_JWT_SECRET: ${PICSUR_JWT_SECRET}
+      PICSUR_MAX_FILE_SIZE: "128000000"
+    depends_on:
+      - picsur-postgres
+
+  picsur-postgres:
+    image: postgres:17-alpine
+    container_name: picsur-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - picsur-data:/var/lib/postgresql/data
+
+volumes:
+  picsur-data:

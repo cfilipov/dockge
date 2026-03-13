@@ -1,0 +1,44 @@
+services:
+  app:
+    image: ghcr.io/nathanvaughn/webtrees:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      PRETTY_URLS: "1"
+      HTTPS: "0"
+      HTTPS_REDIRECT: "0"
+      LANG: "en-US"
+      BASE_URL: "http://localhost:80"
+      DB_TYPE: "mysql"
+      DB_HOST: "db"
+      DB_PORT: "3306"
+      DB_USER: "webtrees"
+      DB_PASS: "${DB_PASSWORD}"
+      DB_NAME: "webtrees"
+      DB_PREFIX: "wt_"
+      WT_USER: "admin"
+      WT_NAME: "Admin"
+      WT_PASS: "${WT_PASSWORD}"
+      WT_EMAIL: "admin@example.com"
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - app_data:/var/www/webtrees/data/
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: "webtrees"
+      MARIADB_USER: "webtrees"
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MARIADB_PASSWORD: "${DB_PASSWORD}"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  app_data:
+  db_data:

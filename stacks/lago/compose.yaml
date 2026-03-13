@@ -1,0 +1,164 @@
+volumes:
+  lago_postgres_data:
+  lago_redis_data:
+  lago_storage_data:
+
+services:
+  db:
+    image: getlago/postgres-partman:15.0-alpine
+    container_name: lago-db
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-lago} -d ${POSTGRES_DB:-lago} -h localhost -p ${POSTGRES_PORT:-5432}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lago}
+      POSTGRES_USER: ${POSTGRES_USER:-lago}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      PGDATA: /data/postgres
+      PGPORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_SCHEMA: public
+    volumes:
+      - lago_postgres_data:/data/postgres
+    ports:
+      - ${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}
+
+  redis:
+    image: redis:7-alpine
+    container_name: lago-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "${REDIS_PORT:-6379}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: --port ${REDIS_PORT:-6379}
+    volumes:
+      - lago_redis_data:/data
+    ports:
+      - ${REDIS_PORT:-6379}:${REDIS_PORT:-6379}
+
+  migrate:
+    image: getlago/api:v1.43.0
+    container_name: lago-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["./scripts/migrate.sh"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lago}:${POSTGRES_PASSWORD:-changeme}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-lago}?search_path=public
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-your-secret-key-base-hex-64}
+      RAILS_ENV: production
+      LAGO_ENCRYPTION_PRIMARY_KEY: ${LAGO_ENCRYPTION_PRIMARY_KEY:-your-encryption-primary-key}
+      LAGO_ENCRYPTION_DETERMINISTIC_KEY: ${LAGO_ENCRYPTION_DETERMINISTIC_KEY:-your-encryption-deterministic-key}
+      LAGO_ENCRYPTION_KEY_DERIVATION_SALT: ${LAGO_ENCRYPTION_KEY_DERIVATION_SALT:-your-encryption-derivation-salt}
+
+  api:
+    image: getlago/api:v1.43.0
+    container_name: lago-api
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["./scripts/start.api.sh"]
+    healthcheck:
+      test: curl -f http://localhost:3000/health || exit 1
+      interval: 10s
+      start_period: 30s
+      timeout: 60s
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lago}:${POSTGRES_PASSWORD:-changeme}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-lago}?search_path=public
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-your-secret-key-base-hex-64}
+      RAILS_ENV: production
+      RAILS_LOG_TO_STDOUT: "true"
+      LAGO_API_URL: ${LAGO_API_URL:-http://localhost:3000}
+      LAGO_FRONT_URL: ${LAGO_FRONT_URL:-http://localhost}
+      LAGO_PDF_URL: http://pdf:3000
+      LAGO_SIDEKIQ_WEB: "true"
+      LAGO_ENCRYPTION_PRIMARY_KEY: ${LAGO_ENCRYPTION_PRIMARY_KEY:-your-encryption-primary-key}
+      LAGO_ENCRYPTION_DETERMINISTIC_KEY: ${LAGO_ENCRYPTION_DETERMINISTIC_KEY:-your-encryption-deterministic-key}
+      LAGO_ENCRYPTION_KEY_DERIVATION_SALT: ${LAGO_ENCRYPTION_KEY_DERIVATION_SALT:-your-encryption-derivation-salt}
+      LAGO_DISABLE_SIGNUP: ${LAGO_DISABLE_SIGNUP:-false}
+      LAGO_USE_AWS_S3: "false"
+      LAGO_USE_GCS: "false"
+    volumes:
+      - lago_storage_data:/app/storage
+    ports:
+      - ${API_PORT:-3000}:3000
+
+  front:
+    image: getlago/front:v1.43.0
+    container_name: lago-front
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_URL: ${LAGO_API_URL:-http://localhost:3000}
+      APP_ENV: production
+      LAGO_DISABLE_PDF_GENERATION: "false"
+    ports:
+      - ${FRONT_PORT:-80}:80
+
+  api-worker:
+    image: getlago/api:v1.43.0
+    container_name: lago-worker
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["./scripts/start.worker.sh"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lago}:${POSTGRES_PASSWORD:-changeme}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-lago}?search_path=public
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-your-secret-key-base-hex-64}
+      RAILS_ENV: production
+      LAGO_API_URL: ${LAGO_API_URL:-http://localhost:3000}
+      LAGO_ENCRYPTION_PRIMARY_KEY: ${LAGO_ENCRYPTION_PRIMARY_KEY:-your-encryption-primary-key}
+      LAGO_ENCRYPTION_DETERMINISTIC_KEY: ${LAGO_ENCRYPTION_DETERMINISTIC_KEY:-your-encryption-deterministic-key}
+      LAGO_ENCRYPTION_KEY_DERIVATION_SALT: ${LAGO_ENCRYPTION_KEY_DERIVATION_SALT:-your-encryption-derivation-salt}
+    volumes:
+      - lago_storage_data:/app/storage
+
+  api-clock:
+    image: getlago/api:v1.43.0
+    container_name: lago-clock
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["./scripts/start.clock.sh"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lago}:${POSTGRES_PASSWORD:-changeme}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-lago}?search_path=public
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-your-secret-key-base-hex-64}
+      RAILS_ENV: production
+      LAGO_API_URL: ${LAGO_API_URL:-http://localhost:3000}
+      LAGO_ENCRYPTION_PRIMARY_KEY: ${LAGO_ENCRYPTION_PRIMARY_KEY:-your-encryption-primary-key}
+      LAGO_ENCRYPTION_DETERMINISTIC_KEY: ${LAGO_ENCRYPTION_DETERMINISTIC_KEY:-your-encryption-deterministic-key}
+      LAGO_ENCRYPTION_KEY_DERIVATION_SALT: ${LAGO_ENCRYPTION_KEY_DERIVATION_SALT:-your-encryption-derivation-salt}
+
+  pdf:
+    image: getlago/lago-gotenberg:7.8.2
+    container_name: lago-pdf
+    restart: unless-stopped

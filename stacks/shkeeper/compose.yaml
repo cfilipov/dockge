@@ -1,0 +1,9 @@
+services:
+  shkeeper:
+    image: vsyshost/shkeeper:latest
+    container_name: shkeeper
+    ports:
+      - "${SHKEEPER_PORT:-5000}:5000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

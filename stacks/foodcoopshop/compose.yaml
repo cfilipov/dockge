@@ -1,0 +1,41 @@
+services:
+  php-nginx:
+    image: mantenpanther/foodcoopshop:${FCS_VERSION:-3.0.2}
+    container_name: foodcoopshop
+    restart: unless-stopped
+    ports:
+      - "${FCS_PORT:-8080}:80"
+    environment:
+      WEB_DOCUMENT_ROOT: /app/webroot
+      PHP_UPLOAD_MAX_FILESIZE: 200M
+      PHP_POST_MAX_SIZE: 200M
+    volumes:
+      - fcs-data:/app
+    depends_on:
+      - database
+    networks:
+      - fcs
+
+  database:
+    image: mysql:8.0
+    container_name: foodcoopshop-db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    environment:
+      MYSQL_USER: ${DB_USER:-user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_DATABASE: ${DB_NAME:-foodcoopshop}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - fcs
+
+volumes:
+  fcs-data:
+  db-data:
+
+networks:
+  fcs:
+    driver: bridge

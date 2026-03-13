@@ -1,0 +1,22 @@
+services:
+  mantisbt:
+    image: vimagick/mantisbt:latest
+    ports:
+      - "8989:80"
+    depends_on:
+      - mysql
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bugtracker
+      MYSQL_USER: mantis
+      MYSQL_PASSWORD: mantis
+    volumes:
+      - mysql-data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  mysql-data:

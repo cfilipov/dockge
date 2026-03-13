@@ -1,0 +1,37 @@
+services:
+  app:
+    image: ghcr.io/mindwendel/mindwendel:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_PORT: "5432"
+      DATABASE_SSL: "false"
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_USER_PASSWORD: ${DATABASE_PASSWORD}
+      MW_DEFAULT_LOCALE: ${MW_DEFAULT_LOCALE}
+      MW_FEATURE_BRAINSTORMING_REMOVAL_AFTER_DAYS: "30"
+      MW_FEATURE_IDEA_FILE_UPLOAD: "true"
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      URL_HOST: ${URL_HOST}
+      URL_PORT: ${URL_PORT}
+      URL_SCHEME: http
+      MW_ENDPOINT_HTTP_PORT: "4000"
+    ports:
+      - "${APP_PORT:-4000}:4000"
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

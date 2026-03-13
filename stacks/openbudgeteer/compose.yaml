@@ -1,0 +1,40 @@
+services:
+  openbudgeteer:
+    image: axelander/openbudgeteer:latest
+    container_name: openbudgeteer
+    ports:
+      - "${OPENBUDGETEER_PORT:-8080}:8080"
+    environment:
+      - CONNECTION_PROVIDER=mariadb
+      - CONNECTION_SERVER=openbudgeteer-mariadb
+      - CONNECTION_PORT=3306
+      - CONNECTION_DATABASE=${DB_DATABASE:-openbudgeteer}
+      - CONNECTION_USER=${DB_USER:-openbudgeteer}
+      - CONNECTION_PASSWORD=${DB_PASSWORD:-openbudgeteer}
+      - CONNECTION_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-myRootPassword}
+      - CONNECTION_REDIS_SERVER=openbudgeteer-redis
+      - APPSETTINGS_CULTURE=${APPSETTINGS_CULTURE:-en-US}
+    depends_on:
+      - mariadb
+      - redis
+    restart: unless-stopped
+
+  mariadb:
+    image: mariadb:latest
+    container_name: openbudgeteer-mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-myRootPassword}
+    volumes:
+      - db-data:/var/lib/mysql
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: openbudgeteer-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  redis-data:

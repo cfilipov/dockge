@@ -1,0 +1,19 @@
+services:
+  app:
+    image: l4rm4nd/vouchervault:latest
+    container_name: vouchervault
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+      - SECURE_COOKIES=${SECURE_COOKIES:-False}
+      - EXPIRY_THRESHOLD_DAYS=${EXPIRY_THRESHOLD_DAYS:-90}
+      - TZ=${TZ:-Europe/Berlin}
+    ports:
+      - "${VOUCHERVAULT_PORT:-8000}:8000"
+    volumes:
+      - ./volume-data/database:/opt/app/database
+
+  redis:
+    image: redis:7-alpine
+    container_name: vouchervault-redis
+    restart: unless-stopped

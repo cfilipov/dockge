@@ -1,0 +1,19 @@
+services:
+  tuwunel:
+    image: ghcr.io/matrix-construct/tuwunel:latest
+    container_name: tuwunel
+    ports:
+      - "8008:8008"
+      - "8448:8448"
+    environment:
+      TUWUNEL_SERVER_NAME: "localhost"
+      TUWUNEL_DATABASE_PATH: /var/lib/tuwunel
+      TUWUNEL_PORT: "8008"
+      TUWUNEL_ADDRESS: "0.0.0.0"
+      TUWUNEL_ALLOW_REGISTRATION: "true"
+    volumes:
+      - tuwunel_data:/var/lib/tuwunel
+    restart: unless-stopped
+
+volumes:
+  tuwunel_data:

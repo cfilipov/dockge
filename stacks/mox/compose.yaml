@@ -1,0 +1,15 @@
+services:
+  mox:
+    image: r.xmox.nl/mox:latest
+    container_name: mox
+    network_mode: host
+    volumes:
+      - ./config:/mox/config
+      - ./data:/mox/data
+      - ./www:/mox/www
+    healthcheck:
+      test: "netstat -nlt | grep ':25 '"
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    restart: on-failure

@@ -1,0 +1,30 @@
+services:
+  wakapi:
+    image: ghcr.io/muety/wakapi:latest
+    init: true
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    environment:
+      WAKAPI_DB_TYPE: "postgres"
+      WAKAPI_DB_NAME: "wakapi"
+      WAKAPI_DB_USER: "wakapi"
+      WAKAPI_DB_HOST: "db"
+      WAKAPI_DB_PORT: "5432"
+      WAKAPI_DB_PASSWORD: "wakapi_password"
+      WAKAPI_PASSWORD_SALT: "changeme"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "wakapi"
+      POSTGRES_PASSWORD: "wakapi_password"
+      POSTGRES_DB: "wakapi"
+    volumes:
+      - wakapi-db-data:/var/lib/postgresql/data
+
+volumes:
+  wakapi-db-data: {}

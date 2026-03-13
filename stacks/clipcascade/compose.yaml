@@ -1,0 +1,15 @@
+services:
+  clipcascade:
+    image: sathvikrao/clipcascade:latest
+    container_name: clipcascade
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - clipcascade_data:/database
+    environment:
+      - CC_MAX_MESSAGE_SIZE_IN_MiB=${CC_MAX_MESSAGE_SIZE_IN_MiB:-1}
+      - CC_P2P_ENABLED=${CC_P2P_ENABLED:-false}
+    restart: always
+
+volumes:
+  clipcascade_data:

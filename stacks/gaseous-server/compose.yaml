@@ -1,0 +1,37 @@
+services:
+  gaseous-server:
+    image: ghcr.io/gaseous-project/gaseous-server:latest
+    container_name: gaseous-server
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5198}:80"
+    volumes:
+      - ./data:/home/gaseous/.gaseous-server
+    environment:
+      TZ: ${TZ:-Australia/Sydney}
+      dbhost: db
+      dbuser: root
+      dbpass: ${DB_ROOT_PASSWORD:-gaseous}
+      igdbclientid: ${IGDB_CLIENT_ID:-your_client_id}
+      igdbclientsecret: ${IGDB_CLIENT_SECRET:-your_client_secret}
+    depends_on:
+      - db
+    networks:
+      - gaseous
+
+  db:
+    image: mariadb:latest
+    container_name: gaseous-db
+    restart: unless-stopped
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-gaseous}
+      MARIADB_USER: gaseous
+      MARIADB_PASSWORD: ${DB_PASSWORD:-gaseous}
+    networks:
+      - gaseous
+
+networks:
+  gaseous:
+    driver: bridge

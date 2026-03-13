@@ -1,0 +1,17 @@
+services:
+  game-server:
+    image: registry.gitlab.com/veloren/veloren/server-cli:${VELOREN_TAG:-weekly}
+    container_name: veloren-game-server
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    ports:
+      - "${VELOREN_PORT:-14004}:14004"
+      - "${VELOREN_AUTH_PORT:-14005}:14005"
+      - "${VELOREN_QUERY_PORT:-14006}:14006/udp"
+    environment:
+      - RUST_LOG=${RUST_LOG:-info,common::net=info}
+    volumes:
+      - ./userdata:/opt/userdata
+
+volumes: {}

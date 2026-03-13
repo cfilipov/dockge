@@ -1,0 +1,17 @@
+services:
+  xbackbone:
+    image: lscr.io/linuxserver/xbackbone:latest
+    container_name: xbackbone
+    restart: unless-stopped
+    ports:
+      - "${XBACKBONE_PORT:-8080}:80"
+      - "${XBACKBONE_HTTPS_PORT:-8443}:443"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Etc/UTC}
+    volumes:
+      - xbackbone-config:/config
+
+volumes:
+  xbackbone-config:

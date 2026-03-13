@@ -1,0 +1,36 @@
+services:
+  php:
+    image: php:8.2-fpm
+    container_name: bolt-php
+    depends_on:
+      - db
+    volumes:
+      - bolt_data:/var/www/bolt
+    restart: unless-stopped
+
+  web:
+    image: nginx:alpine
+    container_name: bolt-web
+    ports:
+      - "8088:80"
+    depends_on:
+      - php
+    volumes:
+      - bolt_data:/var/www/bolt
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10
+    container_name: bolt-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: bolt
+      MYSQL_USER: bolt
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  bolt_data:
+  db_data:

@@ -1,0 +1,31 @@
+share:
+  download_secret: change-me-secret-token
+  download_window: 12
+  password_salt: change-me-password-salt
+
+upload:
+  path: /uploads
+  maximum: 100GiB
+
+redis:
+  url: redis://redis:6379/0
+
+site:
+  url: http://localhost:8080
+  title:
+    en: "015"
+  desc:
+    en: "015 is an open-source temporary file sharing platform."
+  icon: "/logo.png"
+  bg_url: ""
+
+about:
+  bg_url: ""
+  content:
+    en: |
+      ### About
+      015 temporary file sharing platform.
+  email: admin@example.com
+  name: admin
+  url: "http://localhost:8080"
+  avatar: ""

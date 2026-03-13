@@ -1,0 +1,67 @@
+services:
+  server:
+    image: redash/redash:10.1.0.b50633
+    container_name: redash-server
+    command: server
+    ports:
+      - "5000:5000"
+    environment:
+      - REDASH_DATABASE_URL=postgresql://redash:${DB_PASSWORD}@postgres:5432/redash
+      - REDASH_REDIS_URL=redis://redis:6379/0
+      - REDASH_SECRET_KEY=${REDASH_SECRET_KEY}
+      - REDASH_COOKIE_SECRET=${REDASH_SECRET_KEY}
+      - PYTHONUNBUFFERED=0
+      - REDASH_LOG_LEVEL=INFO
+      - REDASH_ENFORCE_CSRF=true
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  scheduler:
+    image: redash/redash:10.1.0.b50633
+    container_name: redash-scheduler
+    command: scheduler
+    environment:
+      - REDASH_DATABASE_URL=postgresql://redash:${DB_PASSWORD}@postgres:5432/redash
+      - REDASH_REDIS_URL=redis://redis:6379/0
+      - REDASH_SECRET_KEY=${REDASH_SECRET_KEY}
+      - REDASH_COOKIE_SECRET=${REDASH_SECRET_KEY}
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  worker:
+    image: redash/redash:10.1.0.b50633
+    container_name: redash-worker
+    command: worker
+    environment:
+      - REDASH_DATABASE_URL=postgresql://redash:${DB_PASSWORD}@postgres:5432/redash
+      - REDASH_REDIS_URL=redis://redis:6379/0
+      - REDASH_SECRET_KEY=${REDASH_SECRET_KEY}
+      - REDASH_COOKIE_SECRET=${REDASH_SECRET_KEY}
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: redash-postgres
+    environment:
+      - POSTGRES_USER=redash
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=redash
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redash-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

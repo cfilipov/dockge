@@ -1,0 +1,10 @@
+services:
+  exim:
+    image: camptocamp/exim:latest
+    container_name: exim
+    environment:
+      - POSTMASTER=${POSTMASTER:-postmaster@example.com}
+      - MAILNAME=${MAILNAME:-mail.example.com}
+    ports:
+      - "25:25"
+    restart: unless-stopped

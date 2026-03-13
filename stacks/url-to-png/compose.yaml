@@ -1,0 +1,53 @@
+services:
+  urltopng:
+    image: jasonraimondi/url-to-png:latest
+    restart: unless-stopped
+    ports:
+      - "${URL_TO_PNG_PORT:-3089}:3089"
+    environment:
+      - METRICS=true
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - BROWSER_WAIT_UNTIL=networkidle
+      - STORAGE_PROVIDER=couchdb
+      - COUCH_DB_PROTOCOL=http
+      - COUCH_DB_HOST=couchdb
+      - COUCH_DB_PORT=5984
+      - COUCH_DB_USER=${COUCHDB_USER:-admin}
+      - COUCH_DB_PASS=${COUCHDB_PASS:-password}
+    depends_on:
+      - couchdb
+
+  couchdb:
+    image: couchdb:3
+    restart: unless-stopped
+    ports:
+      - "${COUCHDB_PORT:-5984}:5984"
+    environment:
+      - COUCHDB_USER=${COUCHDB_USER:-admin}
+      - COUCHDB_PASSWORD=${COUCHDB_PASS:-password}
+    volumes:
+      - couchdb-data:/opt/couchdb/data
+
+  couchdb-setup:
+    image: curlimages/curl:latest
+    depends_on:
+      - couchdb
+    restart: "no"
+    command: >
+      sh -c "
+        until curl -f http://$${COUCHDB_USER}:$${COUCHDB_PASS}@couchdb:5984/_up; do
+          echo 'Waiting for CouchDB...';
+          sleep 2;
+        done;
+        curl -X PUT http://$${COUCHDB_USER}:$${COUCHDB_PASS}@couchdb:5984/_users;
+        curl -X PUT http://$${COUCHDB_USER}:$${COUCHDB_PASS}@couchdb:5984/_replicator;
+        curl -X PUT http://$${COUCHDB_USER}:$${COUCHDB_PASS}@couchdb:5984/_global_changes;
+        curl -X PUT http://$${COUCHDB_USER}:$${COUCHDB_PASS}@couchdb:5984/images;
+        echo 'Databases created.';
+      "
+    environment:
+      - COUCHDB_USER=${COUCHDB_USER:-admin}
+      - COUCHDB_PASS=${COUCHDB_PASS:-password}
+
+volumes:
+  couchdb-data:

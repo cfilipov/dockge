@@ -1,0 +1,20 @@
+services:
+  littlelink:
+    image: ghcr.io/techno-tim/littlelink-server:latest
+    container_name: littlelink
+    ports:
+      - "${LITTLELINK_PORT:-8080}:3000"
+    environment:
+      - META_TITLE=${META_TITLE:-LittleLink}
+      - META_DESCRIPTION=${META_DESCRIPTION:-My personal links}
+      - META_AUTHOR=${META_AUTHOR:-User}
+      - THEME=${THEME:-Dark}
+      - FAVICON_URL=${FAVICON_URL:-https://pbs.twimg.com/profile_images/1.jpg}
+      - AVATAR_URL=${AVATAR_URL:-https://pbs.twimg.com/profile_images/1.jpg}
+      - AVATAR_2X_URL=${AVATAR_2X_URL:-https://pbs.twimg.com/profile_images/1.jpg}
+      - AVATAR_ALT=${AVATAR_ALT:-User}
+      - NAME=${NAME:-User}
+      - BIO=${BIO:-My personal links page}
+      - GITHUB=${GITHUB:-https://github.com}
+      - TWITTER=${TWITTER:-https://twitter.com}
+    restart: unless-stopped

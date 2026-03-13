@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-superSecretPasswordPleaseChangeMe}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-monetr}
+    volumes:
+      - postgresData:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - monetr_network
+
+  valkey:
+    image: valkey/valkey:9
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - monetr_network
+
+  monetr:
+    image: ghcr.io/monetr/monetr:latest
+    restart: unless-stopped
+    command:
+      - serve
+      - --migrate
+      - --generate-certificates
+    ports:
+      - "${MONETR_PORT:-4000}:4000"
+    depends_on:
+      valkey:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - monetrData:/etc/monetr
+    environment:
+      MONETR_ALLOW_SIGN_UP: ${MONETR_ALLOW_SIGN_UP:-true}
+      MONETR_PG_USERNAME: ${POSTGRES_USER:-postgres}
+      MONETR_PG_PASSWORD: ${POSTGRES_PASSWORD:-superSecretPasswordPleaseChangeMe}
+      MONETR_PG_DATABASE: ${POSTGRES_DB:-monetr}
+      MONETR_PG_ADDRESS: postgres
+      MONETR_REDIS_ENABLED: "true"
+      MONETR_REDIS_ADDRESS: valkey
+      MONETR_STORAGE_ENABLED: ${MONETR_STORAGE_ENABLED:-true}
+      MONETR_STORAGE_PROVIDER: ${MONETR_STORAGE_PROVIDER:-filesystem}
+    healthcheck:
+      test: "timeout 5s bash -c ':> /dev/tcp/127.0.0.1/4000' || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
+    networks:
+      - monetr_network
+
+volumes:
+  monetrData:
+  postgresData:
+
+networks:
+  monetr_network:

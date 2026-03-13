@@ -1,0 +1,45 @@
+services:
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-9080}:80"
+    environment:
+      DOMAIN: ":80"
+      HTTPS: "off"
+    volumes:
+      - phorge_web:/var/www/html
+      - caddy_data:/data
+      - ./Caddyfile:/etc/caddy/Caddyfile
+
+  mariadb:
+    image: mariadb:latest
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command: --innodb-buffer-pool-size=268435456 --local-infile=0 --max-allowed-packet=33554432 --sql-mode=STRICT_ALL_TABLES
+    volumes:
+      - phorge_db:/var/lib/mysql
+
+  phorge:
+    image: zeigren/phorge:latest
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    environment:
+      UPGRADE_ON_RESTART: "true"
+      PH_BASE_URI: ${PH_BASE_URI}
+      PH_MYSQL_PASS: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - phorge_web:/var/www/html
+      - phorge_ssh:/etc/ssh
+      - phorge_repo:/var/repo
+    ports:
+      - "${SSH_PORT:-2530}:2530"
+
+volumes:
+  phorge_db:
+  phorge_web:
+  phorge_ssh:
+  phorge_repo:
+  caddy_data:

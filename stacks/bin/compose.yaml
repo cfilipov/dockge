@@ -1,0 +1,10 @@
+services:
+  bin:
+    image: shtripok/bin:latest
+    container_name: bin
+    restart: unless-stopped
+    ports:
+      - "${BIN_PORT:-8000}:8000"
+    environment:
+      - BIN_BUFFER_SIZE=${BIN_BUFFER_SIZE:-2000}
+      - BIN_MAX_PASTE_SIZE=${BIN_MAX_PASTE_SIZE:-32768}

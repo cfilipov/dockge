@@ -1,0 +1,22 @@
+services:
+  tududi:
+    image: chrisvel/tududi:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3002}:3002"
+    volumes:
+      - db:/app/backend/db
+      - uploads:/app/backend/uploads
+    environment:
+      TUDUDI_USER_EMAIL: ${TUDUDI_USER_EMAIL}
+      TUDUDI_USER_PASSWORD: ${TUDUDI_USER_PASSWORD}
+      TUDUDI_SESSION_SECRET: ${TUDUDI_SESSION_SECRET}
+      TUDUDI_ALLOWED_ORIGINS: ${TUDUDI_ALLOWED_ORIGINS}
+      TUDUDI_TRUST_PROXY: "false"
+      TUDUDI_UPLOAD_PATH: /app/backend/uploads
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
+
+volumes:
+  db:
+  uploads:

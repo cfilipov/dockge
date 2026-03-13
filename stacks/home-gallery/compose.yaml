@@ -1,0 +1,27 @@
+services:
+  api:
+    image: xemle/home-gallery-api-server
+    container_name: home-gallery-api
+    restart: unless-stopped
+    environment:
+      BACKEND: ${API_BACKEND:-wasm}
+
+  gallery:
+    image: xemle/home-gallery
+    container_name: home-gallery
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${GALLERY_PORT:-3000}:3000"
+    environment:
+      GALLERY_API_SERVER: http://api:3000
+      GALLERY_API_SERVER_CONCURRENT: ${GALLERY_API_CONCURRENT:-5}
+      GALLERY_API_SERVER_TIMEOUT: ${GALLERY_API_TIMEOUT:-30}
+      GALLERY_OPEN_BROWSER: "false"
+      GALLERY_WATCH_POLL_INTERVAL: ${GALLERY_WATCH_POLL_INTERVAL:-300}
+    volumes:
+      - ./data:/data
+      - ${PHOTOS_PATH:-./photos}:/data/Pictures
+    entrypoint: ["node", "/app/gallery.js"]
+    command: ["run", "server"]

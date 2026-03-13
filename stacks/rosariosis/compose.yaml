@@ -1,0 +1,34 @@
+services:
+  rosariosis:
+    image: rosariosis/rosariosis:latest
+    container_name: rosariosis
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    environment:
+      - ROSARIOSIS_ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - ROSARIOSIS_YEAR=${SCHOOL_YEAR:-2025}
+      - PGHOST=postgres
+      - PGUSER=${DB_USER:-rosariosis}
+      - PGPASSWORD=${DB_PASSWORD:-changeme}
+      - PGDATABASE=${DB_NAME:-rosariosis}
+      - PGPORT=5432
+    volumes:
+      - rosariosis_data:/var/www/html
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: rosariosis-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USER:-rosariosis}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+      - POSTGRES_DB=${DB_NAME:-rosariosis}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  rosariosis_data:
+  postgres_data:

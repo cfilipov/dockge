@@ -1,0 +1,12 @@
+services:
+  snapserver:
+    image: saiyato/snapserver:latest
+    container_name: snapserver
+    ports:
+      - "${STREAM_PORT:-1704}:1704"
+      - "${CONTROL_PORT:-1705}:1705"
+      - "${HTTP_PORT:-1780}:1780"
+    volumes:
+      - ${DATA_DIR:-./data}:/root/.config/snapserver
+      - /tmp/snapfifo:/tmp/snapfifo
+    restart: unless-stopped

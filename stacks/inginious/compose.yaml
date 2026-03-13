@@ -1,0 +1,41 @@
+services:
+  frontend:
+    image: inginious/frontend:latest
+    container_name: inginious-frontend
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    environment:
+      - INGINIOUS_BACKEND_HOST=backend
+      - INGINIOUS_MONGO_HOST=mongodb
+      - INGINIOUS_MONGO_DB=${MONGO_DB:-INGInious}
+    volumes:
+      - tasks_data:/inginious/tasks
+      - backup_data:/inginious/backup
+    depends_on:
+      - backend
+      - mongodb
+
+  backend:
+    image: inginious/backend:latest
+    container_name: inginious-backend
+    restart: unless-stopped
+    environment:
+      - AGENT=tcp://0.0.0.0:2001
+      - CLIENT=tcp://0.0.0.0:2000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:6
+    container_name: inginious-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  tasks_data:
+  backup_data:
+  mongo_data:

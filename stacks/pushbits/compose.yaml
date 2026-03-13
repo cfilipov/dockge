@@ -1,0 +1,13 @@
+services:
+  pushbits:
+    image: ghcr.io/pushbits/server:latest
+    container_name: pushbits
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yml:/etc/pushbits/config.yml:ro
+      - pushbits_data:/data
+    restart: unless-stopped
+
+volumes:
+  pushbits_data:

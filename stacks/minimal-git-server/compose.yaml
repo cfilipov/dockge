@@ -1,0 +1,12 @@
+services:
+  git-server:
+    image: jkarlos/git-server-docker
+    restart: unless-stopped
+    ports:
+      - "${SSH_PORT:-2222}:22"
+    volumes:
+      - ./keys:/git-server/keys
+      - repos:/git-server/repos
+
+volumes:
+  repos:

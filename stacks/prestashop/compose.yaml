@@ -1,0 +1,36 @@
+services:
+  prestashop:
+    image: prestashop/prestashop:latest
+    ports:
+      - "${PRESTASHOP_PORT:-8080}:80"
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DB_SERVER: db
+      DB_NAME: ${DB_NAME:-prestashop}
+      DB_USER: ${DB_USER:-prestashop}
+      DB_PASSWD: ${DB_PASSWORD:-prestashop}
+      PS_DOMAIN: ${PS_DOMAIN:-localhost:8080}
+      PS_FOLDER_ADMIN: ${PS_FOLDER_ADMIN:-admin4577}
+      PS_LANGUAGE: ${PS_LANGUAGE:-en}
+      PS_COUNTRY: ${PS_COUNTRY:-US}
+      ADMIN_MAIL: ${ADMIN_MAIL:-admin@example.com}
+      ADMIN_PASSWD: ${ADMIN_PASSWD:-prestashop_demo}
+    volumes:
+      - prestashop_data:/var/www/html
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-prestashop}
+      MYSQL_USER: ${DB_USER:-prestashop}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-prestashop}
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  prestashop_data:
+  db_data:

@@ -1,0 +1,12 @@
+services:
+  docat:
+    image: ghcr.io/docat-org/docat:latest
+    container_name: docat
+    restart: unless-stopped
+    ports:
+      - "${DOCAT_PORT:-8080}:80"
+    volumes:
+      - docat-data:/var/docat/doc
+
+volumes:
+  docat-data:

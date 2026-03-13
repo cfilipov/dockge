@@ -1,0 +1,42 @@
+services:
+  pretix:
+    image: pretix/standalone:stable
+    ports:
+      - "${PRETIX_PORT:-8080}:80"
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    environment:
+      PRETIX_DATABASE_BACKEND: postgresql
+      PRETIX_DATABASE_HOST: db
+      PRETIX_DATABASE_NAME: ${POSTGRES_DB:-pretix}
+      PRETIX_DATABASE_USER: ${POSTGRES_USER:-pretix}
+      PRETIX_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-pretix}
+      PRETIX_REDIS_LOCATION: redis://redis:6379/0
+      PRETIX_REDIS_SESSIONS: "true"
+      PRETIX_CELERY_BROKER: redis://redis:6379/1
+      PRETIX_PRETIX_URL: ${PRETIX_URL:-http://localhost:8080}
+    volumes:
+      - pretix_data:/data
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pretix}
+      POSTGRES_USER: ${POSTGRES_USER:-pretix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pretix}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  pretix_data:
+  db_data:
+  redis_data:

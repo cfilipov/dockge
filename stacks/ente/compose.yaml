@@ -1,0 +1,57 @@
+services:
+  museum:
+    image: ghcr.io/ente-io/server:latest
+    container_name: ente-museum
+    restart: unless-stopped
+    ports:
+      - "${ENTE_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENTE_CREDENTIALS_FILE: /credentials.yaml
+    volumes:
+      - ./museum.yaml:/museum.yaml:ro
+      - ./credentials.yaml:/credentials.yaml:ro
+      - museum-data:/data
+
+  socat:
+    image: alpine/socat
+    container_name: ente-socat
+    network_mode: service:museum
+    depends_on:
+      - museum
+    command: "TCP-LISTEN:3200,fork,reuseaddr TCP:minio:3200"
+
+  postgres:
+    image: postgres:15
+    container_name: ente-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: pg_isready -q -d ${POSTGRES_DB} -U ${POSTGRES_USER}
+      start_period: 40s
+      start_interval: 1s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio
+    container_name: ente-minio
+    restart: unless-stopped
+    ports:
+      - "${MINIO_API_PORT:-3200}:3200"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --address ":3200" --console-address ":3201"
+    volumes:
+      - minio-data:/data
+
+volumes:
+  museum-data:
+  postgres-data:
+  minio-data:

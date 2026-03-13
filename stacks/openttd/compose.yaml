@@ -1,0 +1,17 @@
+services:
+  openttd:
+    image: bateau/openttd:latest
+    container_name: openttd
+    restart: unless-stopped
+    ports:
+      - "${GAME_PORT:-3979}:3979/tcp"
+      - "${GAME_PORT:-3979}:3979/udp"
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+      - SERVER_NAME=${SERVER_NAME:-My OpenTTD Server}
+    volumes:
+      - ./config/openttd.cfg:/home/openttd/.config/openttd/openttd.cfg
+      - save_data:/home/openttd/.local/share/openttd/save
+
+volumes:
+  save_data:

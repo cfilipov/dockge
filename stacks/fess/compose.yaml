@@ -1,0 +1,47 @@
+services:
+  fess:
+    image: ghcr.io/codelibs/fess:${FESS_TAG}
+    container_name: fess
+    environment:
+      - SEARCH_ENGINE_HTTP_URL=http://opensearch:9200
+      - FESS_DICTIONARY_PATH=/usr/share/opensearch/config/dictionary/
+    ports:
+      - "${FESS_PORT}:8080"
+    networks:
+      - search_net
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  opensearch:
+    image: opensearchproject/opensearch:${OPENSEARCH_TAG}
+    container_name: fess-opensearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS}
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    networks:
+      - search_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+networks:
+  search_net:
+    driver: bridge
+
+volumes:
+  opensearch-data:

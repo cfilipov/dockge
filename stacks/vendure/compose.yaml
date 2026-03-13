@@ -1,0 +1,32 @@
+services:
+  vendure:
+    image: node:20-alpine
+    ports:
+      - "${VENDURE_PORT:-3000}:3000"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-vendure}
+      DB_USERNAME: ${POSTGRES_USER:-vendure}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-vendure}
+      SUPERADMIN_USERNAME: ${SUPERADMIN_USERNAME:-superadmin}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-superadmin}
+    volumes:
+      - vendure_data:/app
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vendure}
+      POSTGRES_USER: ${POSTGRES_USER:-vendure}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vendure}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  vendure_data:
+  postgres_data:

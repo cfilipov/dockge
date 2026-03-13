@@ -1,0 +1,25 @@
+[config]
+refresh_rate = "1s"
+
+[server]
+address = "0.0.0.0:8000"
+max_content_length = "10MB"
+upload_path = "./upload"
+timeout = "30s"
+expose_version = false
+expose_list = false
+handle_spaces = "replace"
+
+[landing_page]
+text = """
+rustypaste - minimal file upload/pastebin service
+
+Submit files via HTTP POST:
+    curl -F 'file=@example.txt' <server_url>
+"""
+content_type = "text/plain; charset=utf-8"
+
+[paste]
+random_url = { type = "petname", words = 2, separator = "-" }
+default_extension = "txt"
+duplicate_files = false

@@ -1,0 +1,39 @@
+services:
+  ganymede:
+    image: ghcr.io/zibbp/ganymede:latest
+    ports:
+      - "4800:4000"
+    environment:
+      - TZ=UTC
+      - VIDEOS_DIR=/data/videos
+      - TEMP_DIR=/data/temp
+      - LOGS_DIR=/data/logs
+      - CONFIG_DIR=/data/config
+      - DB_HOST=ganymede-db
+      - DB_PORT=5432
+      - DB_USER=ganymede
+      - DB_PASS=${DB_PASSWORD}
+      - DB_NAME=ganymede
+      - DB_SSL=disable
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+    volumes:
+      - ./videos:/data/videos
+      - ./temp:/data/temp
+      - ./logs:/data/logs
+      - ./config:/data/config
+    depends_on:
+      - ganymede-db
+    restart: unless-stopped
+
+  ganymede-db:
+    image: postgres:14
+    ports:
+      - "4801:5432"
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_USER=ganymede
+      - POSTGRES_DB=ganymede
+    volumes:
+      - ./ganymede-db:/var/lib/postgresql/data
+    restart: unless-stopped

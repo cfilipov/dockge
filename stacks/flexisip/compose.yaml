@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  flexisip:
+    image: etnperlong/flexisip:latest
+    container_name: flexisip
+    restart: unless-stopped
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "5061:5061/tcp"
+    volumes:
+      - ./config:/etc/flexisip
+      - ./logs:/var/log/flexisip
+    environment:
+      - TZ=UTC

@@ -1,0 +1,12 @@
+services:
+  mycorrhiza:
+    image: kytta/mycorrhiza:1.8
+    container_name: mycorrhiza-wiki
+    restart: unless-stopped
+    ports:
+      - "${MYCORRHIZA_PORT:-1737}:1737"
+    volumes:
+      - wiki_data:/wiki
+
+volumes:
+  wiki_data:

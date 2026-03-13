@@ -1,0 +1,8 @@
+services:
+  revealjs:
+    image: cloudogu/reveal.js:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ./slides:/reveal/docs/slides

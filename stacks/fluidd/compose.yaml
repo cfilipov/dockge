@@ -1,0 +1,7 @@
+services:
+  fluidd:
+    image: ghcr.io/fluidd-core/fluidd:latest
+    container_name: fluidd
+    restart: unless-stopped
+    ports:
+      - "8080:80"

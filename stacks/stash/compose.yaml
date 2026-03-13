@@ -1,0 +1,33 @@
+services:
+  stash:
+    image: stashapp/stash:latest
+    container_name: stash
+    restart: unless-stopped
+    ports:
+      - "${STASH_PORT:-9999}:9999"
+    logging:
+      driver: json-file
+      options:
+        max-file: "10"
+        max-size: 2m
+    environment:
+      - STASH_STASH=/data/
+      - STASH_GENERATED=/generated/
+      - STASH_METADATA=/metadata/
+      - STASH_CACHE=/cache/
+      - STASH_PORT=9999
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - stash_config:/root/.stash
+      - ${DATA_PATH}:/data
+      - stash_metadata:/metadata
+      - stash_cache:/cache
+      - stash_blobs:/blobs
+      - stash_generated:/generated
+
+volumes:
+  stash_config:
+  stash_metadata:
+  stash_cache:
+  stash_blobs:
+  stash_generated:

@@ -1,0 +1,13 @@
+services:
+  seerr:
+    image: seerr/seerr:latest
+    container_name: seerr
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL}
+      - TZ=${TZ}
+      - PORT=${SEERR_INTERNAL_PORT}
+    ports:
+      - "${SEERR_PORT}:${SEERR_INTERNAL_PORT}"
+    volumes:
+      - ./config:/app/config
+    restart: unless-stopped

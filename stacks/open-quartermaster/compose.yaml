@@ -1,0 +1,111 @@
+networks:
+  oqm_internal:
+    driver: bridge
+
+services:
+  mongo:
+    image: mongo:${MONGO_IMAGE_TAG:-6}
+    container_name: oqm-infra-mongo
+    restart: unless-stopped
+    networks:
+      - oqm_internal
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-oqmadmin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-superSecretPassword}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-oqm}
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping: 1}).ok"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  postgres:
+    image: postgres:${POSTGRES_IMAGE_TAG:-18}
+    container_name: oqm-infra-postgres
+    restart: unless-stopped
+    networks:
+      - oqm_internal
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kcadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securedbpassword}
+      POSTGRES_DB: ${POSTGRES_DATABASE:-keycloak}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:${KEYCLOAK_IMAGE_TAG:-26.5}
+    container_name: oqm-infra-keycloak
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - oqm_internal
+    ports:
+      - "${KEYCLOAK_PORT:-8100}:8080"
+    command: start --import-realm
+    environment:
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-oqm_admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-oqm_admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DATABASE:-keycloak}
+      KC_DB_USERNAME: ${POSTGRES_USER:-kcadmin}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-securedbpassword}
+      KC_HEALTH_ENABLED: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  core-api:
+    image: ebprod/oqm-core-api:${CORE_API_PORT_IMAGE_TAG:-4.4.1}
+    container_name: oqm-core-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - oqm_internal
+    ports:
+      - "${CORE_API_PORT:-8101}:80"
+    environment:
+      smallrye.jwt.verify.key.location: http://oqm-infra-keycloak:8080/realms/oqm/protocol/openid-connect/certs
+      QUARKUS_MONGODB_CONNECTION-STRING: mongodb://${MONGO_ROOT_USERNAME:-oqmadmin}:${MONGO_ROOT_PASSWORD:-superSecretPassword}@oqm-infra-mongo:27017
+      QUARKUS_MONGODB_DATABASE: ${MONGO_DATABASE:-oqm}
+      mp.messaging.outgoing.events-outgoing.enabled: "false"
+
+  core-base-station:
+    image: ebprod/oqm-core-base_station:${CORE_BASE_STATION_IMAGE_TAG:-1.14.1}
+    container_name: oqm-core-base_station
+    restart: unless-stopped
+    depends_on:
+      core-api:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    network_mode: host
+    environment:
+      QUARKUS_HTTP_PORT: ${CORE_BASE_STATION_PORT:-8102}
+      QUARKUS_OIDC_CLIENT-ID: ${CORE_BASE_STATION_CLIENT:-oqm-app}
+      QUARKUS_OIDC_CREDENTIALS_SECRET: ${CORE_BASE_STATION_CLIENT_SECRET:-changeme}
+      QUARKUS_OIDC_AUTH-SERVER-URL: http://localhost:${KEYCLOAK_PORT:-8100}/realms/oqm
+      OQM_CORE_API_BASEURI: http://localhost:${CORE_API_PORT:-8101}
+
+volumes:
+  mongo-data:
+  postgres-data:

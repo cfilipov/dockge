@@ -1,0 +1,16 @@
+services:
+  gateway:
+    image: webthingsio/gateway:${WEBTHINGS_VERSION:-latest}
+    container_name: webthings-gateway
+    restart: unless-stopped
+    network_mode: host
+    ports:
+      - "${WEBTHINGS_HTTP_PORT:-8080}:8080"
+      - "${WEBTHINGS_HTTPS_PORT:-4443}:4443"
+    volumes:
+      - gateway-data:/home/node/.webthings
+    environment:
+      TZ: ${TZ:-UTC}
+
+volumes:
+  gateway-data:

@@ -1,0 +1,35 @@
+services:
+  app:
+    image: ghcr.io/b310-digital/teammapper:latest
+    container_name: teammapper
+    ports:
+      - "${APP_PORT:-80}:3000"
+    environment:
+      MODE: production
+      BINDING: "0.0.0.0"
+      POSTGRES_DATABASE: ${POSTGRES_DB:-teammapper}
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-teammapper}
+      POSTGRES_PORT: 5432
+      POSTGRES_SSL: "false"
+      POSTGRES_USER: ${POSTGRES_USER:-teammapper}
+      DELETE_AFTER_DAYS: ${DELETE_AFTER_DAYS:-30}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: teammapper-db
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: ${POSTGRES_DB:-teammapper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-teammapper}
+      POSTGRES_USER: ${POSTGRES_USER:-teammapper}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/pgdata
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

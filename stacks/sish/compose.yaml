@@ -1,0 +1,20 @@
+services:
+  sish:
+    image: antoniomika/sish:latest
+    container_name: sish
+    volumes:
+      - ./ssl:/ssl
+      - ./keys:/keys
+      - ./pubkeys:/pubkeys
+    command: |
+      --ssh-address=:2222
+      --http-address=:80
+      --https-address=:443
+      --https=true
+      --https-certificate-directory=/ssl
+      --authentication-keys-directory=/pubkeys
+      --private-keys-directory=/keys
+      --bind-random-ports=false
+      --domain=sish.example.com
+    network_mode: host
+    restart: always

@@ -1,0 +1,17 @@
+services:
+  pomerium:
+    image: pomerium/pomerium:${POMERIUM_VERSION:-latest}
+    container_name: pomerium
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./config.yaml:/pomerium/config.yaml:ro
+    environment:
+      - AUTHENTICATE_SERVICE_URL=${AUTHENTICATE_SERVICE_URL:-https://authenticate.example.com}
+      - SHARED_SECRET=${SHARED_SECRET:-changeme}
+      - COOKIE_SECRET=${COOKIE_SECRET:-changeme}
+      - IDP_PROVIDER=${IDP_PROVIDER:-google}
+      - IDP_CLIENT_ID=${IDP_CLIENT_ID:-your-client-id}
+      - IDP_CLIENT_SECRET=${IDP_CLIENT_SECRET:-your-client-secret}

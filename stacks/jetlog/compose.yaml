@@ -1,0 +1,15 @@
+services:
+  jetlog:
+    image: pbogre/jetlog:latest
+    container_name: jetlog
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - data:/data
+    environment:
+      JETLOG_PORT: ${JETLOG_PORT:-3000}
+      SECRET_KEY: ${SECRET_KEY:-changeme-use-a-long-random-string}
+
+volumes:
+  data:

@@ -1,0 +1,8 @@
+[general]
+site_name = "Gathio"
+is_federated = true
+delete_after_days = 90
+email_notifications = false
+
+[database]
+mongodb_url = "mongodb://mongo:27017/gathio"

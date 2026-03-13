@@ -1,0 +1,16 @@
+services:
+  trackwatch:
+    image: ghcr.io/emlopezr/trackwatch:latest
+    container_name: trackwatch
+    restart: unless-stopped
+    environment:
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - trackwatch_data:/var/lib/postgresql/data
+    ports:
+      - "${TRACKWATCH_PORT}:80"
+
+volumes:
+  trackwatch_data:

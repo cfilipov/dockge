@@ -1,0 +1,22 @@
+services:
+  sunshine:
+    image: lizardbyte/sunshine:latest
+    container_name: sunshine
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "${SUNSHINE_WEB_PORT:-47990}:47990/tcp"
+      - "${SUNSHINE_STREAM_PORT:-47984}:47984/tcp"
+      - "${SUNSHINE_STREAM_UDP:-47998}:47998/udp"
+      - "${SUNSHINE_STREAM_UDP2:-47999}:47999/udp"
+      - "${SUNSHINE_STREAM_UDP3:-48000}:48000/udp"
+      - "${SUNSHINE_CONTROL_PORT:-47989}:47989/tcp"
+    volumes:
+      - sunshine-config:/config
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+
+volumes:
+  sunshine-config:

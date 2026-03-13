@@ -1,0 +1,12 @@
+services:
+  yt-dlp-webui:
+    image: marcobaobao/yt-dlp-webui:latest
+    container_name: yt-dlp-webui
+    ports:
+      - "${YTDLP_PORT}:3033"
+    volumes:
+      - ${DOWNLOADS_DIR}:/downloads
+      - ./config:/config
+    healthcheck:
+      test: curl -f http://localhost:3033 || exit 1
+    restart: unless-stopped

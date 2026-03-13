@@ -1,0 +1,12 @@
+{$DOMAIN} {
+    root * /var/www/html/phorge/webroot
+    php_fastcgi phorge:9000
+    file_server
+    encode gzip
+
+    @notfound {
+        not file
+        not path /api/*
+    }
+    rewrite @notfound /index.php
+}

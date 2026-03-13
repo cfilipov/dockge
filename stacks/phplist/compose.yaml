@@ -1,0 +1,36 @@
+services:
+  phplist:
+    image: phplist/phplist:latest
+    ports:
+      - "8080:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PHPLIST_DATABASE_HOST=db
+      - PHPLIST_DATABASE_NAME=phplist
+      - PHPLIST_DATABASE_USER=phplist
+      - PHPLIST_DATABASE_PASSWORD=phplist
+    volumes:
+      - phplist-data:/var/www/html
+    restart: unless-stopped
+
+  db:
+    image: mariadb:11
+    environment:
+      - MARIADB_DATABASE=phplist
+      - MARIADB_USER=phplist
+      - MARIADB_PASSWORD=phplist
+      - MARIADB_ROOT_PASSWORD=changeme
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  phplist-data:
+  db-data:

@@ -1,0 +1,9 @@
+services:
+  algernon:
+    image: xyproto/algernon:latest
+    container_name: algernon
+    restart: unless-stopped
+    ports:
+      - "${ALGERNON_PORT:-4000}:4000"
+    volumes:
+      - ./data:/srv/algernon

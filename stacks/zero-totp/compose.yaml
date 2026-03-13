@@ -1,0 +1,40 @@
+services:
+  frontend:
+    image: ghcr.io/seaweedbraincy/zero-totp-frontend:${ZERO_TOTP_VERSION:-1.12}
+    restart: always
+    environment:
+      - USER_UID=101
+      - USER_GID=101
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    volumes:
+      - ./frontend/log:/var/log/nginx
+
+  api:
+    image: ghcr.io/seaweedbraincy/zero-totp-api:${ZERO_TOTP_VERSION:-1.12}
+    restart: always
+    environment:
+      - USER_UID=1001
+      - USER_GID=1001
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - ./api/secret:/api/secret
+      - ./api/logs:/api/logs
+      - ./api/config:/api/config
+    depends_on:
+      - database
+
+  database:
+    image: mariadb:11
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-change_me}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-zero_totp}
+      - MYSQL_USER=${MYSQL_USER:-api}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-change_me}
+    ports:
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
+    volumes:
+      - ./database/data:/var/lib/mysql
+      - ./database/config:/etc/mysql

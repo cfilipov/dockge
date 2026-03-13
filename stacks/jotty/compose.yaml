@@ -1,0 +1,14 @@
+services:
+  jotty:
+    image: ghcr.io/fccview/jotty:latest
+    container_name: jotty
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "${JOTTY_PORT:-1122}:3000"
+    volumes:
+      - ./data:/app/data:rw
+      - ./config:/app/config:rw
+      - ./cache:/app/.next/cache:rw
+    environment:
+      - NODE_ENV=production

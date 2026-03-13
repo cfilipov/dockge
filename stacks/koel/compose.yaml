@@ -1,0 +1,36 @@
+services:
+  koel:
+    image: phanan/koel:${KOEL_VERSION:-latest}
+    container_name: koel
+    restart: unless-stopped
+    depends_on:
+      - database
+    ports:
+      - "${KOEL_PORT:-8080}:80"
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: database
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+    volumes:
+      - ./music:/music
+      - koel_covers:/var/www/html/public/img/storage
+      - koel_search:/var/www/html/storage/search-indexes
+
+  database:
+    image: mariadb:${MARIADB_VERSION:-10.11}
+    container_name: koel-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  koel_covers:
+  koel_search:
+  db_data:

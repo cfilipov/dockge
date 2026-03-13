@@ -1,0 +1,25 @@
+services:
+  onetimesecret:
+    image: onetimesecret/onetimesecret:latest
+    container_name: onetimesecret
+    ports:
+      - "3000:3000"
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      SECRET: ${OTS_SECRET}
+      HOST: "localhost:3000"
+      AUTH_REQUIRED: "false"
+      SSL: "false"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:bookworm
+    container_name: ots-redis
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

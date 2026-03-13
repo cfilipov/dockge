@@ -1,0 +1,15 @@
+services:
+  languagetool:
+    image: erikvl87/languagetool:latest
+    container_name: languagetool
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8010}:8010"
+    environment:
+      Java_Xms: ${JAVA_XMS:-256m}
+      Java_Xmx: ${JAVA_XMX:-1g}
+      langtool_languageModel: ${LANGUAGE_MODEL:-/ngrams}
+      langtool_fasttextModel: ${FASTTEXT_MODEL:-/fasttext/lid.176.bin}
+    volumes:
+      - ngrams:/ngrams
+      - fasttext:/fasttext

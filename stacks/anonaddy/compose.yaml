@@ -1,0 +1,45 @@
+name: anonaddy
+
+services:
+  db:
+    image: mariadb:12
+    container_name: addy_db
+    command:
+      - "mariadbd"
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+    volumes:
+      - "./db:/var/lib/mysql"
+    environment:
+      - "MARIADB_RANDOM_ROOT_PASSWORD=yes"
+      - "MYSQL_DATABASE=${MYSQL_DATABASE}"
+      - "MYSQL_USER=${MYSQL_USER}"
+      - "MYSQL_PASSWORD=${MYSQL_PASSWORD}"
+    restart: always
+
+  redis:
+    image: redis:8-alpine
+    container_name: addy_redis
+    restart: always
+
+  addy:
+    image: anonaddy/anonaddy:latest
+    container_name: addy
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "25:25"
+      - "8000:8000"
+    volumes:
+      - "./data:/data"
+    environment:
+      - "DB_HOST=db"
+      - "DB_DATABASE=${MYSQL_DATABASE}"
+      - "DB_USERNAME=${MYSQL_USER}"
+      - "DB_PASSWORD=${MYSQL_PASSWORD}"
+      - "REDIS_HOST=redis"
+      - "APP_KEY=${APP_KEY}"
+      - "ANONADDY_DOMAIN=${ANONADDY_DOMAIN}"
+      - "ANONADDY_SECRET=${ANONADDY_SECRET}"
+    restart: always

@@ -1,0 +1,24 @@
+services:
+  snappymail:
+    image: djmaze/snappymail:latest
+    ports:
+      - "8888:8888"
+    volumes:
+      - snappymail-data:/var/lib/snappymail
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=snappymail
+      - MYSQL_PASSWORD=snappymail
+      - MYSQL_DATABASE=snappymail
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  snappymail-data:
+  mysql-data:

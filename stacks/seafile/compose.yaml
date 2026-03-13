@@ -1,0 +1,39 @@
+services:
+  seafile:
+    image: seafileltd/seafile-mc:${SEAFILE_VERSION:-13.0-latest}
+    container_name: seafile
+    restart: unless-stopped
+    ports:
+      - "${SEAFILE_PORT:-8082}:80"
+    environment:
+      DB_HOST: mariadb
+      DB_ROOT_PASSWD: ${MYSQL_ROOT_PASSWORD:-rootchangeme}
+      SEAFILE_ADMIN_EMAIL: ${SEAFILE_ADMIN_EMAIL:-admin@example.com}
+      SEAFILE_ADMIN_PASSWORD: ${SEAFILE_ADMIN_PASSWORD:-changeme}
+      SEAFILE_SERVER_HOSTNAME: ${SEAFILE_HOSTNAME:-seafile.example.com}
+      TIME_ZONE: ${TZ:-UTC}
+    volumes:
+      - seafile_data:/shared
+    depends_on:
+      - mariadb
+      - memcached
+
+  mariadb:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: seafile-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootchangeme}
+      MYSQL_LOG_CONSOLE: "true"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  memcached:
+    image: memcached:${MEMCACHED_VERSION:-1.6-alpine}
+    container_name: seafile-memcached
+    restart: unless-stopped
+    entrypoint: memcached -m 256
+
+volumes:
+  seafile_data:
+  mariadb_data:

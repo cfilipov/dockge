@@ -1,0 +1,28 @@
+services:
+  web:
+    image: ghcr.io/azuracast/azuracast:${AZURACAST_VERSION:-latest}
+    container_name: azuracast
+    restart: unless-stopped
+    ports:
+      - "${AZURACAST_HTTP_PORT:-8080}:80"
+      - "${AZURACAST_HTTPS_PORT:-8443}:443"
+      - "${AZURACAST_RADIO_START:-8000}:8000"
+      - "${AZURACAST_RADIO_END:-8050}:8010"
+    volumes:
+      - azuracast_station_data:/var/azuracast/stations
+      - azuracast_db_data:/var/lib/mysql
+      - azuracast_shoutcast2:/var/azuracast/servers/shoutcast2
+      - azuracast_geolite:/var/azuracast/geoip
+      - azuracast_sftpgo:/var/azuracast/sftpgo/persist
+      - azuracast_backups:/var/azuracast/backups
+    environment:
+      AZURACAST_HTTP_PORT: ${AZURACAST_HTTP_PORT:-8080}
+      AZURACAST_HTTPS_PORT: ${AZURACAST_HTTPS_PORT:-8443}
+
+volumes:
+  azuracast_station_data:
+  azuracast_db_data:
+  azuracast_shoutcast2:
+  azuracast_geolite:
+  azuracast_sftpgo:
+  azuracast_backups:

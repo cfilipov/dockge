@@ -1,0 +1,27 @@
+services:
+  seeddms:
+    image: bibbox/seeddms:6.0.19
+    container_name: seeddms
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8065:80"
+    volumes:
+      - seeddms_data:/var/www/html/seeddms60x/data
+
+  db:
+    image: mariadb:10.11
+    container_name: seeddms-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: seeddms
+      MYSQL_USER: seeddms
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  seeddms_data:
+  db_data:

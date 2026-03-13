@@ -1,0 +1,41 @@
+services:
+  tracim:
+    image: algoo/tracim:${TRACIM_VERSION:-latest}
+    container_name: tracim
+    restart: unless-stopped
+    ports:
+      - "${TRACIM_PORT:-8080}:80"
+    environment:
+      DATABASE_TYPE: ${DATABASE_TYPE}
+      TRACIM_SQLALCHEMY__URL: ${TRACIM_SQLALCHEMY__URL}
+      TRACIM_WEBSITE__BASE_URL: ${TRACIM_WEBSITE__BASE_URL}
+      TRACIM_EMAIL__NOTIFICATION__ACTIVATED: ${TRACIM_EMAIL_NOTIFICATION:-false}
+    volumes:
+      - tracim_etc:/etc/tracim
+      - tracim_var:/var/tracim
+    depends_on:
+      - db
+    networks:
+      - tracim
+
+  db:
+    image: postgres:${POSTGRES_VERSION:-16-alpine}
+    container_name: tracim-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - tracim
+
+volumes:
+  tracim_etc:
+  tracim_var:
+  db_data:
+
+networks:
+  tracim:
+    driver: bridge

@@ -1,0 +1,92 @@
+services:
+  front:
+    image: ghcr.io/zoriya/kyoo_front:edge
+    container_name: kyoo-front
+    restart: unless-stopped
+    ports:
+      - "${KYOO_PORT:-8901}:8901"
+    environment:
+      - KYOO_URL=${KYOO_URL:-http://api:5000/api}
+    depends_on:
+      - api
+
+  auth:
+    image: ghcr.io/zoriya/kyoo_auth:edge
+    container_name: kyoo-auth
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PUBLIC_URL=${PUBLIC_URL}
+      - EXTRA_CLAIMS=${EXTRA_CLAIMS}
+
+  api:
+    image: ghcr.io/zoriya/kyoo_api:edge
+    container_name: kyoo-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - JWT_ISSUER=${PUBLIC_URL}
+      - JWKS_URL=http://auth:4568/.well-known/jwks.json
+    volumes:
+      - images:/images
+
+  scanner:
+    image: ghcr.io/zoriya/kyoo_scanner:edge
+    container_name: kyoo-scanner
+    restart: unless-stopped
+    environment:
+      - KYOO_URL=http://front:8901/api
+      - JWKS_URL=http://auth:4568/.well-known/jwks.json
+      - JWT_ISSUER=${PUBLIC_URL}
+      - THEMOVIEDB_API_ACCESS_TOKEN=${THEMOVIEDB_API_ACCESS_TOKEN}
+      - TVDB_APIKEY=${TVDB_APIKEY}
+      - LIBRARY_IGNORE_PATTERN=${LIBRARY_IGNORE_PATTERN}
+    volumes:
+      - ${LIBRARY_ROOT}:/video:ro
+
+  transcoder:
+    image: ghcr.io/zoriya/kyoo_transcoder:edge
+    container_name: kyoo-transcoder
+    restart: unless-stopped
+    environment:
+      - JWKS_URL=http://auth:4568/.well-known/jwks.json
+      - GOCODER_PRESET=${GOCODER_PRESET}
+    volumes:
+      - ${LIBRARY_ROOT}:/video:ro
+      - ${CACHE_ROOT}:/cache
+      - transcoder_metadata:/metadata
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: kyoo-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  images:
+  transcoder_metadata:
+  postgres_data:

@@ -1,0 +1,12 @@
+services:
+  sentryshot:
+    image: codeberg.org/sentryshot/sentryshot:v0.3.10
+    container_name: sentryshot
+    restart: unless-stopped
+    environment:
+      TZ: America/New_York
+    volumes:
+      - ./configs:/app/configs
+      - ./storage:/app/storage
+    ports:
+      - "2020:2020"

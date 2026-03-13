@@ -1,0 +1,148 @@
+name: agenta-oss
+
+services:
+  web:
+    image: ghcr.io/agenta-ai/agenta-web:latest
+    command: sh -c "node ./oss/server.js"
+    networks:
+      - agenta-network
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: always
+
+  api:
+    image: ghcr.io/agenta-ai/agenta-api:latest
+    command: >
+      gunicorn entrypoints.routers:app
+      --bind 0.0.0.0:8000
+      --worker-class uvicorn.workers.UvicornWorker
+      --workers 2
+      --timeout 60
+      --graceful-timeout 60
+      --log-level info
+    environment:
+      - POSTGRES_URI=postgresql://username:password@postgres:5432/agenta_oss_core
+      - REDIS_URL=redis://redis-volatile:6379
+      - REDIS_DURABLE_URL=redis://redis-durable:6381
+      - SUPERTOKENS_CONNECTION_URI=http://supertokens:3567
+    networks:
+      - agenta-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-volatile:
+        condition: service_healthy
+      redis-durable:
+        condition: service_healthy
+    restart: always
+
+  services:
+    image: ghcr.io/agenta-ai/agenta-services:latest
+    command: >
+      gunicorn entrypoints.main:app
+      --bind 0.0.0.0:8080
+      --worker-class uvicorn.workers.UvicornWorker
+      --workers 2
+      --timeout 60
+      --graceful-timeout 60
+      --log-level info
+    environment:
+      - POSTGRES_URI=postgresql://username:password@postgres:5432/agenta_oss_core
+    networks:
+      - agenta-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+
+  postgres:
+    image: postgres:16
+    volumes:
+      - postgres-data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: agenta_oss_core
+    networks:
+      - agenta-network
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U username -d agenta_oss_core"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-volatile:
+    image: redis:8
+    command: >
+      redis-server
+      --appendonly no
+      --save ""
+      --maxmemory 512mb
+      --maxmemory-policy volatile-lru
+      --port 6379
+    volumes:
+      - redis-volatile-data:/data
+    networks:
+      - agenta-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  redis-durable:
+    image: redis:8
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync no
+      --save ""
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+      --port 6381
+    volumes:
+      - redis-durable-data:/data
+    networks:
+      - agenta-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6381", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  supertokens:
+    image: registry.supertokens.io/supertokens/supertokens-postgresql
+    environment:
+      POSTGRESQL_CONNECTION_URI: postgresql://username:password@postgres:5432/agenta_oss_core
+    networks:
+      - agenta-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: >
+        bash -c 'exec 3<>/dev/tcp/127.0.0.1/3567 && echo -e "GET /hello HTTP/1.1\r\nhost: 127.0.0.1:3567\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep "Hello"'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  agenta-network:
+
+volumes:
+  postgres-data:
+  redis-volatile-data:
+  redis-durable-data:

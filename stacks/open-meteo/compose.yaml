@@ -1,0 +1,29 @@
+volumes:
+  open_meteo_database:
+
+x-shared_environment: &shared_environment
+  LOG_LEVEL: info
+
+services:
+  open-meteo-sync:
+    image: ghcr.io/open-meteo/open-meteo
+    container_name: open-meteo-sync
+    restart: always
+    environment:
+      <<: *shared_environment
+    command: sync dwd_icon temperature_2m --past-days 2 --repeat-interval 1 --concurrent 1
+    volumes:
+      - open_meteo_database:/app/data
+
+  open-meteo:
+    image: ghcr.io/open-meteo/open-meteo
+    container_name: open-meteo-api
+    restart: always
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      <<: *shared_environment
+    user: "0"
+    command: ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
+    volumes:
+      - open_meteo_database:/app/data

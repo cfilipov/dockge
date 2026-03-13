@@ -1,0 +1,52 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: fork-recipes-nginx
+    restart: unless-stopped
+    ports:
+      - "${FORK_PORT}:80"
+    volumes:
+      - uwsgi_data:/tmp/uwsgi/
+      - web_static:/forkapi/static/:ro
+      - web_media:/forkapi/media/
+      - web_static_fe:/fork_recipes/static/:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+      - be
+
+  be:
+    image: mikebgrep/forkapi:latest
+    container_name: forkapi
+    hostname: forkapi-host
+    restart: always
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - SEED_DEFAULT_DATA=${SEED_DEFAULT_DATA}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+    volumes:
+      - data:/forkapi/sql/
+      - uwsgi_data:/tmp/uwsgi/
+      - web_media:/forkapi/media/
+      - web_static:/forkapi/static/
+
+  web:
+    image: mikebgrep/forkrecipes:latest
+    container_name: fork-recipes
+    restart: always
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+    volumes:
+      - data:/fork_recipes/sql/
+      - uwsgi_data:/tmp/uwsgi/
+      - web_static_fe:/fork_recipes/static/
+    depends_on:
+      - be
+
+volumes:
+  data:
+  uwsgi_data:
+  web_static:
+  web_media:
+  web_static_fe:

@@ -1,0 +1,10 @@
+services:
+  httpd:
+    image: httpd:${HTTPD_VERSION:-2.4}
+    container_name: apache-httpd
+    restart: unless-stopped
+    ports:
+      - "${HTTPD_PORT:-8080}:80"
+    volumes:
+      - ./public-html:/usr/local/apache2/htdocs/:ro
+      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf:ro

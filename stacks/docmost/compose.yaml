@@ -1,0 +1,41 @@
+services:
+  docmost:
+    image: docmost/docmost:latest
+    container_name: docmost
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "${DOCMOST_PORT:-3000}:3000"
+    environment:
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      - APP_SECRET=${APP_SECRET:-replace_with_long_random_secret_key}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-docmost}:${POSTGRES_PASSWORD:-docmost_secret}@db:5432/${POSTGRES_DB:-docmost}
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - docmost_data:/app/data/storage
+
+  db:
+    image: postgres:16-alpine
+    container_name: docmost-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-docmost}
+      - POSTGRES_USER=${POSTGRES_USER:-docmost}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-docmost_secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: docmost-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+
+volumes:
+  docmost_data:
+  db_data:
+  redis_data:

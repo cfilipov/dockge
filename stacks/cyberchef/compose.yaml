@@ -1,0 +1,7 @@
+services:
+  cyberchef:
+    image: mpepping/cyberchef:latest
+    container_name: cyberchef
+    ports:
+      - "${PORT:-8000}:8000"
+    restart: unless-stopped

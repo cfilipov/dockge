@@ -1,0 +1,17 @@
+services:
+  uguu:
+    image: ghcr.io/nokonoko/uguu:latest
+    container_name: uguu
+    restart: unless-stopped
+    ports:
+      - "${UGUU_PORT:-8080}:80"
+    environment:
+      UGUU_URL: ${UGUU_URL}
+      UGUU_MAX_UPLOAD_SIZE: ${UGUU_MAX_UPLOAD_SIZE:-128}
+    volumes:
+      - uguu-files:/var/www/uguu/files
+      - uguu-db:/var/www/uguu/db
+
+volumes:
+  uguu-files:
+  uguu-db:

@@ -1,0 +1,15 @@
+services:
+  server:
+    image: kutt/kutt
+    volumes:
+      - db_data_sqlite:/var/lib/kutt
+      - custom:/kutt/custom
+    environment:
+      DB_FILENAME: "/var/lib/kutt/data.sqlite"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  db_data_sqlite:
+  custom:

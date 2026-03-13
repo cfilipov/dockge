@@ -1,0 +1,39 @@
+services:
+  suitecrm:
+    image: koehn/suitecrm:latest
+    container_name: suitecrm
+    ports:
+      - "${SUITECRM_PORT:-8080}:80"
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_NAME=${DATABASE_NAME:-suitecrm}
+      - DATABASE_USER=${DATABASE_USER:-suitecrm}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-suitecrm}
+      - SITE_URL=${SITE_URL:-http://localhost:8080}
+    volumes:
+      - suitecrm_data:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: suitecrm-db
+    environment:
+      MARIADB_DATABASE: ${DATABASE_NAME:-suitecrm}
+      MARIADB_USER: ${DATABASE_USER:-suitecrm}
+      MARIADB_PASSWORD: ${DATABASE_PASSWORD:-suitecrm}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootpassword}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  suitecrm_data:
+  db_data:

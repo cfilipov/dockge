@@ -1,0 +1,62 @@
+services:
+  socioboard:
+    image: sintelli/socioboard:latest
+    container_name: socioboard
+    ports:
+      - "3000:3000"
+    environment:
+      - MYSQL_HOST=socioboard-mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=socioboard
+      - MYSQL_USER=socioboard
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MONGO_HOST=socioboard-mongo
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=socioboard
+    depends_on:
+      - socioboard-mysql
+      - socioboard-mongo
+    networks:
+      - scb-net
+    restart: unless-stopped
+
+  socioboard-web:
+    image: sintelli/socioboard-web:latest
+    container_name: socioboard-web
+    ports:
+      - "8080:8080"
+    depends_on:
+      - socioboard
+    networks:
+      - scb-net
+    restart: unless-stopped
+
+  socioboard-mysql:
+    image: mysql:8.0
+    container_name: socioboard-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=socioboard
+      - MYSQL_USER=socioboard
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - scb-net
+    restart: unless-stopped
+
+  socioboard-mongo:
+    image: mongo:6
+    container_name: socioboard-mongo
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - scb-net
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  mongo-data:
+
+networks:
+  scb-net:

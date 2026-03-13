@@ -1,0 +1,16 @@
+services:
+  upvote-rss:
+    image: ghcr.io/johnwarne/upvote-rss:latest
+    container_name: upvote-rss
+    restart: unless-stopped
+    ports:
+      - "${UPVOTE_RSS_PORT:-8675}:80"
+    environment:
+      - REDDIT_USER=${REDDIT_USER:-}
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:-}
+    volumes:
+      - upvote-rss-cache:/app/cache
+
+volumes:
+  upvote-rss-cache:

@@ -1,0 +1,56 @@
+services:
+  meme_search:
+    image: ghcr.io/neonwatty/meme_search:latest
+    container_name: meme_search
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@meme-search-db:5432/${POSTGRES_DB}
+    ports:
+      - "${APP_PORT}:3000"
+    depends_on:
+      meme_search_db:
+        condition: service_healthy
+    volumes:
+      - meme-uploads:/rails/public/memes/direct-uploads
+    restart: unless-stopped
+
+  image_to_text_generator:
+    image: ghcr.io/neonwatty/image_to_text_generator:latest
+    container_name: image_to_text_generator
+    environment:
+      APP_PORT: ${APP_PORT}
+      GEN_URL: http://meme_search:3000
+    expose:
+      - "8000"
+    volumes:
+      - meme-uploads:/app/public/memes/direct-uploads
+      - generator-db:/app/db
+      - model-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        limits:
+          memory: 12GB
+    restart: unless-stopped
+
+  meme_search_db:
+    image: pgvector/pgvector:pg17
+    container_name: meme-search-db
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  meme-uploads:
+  generator-db:
+  model-cache:
+  pg-data:

@@ -1,0 +1,12 @@
+services:
+  enclosed:
+    image: corentinth/enclosed:latest
+    container_name: enclosed
+    restart: unless-stopped
+    ports:
+      - "${ENCLOSED_PORT:-8787}:8787"
+    volumes:
+      - enclosed-data:/app/.data
+
+volumes:
+  enclosed-data:

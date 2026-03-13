@@ -1,0 +1,15 @@
+services:
+  iodine:
+    image: adamant/iodine
+    container_name: iodine
+    restart: unless-stopped
+    ports:
+      - "${DNS_PORT}:53/udp"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    environment:
+      - IODINE_HOST=${IODINE_HOST}
+      - IODINE_PASS=${IODINE_PASS}
+      - IODINE_IP=${IODINE_IP}

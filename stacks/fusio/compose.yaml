@@ -1,0 +1,32 @@
+services:
+  fusio:
+    image: fusio/fusio:latest
+    restart: always
+    ports:
+      - "${FUSIO_PORT:-8080}:80"
+    environment:
+      FUSIO_PROJECT_KEY: ${FUSIO_PROJECT_KEY}
+      FUSIO_ENV: prod
+      FUSIO_DEBUG: "false"
+      FUSIO_CONNECTION: "pdo-mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql/${MYSQL_DATABASE}"
+      FUSIO_BACKEND_USER: ${FUSIO_BACKEND_USER}
+      FUSIO_BACKEND_EMAIL: ${FUSIO_BACKEND_EMAIL}
+      FUSIO_BACKEND_PW: ${FUSIO_BACKEND_PW}
+    depends_on:
+      - mysql
+    links:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mysql-data:

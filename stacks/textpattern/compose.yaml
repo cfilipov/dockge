@@ -1,0 +1,30 @@
+services:
+  textpattern:
+    image: php:8.3-apache
+    ports:
+      - "8080:80"
+    environment:
+      TEXTPATTERN_DB_HOST: db
+      TEXTPATTERN_DB_NAME: textpattern
+      TEXTPATTERN_DB_USER: textpattern
+      TEXTPATTERN_DB_PASS: ${DB_PASSWORD}
+    volumes:
+      - app_data:/var/www/html
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: textpattern
+      MYSQL_USER: textpattern
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  app_data:
+  db_data:

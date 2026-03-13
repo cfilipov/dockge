@@ -1,0 +1,9 @@
+services:
+  geo2tz:
+    image: ghcr.io/noandrea/geo2tz:latest
+    container_name: geo2tz
+    restart: unless-stopped
+    ports:
+      - "${GEO2TZ_PORT}:2004"
+    environment:
+      GEO2TZ_WEB_AUTH_TOKEN_VALUE: ${GEO2TZ_AUTH_TOKEN}

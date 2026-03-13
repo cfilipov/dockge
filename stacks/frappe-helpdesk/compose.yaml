@@ -1,0 +1,54 @@
+services:
+  mariadb:
+    image: mariadb:10.8
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: "123"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+
+  frappe:
+    image: frappe/bench:latest
+    command: >
+      bash -c "
+      if [ -d /home/frappe/frappe-bench/apps/frappe ]; then
+        cd frappe-bench && bench start;
+      else
+        bench init --skip-redis-config-generation frappe-bench --version version-15 &&
+        cd frappe-bench &&
+        bench set-mariadb-host mariadb &&
+        bench set-redis-cache-host redis://redis:6379 &&
+        bench set-redis-queue-host redis://redis:6379 &&
+        bench set-redis-socketio-host redis://redis:6379 &&
+        sed -i '/redis/d' ./Procfile &&
+        sed -i '/watch/d' ./Procfile &&
+        bench get-app helpdesk --branch main &&
+        bench new-site helpdesk.localhost --force --mariadb-root-password 123 --admin-password admin --no-mariadb-socket &&
+        bench --site helpdesk.localhost install-app helpdesk &&
+        bench --site helpdesk.localhost set-config developer_mode 1 &&
+        bench --site helpdesk.localhost set-config mute_emails 1 &&
+        bench use helpdesk.localhost &&
+        bench start;
+      fi"
+    environment:
+      - SHELL=/bin/bash
+    working_dir: /home/frappe
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    depends_on:
+      - mariadb
+      - redis
+    restart: unless-stopped
+
+volumes:
+  mariadb-data:

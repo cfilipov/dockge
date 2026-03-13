@@ -1,0 +1,17 @@
+services:
+  openfire:
+    image: igniterealtime/openfire:latest
+    container_name: openfire
+    ports:
+      - "5222:5222"
+      - "5269:5269"
+      - "7070:7070"
+      - "7443:7443"
+      - "9090:9090"
+    volumes:
+      - openfire-data:/var/lib/openfire
+      - openfire-logs:/var/log/openfire
+
+volumes:
+  openfire-data:
+  openfire-logs:

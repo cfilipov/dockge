@@ -1,0 +1,7 @@
+services:
+  eda:
+    image: jortilles/eda:latest
+    container_name: eda
+    ports:
+      - "80:80"
+    restart: unless-stopped

@@ -1,0 +1,57 @@
+services:
+  docs-frontend:
+    image: lasuite/docs-frontend:latest
+    container_name: docs-frontend
+    restart: unless-stopped
+    ports:
+      - "${DOCS_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://docs-backend:8000
+    depends_on:
+      - docs-backend
+    networks:
+      - docs-network
+
+  docs-backend:
+    image: lasuite/docs-backend:latest
+    container_name: docs-backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - docs-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: docs-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - docs-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: docs-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - docs-network
+
+networks:
+  docs-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

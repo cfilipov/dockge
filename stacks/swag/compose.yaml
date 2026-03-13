@@ -1,0 +1,27 @@
+services:
+  swag:
+    image: lscr.io/linuxserver/swag:${SWAG_VERSION:-latest}
+    container_name: swag
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - swag_config:/config
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Etc/UTC}
+      - URL=${URL:-example.com}
+      - VALIDATION=${VALIDATION:-http}
+      - SUBDOMAINS=${SUBDOMAINS:-www}
+      - CERTPROVIDER=${CERTPROVIDER:-}
+      - DNSPLUGIN=${DNSPLUGIN:-cloudflare}
+      - EMAIL=${EMAIL:-}
+      - ONLY_SUBDOMAINS=${ONLY_SUBDOMAINS:-false}
+      - STAGING=${STAGING:-false}
+
+volumes:
+  swag_config:

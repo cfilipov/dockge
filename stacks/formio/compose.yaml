@@ -1,0 +1,40 @@
+services:
+  formio:
+    image: formio/formio:latest
+    restart: always
+    ports:
+      - "${FORMIO_PORT:-3001}:3001"
+    environment:
+      DEBUG: "formio:*"
+      ROOT_EMAIL: ${ROOT_EMAIL}
+      ROOT_PASSWORD: ${ROOT_PASSWORD}
+      NODE_CONFIG: |
+        {
+          "mongo": "mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/formio?authSource=admin",
+          "port": 3001,
+          "jwt": {
+            "secret": "${JWT_SECRET}"
+          }
+        }
+    depends_on:
+      - mongo
+    networks:
+      - formio
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - formio
+
+networks:
+  formio:
+    driver: bridge
+
+volumes:
+  mongo-data:

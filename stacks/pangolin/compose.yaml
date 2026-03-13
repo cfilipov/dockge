@@ -1,0 +1,12 @@
+services:
+  pangolin:
+    image: fosrl/pangolin:${PANGOLIN_VERSION:-latest}
+    container_name: pangolin
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:3000"
+      - "${HTTPS_PORT:-443}:3001"
+    volumes:
+      - ./config:/app/config
+    environment:
+      - NODE_ENV=production

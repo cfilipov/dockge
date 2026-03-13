@@ -1,0 +1,38 @@
+services:
+  rukovoditel:
+    image: filipmil/rukovoditel:latest
+    container_name: rukovoditel
+    ports:
+      - "${RUKOVODITEL_PORT:-8080}:80"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${DB_NAME:-rukovoditel}
+      - DB_USER=${DB_USER:-rukovoditel}
+      - DB_PASSWORD=${DB_PASSWORD:-rukovoditel_pass}
+    volumes:
+      - rukovoditel_data:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10.11
+    container_name: rukovoditel-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpass}
+      - MYSQL_DATABASE=${DB_NAME:-rukovoditel}
+      - MYSQL_USER=${DB_USER:-rukovoditel}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-rukovoditel_pass}
+    volumes:
+      - rukovoditel_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  rukovoditel_data:
+  rukovoditel_db:

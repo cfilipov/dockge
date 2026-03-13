@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: pgvector/pgvector:${COLANODE_PG_VERSION:-pg17}
+    container_name: colanode_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - colanode
+
+  valkey:
+    image: valkey/valkey:${VALKEY_VERSION:-8.1}
+    container_name: colanode_valkey
+    restart: unless-stopped
+    command:
+      - valkey-server
+      - --requirepass
+      - ${VALKEY_PASSWORD}
+    volumes:
+      - valkey_data:/data
+    networks:
+      - colanode
+
+  server:
+    image: ghcr.io/colanode/server:${COLANODE_VERSION:-latest}
+    container_name: colanode_server
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - valkey
+    environment:
+      NODE_ENV: production
+      POSTGRES_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${VALKEY_PASSWORD}@valkey:6379/0
+    ports:
+      - "${COLANODE_API_PORT:-3000}:3000"
+    volumes:
+      - server_storage:/var/lib/colanode/storage
+    networks:
+      - colanode
+
+  web:
+    image: ghcr.io/colanode/web:${COLANODE_VERSION:-latest}
+    container_name: colanode_web
+    restart: unless-stopped
+    ports:
+      - "${COLANODE_WEB_PORT:-4000}:80"
+    networks:
+      - colanode
+
+volumes:
+  postgres_data:
+  valkey_data:
+  server_storage:
+
+networks:
+  colanode:
+    driver: bridge

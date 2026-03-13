@@ -1,0 +1,9 @@
+services:
+  httpd:
+    image: httpd:latest
+    container_name: apache-httpd
+    ports:
+      - "${PORT}:80"
+    volumes:
+      - ./htdocs:/usr/local/apache2/htdocs:ro
+    restart: unless-stopped

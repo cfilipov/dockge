@@ -1,0 +1,34 @@
+services:
+  mosparo:
+    image: mosparo/mosparo:latest
+    restart: unless-stopped
+    ports:
+      - "${MOSPARO_PORT:-8080}:80"
+    environment:
+      MOSPARO_ENABLE_WEBINSTALLER: "true"
+      DATABASE_URL: "mysql://mosparo:${MYSQL_PASSWORD:-mosparo}@db:3306/mosparo?serverVersion=10.11.0-MariaDB"
+    volumes:
+      - mosparo_data:/mosparo-data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: mosparo
+      MYSQL_USER: mosparo
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mosparo}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mosparoroot}
+    volumes:
+      - mosparo_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mosparo_data:
+  mosparo_db:

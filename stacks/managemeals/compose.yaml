@@ -1,0 +1,90 @@
+services:
+  manage-meals-api:
+    image: ghcr.io/managemeals/manage-meals-api:latest
+    container_name: managemeals-api
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/
+      - MONGO_DB=${MONGO_DB}
+      - REDIS_URL=redis://valkey:6379
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY}
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - ACCESS_JWT_SECRET=${ACCESS_JWT_SECRET}
+      - REFRESH_JWT_SECRET=${REFRESH_JWT_SECRET}
+      - AUTH_ACCESS_TOKEN_EXPIRE_SEC=600
+      - AUTH_REFRESH_TOKEN_EXPIRE_SEC=2629746
+      - RECIPE_SCRAPER_URL=http://recipe-scraper:8000
+      - USER_REGISTER_ENABLED=true
+    depends_on:
+      - mongo
+      - valkey
+      - recipe-scraper
+      - typesense
+      - search-sync
+
+  manage-meals-web:
+    image: ghcr.io/managemeals/manage-meals-web:latest
+    container_name: managemeals-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT}:3000"
+    environment:
+      - PUBLIC_MAIN_TITLE=ManageMeals
+      - PASSWORD_MIN_LENGTH=6
+      - API_URL=http://manage-meals-api:3000/v1
+      - COOKIE_ACCESS_TOKEN=mmeals_access_token
+      - COOKIE_REFRESH_TOKEN=mmeals_refresh_token
+      - COOKIE_ACCESS_TOKEN_EXPIRE_SEC=600
+      - COOKIE_REFRESH_TOKEN_EXPIRE_SEC=2629746
+      - ORIGIN=${ORIGIN}
+      - BODY_SIZE_LIMIT=Infinity
+    depends_on:
+      - manage-meals-api
+
+  mongo:
+    image: mongo:7
+    container_name: managemeals-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_DB}
+    volumes:
+      - mongo-data:/data/db
+
+  valkey:
+    image: valkey/valkey:8
+    container_name: managemeals-valkey
+    restart: unless-stopped
+
+  recipe-scraper:
+    image: ghcr.io/managemeals/manage-meals-scraper:latest
+    container_name: managemeals-scraper
+    restart: unless-stopped
+
+  typesense:
+    image: typesense/typesense:28.0
+    container_name: managemeals-typesense
+    restart: unless-stopped
+    command: "--data-dir /data --api-key=${TYPESENSE_API_KEY} --enable-cors"
+    volumes:
+      - typesense-data:/data
+
+  search-sync:
+    image: ghcr.io/managemeals/manage-meals-search-sync:latest
+    container_name: managemeals-search-sync
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/
+      - MONGO_DB=${MONGO_DB}
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY}
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+    depends_on:
+      - mongo
+      - typesense
+
+volumes:
+  mongo-data:
+  typesense-data:

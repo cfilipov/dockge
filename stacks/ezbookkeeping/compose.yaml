@@ -1,0 +1,11 @@
+services:
+  ezbookkeeping:
+    image: mayswind/ezbookkeeping:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ezbookkeeping-data:/ezbookkeeping/data
+
+volumes:
+  ezbookkeeping-data:

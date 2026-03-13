@@ -1,0 +1,21 @@
+services:
+  icecast:
+    image: infiniteproject/icecast:latest
+    container_name: icecast2
+    restart: unless-stopped
+    ports:
+      - "${ICECAST_PORT:-8000}:8000"
+    environment:
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_RELAY_PASSWORD=${ICECAST_RELAY_PASSWORD}
+      - ICECAST_ADMIN_PASSWORD=${ICECAST_ADMIN_PASSWORD}
+      - ICECAST_ADMIN_USERNAME=${ICECAST_ADMIN_USERNAME}
+      - ICECAST_ADMIN_EMAIL=${ICECAST_ADMIN_EMAIL}
+      - ICECAST_LOCATION=${ICECAST_LOCATION}
+      - ICECAST_HOSTNAME=${ICECAST_HOSTNAME}
+      - ICECAST_MAX_LISTENERS=${ICECAST_MAX_LISTENERS}
+    volumes:
+      - icecast_logs:/var/log/icecast2
+
+volumes:
+  icecast_logs:

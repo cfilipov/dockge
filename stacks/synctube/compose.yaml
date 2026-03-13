@@ -1,0 +1,9 @@
+services:
+  synctube:
+    image: ghcr.io/rblsb/synctube:latest
+    container_name: synctube
+    restart: unless-stopped
+    ports:
+      - "${SYNCTUBE_PORT:-4200}:4200"
+    volumes:
+      - ./user:/usr/src/app/user

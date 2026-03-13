@@ -1,0 +1,4 @@
+sip3-salto:
+  mongo:
+    uri: mongodb://mongo:27017
+    db: sip3

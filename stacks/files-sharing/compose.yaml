@@ -1,0 +1,15 @@
+services:
+  filesharing:
+    image: axeloz/filesharing:latest
+    container_name: files-sharing
+    restart: unless-stopped
+    ports:
+      - "${FILESHARING_PORT:-80}:80"
+    volumes:
+      - uploads:/var/www/html/storage/app
+      - ./.env.app:/var/www/html/.env:ro
+    environment:
+      TZ: ${TZ:-UTC}
+
+volumes:
+  uploads:

@@ -1,0 +1,40 @@
+services:
+  cozy-stack:
+    image: cozy/cozy-stack:${COZY_VERSION:-latest}
+    container_name: cozy-stack
+    restart: unless-stopped
+    ports:
+      - "${COZY_PORT:-8080}:8080"
+      - "${COZY_ADMIN_PORT:-6060}:6060"
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+      COUCHDB_HOST: couchdb
+      COUCHDB_PORT: "5984"
+      COZY_ADMIN_PASSPHRASE: ${COZY_ADMIN_PASSPHRASE}
+    volumes:
+      - cozy_storage:/var/lib/cozy
+    depends_on:
+      - couchdb
+    networks:
+      - cozy
+
+  couchdb:
+    image: couchdb:${COUCHDB_VERSION:-3}
+    container_name: cozy-couchdb
+    restart: unless-stopped
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+    networks:
+      - cozy
+
+volumes:
+  cozy_storage:
+  couchdb_data:
+
+networks:
+  cozy:
+    driver: bridge

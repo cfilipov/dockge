@@ -1,0 +1,17 @@
+services:
+  memcached:
+    image: memcached:latest
+    container_name: yopass-memcached
+    restart: always
+    expose:
+      - "11211"
+
+  yopass:
+    image: jhaals/yopass:latest
+    container_name: yopass
+    restart: always
+    ports:
+      - "${YOPASS_PORT:-1337}:1337"
+    command: "--memcached=memcached:11211 --port 1337"
+    depends_on:
+      - memcached

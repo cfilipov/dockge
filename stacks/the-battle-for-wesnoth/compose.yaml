@@ -1,0 +1,12 @@
+services:
+  wesnothd:
+    image: wesnoth/wesnoth:latest
+    container_name: wesnothd
+    restart: unless-stopped
+    ports:
+      - "${WESNOTH_PORT:-15000}:15000"
+    volumes:
+      - wesnoth-data:/var/lib/wesnoth
+
+volumes:
+  wesnoth-data:

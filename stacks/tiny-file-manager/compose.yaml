@@ -1,0 +1,14 @@
+services:
+  tiny-file-manager:
+    image: tinyfilemanager/tinyfilemanager:latest
+    container_name: tiny-file-manager
+    restart: unless-stopped
+    ports:
+      - "${TFM_PORT:-8080}:80"
+    volumes:
+      - data:/var/www/html/data
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  data:

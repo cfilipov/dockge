@@ -1,0 +1,13 @@
+services:
+  app:
+    image: nymanjens/quizmaster:${QUIZMASTER_VERSION:-latest}
+    container_name: quizmaster
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    ports:
+      - "${QUIZMASTER_PORT:-9000}:9000"
+    volumes:
+      - ./quiz-config.yml:/app/conf/quiz/quiz-config.yml:ro
+      - ./application.conf:/app/conf/application.conf:ro
+    command: "bin/server"

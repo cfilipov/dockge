@@ -1,0 +1,80 @@
+services:
+  db:
+    image: mariadb:lts-noble
+    restart: unless-stopped
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: otobo_root
+      MARIADB_AUTO_UPGRADE: "1"
+    command: >-
+      --max-allowed-packet=136314880
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --innodb-log-file-size=268435456
+    healthcheck:
+      test: mariadb-admin -h db --user=root --password=otobo_root ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  web:
+    image: rotheross/otobo:latest-11_0
+    depends_on:
+      - db
+      - elastic
+      - redis
+    restart: unless-stopped
+    ports:
+      - "80:5000"
+    volumes:
+      - opt_otobo:/opt/otobo
+    command: web
+    healthcheck:
+      test: curl -s -f http://localhost:5000/robots.txt
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  daemon:
+    image: rotheross/otobo:latest-11_0
+    depends_on:
+      - web
+    restart: unless-stopped
+    volumes:
+      - opt_otobo:/opt/otobo
+    command: daemon
+    healthcheck:
+      test: ./bin/otobo.Daemon.pl status | grep 'Daemon running'
+      interval: 60s
+      timeout: 10s
+      retries: 5
+
+  elastic:
+    image: rotheross/otobo-elasticsearch:latest-11_0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: curl -s -f http://localhost:9200/_cat/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:8-bookworm
+    restart: unless-stopped
+    command: ["redis-server", "--save", ""]
+    healthcheck:
+      test: redis-cli ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  mariadb_data:
+  opt_otobo:
+  elasticsearch_data:

@@ -1,0 +1,11 @@
+services:
+  isso:
+    image: ghcr.io/isso-comments/isso:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ISSO_SETTINGS: /config/isso.cfg
+    volumes:
+      - ./db:/db
+      - ./config:/config:ro

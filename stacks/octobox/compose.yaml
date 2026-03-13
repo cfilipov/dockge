@@ -1,0 +1,33 @@
+services:
+  app:
+    image: octoboxio/octobox:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      RAILS_ENV: development
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      OCTOBOX_DATABASE_NAME: postgres
+      OCTOBOX_DATABASE_USERNAME: postgres
+      OCTOBOX_DATABASE_PASSWORD: ${DB_PASSWORD}
+      OCTOBOX_DATABASE_HOST: database
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - database
+      - redis
+
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  pg_data:

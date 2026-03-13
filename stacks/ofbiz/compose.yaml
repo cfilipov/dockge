@@ -1,0 +1,13 @@
+services:
+  ofbiz:
+    image: opensourceknight/ofbiz:latest
+    container_name: ofbiz
+    ports:
+      - "${OFBIZ_HTTP_PORT:-8443}:8443"
+      - "${OFBIZ_HTTPS_PORT:-443}:443"
+    volumes:
+      - ofbiz-data:/ofbiz/runtime/data
+    restart: unless-stopped
+
+volumes:
+  ofbiz-data:

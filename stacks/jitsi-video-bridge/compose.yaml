@@ -1,0 +1,72 @@
+services:
+  web:
+    image: jitsi/web:${JITSI_IMAGE_VERSION:-stable}
+    container_name: jitsi-web
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8000}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      - ${CONFIG:-./config}/web:/config:Z
+      - ${CONFIG:-./config}/transcripts:/usr/share/jitsi-meet/transcripts:Z
+    environment:
+      - ENABLE_COLIBRI_WEBSOCKET
+      - ENABLE_XMPP_WEBSOCKET
+      - PUBLIC_URL=${PUBLIC_URL:-https://meet.example.com}
+      - TZ=${TZ:-UTC}
+      - XMPP_BOSH_URL_BASE=http://prosody:5280
+      - XMPP_DOMAIN=${XMPP_DOMAIN:-meet.jitsi}
+      - XMPP_MUC_DOMAIN=muc.${XMPP_DOMAIN:-meet.jitsi}
+    depends_on:
+      - prosody
+
+  prosody:
+    image: jitsi/prosody:${JITSI_IMAGE_VERSION:-stable}
+    container_name: jitsi-prosody
+    restart: unless-stopped
+    expose:
+      - "5222"
+      - "5280"
+      - "5347"
+    volumes:
+      - ${CONFIG:-./config}/prosody/config:/config:Z
+      - ${CONFIG:-./config}/prosody/prosody-plugins-custom:/prosody-plugins-custom:Z
+    environment:
+      - PUBLIC_URL=${PUBLIC_URL:-https://meet.example.com}
+      - TZ=${TZ:-UTC}
+      - XMPP_DOMAIN=${XMPP_DOMAIN:-meet.jitsi}
+      - XMPP_MUC_DOMAIN=muc.${XMPP_DOMAIN:-meet.jitsi}
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.${XMPP_DOMAIN:-meet.jitsi}
+      - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD:-changeme1}
+      - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD:-changeme2}
+
+  jicofo:
+    image: jitsi/jicofo:${JITSI_IMAGE_VERSION:-stable}
+    container_name: jitsi-jicofo
+    restart: unless-stopped
+    volumes:
+      - ${CONFIG:-./config}/jicofo:/config:Z
+    environment:
+      - TZ=${TZ:-UTC}
+      - XMPP_DOMAIN=${XMPP_DOMAIN:-meet.jitsi}
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.${XMPP_DOMAIN:-meet.jitsi}
+      - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD:-changeme1}
+    depends_on:
+      - prosody
+
+  jvb:
+    image: jitsi/jvb:${JITSI_IMAGE_VERSION:-stable}
+    container_name: jitsi-jvb
+    restart: unless-stopped
+    ports:
+      - "${JVB_PORT:-10000}:10000/udp"
+    volumes:
+      - ${CONFIG:-./config}/jvb:/config:Z
+    environment:
+      - TZ=${TZ:-UTC}
+      - XMPP_DOMAIN=${XMPP_DOMAIN:-meet.jitsi}
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.${XMPP_DOMAIN:-meet.jitsi}
+      - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD:-changeme2}
+      - JVB_PORT=${JVB_PORT:-10000}
+    depends_on:
+      - prosody

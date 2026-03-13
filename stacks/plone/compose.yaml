@@ -1,0 +1,19 @@
+services:
+  backend:
+    image: plone/plone-backend:6.1
+    environment:
+      ZEO_ADDRESS: zeo:8100
+    ports:
+      - "8080:8080"
+    depends_on:
+      - zeo
+    restart: unless-stopped
+
+  zeo:
+    image: plone/plone-zeo:latest
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+volumes:
+  data:

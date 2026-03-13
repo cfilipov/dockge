@@ -1,0 +1,40 @@
+services:
+  iceshrimp:
+    image: iceshrimp.dev/iceshrimp/iceshrimp.net:dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      ICESHRIMP__DATABASE__HOST: db
+      ICESHRIMP__DATABASE__PORT: "5432"
+      ICESHRIMP__DATABASE__DATABASE: iceshrimp
+      ICESHRIMP__DATABASE__USERNAME: iceshrimp
+      ICESHRIMP__DATABASE__PASSWORD: ${DB_PASSWORD}
+      ICESHRIMP__REDIS__HOST: redis
+      ICESHRIMP__INSTANCE__LISTEN_PORT: "3000"
+    volumes:
+      - iceshrimp-data:/app/data
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: iceshrimp
+      POSTGRES_USER: iceshrimp
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  iceshrimp-data:
+  db-data:
+  redis-data:

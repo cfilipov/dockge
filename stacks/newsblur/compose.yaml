@@ -1,0 +1,58 @@
+services:
+  newsblur:
+    image: newsblur/newsblur:${NEWSBLUR_TAG:-latest}
+    container_name: newsblur
+    restart: unless-stopped
+    ports:
+      - "${NEWSBLUR_PORT:-8000}:8000"
+    environment:
+      - DOCKER_ENV=True
+      - NEWSBLUR_DB_HOST=newsblur-db
+      - NEWSBLUR_DB_PORT=5432
+      - NEWSBLUR_DB_NAME=${POSTGRES_DB}
+      - NEWSBLUR_DB_USER=${POSTGRES_USER}
+      - NEWSBLUR_DB_PASSWORD=${POSTGRES_PASSWORD}
+      - MONGO_HOST=newsblur-mongo
+      - REDIS_HOST=newsblur-redis
+    depends_on:
+      newsblur-db:
+        condition: service_healthy
+      newsblur-mongo:
+        condition: service_started
+      newsblur-redis:
+        condition: service_started
+
+  newsblur-db:
+    image: postgres:16-alpine
+    container_name: newsblur-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - newsblur_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  newsblur-mongo:
+    image: mongo:7
+    container_name: newsblur-mongo
+    restart: unless-stopped
+    volumes:
+      - newsblur_mongo:/data/db
+
+  newsblur-redis:
+    image: redis:7-alpine
+    container_name: newsblur-redis
+    restart: unless-stopped
+    volumes:
+      - newsblur_redis:/data
+
+volumes:
+  newsblur_db:
+  newsblur_mongo:
+  newsblur_redis:

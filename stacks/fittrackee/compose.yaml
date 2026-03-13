@@ -1,0 +1,46 @@
+services:
+  fittrackee-db:
+    container_name: fittrackee-db
+    image: postgis/postgis:17-3.5-alpine
+    env_file:
+      - .env
+    volumes:
+      - ${HOST_DATABASE_DIR:-./data/db}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 15s
+      retries: 3
+    networks:
+      - internal_network
+    restart: unless-stopped
+
+  fittrackee:
+    container_name: fittrackee
+    env_file:
+      - .env
+    image: fittrackee/fittrackee:v1.1.2
+    volumes:
+      - ${HOST_UPLOAD_DIR:-./data/uploads}:/usr/src/app/uploads
+      - ${HOST_LOG_DIR:-./data/logs}:/usr/src/app/logs
+      - ${HOST_STATICMAP_CACHE_DIR:-./data/staticmap_cache}:/usr/src/app/.staticmap_cache
+    ports:
+      - "${HOST_APP_PORT:-5000}:5000"
+    command: 'sh docker-entrypoint.sh'
+    depends_on:
+      fittrackee-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider http://127.0.0.1:5000/api/ping || exit 1"]
+      interval: 5s
+      timeout: 15s
+      retries: 3
+    networks:
+      - external_network
+      - internal_network
+    restart: unless-stopped
+
+networks:
+  external_network:
+  internal_network:
+    internal: true

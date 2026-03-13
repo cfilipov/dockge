@@ -1,0 +1,18 @@
+services:
+  weewx:
+    image: felddy/weewx:latest
+    restart: unless-stopped
+    ports:
+      - "${WEEWX_PORT:-8888}:8888"
+    volumes:
+      - weewx-data:/data
+    environment:
+      - TIMEZONE=${TIMEZONE:-US/Eastern}
+      - WEEWX_STATION_URL=${WEEWX_STATION_URL:-http://localhost:8888}
+      - WEEWX_STATION_LOCATION=${WEEWX_STATION_LOCATION:-My Weather Station}
+      - WEEWX_STATION_LATITUDE=${WEEWX_STATION_LATITUDE:-40.0}
+      - WEEWX_STATION_LONGITUDE=${WEEWX_STATION_LONGITUDE:--75.0}
+      - WEEWX_STATION_ALTITUDE=${WEEWX_STATION_ALTITUDE:-100, meter}
+
+volumes:
+  weewx-data:

@@ -1,0 +1,47 @@
+services:
+  proxy:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - psono-combo
+      - psono-fileserver
+    volumes:
+      - ./html:/var/www/html
+      - ./certificates/dhparam.pem:/etc/ssl/dhparam.pem
+      - ./certificates/private.key:/etc/ssl/private.key
+      - ./certificates/public.crt:/etc/ssl/public.crt
+      - ./psono_nginx.conf:/etc/nginx/nginx.conf
+
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: psono
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  psono-combo:
+    image: psono/psono-combo:latest
+    restart: always
+    depends_on:
+      - postgres
+    volumes:
+      - ./config/settings.yaml:/root/.psono_server/settings.yaml
+      - ./config/config.json:/usr/share/nginx/html/config.json
+
+  psono-fileserver:
+    image: psono/psono-fileserver:latest
+    restart: always
+    depends_on:
+      - psono-combo
+    volumes:
+      - shard_data:/opt/psono-shard
+      - ./config/settings-fileserver.yaml:/root/.psono_fileserver/settings.yaml
+
+volumes:
+  postgres_data:
+  shard_data:

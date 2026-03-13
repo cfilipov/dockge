@@ -1,0 +1,9 @@
+services:
+  olivetin:
+    image: jamesread/olivetin
+    container_name: olivetin
+    ports:
+      - "1337:1337"
+    volumes:
+      - ./config/config.yaml:/etc/OliveTin/config.yaml
+    restart: unless-stopped

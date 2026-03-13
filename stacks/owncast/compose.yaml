@@ -1,0 +1,15 @@
+services:
+  owncast:
+    image: owncast/owncast:latest
+    container_name: owncast
+    restart: unless-stopped
+    ports:
+      - "${OWNCAST_WEB_PORT:-8080}:8080"
+      - "${OWNCAST_RTMP_PORT:-1935}:1935"
+    volumes:
+      - owncast-data:/app/data
+    environment:
+      - OWNCAST_ADMIN_PASSWORD=${OWNCAST_ADMIN_PASSWORD}
+
+volumes:
+  owncast-data:

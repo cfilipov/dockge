@@ -1,0 +1,16 @@
+services:
+  traduora:
+    image: everco/ever-traduora:latest
+    ports:
+      - "8080:8080"
+    environment:
+      TR_DB_TYPE: better-sqlite3
+      TR_DB_SQLITE_PATH: api/data/tr.sqlite3
+      NODE_ENV: production
+    entrypoint: "./docker-entrypoint.compose.sh"
+    volumes:
+      - traduora_data:/app/api/data
+    restart: unless-stopped
+
+volumes:
+  traduora_data:

@@ -1,0 +1,58 @@
+# MintHCM - Open source Human Capital Management
+# https://github.com/minthcm/minthcm/tree/master/docker
+
+services:
+  web:
+    image: minthcm/minthcm
+    restart: always
+    ports:
+      - "${WEB_PORT:-80}:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
+    env_file:
+      - .env
+    volumes:
+      - minthcm-www:/var/www/html
+      - minthcm-cron:/var/spool/cron/crontabs
+
+  db:
+    image: percona/percona-server:8
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_PASSWORD:-minthcm}"
+      MYSQL_DEFAULT_AUTHENTICATION_PLUGIN: caching_sha2_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    volumes:
+      - minthcm-db:/var/lib/mysql
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    restart: always
+    volumes:
+      - minthcm-es:/usr/share/elasticsearch/data
+    mem_limit: 4g
+    environment:
+      - node.name=es1
+      - cluster.name=minthcm
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  minthcm-db:
+  minthcm-es:
+  minthcm-www:
+  minthcm-cron:

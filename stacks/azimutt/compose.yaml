@@ -1,0 +1,25 @@
+services:
+  database:
+    image: postgres:16
+    restart: always
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-azimutt_dev}
+
+  backend:
+    image: ghcr.io/azimuttapp/azimutt:latest
+    restart: always
+    depends_on:
+      - database
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: ecto://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@database/${POSTGRES_DB:-azimutt_dev}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-1wOVZ9rWAqPcbVZdilZzBPLXFKNrUmLUzX0q9Z02LpOy2jVWZwa6ee4fU81tuNW}
+      PHX_HOST: ${PHX_HOST:-localhost}
+
+volumes:
+  pg-data:

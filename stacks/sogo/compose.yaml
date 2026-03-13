@@ -1,0 +1,48 @@
+services:
+  sogo:
+    image: jenserat/sogo:${SOGO_VERSION:-latest}
+    container_name: sogo
+    restart: unless-stopped
+    ports:
+      - "${SOGO_PORT:-8080}:80"
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - sogo_etc:/etc/sogo
+    depends_on:
+      - db
+      - memcached
+    networks:
+      - sogo
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: sogo-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - sogo
+
+  memcached:
+    image: memcached:${MEMCACHED_VERSION:-1-alpine}
+    container_name: sogo-memcached
+    restart: unless-stopped
+    networks:
+      - sogo
+
+volumes:
+  sogo_etc:
+  db_data:
+
+networks:
+  sogo:
+    driver: bridge

@@ -1,0 +1,84 @@
+# Koha ILS - Integrated Library System (Testing/Development)
+# Based on: https://gitlab.com/koha-community/koha-testing-docker/-/blob/main/docker-compose.yml
+# Docker Hub: https://hub.docker.com/r/koha/koha-testing
+#
+# Koha Intranet: http://localhost:8081 (staff interface)
+# Koha OPAC: http://localhost:8080 (public catalog)
+# Default credentials: koha_kohadev / password
+
+services:
+  db:
+    image: ${DB_IMAGE:-mariadb:10.11}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+      MYSQL_DATABASE: koha_kohadev
+      MYSQL_USER: koha_kohadev
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - kohanet
+
+  es:
+    image: koha/elasticsearch-icu:7.x
+    restart: unless-stopped
+    environment:
+      - cluster.name=docker-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - kohanet
+
+  memcached:
+    image: ${MEMCACHED_IMAGE:-memcached}
+    restart: unless-stopped
+    command: memcached -m 64m
+    networks:
+      - kohanet
+
+  koha:
+    image: koha/koha-testing:${KOHA_IMAGE:-main-bookworm}
+    restart: unless-stopped
+    depends_on:
+      - db
+      - es
+      - memcached
+    cap_add:
+      - ALL
+    tmpfs:
+      - /tmp
+    environment:
+      KOHA_ELASTICSEARCH: "yes"
+      KOHA_INSTANCE: kohadev
+      KOHA_MARC_FLAVOUR: marc21
+      KOHA_INTRANET_PORT: "8081"
+      KOHA_OPAC_PORT: "8080"
+      DB_HOSTNAME: db
+      DB_PORT: "3306"
+      KOHA_DB_PASSWORD: ${MYSQL_PASSWORD:-password}
+      MEMCACHED_SERVERS: memcached:11211
+      ELASTICSEARCH_SERVER: es:9200
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    networks:
+      - kohanet
+
+networks:
+  kohanet:
+
+volumes:
+  db-data:
+  es-data:

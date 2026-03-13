@@ -1,0 +1,18 @@
+services:
+  channeltube:
+    image: thewicklowwolf/channeltube:latest
+    container_name: channeltube
+    volumes:
+      - ./config:/channeltube/config
+      - ${VIDEO_DIR}:/channeltube/downloads
+      - ${AUDIO_DIR}:/channeltube/audio_downloads
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - thread_limit=${THREAD_LIMIT:-1}
+      - video_format_id=${VIDEO_FORMAT_ID:-137}
+      - audio_format_id=${AUDIO_FORMAT_ID:-140}
+    restart: unless-stopped

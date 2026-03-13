@@ -1,0 +1,27 @@
+services:
+  smf:
+    image: eeems/smf:latest
+    container_name: smf
+    restart: unless-stopped
+    ports:
+      - "${SMF_PORT:-8080}:80"
+    volumes:
+      - smf-data:/var/www/html
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:10.11
+    container_name: smf-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-smf}
+      MYSQL_USER: ${DB_USER:-smf}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-smfpassword}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  smf-data:
+  db-data:

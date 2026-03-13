@@ -1,0 +1,14 @@
+services:
+  opentripplanner:
+    image: opentripplanner/opentripplanner:latest
+    container_name: opentripplanner
+    restart: unless-stopped
+    ports:
+      - "${OTP_PORT}:8080"
+    volumes:
+      - otp_data:/var/opentripplanner
+    environment:
+      JAVA_OPTS: ${JAVA_OPTS}
+
+volumes:
+  otp_data:

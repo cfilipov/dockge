@@ -1,0 +1,9 @@
+# Jauth configuration
+# See https://github.com/Jipok/Jauth for details
+
+# Certificate.Type = "autocert"
+# SSO = "example.com"
+
+[[Domains]]
+    domain = "example.com"
+    target = "8080"

@@ -1,0 +1,29 @@
+services:
+  documize:
+    image: documize/conversion:latest
+    container_name: documize
+    restart: unless-stopped
+    ports:
+      - "${DOCUMIZE_PORT:-5001}:5001"
+    environment:
+      - DOCUMIZEPORT=${DOCUMIZE_PORT:-5001}
+      - DOCUMIZEDB=host=db port=5432 dbname=${POSTGRES_DB:-documize} user=${POSTGRES_USER:-documize} password=${POSTGRES_PASSWORD:-documize_secret} sslmode=disable
+      - DOCUMIZEDBTYPE=postgresql
+      - DOCUMIZESALT=${DOCUMIZE_SALT:-changeme_salt}
+      - DOCUMIZELOCATION=${DOCUMIZE_LOCATION:-selfhosted}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    container_name: documize-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-documize}
+      - POSTGRES_USER=${POSTGRES_USER:-documize}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-documize_secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:

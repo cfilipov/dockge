@@ -1,0 +1,15 @@
+services:
+  collabora:
+    image: collabora/code:latest
+    container_name: collabora-code
+    environment:
+      - domain=${ALLOWED_DOMAIN}
+      - username=${ADMIN_USERNAME}
+      - password=${ADMIN_PASSWORD}
+      - extra_params=${EXTRA_PARAMS}
+      - TZ=${TZ}
+    ports:
+      - "${PORT}:9980"
+    cap_add:
+      - MKNOD
+    restart: unless-stopped

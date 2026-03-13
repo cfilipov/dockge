@@ -1,0 +1,45 @@
+services:
+  groupoffice:
+    image: intermesh/groupoffice:${GROUPOFFICE_VERSION:-latest}
+    container_name: groupoffice
+    restart: unless-stopped
+    ports:
+      - "${GROUPOFFICE_PORT:-8080}:80"
+    environment:
+      MYSQL_HOST: db
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    volumes:
+      - groupoffice_data:/var/lib/groupoffice
+      - groupoffice_etc:/etc/groupoffice
+    depends_on:
+      - db
+    networks:
+      - groupoffice
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: groupoffice-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - groupoffice
+
+volumes:
+  groupoffice_data:
+  groupoffice_etc:
+  db_data:
+
+networks:
+  groupoffice:
+    driver: bridge

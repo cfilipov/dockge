@@ -1,0 +1,18 @@
+services:
+  ors-app:
+    image: openrouteservice/openrouteservice:latest
+    container_name: ors-app
+    restart: unless-stopped
+    ports:
+      - "${ORS_PORT}:8082"
+      - "${ORS_MONITOR_PORT}:9001"
+    volumes:
+      - ors_data:/home/ors
+    environment:
+      REBUILD_GRAPHS: "False"
+      CONTAINER_LOG_LEVEL: INFO
+      XMS: ${ORS_XMS}
+      XMX: ${ORS_XMX}
+
+volumes:
+  ors_data:

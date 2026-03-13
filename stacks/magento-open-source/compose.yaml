@@ -1,0 +1,70 @@
+services:
+  magento:
+    image: shinsenter/magento:php8-nginx
+    container_name: magento
+    ports:
+      - "${MAGENTO_PORT:-8080}:80"
+      - "${MAGENTO_SSL_PORT:-8443}:443"
+    environment:
+      - MAGENTO_RUN_MODE=${MAGENTO_RUN_MODE:-developer}
+    volumes:
+      - magento_data:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: magento-db
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE:-magento}
+      MARIADB_USER: ${MYSQL_USER:-magento}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD:-magento}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:${REDIS_VERSION:-7}-alpine
+    container_name: magento-redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  elasticsearch:
+    image: elasticsearch:${ES_VERSION:-8.15.0}
+    container_name: magento-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  magento_data:
+  db_data:
+  redis_data:
+  es_data:

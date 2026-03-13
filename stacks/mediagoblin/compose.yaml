@@ -1,0 +1,12 @@
+services:
+  mediagoblin:
+    image: mtlynch/mediagoblin:latest
+    container_name: mediagoblin
+    restart: unless-stopped
+    ports:
+      - "${MEDIAGOBLIN_PORT:-6543}:6543"
+    volumes:
+      - mediagoblin-data:/var/lib/mediagoblin
+
+volumes:
+  mediagoblin-data:

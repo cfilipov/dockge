@@ -1,0 +1,10 @@
+services:
+  postfix:
+    image: boky/postfix:latest
+    container_name: postfix
+    environment:
+      - HOSTNAME=${POSTFIX_HOSTNAME:-postfix.example.com}
+      - ALLOWED_SENDER_DOMAINS=${ALLOWED_SENDER_DOMAINS:-example.com}
+    ports:
+      - "1587:587"
+    restart: unless-stopped

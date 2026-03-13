@@ -1,0 +1,99 @@
+x-shared:
+  zammad-service: &zammad-service
+    environment: &zammad-environment
+      MEMCACHE_SERVERS: zammad-memcached:11211
+      POSTGRESQL_DB: zammad_production
+      POSTGRESQL_HOST: zammad-postgresql
+      POSTGRESQL_USER: zammad
+      POSTGRESQL_PASS: zammad
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_OPTIONS: "?pool=50"
+      REDIS_URL: redis://zammad-redis:6379
+      BACKUP_DIR: /var/tmp/zammad
+      BACKUP_TIME: "03:00"
+      HOLD_DAYS: "10"
+      TZ: Europe/Berlin
+    image: ghcr.io/zammad/zammad:7.0.0-9
+    restart: unless-stopped
+    volumes:
+      - zammad-backup:/var/tmp/zammad:ro
+      - zammad-storage:/opt/zammad/storage
+    depends_on:
+      - zammad-memcached
+      - zammad-postgresql
+      - zammad-redis
+
+services:
+  zammad-backup:
+    <<: *zammad-service
+    command: ["zammad-backup"]
+    volumes:
+      - zammad-backup:/var/tmp/zammad
+      - zammad-storage:/opt/zammad/storage
+    user: "0:0"
+
+  zammad-elasticsearch:
+    image: elasticsearch:9.3.1
+    restart: unless-stopped
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+
+  zammad-init:
+    <<: *zammad-service
+    command: ["zammad-init"]
+    depends_on:
+      - zammad-postgresql
+    restart: on-failure
+    user: "0:0"
+
+  zammad-memcached:
+    command: memcached -m 256M
+    image: memcached:1.6.41-alpine
+    restart: unless-stopped
+
+  zammad-nginx:
+    <<: *zammad-service
+    command: ["zammad-nginx"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      - zammad-railsserver
+
+  zammad-postgresql:
+    environment:
+      POSTGRES_DB: zammad_production
+      POSTGRES_USER: zammad
+      POSTGRES_PASSWORD: zammad
+    image: postgres:17.9-alpine
+    restart: unless-stopped
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+
+  zammad-railsserver:
+    <<: *zammad-service
+    command: ["zammad-railsserver"]
+
+  zammad-redis:
+    image: redis:8.6.1-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+  zammad-scheduler:
+    <<: *zammad-service
+    command: ["zammad-scheduler"]
+
+  zammad-websocket:
+    <<: *zammad-service
+    command: ["zammad-websocket"]
+
+volumes:
+  elasticsearch-data:
+  postgresql-data:
+  redis-data:
+  zammad-backup:
+  zammad-storage:

@@ -1,0 +1,14 @@
+services:
+  squirrelmail:
+    image: vaibhavtodi/squirrelmail:latest
+    restart: unless-stopped
+    ports:
+      - "${SQUIRRELMAIL_PORT:-8080}:80"
+    environment:
+      IMAP_SERVER: ${IMAP_SERVER:-mail.example.com}
+      SMTP_SERVER: ${SMTP_SERVER:-mail.example.com}
+    volumes:
+      - squirrelmail-data:/var/local/squirrelmail
+
+volumes:
+  squirrelmail-data:

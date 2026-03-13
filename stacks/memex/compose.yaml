@@ -1,0 +1,22 @@
+services:
+  memex:
+    image: shibaobun/memex
+    container_name: memex
+    restart: always
+    environment:
+      - DATABASE_URL=ecto://postgres:postgres@memex-db/memex
+    expose:
+      - "4000"
+    depends_on:
+      - memex-db
+
+  memex-db:
+    image: postgres:13
+    container_name: memex-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=memex
+    restart: always
+    volumes:
+      - ./data:/var/lib/postgresql/data

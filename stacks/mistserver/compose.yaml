@@ -1,0 +1,16 @@
+services:
+  mistserver:
+    image: ddvtech/mistserver:latest
+    container_name: mistserver
+    restart: unless-stopped
+    ports:
+      - "${MIST_API_PORT:-4242}:4242"
+      - "${MIST_HTTP_PORT:-8080}:8080"
+      - "${MIST_RTMP_PORT:-1935}:1935"
+      - "${MIST_RTSP_PORT:-5554}:5554"
+    volumes:
+      - mist_config:/config
+      - ${MEDIA_PATH}:/media:ro
+
+volumes:
+  mist_config:

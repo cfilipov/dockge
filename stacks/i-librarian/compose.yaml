@@ -1,0 +1,9 @@
+services:
+  i-librarian:
+    image: mkucej/i-librarian-free:latest
+    container_name: i-librarian
+    restart: unless-stopped
+    ports:
+      - "9050:80"
+    volumes:
+      - il_data:/var/www/i-librarian-free/library/data

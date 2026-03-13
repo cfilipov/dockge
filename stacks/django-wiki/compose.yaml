@@ -1,0 +1,31 @@
+services:
+  django-wiki:
+    image: camandel/django-wiki:latest
+    container_name: django-wiki
+    restart: unless-stopped
+    ports:
+      - "${DJANGO_WIKI_PORT:-8000}:8000"
+    environment:
+      - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-admin}
+      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-admin}
+      - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-djangowiki}:${POSTGRES_PASSWORD:-djangowiki_secret}@db:5432/${POSTGRES_DB:-djangowiki}
+    depends_on:
+      - db
+    volumes:
+      - wiki_media:/opt/wiki/media
+
+  db:
+    image: postgres:16-alpine
+    container_name: django-wiki-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-djangowiki}
+      - POSTGRES_USER=${POSTGRES_USER:-djangowiki}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-djangowiki_secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  wiki_media:
+  db_data:

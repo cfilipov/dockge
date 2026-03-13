@@ -1,0 +1,14 @@
+services:
+  jirafeau:
+    image: mojo42/jirafeau:latest
+    container_name: jirafeau
+    restart: unless-stopped
+    ports:
+      - "${JIRAFEAU_PORT:-80}:80"
+    volumes:
+      - data:/data
+    environment:
+      TZ: ${TZ:-UTC}
+
+volumes:
+  data:

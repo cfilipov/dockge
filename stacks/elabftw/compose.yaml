@@ -1,0 +1,51 @@
+services:
+  elabftw:
+    image: elabftw/elabimg:stable
+    container_name: elabftw
+    ports:
+      - "443:443"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: elabftw
+      DB_USER: elabftw
+      DB_PASSWORD: ${DB_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
+      SERVER_NAME: localhost
+      DISABLE_HTTPS: "false"
+      ENABLE_LETSENCRYPT: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - FOWNER
+      - DAC_OVERRIDE
+    volumes:
+      - elabftw_data:/elabftw/uploads
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    container_name: elabftw-mysql
+    environment:
+      MYSQL_DATABASE: elabftw
+      MYSQL_USER: elabftw
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  elabftw_data:
+  mysql_data:

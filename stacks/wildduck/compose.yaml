@@ -1,0 +1,36 @@
+services:
+  wildduck:
+    image: ghcr.io/zone-eu/wildduck:latest
+    container_name: wildduck
+    depends_on:
+      - redis
+      - mongo
+    ports:
+      - "8080:8080"
+      - "143:143"
+      - "993:993"
+      - "110:110"
+      - "995:995"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MONGO_URL=mongodb://mongo:27017/wildduck
+      - API_ACCESS_TOKEN=${API_ACCESS_TOKEN}
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: wildduck-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    container_name: wildduck-mongo
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  mongo-data:

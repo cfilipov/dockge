@@ -1,0 +1,46 @@
+services:
+  mixpost:
+    image: inovector/mixpost:latest
+    container_name: mixpost
+    ports:
+      - "9000:80"
+    environment:
+      - APP_NAME=Mixpost
+      - APP_KEY=${APP_KEY}
+      - APP_DEBUG=false
+      - APP_URL=http://localhost:9000
+      - DB_HOST=mysql
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+    depends_on:
+      - mysql
+      - redis
+    volumes:
+      - mixpost-storage:/var/www/html/storage/app
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: mixpost-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: mixpost-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  mixpost-storage:
+  mysql-data:
+  redis-data:

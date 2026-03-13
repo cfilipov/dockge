@@ -1,0 +1,17 @@
+services:
+  recorder:
+    image: owntracks/recorder:latest
+    container_name: owntracks-recorder
+    restart: unless-stopped
+    ports:
+      - "${OTR_PORT}:8083"
+    volumes:
+      - owntracks_store:/store
+    environment:
+      OTR_HOST: ${OTR_MQTT_HOST}
+      OTR_PORT: ${OTR_MQTT_PORT}
+      OTR_USER: ${OTR_USER}
+      OTR_PASS: ${OTR_PASS}
+
+volumes:
+  owntracks_store:

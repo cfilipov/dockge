@@ -1,0 +1,39 @@
+services:
+  app:
+    image: quay.io/hedgedoc/hedgedoc:1.10.7
+    container_name: hedgedoc
+    restart: always
+    ports:
+      - "${HEDGEDOC_PORT:-3001}:3000"
+    environment:
+      - CMD_DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      - CMD_DOMAIN=${CMD_DOMAIN}
+      - CMD_PROTOCOL_USESSL=${CMD_PROTOCOL_USESSL}
+      - CMD_HSTS_ENABLE=${CMD_HSTS_ENABLE}
+      - CMD_URL_ADDPORT=${CMD_URL_ADDPORT}
+    volumes:
+      - uploads:/hedgedoc/public/uploads
+    depends_on:
+      - database
+    networks:
+      - backend
+
+  database:
+    image: postgres:17-alpine
+    container_name: hedgedoc-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  database:
+  uploads:

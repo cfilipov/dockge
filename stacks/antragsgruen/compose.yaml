@@ -1,0 +1,32 @@
+services:
+  database:
+    image: mariadb:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "my-secret-pw"
+      MYSQL_DATABASE: antragsgruen
+    volumes:
+      - antragsgruen_db_c:/etc/mysql/conf.d/
+      - antragsgruen_db_d:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  antragsgruen:
+    image: devopsansiblede/antragsgruen:latest
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      - TIMEZONE=Europe/Berlin
+      - SMTP_HOST=mail.example.com
+      - SMTP_PORT=587
+      - SMTP_FROM=motiontool@example.com
+      - SMTP_USER=motiontool@example.com
+      - SMTP_PASS=changeme
+      - APACHE_FQDN=motiontool.example.com
+    volumes:
+      - antragsgruen:/var/www/html
+
+volumes:
+  antragsgruen:
+  antragsgruen_db_c:
+  antragsgruen_db_d:

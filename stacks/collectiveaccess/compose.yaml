@@ -1,0 +1,30 @@
+services:
+  providence:
+    image: php:8.2-apache
+    ports:
+      - "8080:80"
+    volumes:
+      - app_data:/var/www/html
+    environment:
+      - CA_DB_HOST=db
+      - CA_DB_USER=providence
+      - CA_DB_PASSWORD=${DB_PASSWORD}
+      - CA_DB_DATABASE=providence
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=providence
+      - MYSQL_USER=providence
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  app_data:
+  db_data:

@@ -1,0 +1,58 @@
+services:
+  docassemble:
+    image: jhpyle/docassemble:latest
+    ports:
+      - "${DOCASSEMBLE_PORT:-80}:80"
+      - "${DOCASSEMBLE_HTTPS_PORT:-443}:443"
+    volumes:
+      - docassemble_config:/usr/share/docassemble/config
+      - docassemble_backup:/usr/share/docassemble/backup
+      - docassemble_log:/usr/share/docassemble/log
+      - docassemble_webapp:/usr/share/docassemble/webapp
+    environment:
+      DAPYTHONVERSION: "3"
+      DAHOSTNAME: ${DAHOSTNAME:-localhost}
+      DAADMINEMAIL: ${DAADMINEMAIL:-admin@example.com}
+      TIMEZONE: ${TIMEZONE:-America/New_York}
+      DBHOST: db
+      DBNAME: ${POSTGRES_DB}
+      DBUSER: ${POSTGRES_USER}
+      DBPASSWORD: ${POSTGRES_PASSWORD}
+      REDIS: redis://redis:6379
+      RABBITMQ: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    volumes:
+      - docassemble_db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    volumes:
+      - docassemble_redis:/data
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    volumes:
+      - docassemble_rabbitmq:/var/lib/rabbitmq
+    restart: unless-stopped
+
+volumes:
+  docassemble_config:
+  docassemble_backup:
+  docassemble_log:
+  docassemble_webapp:
+  docassemble_db:
+  docassemble_redis:
+  docassemble_rabbitmq:

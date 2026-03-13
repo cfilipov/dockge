@@ -1,0 +1,31 @@
+services:
+  db:
+    image: mariadb:latest
+    environment:
+      - MARIADB_DATABASE=eonvelope
+      - MARIADB_USER=eonvelope
+      - MARIADB_PASSWORD=${DB_PASSWORD}
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+    volumes:
+      - ./mysql:/var/lib/mysql
+    restart: unless-stopped
+
+  web:
+    image: dacid99/eonvelope
+    ports:
+      - "1122:443"
+    environment:
+      - DATABASE=eonvelope
+      - DATABASE_USER=eonvelope
+      - DATABASE_PASSWORD=${DB_PASSWORD}
+      - DATABASE_TYPE=mariadb
+      - DJANGO_SUPERUSER_PASSWORD=${ADMIN_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=*
+      - DEBUG=false
+    volumes:
+      - ./archive:/mnt/archive
+      - ./log:/var/log/eonvelope
+    depends_on:
+      - db
+    restart: unless-stopped

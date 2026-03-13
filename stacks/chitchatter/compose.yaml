@@ -1,0 +1,14 @@
+services:
+  chitchatter:
+    image: node:20-alpine
+    container_name: chitchatter
+    working_dir: /app
+    command: npx serve -s dist -l 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - app_data:/app
+    restart: unless-stopped
+
+volumes:
+  app_data:

@@ -1,0 +1,11 @@
+services:
+  directory-lister:
+    image: directorylister/directorylister:latest
+    container_name: directory-lister
+    restart: unless-stopped
+    ports:
+      - "${DIRECTORY_LISTER_PORT:-8080}:80"
+    volumes:
+      - ./data:/var/www/html/app
+
+volumes: {}

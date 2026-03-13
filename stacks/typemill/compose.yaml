@@ -1,0 +1,11 @@
+services:
+  typemill:
+    image: php:8.2-apache
+    ports:
+      - "8080:80"
+    volumes:
+      - app_data:/var/www/html
+    restart: unless-stopped
+
+volumes:
+  app_data:

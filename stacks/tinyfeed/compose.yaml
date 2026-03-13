@@ -1,0 +1,14 @@
+services:
+  tinyfeed:
+    image: thebigroomxxl/tinyfeed:latest
+    container_name: tinyfeed
+    restart: unless-stopped
+    ports:
+      - "${TINYFEED_PORT:-8080}:8080"
+    volumes:
+      - ./feeds.txt:/feeds.txt:ro
+      - tinyfeed-output:/output
+    command: ["-feeds", "/feeds.txt", "-output", "/output/index.html", "-daemon", "-interval", "${REFRESH_INTERVAL:-60m}"]
+
+volumes:
+  tinyfeed-output:

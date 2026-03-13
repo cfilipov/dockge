@@ -1,0 +1,16 @@
+services:
+  peergos:
+    image: peergos/peergos:${PEERGOS_VERSION}
+    restart: unless-stopped
+    ports:
+      - "${PEERGOS_PORT}:8000"
+    environment:
+      PEERGOS_PATH: /opt/peergos
+      DOMAIN: ${PEERGOS_DOMAIN}
+      PEERGOS_PKEY_INIT: "true"
+    volumes:
+      - peergos-data:/opt/peergos
+
+volumes:
+  peergos-data:
+    driver: local

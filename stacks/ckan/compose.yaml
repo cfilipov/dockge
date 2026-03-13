@@ -1,0 +1,52 @@
+services:
+  ckan:
+    image: ckan/ckan-base:${CKAN_VERSION}
+    environment:
+      - CKAN_SQLALCHEMY_URL=${CKAN_SQLALCHEMY_URL}
+      - CKAN_DATASTORE_WRITE_URL=${CKAN_DATASTORE_WRITE_URL}
+      - CKAN_DATASTORE_READ_URL=${CKAN_DATASTORE_READ_URL}
+      - CKAN_SOLR_URL=${CKAN_SOLR_URL}
+      - CKAN_REDIS_URL=${CKAN_REDIS_URL}
+      - CKAN_DATAPUSHER_URL=${CKAN_DATAPUSHER_URL}
+      - CKAN_SITE_URL=${CKAN_SITE_URL}
+      - CKAN_SYSADMIN_NAME=${CKAN_SYSADMIN_NAME}
+      - CKAN_SYSADMIN_PASSWORD=${CKAN_SYSADMIN_PASSWORD}
+      - CKAN_SYSADMIN_EMAIL=${CKAN_SYSADMIN_EMAIL}
+      - CKAN_STORAGE_PATH=/var/lib/ckan
+      - CKAN__PLUGINS=${CKAN__PLUGINS}
+    volumes:
+      - ckan_storage:/var/lib/ckan
+    depends_on:
+      - db
+      - solr
+      - redis
+    restart: unless-stopped
+
+  datapusher:
+    image: ckan/ckan-base-datapusher:${DATAPUSHER_VERSION}
+    restart: unless-stopped
+
+  db:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  solr:
+    image: ckan/ckan-solr:${SOLR_IMAGE_VERSION}
+    volumes:
+      - solr_data:/var/solr
+    restart: unless-stopped
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    restart: unless-stopped
+
+volumes:
+  ckan_storage:
+  pg_data:
+  solr_data:

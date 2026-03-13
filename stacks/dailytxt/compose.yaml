@@ -1,0 +1,15 @@
+services:
+  dailytxt:
+    image: phitux/dailytxt:latest
+    container_name: dailytxt
+    restart: unless-stopped
+    ports:
+      - "${DAILYTXT_PORT:-8765}:80"
+    volumes:
+      - ./data:/data
+    environment:
+      - SECRET_TOKEN=${SECRET_TOKEN}
+      - INDENT=4
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - LOGOUT_AFTER_DAYS=${LOGOUT_AFTER_DAYS}

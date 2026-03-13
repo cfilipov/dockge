@@ -1,0 +1,29 @@
+services:
+  noosfero:
+    image: ruby:3.2-slim
+    container_name: noosfero
+    ports:
+      - "3000:3000"
+    environment:
+      RAILS_ENV: production
+      DATABASE_URL: postgresql://noosfero:${DB_PASSWORD}@postgres:5432/noosfero
+    depends_on:
+      - postgres
+    volumes:
+      - noosfero_data:/noosfero/public
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: noosfero-postgres
+    environment:
+      POSTGRES_DB: noosfero
+      POSTGRES_USER: noosfero
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  noosfero_data:
+  postgres_data:

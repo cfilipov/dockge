@@ -1,0 +1,14 @@
+services:
+  tiddlywiki:
+    image: elasticdog/tiddlywiki:${TIDDLYWIKI_VERSION:-latest}
+    container_name: tiddlywiki
+    restart: unless-stopped
+    ports:
+      - "${TIDDLYWIKI_PORT:-8080}:8080"
+    volumes:
+      - tiddlywiki-data:/tiddlywiki
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  tiddlywiki-data:

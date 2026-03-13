@@ -1,0 +1,35 @@
+services:
+  app:
+    image: php:8.3-fpm
+    ports:
+      - "${APP_PORT:-8080}:80"
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - mailhog
+    environment:
+      APP_ENV: ${APP_ENV:-prod}
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-mysql}@mysql/sylius?charset=utf8mb4
+      MAILER_DSN: smtp://mailhog:1025
+      PHP_DATE_TIMEZONE: ${PHP_DATE_TIMEZONE:-UTC}
+    volumes:
+      - app_data:/var/www/html
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
+      MYSQL_DATABASE: sylius
+    volumes:
+      - db_data:/var/lib/mysql
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "${MAILHOG_PORT:-8025}:8025"
+    restart: unless-stopped
+
+volumes:
+  app_data:
+  db_data:

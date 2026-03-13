@@ -1,0 +1,18 @@
+services:
+  smp-server:
+    image: simplexchat/smp-server:latest
+    container_name: simplex-smp
+    ports:
+      - "5223:5223"
+    environment:
+      ADDR: ${SMP_DOMAIN}
+      PASS: ${SMP_PASS}
+      WEB_MANUAL: "1"
+    volumes:
+      - smp_config:/etc/opt/simplex
+      - smp_logs:/var/opt/simplex
+    restart: unless-stopped
+
+volumes:
+  smp_config:
+  smp_logs:

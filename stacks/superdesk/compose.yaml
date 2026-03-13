@@ -1,0 +1,57 @@
+services:
+  mongodb:
+    image: mongo:4
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  elastic:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+    environment:
+      discovery.type: single-node
+    restart: unless-stopped
+
+  superdesk-server:
+    image: sourcefabricoss/superdesk-server:latest
+    depends_on:
+      - redis
+      - mongodb
+      - elastic
+    environment:
+      SUPERDESK_URL: http://localhost:8080/api
+      DEMO_DATA: "1"
+      WEB_CONCURRENCY: "2"
+      SUPERDESK_CLIENT_URL: http://localhost:8080
+      CONTENTAPI_URL: http://localhost:8080/capi
+      MONGO_URI: mongodb://mongodb/superdesk
+      CONTENTAPI_MONGO_URI: mongodb://mongodb/superdesk_capi
+      PUBLICAPI_MONGO_URI: mongodb://mongodb/superdesk_papi
+      LEGAL_ARCHIVE_URI: mongodb://mongodb/superdesk_legal
+      ARCHIVED_URI: mongodb://mongodb/superdesk_archive
+      ELASTICSEARCH_URL: http://elastic:9200
+      ELASTICSEARCH_INDEX: superdesk
+      CELERY_BROKER_URL: redis://redis:6379/1
+      REDIS_URL: redis://redis:6379/1
+      DEFAULT_TIMEZONE: Europe/Prague
+      SECRET_KEY: ${SECRET_KEY}
+    restart: unless-stopped
+
+  superdesk-client:
+    image: sourcefabricoss/superdesk-client:latest
+    environment:
+      SUPERDESK_URL: http://localhost:8080/api
+      SUPERDESK_WS_URL: ws://localhost:8080/ws
+    ports:
+      - "8080:80"
+    depends_on:
+      - superdesk-server
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

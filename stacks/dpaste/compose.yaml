@@ -1,0 +1,16 @@
+services:
+  dpaste:
+    image: darrenofficial/dpaste:latest
+    container_name: dpaste
+    restart: unless-stopped
+    ports:
+      - "${DPASTE_PORT:-8000}:8000"
+    environment:
+      - DPASTE_EXPIRE_DEFAULT=${DPASTE_EXPIRE_DEFAULT:-2592000}
+      - DPASTE_EXPIRE_MAX=${DPASTE_EXPIRE_MAX:-2592000}
+      - DPASTE_SLUG_LENGTH=${DPASTE_SLUG_LENGTH:-8}
+    volumes:
+      - dpaste-data:/app/data
+
+volumes:
+  dpaste-data:

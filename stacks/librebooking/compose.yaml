@@ -1,0 +1,51 @@
+services:
+  db:
+    image: linuxserver/mariadb:10.6.13
+    restart: always
+    volumes:
+      - db_conf:/config
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - TZ=${TZ}
+      - PUID=1000
+      - PGID=1000
+
+  app:
+    image: librebooking/librebooking:4.1.0
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    volumes:
+      - app_conf:/config
+    environment:
+      - LB_INSTALL_PASSWORD=${LB_INSTALL_PASSWORD}
+      - LB_DATABASE_PASSWORD=${LB_DATABASE_PASSWORD}
+      - LB_DATABASE_NAME=librebooking
+      - LB_DATABASE_USER=lb_user
+      - LB_DATABASE_HOSTSPEC=db
+      - LB_LOGGING_FOLDER=/var/log/librebooking
+      - LB_LOGGING_LEVEL=DEBUG
+      - LB_LOGGING_SQL=false
+      - LB_DEFAULT_TIMEZONE=${TZ}
+
+  cron:
+    image: librebooking/librebooking:4.1.0
+    restart: always
+    user: root
+    entrypoint: /usr/local/bin/cron.sh
+    depends_on:
+      - app
+    volumes:
+      - app_conf:/config
+    environment:
+      - LB_DATABASE_PASSWORD=${LB_DATABASE_PASSWORD}
+      - LB_DATABASE_NAME=librebooking
+      - LB_DATABASE_USER=lb_user
+      - LB_DATABASE_HOSTSPEC=db
+      - LB_DEFAULT_TIMEZONE=${TZ}
+
+volumes:
+  db_conf:
+  app_conf:

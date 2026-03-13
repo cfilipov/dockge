@@ -1,0 +1,91 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: novu-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:8
+    container_name: novu-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/novuhq/novu/api:3.14.0
+    container_name: novu-api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      MONGO_URL: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/novu?authSource=admin"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      JWT_SECRET: ${JWT_SECRET}
+      STORE_ENCRYPTION_KEY: ${STORE_ENCRYPTION_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/novuhq/novu/worker:3.14.0
+    container_name: novu-worker
+    environment:
+      NODE_ENV: production
+      MONGO_URL: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/novu?authSource=admin"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      JWT_SECRET: ${JWT_SECRET}
+      STORE_ENCRYPTION_KEY: ${STORE_ENCRYPTION_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ws:
+    image: ghcr.io/novuhq/novu/ws:3.14.0
+    container_name: novu-ws
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: production
+      MONGO_URL: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/novu?authSource=admin"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dashboard:
+    image: ghcr.io/novuhq/novu/web:3.14.0
+    container_name: novu-dashboard
+    ports:
+      - "4000:4000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:

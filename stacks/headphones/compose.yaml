@@ -1,0 +1,15 @@
+services:
+  headphones:
+    image: lscr.io/linuxserver/headphones:latest
+    container_name: headphones
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Etc/UTC}
+    volumes:
+      - ./config:/config
+      - ${DOWNLOADS_DIR}:/downloads
+      - ${MUSIC_DIR}:/music
+    ports:
+      - "${PORT:-8181}:8181"
+    restart: unless-stopped

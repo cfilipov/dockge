@@ -1,0 +1,12 @@
+services:
+  recipya:
+    image: ghcr.io/reaper47/recipya:latest
+    container_name: recipya
+    restart: unless-stopped
+    ports:
+      - "${RECIPYA_PORT}:8078"
+    volumes:
+      - recipya-data:/root/.config/Recipya
+
+volumes:
+  recipya-data:

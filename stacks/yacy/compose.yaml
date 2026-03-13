@@ -1,0 +1,15 @@
+services:
+  yacy:
+    image: yacy/yacy_search_server:${YACY_TAG}
+    container_name: yacy
+    ports:
+      - "${YACY_PORT}:8090"
+      - "${YACY_SSL_PORT}:8443"
+    volumes:
+      - yacy-data:/opt/yacy_search_server/DATA
+    environment:
+      YACY_ADMIN_PASSWORD: ${YACY_ADMIN_PASSWORD}
+    restart: unless-stopped
+
+volumes:
+  yacy-data:

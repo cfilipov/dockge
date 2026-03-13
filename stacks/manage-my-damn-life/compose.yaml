@@ -1,0 +1,33 @@
+services:
+  app:
+    image: intriin/mmdl:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    restart: always
+    environment:
+      DB_HOST: db
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  db:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    expose:
+      - "3306"
+    environment:
+      MYSQL_DATABASE: sample_install_mmdm
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ALLOW_EMPTY_PASSWORD: "ok"
+      MYSQL_ROOT_HOST: "%"
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  db-data:

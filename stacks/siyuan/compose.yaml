@@ -1,0 +1,13 @@
+services:
+  main:
+    image: b3log/siyuan
+    command: ["--workspace=/siyuan/workspace/", "--accessAuthCode=${AuthCode}"]
+    ports:
+      - "6806:6806"
+    volumes:
+      - /siyuan/workspace:/siyuan/workspace
+    restart: unless-stopped
+    environment:
+      - TZ=${YOUR_TIME_ZONE}
+      - PUID=${YOUR_USER_PUID}
+      - PGID=${YOUR_USER_PGID}

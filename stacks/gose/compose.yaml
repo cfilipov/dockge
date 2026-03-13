@@ -1,0 +1,46 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: gose-minio
+    restart: unless-stopped
+    command: server /mnt/data --console-address ":9001"
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin-user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-admin-pass}
+      MINIO_SERVER_URL: http://localhost:9000
+      MINIO_SITE_REGION: s3
+    volumes:
+      - minio-data:/mnt/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  gose:
+    image: ghcr.io/stv0g/gose:v0.4.0
+    container_name: gose
+    restart: unless-stopped
+    ports:
+      - "${GOSE_PORT:-8080}:8080"
+    environment:
+      GOSE_LISTEN: ":8080"
+      GOSE_BASE_URL: ${GOSE_BASE_URL:-http://localhost:8080}
+      GOSE_BUCKET: ${GOSE_BUCKET:-gose-uploads}
+      GOSE_ENDPOINT: minio:9000
+      GOSE_REGION: s3
+      GOSE_PATH_STYLE: "true"
+      GOSE_NO_SSL: "true"
+      GOSE_ACCESS_KEY: ${MINIO_ROOT_USER:-admin-user}
+      GOSE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-admin-pass}
+      GOSE_MAX_UPLOAD_SIZE: ${GOSE_MAX_UPLOAD_SIZE:-50GB}
+      GOSE_PART_SIZE: ${GOSE_PART_SIZE:-16MB}
+    depends_on:
+      minio:
+        condition: service_healthy
+
+volumes:
+  minio-data:

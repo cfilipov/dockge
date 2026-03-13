@@ -1,0 +1,13 @@
+services:
+  onedev:
+    image: 1dev/server:latest
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-6610}:6610"
+      - "${SSH_PORT:-6611}:6611"
+    volumes:
+      - onedev_data:/opt/onedev
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  onedev_data:

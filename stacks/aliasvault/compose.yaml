@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: ghcr.io/aliasvault/postgres:latest
+    volumes:
+      - ./database/postgres:/var/lib/postgresql/data:rw
+      - ./secrets:/secrets:ro
+    restart: always
+    environment:
+      POSTGRES_DB: aliasvault
+      POSTGRES_USER: aliasvault
+      POSTGRES_PASSWORD_FILE: /secrets/postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aliasvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  client:
+    image: ghcr.io/aliasvault/client:latest
+    volumes:
+      - ./logs/msbuild:/apps/server/msbuild-logs:rw
+    expose:
+      - "3000"
+    restart: always
+
+  api:
+    image: ghcr.io/aliasvault/api:latest
+    expose:
+      - "3001"
+    volumes:
+      - ./database:/database:rw
+      - ./logs:/logs:rw
+      - ./secrets:/secrets:ro
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  admin:
+    image: ghcr.io/aliasvault/admin:latest
+    expose:
+      - "3002"
+    volumes:
+      - ./database:/database:rw
+      - ./logs:/logs:rw
+      - ./secrets:/secrets:ro
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  reverse-proxy:
+    image: ghcr.io/aliasvault/reverse-proxy:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certificates/ssl:/etc/nginx/ssl:rw
+      - ./certificates/letsencrypt:/etc/nginx/ssl-letsencrypt:rw
+      - ./certificates/letsencrypt/www:/var/www/certbot:rw
+    depends_on:
+      - admin
+      - client
+      - api
+      - smtp
+    restart: always
+
+  smtp:
+    image: ghcr.io/aliasvault/smtp:latest
+    ports:
+      - "25:25"
+      - "587:587"
+    volumes:
+      - ./database:/database:rw
+      - ./logs:/logs:rw
+      - ./secrets:/secrets:ro
+      - ./certificates/smtp:/certificates/smtp:ro
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  task-runner:
+    image: ghcr.io/aliasvault/task-runner:latest
+    volumes:
+      - ./database:/database:rw
+      - ./logs:/logs:rw
+      - ./secrets:/secrets:ro
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy

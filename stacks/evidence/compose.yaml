@@ -1,0 +1,13 @@
+services:
+  evidence:
+    image: evidencedev/devserver:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - evidence-data:/evidence
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+
+volumes:
+  evidence-data:

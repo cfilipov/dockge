@@ -1,0 +1,40 @@
+services:
+  zipline:
+    image: ghcr.io/diced/zipline:latest
+    container_name: zipline
+    restart: unless-stopped
+    ports:
+      - "${ZIPLINE_PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=postgres://${POSTGRESQL_USER}:${POSTGRESQL_PASSWORD}@zipline-db:5432/${POSTGRESQL_DB}
+    volumes:
+      - ./uploads:/zipline/uploads
+      - ./public:/zipline/public
+      - ./themes:/zipline/themes
+    depends_on:
+      zipline-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://0.0.0.0:3000/api/healthcheck"]
+      interval: 15s
+      timeout: 2s
+      retries: 2
+
+  zipline-db:
+    image: postgres:16
+    container_name: zipline-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRESQL_USER}
+      POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD}
+      POSTGRES_DB: ${POSTGRESQL_DB}
+    volumes:
+      - zipline-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRESQL_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  zipline-pgdata:

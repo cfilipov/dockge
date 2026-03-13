@@ -1,0 +1,5 @@
+- My Services:
+    - Example:
+        href: https://example.com
+        description: An example service
+        icon: mdi-web

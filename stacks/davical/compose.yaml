@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_USER: "postgres"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  davical:
+    image: fintechstudios/davical
+    ports:
+      - "4080:80"
+    depends_on:
+      - postgres
+    environment:
+      PGHOST: "postgres"
+      PGPASSWORD: "davical"
+      RUN_MIGRATIONS_AT_STARTUP: "true"
+      ROOT_PGUSER: "postgres"
+      ROOT_PGPASSWORD: "postgres"
+      DAVICAL_ADMIN_PASS: "admin"
+
+volumes:
+  postgres-data:

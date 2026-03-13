@@ -1,0 +1,25 @@
+# Evergreen ILS - Integrated Library System
+# Based on: https://github.com/mcoia/eg-docker/blob/master/generic-dockerhub/docker-compose.yml
+# Docker Hub: https://hub.docker.com/r/mobiusoffice/evergreen-ils
+#
+# Default credentials: admin / demo123
+# Always specify a hostname to prevent OpenSRF startup failures.
+
+services:
+  web:
+    image: mobiusoffice/evergreen-ils:latest
+    restart: unless-stopped
+    hostname: ${HOST:-app.evergreen.local}
+    container_name: evergreen-ils
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "210:210"
+      - "6001:6001"
+      - "${SSH_PORT:-2222}:22"
+      - "${PG_PORT:-5433}:5432"
+    volumes:
+      - evergreen-data:/mnt/evergreen
+
+volumes:
+  evergreen-data:

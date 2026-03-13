@@ -1,0 +1,39 @@
+services:
+  socialhome:
+    image: registry.gitlab.com/jaywink/socialhome:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      SOCIALHOME_DOMAIN: ${SOCIALHOME_DOMAIN}
+      SOCIALHOME_HTTPS: "true"
+      DATABASE_URL: postgres://socialhome:${DB_PASSWORD}@db:5432/socialhome
+      REDIS_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: ${SECRET_KEY}
+      DJANGO_ADMIN_MAIL: ${ADMIN_EMAIL}
+    volumes:
+      - socialhome-data:/app/data
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: socialhome
+      POSTGRES_USER: socialhome
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  socialhome-data:
+  db-data:
+  redis-data:

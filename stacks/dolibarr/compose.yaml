@@ -1,0 +1,41 @@
+# Dolibarr ERP & CRM
+# Based on: https://github.com/Dolibarr/dolibarr-docker
+# Docs: https://github.com/Dolibarr/dolibarr-docker#readme
+
+services:
+  mariadb:
+    image: mariadb:latest
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
+      MYSQL_DATABASE: dolibarr
+      MYSQL_USER: ${DOLI_DB_USER:-dolibarr}
+      MYSQL_PASSWORD: ${DOLI_DB_PASSWORD:-dolibarr}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    restart: unless-stopped
+
+  web:
+    image: dolibarr/dolibarr:latest
+    depends_on:
+      - mariadb
+    environment:
+      DOLI_DB_HOST: mariadb
+      DOLI_DB_NAME: dolibarr
+      DOLI_DB_USER: ${DOLI_DB_USER:-dolibarr}
+      DOLI_DB_PASSWORD: ${DOLI_DB_PASSWORD:-dolibarr}
+      DOLI_ADMIN_LOGIN: ${DOLI_ADMIN_LOGIN:-admin}
+      DOLI_ADMIN_PASSWORD: ${DOLI_ADMIN_PASSWORD:-admin}
+      DOLI_URL_ROOT: http://0.0.0.0:80
+      DOLI_INSTALL_AUTO: "1"
+      DOLI_INIT_DEMO: "1"
+    ports:
+      - "8080:80"
+    volumes:
+      - dolibarr-documents:/var/www/documents
+      - dolibarr-custom:/var/www/html/custom
+    restart: unless-stopped
+
+volumes:
+  mariadb-data:
+  dolibarr-documents:
+  dolibarr-custom:

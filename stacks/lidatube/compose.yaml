@@ -1,0 +1,18 @@
+services:
+  lidatube:
+    image: thewicklowwolf/lidatube:latest
+    container_name: lidatube
+    volumes:
+      - ./config:/lidatube/config
+      - ${DOWNLOADS_DIR}:/lidatube/downloads
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - lidarr_address=${LIDARR_ADDRESS}
+      - lidarr_api_key=${LIDARR_API_KEY}
+      - thread_limit=${THREAD_LIMIT:-1}
+      - preferred_codec=${PREFERRED_CODEC:-mp3}
+    restart: unless-stopped

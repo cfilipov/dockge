@@ -1,0 +1,106 @@
+services:
+  runtipi-reverse-proxy:
+    container_name: runtipi-reverse-proxy
+    image: traefik:v3.5
+    restart: unless-stopped
+    depends_on:
+      runtipi:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
+    command: --providers.docker
+    volumes:
+      - ./traefik:/etc/traefik
+      - ./traefik/shared:/shared
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - tipi_main_network
+
+  runtipi-db:
+    container_name: runtipi-db
+    image: postgres:14
+    restart: unless-stopped
+    stop_grace_period: 1m
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tipi}
+      POSTGRES_USER: ${POSTGRES_USER:-tipi}
+      POSTGRES_DB: ${POSTGRES_DB:-tipi}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d tipi -U tipi"]
+      interval: 5s
+      timeout: 10s
+      retries: 120
+    networks:
+      - tipi_main_network
+
+  runtipi-queue:
+    container_name: runtipi-queue
+    image: rabbitmq:4-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-tipi}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-tipi}
+    networks:
+      - tipi_main_network
+
+  runtipi:
+    container_name: runtipi
+    image: ghcr.io/runtipi/runtipi:${TIPI_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      runtipi-db:
+        condition: service_healthy
+      runtipi-queue:
+        condition: service_started
+    healthcheck:
+      start_period: 10s
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - tipi_media:/data/media
+      - tipi_state:/data/state
+      - tipi_repos:/data/repos
+      - tipi_apps:/data/apps
+      - tipi_logs:/data/logs
+      - ./traefik:/data/traefik
+      - ./user-config:/data/user-config
+    environment:
+      DOMAIN: ${DOMAIN:-tipi.local}
+      LOCAL_DOMAIN: ${LOCAL_DOMAIN:-tipi.local}
+      POSTGRES_HOST: runtipi-db
+      POSTGRES_PORT: 5432
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tipi}
+      POSTGRES_USER: ${POSTGRES_USER:-tipi}
+      POSTGRES_DB: ${POSTGRES_DB:-tipi}
+      RABBITMQ_HOST: runtipi-queue
+      RABBITMQ_USER: ${RABBITMQ_USER:-tipi}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-tipi}
+    labels:
+      runtipi.managed: "true"
+      traefik.enable: "true"
+      traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
+      traefik.http.services.dashboard.loadbalancer.server.port: 3000
+      traefik.http.routers.dashboard.rule: PathPrefix("/")
+      traefik.http.routers.dashboard.service: dashboard
+      traefik.http.routers.dashboard.entrypoints: web
+    networks:
+      - tipi_main_network
+
+networks:
+  tipi_main_network:
+    driver: bridge
+    name: runtipi_tipi_main_network
+
+volumes:
+  pgdata:
+  tipi_media:
+  tipi_state:
+  tipi_repos:
+  tipi_apps:
+  tipi_logs:

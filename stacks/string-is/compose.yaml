@@ -1,0 +1,8 @@
+services:
+  string-is:
+    image: daveperrett/string-is:latest
+    restart: unless-stopped
+    ports:
+      - "${STRING_IS_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-}

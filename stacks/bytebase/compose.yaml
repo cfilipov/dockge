@@ -1,0 +1,12 @@
+services:
+  bytebase:
+    image: bytebase/bytebase:latest
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - bytebase-data:/var/opt/bytebase
+
+volumes:
+  bytebase-data:

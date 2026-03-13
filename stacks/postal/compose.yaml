@@ -1,0 +1,44 @@
+services:
+  postal:
+    image: ghcr.io/postalserver/postal:3.3.5
+    container_name: postal
+    depends_on:
+      - mariadb
+      - rabbitmq
+    ports:
+      - "25:25"
+      - "5000:5000"
+    volumes:
+      - ./config:/config
+      - postal-assets:/opt/postal/public/assets
+    environment:
+      - POSTAL_FNAME=Postal
+      - POSTAL_LNAME=Admin
+      - POSTAL_EMAIL=admin@example.com
+    restart: unless-stopped
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: postal-mariadb
+    environment:
+      - MYSQL_DATABASE=postal
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-alpine
+    container_name: postal-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=postal
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+      - RABBITMQ_DEFAULT_VHOST=postal
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+volumes:
+  postal-assets:
+  mariadb-data:
+  rabbitmq-data:

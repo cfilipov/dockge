@@ -1,0 +1,9 @@
+services:
+  watcharr:
+    image: ghcr.io/sbondco/watcharr:latest
+    container_name: watcharr
+    ports:
+      - "${WATCHARR_PORT}:3080"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

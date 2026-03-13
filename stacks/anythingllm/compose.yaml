@@ -1,0 +1,20 @@
+name: anythingllm
+
+services:
+  anythingllm:
+    image: mintplexlabs/anythingllm:latest
+    container_name: anythingllm
+    cap_add:
+      - SYS_ADMIN
+    volumes:
+      - anythingllm-storage:/app/server/storage
+    environment:
+      - STORAGE_DIR=/app/server/storage
+    ports:
+      - "3001:3001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  anythingllm-storage:

@@ -1,0 +1,7 @@
+services:
+  glowing-bear:
+    image: j33r/glowing-bear:latest
+    restart: unless-stopped
+    ports:
+      - "${GLOWING_BEAR_PORT:-9000}:9000"
+

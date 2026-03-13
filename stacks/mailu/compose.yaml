@@ -1,0 +1,141 @@
+services:
+  redis:
+    image: redis:alpine
+    container_name: mailu-redis
+    volumes:
+      - redis-data:/data
+    restart: always
+    networks:
+      - default
+
+  front:
+    image: ghcr.io/mailu/nginx:2.0
+    container_name: mailu-front
+    env_file: mailu.env
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:80:80"
+      - "${BIND_ADDRESS:-0.0.0.0}:443:443"
+      - "${BIND_ADDRESS:-0.0.0.0}:25:25"
+      - "${BIND_ADDRESS:-0.0.0.0}:465:465"
+      - "${BIND_ADDRESS:-0.0.0.0}:587:587"
+      - "${BIND_ADDRESS:-0.0.0.0}:110:110"
+      - "${BIND_ADDRESS:-0.0.0.0}:995:995"
+      - "${BIND_ADDRESS:-0.0.0.0}:143:143"
+      - "${BIND_ADDRESS:-0.0.0.0}:993:993"
+    volumes:
+      - certs:/mailu/certs
+      - overrides-nginx:/overrides:ro
+    depends_on:
+      - resolver
+    restart: always
+    networks:
+      default:
+      noinet:
+
+  resolver:
+    image: ghcr.io/mailu/unbound:2.0
+    container_name: mailu-resolver
+    env_file: mailu.env
+    restart: always
+    networks:
+      default:
+        ipv4_address: 192.168.203.254
+
+  admin:
+    image: ghcr.io/mailu/admin:2.0
+    container_name: mailu-admin
+    env_file: mailu.env
+    volumes:
+      - admin-data:/data
+      - dkim:/dkim
+    depends_on:
+      - redis
+      - resolver
+    restart: always
+    networks:
+      - default
+
+  imap:
+    image: ghcr.io/mailu/dovecot:2.0
+    container_name: mailu-imap
+    env_file: mailu.env
+    volumes:
+      - mail-data:/mail
+      - overrides-dovecot:/overrides:ro
+    depends_on:
+      - front
+    restart: always
+    networks:
+      - default
+
+  smtp:
+    image: ghcr.io/mailu/postfix:2.0
+    container_name: mailu-smtp
+    env_file: mailu.env
+    volumes:
+      - mailqueue:/queue
+      - overrides-postfix:/overrides:ro
+    depends_on:
+      - front
+    restart: always
+    networks:
+      - default
+
+  antispam:
+    image: ghcr.io/mailu/rspamd:2.0
+    container_name: mailu-antispam
+    env_file: mailu.env
+    volumes:
+      - filter:/var/lib/rspamd
+      - overrides-rspamd:/overrides:ro
+    depends_on:
+      - front
+    restart: always
+    networks:
+      - default
+      - noinet
+
+  oletools:
+    image: ghcr.io/mailu/oletools:2.0
+    container_name: mailu-oletools
+    restart: always
+    networks:
+      - noinet
+
+  webmail:
+    image: ghcr.io/mailu/webmail:2.0
+    container_name: mailu-webmail
+    env_file: mailu.env
+    volumes:
+      - webmail-data:/data
+      - overrides-roundcube:/overrides:ro
+    depends_on:
+      - front
+    restart: always
+    networks:
+      - default
+
+volumes:
+  redis-data:
+  admin-data:
+  certs:
+  dkim:
+  mail-data:
+  mailqueue:
+  filter:
+  webmail-data:
+  overrides-nginx:
+  overrides-dovecot:
+  overrides-postfix:
+  overrides-rspamd:
+  overrides-roundcube:
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.203.0/24
+  noinet:
+    driver: bridge
+    internal: true

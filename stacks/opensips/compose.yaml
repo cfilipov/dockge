@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  opensips:
+    image: opensips/opensips:latest
+    container_name: opensips
+    restart: unless-stopped
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "5061:5061/tcp"
+    volumes:
+      - ./config:/etc/opensips
+    environment:
+      - TZ=UTC
+
+  opensips-cp:
+    image: opensips/opensips-cp:latest
+    container_name: opensips-cp
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - opensips

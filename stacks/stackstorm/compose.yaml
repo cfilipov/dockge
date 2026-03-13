@@ -1,0 +1,155 @@
+services:
+  st2api:
+    image: stackstorm/st2api:${ST2_VERSION:-3.8}
+    environment: &st2-env
+      ST2_AUTH_URL: http://st2auth:9100/
+      ST2_API_URL: http://st2api:9101/
+      ST2_STREAM_URL: http://st2stream:9102/
+    depends_on:
+      - mongo
+      - rabbitmq
+      - redis
+    networks:
+      - private
+    restart: unless-stopped
+
+  st2auth:
+    image: stackstorm/st2auth:${ST2_VERSION:-3.8}
+    environment:
+      <<: *st2-env
+    depends_on:
+      - mongo
+      - rabbitmq
+      - redis
+    networks:
+      - private
+    restart: unless-stopped
+
+  st2stream:
+    image: stackstorm/st2stream:${ST2_VERSION:-3.8}
+    environment:
+      <<: *st2-env
+    depends_on:
+      - mongo
+      - rabbitmq
+      - redis
+    networks:
+      - private
+    restart: unless-stopped
+
+  st2actionrunner:
+    image: stackstorm/st2actionrunner:${ST2_VERSION:-3.8}
+    environment:
+      <<: *st2-env
+    depends_on:
+      - mongo
+      - rabbitmq
+      - redis
+    networks:
+      - private
+    restart: unless-stopped
+
+  st2rulesengine:
+    image: stackstorm/st2rulesengine:${ST2_VERSION:-3.8}
+    environment:
+      <<: *st2-env
+    depends_on:
+      - mongo
+      - rabbitmq
+      - redis
+    networks:
+      - private
+    restart: unless-stopped
+
+  st2sensorcontainer:
+    image: stackstorm/st2sensorcontainer:${ST2_VERSION:-3.8}
+    environment:
+      <<: *st2-env
+    depends_on:
+      - mongo
+      - rabbitmq
+      - redis
+    networks:
+      - private
+    restart: unless-stopped
+
+  st2scheduler:
+    image: stackstorm/st2scheduler:${ST2_VERSION:-3.8}
+    environment:
+      <<: *st2-env
+    depends_on:
+      - mongo
+      - rabbitmq
+      - redis
+    networks:
+      - private
+    restart: unless-stopped
+
+  st2workflowengine:
+    image: stackstorm/st2workflowengine:${ST2_VERSION:-3.8}
+    environment:
+      <<: *st2-env
+    depends_on:
+      - mongo
+      - rabbitmq
+      - redis
+    networks:
+      - private
+    restart: unless-stopped
+
+  st2web:
+    image: stackstorm/st2web:${ST2_VERSION:-3.8}
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - st2api
+      - st2auth
+      - st2stream
+    networks:
+      - public
+      - private
+    restart: unless-stopped
+
+  st2client:
+    image: stackstorm/st2actionrunner:${ST2_VERSION:-3.8}
+    command: tail -f /dev/null
+    environment:
+      <<: *st2-env
+    networks:
+      - private
+
+  mongo:
+    image: mongo:4.4
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - private
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - private
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2
+    volumes:
+      - redis-data:/data
+    networks:
+      - private
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  rabbitmq-data:
+  redis-data:
+
+networks:
+  public:
+    driver: bridge
+  private:
+    driver: bridge

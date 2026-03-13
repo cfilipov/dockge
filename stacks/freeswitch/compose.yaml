@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  freeswitch:
+    image: safarov/freeswitch:latest
+    container_name: freeswitch
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config:/etc/freeswitch
+      - ./logs:/var/log/freeswitch
+      - ./sounds:/usr/share/freeswitch/sounds
+    environment:
+      - SOUND_RATES=8000:16000
+      - SOUND_TYPES=music:en-us-callie
+    cap_add:
+      - SYS_NICE
+      - NET_ADMIN

@@ -1,0 +1,12 @@
+services:
+  automad:
+    image: automad/automad:v2
+    container_name: automad
+    ports:
+      - "8080:80"
+    volumes:
+      - automad_data:/app
+    restart: unless-stopped
+
+volumes:
+  automad_data:

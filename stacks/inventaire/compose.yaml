@@ -1,0 +1,48 @@
+services:
+  inventaire:
+    image: inventaire/inventaire:latest
+    depends_on:
+      - couchdb
+      - elasticsearch
+    volumes:
+      - inventaire-leveldb:/opt/inventaire_leveldb
+      - inventaire-local-media-storage:/opt/inventaire_local_media_storage
+      - inventaire-backups:/opt/inventaire_backups
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  couchdb:
+    image: couchdb:3
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+      - 'ERL_FLAGS=+A 4'
+    volumes:
+      - couchdb:/opt/couchdb/data
+    restart: unless-stopped
+
+  elasticsearch:
+    image: elasticsearch:7.17.28
+    environment:
+      - 'http.host=elasticsearch'
+      - 'transport.host=elasticsearch'
+      - 'discovery.type=single-node'
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+      - 'xpack.security.enabled=false'
+      - 'ingest.geoip.downloader.enabled=false'
+      - 'logger.org.elasticsearch=ERROR'
+      - 'logger.com.azure.core=ERROR'
+      - 'logger.org.apache=ERROR'
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+volumes:
+  couchdb:
+  elasticsearch:
+  inventaire-leveldb:
+  inventaire-local-media-storage:
+  inventaire-backups:

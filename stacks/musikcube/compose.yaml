@@ -1,0 +1,15 @@
+services:
+  musikcube:
+    image: linuxserver/musikcube:latest
+    container_name: musikcube
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Etc/UTC}
+    ports:
+      - "${METADATA_PORT:-7905}:7905"
+      - "${AUDIO_PORT:-7906}:7906"
+    volumes:
+      - ${MUSIC_DIR:-./music}:/music:ro
+      - ${DATA_DIR:-./data}:/config
+    restart: unless-stopped

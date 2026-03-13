@@ -1,0 +1,7 @@
+services:
+  bicimon:
+    image: ghcr.io/knrdl/bicimon:latest
+    container_name: bicimon
+    restart: unless-stopped
+    ports:
+      - "${BICIMON_PORT}:80"

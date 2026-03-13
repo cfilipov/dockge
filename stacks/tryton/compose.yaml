@@ -1,0 +1,54 @@
+# Tryton - Modular ERP platform
+# Based on: https://foss.heptapod.net/tryton/tryton-docker/-/blob/branch/default/compose.yml
+# Docs: https://hub.docker.com/r/tryton/tryton
+
+services:
+  server:
+    image: tryton/tryton:${VERSION:-latest}
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+    ports:
+      - "8000:8000"
+    volumes:
+      - tryton-data:/var/lib/trytond/db
+    command:
+      - /bin/bash
+      - -c
+      - |
+        (until echo > /dev/tcp/$${DB_HOSTNAME:=$${POSTGRES_PORT_5432_TCP_ADDR:='postgres'}}/$${DB_PORT:=$${POSTGRES_PORT_5432_TCP_PORT:='5432'}}; do sleep 0.5; done) 2>/dev/null
+        echo "${PASSWORD:-admin}" > /tmp/.passwd
+        TRYTONPASSFILE=/tmp/.passwd /entrypoint.sh trytond-admin -d "${DB_NAME:-tryton}" --all --email "${EMAIL:-}" -vv
+        if command -v uwsgi &>/dev/null; then uwsgi --ini /etc/uwsgi.conf; else gunicorn --config=/etc/gunicorn.conf.py; fi
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  cron:
+    image: tryton/tryton:${VERSION:-latest}
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - tryton-data:/var/lib/trytond/db
+    command:
+      - /bin/bash
+      - -c
+      - |
+        (until echo > /dev/tcp/server/8000; do sleep 0.5; done) 2>/dev/null
+        trytond-cron -d "${DB_NAME:-tryton}"
+    depends_on:
+      - postgres
+      - server
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:${PG_VERSION:-latest}
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
+      - POSTGRES_DB=${DB_NAME:-tryton}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  tryton-data:

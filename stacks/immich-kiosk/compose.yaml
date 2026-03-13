@@ -1,0 +1,19 @@
+services:
+  immich-kiosk:
+    image: ghcr.io/damongolding/immich-kiosk:latest
+    container_name: immich-kiosk
+    restart: always
+    tty: true
+    ports:
+      - "${KIOSK_PORT:-3000}:3000"
+    environment:
+      LANG: ${LANG:-en_GB}
+      TZ: ${TZ:-Etc/UTC}
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

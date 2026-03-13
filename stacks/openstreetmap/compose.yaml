@@ -1,0 +1,36 @@
+services:
+  web:
+    image: ghcr.io/openstreetmap/openstreetmap-website:latest
+    container_name: openstreetmap-web
+    restart: unless-stopped
+    ports:
+      - "${OSM_PORT}:3000"
+    environment:
+      PIDFILE: /tmp/pids/server.pid
+    volumes:
+      - web_tmp:/app/tmp
+      - web_storage:/app/storage
+    command: bundle exec rails s -p 3000 -b '0.0.0.0'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgis/postgis:16-3.5
+    container_name: openstreetmap-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: openstreetmap
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  web_tmp:
+  web_storage:
+  db_data:

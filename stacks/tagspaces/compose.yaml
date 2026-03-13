@@ -1,0 +1,14 @@
+services:
+  tagspaces:
+    image: tagspaces/tagspaces-lite-web:latest
+    container_name: tagspaces
+    restart: unless-stopped
+    ports:
+      - "${TAGSPACES_PORT:-8080}:80"
+    volumes:
+      - data:/data
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  data:

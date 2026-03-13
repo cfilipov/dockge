@@ -1,0 +1,15 @@
+services:
+  selfoss:
+    image: fossar/selfoss:latest
+    container_name: selfoss
+    restart: unless-stopped
+    ports:
+      - "${SELFOSS_PORT:-8888}:8888"
+    volumes:
+      - selfoss-data:/selfoss/data
+    environment:
+      - CRON_ENABLED=${CRON_ENABLED:-true}
+      - SELFOSS_DB_TYPE=${SELFOSS_DB_TYPE:-sqlite}
+
+volumes:
+  selfoss-data:

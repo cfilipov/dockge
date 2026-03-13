@@ -1,0 +1,12 @@
+services:
+  bukuserver:
+    image: bukuserver/bukuserver:latest
+    container_name: bukuserver
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5001}:5001"
+    environment:
+      - BUKUSERVER_PER_PAGE=100
+      - BUKUSERVER_OPEN_IN_NEW_TAB=true
+    volumes:
+      - ./data:/root/.local/share/buku

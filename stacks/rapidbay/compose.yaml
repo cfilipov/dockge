@@ -1,0 +1,15 @@
+services:
+  rapidbay:
+    image: hauxir/rapidbay:latest
+    container_name: rapidbay
+    restart: unless-stopped
+    ports:
+      - "${RAPIDBAY_PORT:-5000}:5000"
+    volumes:
+      - rapidbay-downloads:/tmp/rapidbay
+    environment:
+      - JACKETT_URL=${JACKETT_URL}
+      - JACKETT_API_KEY=${JACKETT_API_KEY}
+
+volumes:
+  rapidbay-downloads:

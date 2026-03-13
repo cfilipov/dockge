@@ -1,0 +1,9 @@
+services:
+  writing:
+    image: josephernest/writing:latest
+    container_name: writing
+    restart: unless-stopped
+    ports:
+      - "${WRITING_PORT:-8089}:80"
+    volumes:
+      - ./data:/data

@@ -1,0 +1,32 @@
+services:
+  backdrop:
+    image: backdrop:latest
+    container_name: backdrop
+    ports:
+      - "8080:80"
+    environment:
+      BACKDROP_DB_HOST: mysql
+      BACKDROP_DB_USER: backdrop
+      BACKDROP_DB_PASSWORD: ${DB_PASSWORD}
+      BACKDROP_DB_NAME: backdrop
+    depends_on:
+      - mysql
+    volumes:
+      - backdrop_files:/var/www/html/files
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: backdrop-mysql
+    environment:
+      MYSQL_USER: backdrop
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: backdrop
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  backdrop_files:
+  mysql_data:

@@ -1,0 +1,12 @@
+services:
+  octobot:
+    image: drakkarsoftware/octobot:stable
+    container_name: octobot
+    ports:
+      - "${PORT:-5001}:${PORT:-5001}"
+    volumes:
+      - ./user:/octobot/user
+      - ./tentacles:/octobot/tentacles
+      - ./logs:/octobot/logs
+      - ./backtesting:/octobot/backtesting
+    restart: unless-stopped

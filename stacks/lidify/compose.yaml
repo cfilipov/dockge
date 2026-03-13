@@ -1,0 +1,19 @@
+services:
+  lidify:
+    image: thewicklowwolf/lidify:latest
+    container_name: lidify
+    volumes:
+      - ./config:/lidify/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - lidarr_address=${LIDARR_ADDRESS}
+      - lidarr_api_key=${LIDARR_API_KEY}
+      - last_fm_api_key=${LASTFM_API_KEY}
+      - last_fm_api_secret=${LASTFM_API_SECRET}
+      - mode=${MODE:-LastFM}
+      - root_folder_path=${ROOT_FOLDER_PATH:-/data/media/music/}
+    restart: unless-stopped

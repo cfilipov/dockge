@@ -1,0 +1,27 @@
+services:
+  briefkasten:
+    image: ndom91/briefkasten:latest
+    container_name: briefkasten
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-bkAdmin}:${POSTGRES_PASSWORD:-briefkasten}@db:5432/${POSTGRES_DB:-briefkasten}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-changeme}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    container_name: briefkasten-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-bkAdmin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-briefkasten}
+      - POSTGRES_DB=${POSTGRES_DB:-briefkasten}
+    volumes:
+      - briefkasten-data:/var/lib/postgresql/data
+
+volumes:
+  briefkasten-data:

@@ -1,0 +1,9 @@
+services:
+  contentshare:
+    image: tanq16/local-content-share:main
+    container_name: local-content-share
+    restart: unless-stopped
+    ports:
+      - "${LCS_PORT:-8080}:8080"
+    volumes:
+      - ./data:/app/data

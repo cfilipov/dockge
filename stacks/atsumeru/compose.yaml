@@ -1,0 +1,15 @@
+services:
+  atsumeru:
+    image: atsumerudev/atsumeru:latest
+    container_name: atsumeru
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ./config:/app/config
+      - ./content:/app/content
+      - ./database:/app/database
+    ports:
+      - "31337:31337"
+    restart: unless-stopped

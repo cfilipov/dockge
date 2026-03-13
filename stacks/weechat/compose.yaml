@@ -1,0 +1,16 @@
+services:
+  weechat:
+    image: weechat/weechat:latest
+    container_name: weechat
+    restart: unless-stopped
+    ports:
+      - "${RELAY_PORT:-9001}:9001"
+    volumes:
+      - weechat-config:/home/user/.config/weechat
+      - weechat-data:/home/user/.local/share/weechat
+    environment:
+      - TERM=xterm-256color
+
+volumes:
+  weechat-config:
+  weechat-data:

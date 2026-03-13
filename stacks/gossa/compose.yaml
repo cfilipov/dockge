@@ -1,0 +1,14 @@
+services:
+  gossa:
+    image: pldubouilh/gossa:latest
+    container_name: gossa
+    restart: unless-stopped
+    ports:
+      - "${GOSSA_PORT:-8001}:8001"
+    volumes:
+      - data:/shared
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  data:

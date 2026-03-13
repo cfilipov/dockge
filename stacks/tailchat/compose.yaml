@@ -1,0 +1,50 @@
+services:
+  tailchat:
+    image: moonrailgun/tailchat:latest
+    container_name: tailchat
+    ports:
+      - "11000:11000"
+    environment:
+      SERVICEDIR: services
+      TRANSPORTER: "redis://redis:6379"
+      REDIS_URL: "redis://redis:6379"
+      MONGO_URL: "mongodb://mongo/tailchat"
+      MINIO_URL: "minio:9000"
+      MINIO_USER: tailchat
+      MINIO_PASS: ${MINIO_PASSWORD}
+      API_URL: "http://localhost:11000"
+      SECRET: ${TAILCHAT_SECRET}
+      LOGGER: "true"
+      LOGLEVEL: info
+    depends_on:
+      - mongo
+      - redis
+      - minio
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:4
+    container_name: tailchat-mongo
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tailchat-redis
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: tailchat-minio
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: tailchat
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  minio_data:

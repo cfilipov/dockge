@@ -1,0 +1,9 @@
+services:
+  app:
+    image: zuhkov/word-mastermind:${WORD_MASTERMIND_VERSION:-latest}
+    container_name: word-mastermind
+    restart: unless-stopped
+    ports:
+      - "${WORD_MASTERMIND_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}

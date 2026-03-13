@@ -1,0 +1,24 @@
+services:
+  booklogr-api:
+    image: mozzo/booklogr:v1.7.0
+    container_name: booklogr-api
+    environment:
+      - DATABASE_URL=sqlite:///books.db
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/instance
+    restart: unless-stopped
+
+  booklogr-web:
+    image: mozzo/booklogr-web:v1.7.0
+    container_name: booklogr-web
+    environment:
+      - BL_API_ENDPOINT=http://booklogr-api:5000/
+      - BL_DEMO_MODE=false
+    ports:
+      - "5150:80"
+    depends_on:
+      - booklogr-api
+    restart: unless-stopped

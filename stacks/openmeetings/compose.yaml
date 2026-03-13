@@ -1,0 +1,54 @@
+services:
+  openmeetings:
+    image: apache/openmeetings:${OPENMEETINGS_VERSION:-8.1.0}
+    container_name: openmeetings
+    restart: unless-stopped
+    ports:
+      - "${OPENMEETINGS_PORT:-5443}:5443"
+    environment:
+      OM_DB_TYPE: ${OM_DB_TYPE}
+      OM_DB_HOST: db
+      OM_DB_PORT: "3306"
+      OM_DB_NAME: ${OM_DB_NAME}
+      OM_DB_USER: ${OM_DB_USER}
+      OM_DB_PASS: ${OM_DB_PASS}
+      OM_KURENTO_WS_URL: ${OM_KURENTO_WS_URL}
+    volumes:
+      - om_data:/opt/om
+    depends_on:
+      - db
+      - kurento
+    networks:
+      - openmeetings
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: openmeetings-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${OM_DB_NAME}
+      MYSQL_USER: ${OM_DB_USER}
+      MYSQL_PASSWORD: ${OM_DB_PASS}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - openmeetings
+
+  kurento:
+    image: kurento/kurento-media-server:${KURENTO_VERSION:-7.1}
+    container_name: openmeetings-kurento
+    restart: unless-stopped
+    environment:
+      KMS_STUN_IP: ${KMS_STUN_IP}
+      KMS_STUN_PORT: ${KMS_STUN_PORT}
+    networks:
+      - openmeetings
+
+volumes:
+  om_data:
+  db_data:
+
+networks:
+  openmeetings:
+    driver: bridge

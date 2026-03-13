@@ -1,0 +1,35 @@
+services:
+  app:
+    image: fudaoyuanicu/015-app:latest
+    container_name: 015-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./uploads:/uploads
+      - ./config.yaml:/app/config.yaml:ro
+    depends_on:
+      - redis
+    environment:
+      TZ: ${TZ:-UTC}
+
+  worker:
+    image: fudaoyuanicu/015-worker:latest
+    container_name: 015-worker
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/uploads
+      - ./config.yaml:/config.yaml:ro
+    depends_on:
+      - app
+      - redis
+
+  redis:
+    image: redis:7
+    container_name: 015-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

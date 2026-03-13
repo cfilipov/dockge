@@ -1,0 +1,11 @@
+services:
+  otterwiki:
+    image: redimp/otterwiki:2.17
+    container_name: otterwiki
+    restart: unless-stopped
+    ports:
+      - "${OTTERWIKI_PORT:-8080}:80"
+    volumes:
+      - ./app-data:/app-data
+
+volumes: {}

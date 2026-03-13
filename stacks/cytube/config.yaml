@@ -1,0 +1,31 @@
+mysql:
+  server: 'cytube-db'
+  port: 3306
+  database: 'cytube3'
+  user: 'cytube3'
+  password: ''
+  pool-size: 10
+
+listen:
+  - ip: ''
+    port: 8080
+    http: true
+  - ip: ''
+    port: 1443
+    io: true
+
+http:
+  domain: 'localhost'
+  default-port: 8080
+  root-domain: 'localhost'
+  alt-domains: []
+
+https:
+  enabled: false
+
+io:
+  domain: 'localhost'
+  default-port: 1443
+
+mail:
+  enabled: false

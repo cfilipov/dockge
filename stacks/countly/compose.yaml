@@ -1,0 +1,67 @@
+services:
+  mongodb:
+    image: bitnami/mongodb:latest
+    container_name: countly-mongodb
+    volumes:
+      - mongodb-data:/bitnami/mongodb
+    networks:
+      - countly
+    restart: unless-stopped
+
+  countly-api:
+    image: countly/countly-server:latest
+    container_name: countly-api
+    environment:
+      - COUNTLY_PLUGINS=mobile,web,desktop,plugins,density,locale,browser,sources,views,logger,systemlogs,populator,reports,crashes,push,star-rating,slipping-away-users,compare,server-stats,dbviewer,times-of-day,compliance-hub,alerts,onboarding,consolidate,remote-config,hooks,dashboards,sdk,data-manager,guides
+      - COUNTLY_CONFIG_API_MONGODB_HOST=mongodb
+      - COUNTLY_CONFIG_API_MONGODB_DB=countly
+      - COUNTLY_CONFIG_API_API_WORKERS=4
+      - COUNTLY_CONFIG_API_API_MAX_SOCKETS=2048
+      - COUNTLY_CONFIG_API_FILESTORAGE=gridfs
+      - NODE_OPTIONS=--max-old-space-size=2048
+    depends_on:
+      - mongodb
+    networks:
+      - countly
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+
+  countly-frontend:
+    image: countly/frontend-server:latest
+    container_name: countly-frontend
+    environment:
+      - COUNTLY_PLUGINS=mobile,web,desktop,plugins,density,locale,browser,sources,views,logger,systemlogs,populator,reports,crashes,push,star-rating,slipping-away-users,compare,server-stats,dbviewer,times-of-day,compliance-hub,alerts,onboarding,consolidate,remote-config,hooks,dashboards,sdk,data-manager,guides
+      - COUNTLY_CONFIG_API_MONGODB_HOST=mongodb
+      - COUNTLY_CONFIG_API_MONGODB_DB=countly
+      - COUNTLY_CONFIG_FRONTEND_MONGODB_HOST=mongodb
+      - COUNTLY_CONFIG_FRONTEND_MONGODB_DB=countly
+    depends_on:
+      - mongodb
+    networks:
+      - countly
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+
+  nginx:
+    image: nginx:alpine
+    container_name: countly-nginx
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx.server.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - countly-api
+      - countly-frontend
+    networks:
+      - countly
+    restart: unless-stopped
+
+volumes:
+  mongodb-data:
+
+networks:
+  countly:

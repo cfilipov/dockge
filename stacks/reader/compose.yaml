@@ -1,0 +1,16 @@
+services:
+  reader:
+    image: lemon24/reader:latest
+    container_name: reader
+    restart: unless-stopped
+    ports:
+      - "${READER_PORT:-8080}:8080"
+    volumes:
+      - reader-data:/data
+    environment:
+      - READER_DB=/data/db.sqlite
+      - READER_PLUGIN=reader.ua_fallback
+      - READER_UPDATE_INTERVAL=${READER_UPDATE_INTERVAL:-60}
+
+volumes:
+  reader-data:

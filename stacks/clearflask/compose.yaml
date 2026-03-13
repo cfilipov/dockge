@@ -1,0 +1,39 @@
+services:
+  clearflask:
+    image: ghcr.io/clearflask/clearflask:latest
+    ports:
+      - "${CLEARFLASK_PORT:-3000}:3000"
+    environment:
+      CLEARFLASK_ENV: production
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - db
+      - elasticsearch
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    volumes:
+      - clearflask_db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - clearflask_es:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+volumes:
+  clearflask_db:
+  clearflask_es:

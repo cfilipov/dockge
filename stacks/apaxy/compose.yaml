@@ -1,0 +1,10 @@
+services:
+  apaxy:
+    image: httpd:2.4-alpine
+    container_name: apaxy
+    restart: unless-stopped
+    ports:
+      - "${APAXY_PORT:-8080}:80"
+    volumes:
+      - ./share:/usr/local/apache2/htdocs/share
+      - ./httpd-autoindex.conf:/usr/local/apache2/conf/extra/httpd-autoindex.conf:ro

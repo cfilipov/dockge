@@ -1,0 +1,33 @@
+services:
+  talk:
+    image: coralproject/talk:9
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/coral
+      REDIS_URI: redis://redis:6379
+      SIGNING_SECRET: ${SIGNING_SECRET}
+      LOCALE: en-US
+    volumes:
+      - coral-data:/var/lib/coral
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  coral-data:
+  mongo-data:
+  redis-data:

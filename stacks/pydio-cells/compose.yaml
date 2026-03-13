@@ -1,0 +1,37 @@
+services:
+  cells:
+    image: pydio/cells:${CELLS_VERSION:-4}
+    container_name: pydio-cells
+    restart: unless-stopped
+    ports:
+      - "${CELLS_PORT:-8080}:8080"
+    environment:
+      CELLS_SITE_EXTERNAL: ${CELLS_EXTERNAL_URL:-https://cells.example.com}
+      CELLS_SITE_BIND: "0.0.0.0:8080"
+      CELLS_DB_HOST: mariadb
+      CELLS_DB_PORT: "3306"
+      CELLS_DB_NAME: ${MYSQL_DATABASE:-cells}
+      CELLS_DB_USER: ${MYSQL_USER:-cells}
+      CELLS_DB_PASSWORD: ${MYSQL_PASSWORD:-changeme}
+    volumes:
+      - cells_data:/var/cells
+      - cells_workdir:/var/cells/data
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: pydio-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootchangeme}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cells}
+      MYSQL_USER: ${MYSQL_USER:-cells}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-changeme}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  cells_data:
+  cells_workdir:
+  mariadb_data:

@@ -1,0 +1,49 @@
+services:
+  bar-assistant:
+    image: barassistant/server:latest
+    container_name: bar-assistant
+    restart: unless-stopped
+    environment:
+      - APP_URL=${APP_URL}
+      - MEILISEARCH_KEY=${MEILISEARCH_KEY}
+      - MEILISEARCH_HOST=http://meilisearch:7700
+      - REDIS_HOST=redis
+      - LOG_CHANNEL=stderr
+    depends_on:
+      - meilisearch
+      - redis
+    volumes:
+      - bar_data:/var/www/cocktails/storage/bar-assistant
+
+  salt-rim:
+    image: barassistant/salt-rim:latest
+    container_name: salt-rim
+    restart: unless-stopped
+    environment:
+      - API_URL=${API_URL}
+      - MEILISEARCH_URL=${MEILISEARCH_URL}
+    depends_on:
+      - bar-assistant
+    ports:
+      - "${SALT_RIM_PORT}:8080"
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    container_name: bar-assistant-meilisearch
+    restart: unless-stopped
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=${MEILISEARCH_KEY}
+    volumes:
+      - meilisearch_data:/meili_data
+
+  redis:
+    image: redis:alpine
+    container_name: bar-assistant-redis
+    restart: unless-stopped
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+
+volumes:
+  bar_data:
+  meilisearch_data:

@@ -1,0 +1,25 @@
+services:
+  teampass:
+    image: dormancygrace/teampass:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - teampass_html:/var/www/html
+    depends_on:
+      - db
+
+  db:
+    image: yobasystems/alpine-mariadb:latest
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: supersecret
+      MYSQL_DATABASE: teampass
+      MYSQL_USER: teampass
+      MYSQL_PASSWORD: secret
+    volumes:
+      - teampass_db:/var/lib/mysql
+
+volumes:
+  teampass_html:
+  teampass_db:

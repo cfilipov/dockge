@@ -1,0 +1,17 @@
+services:
+  crafty:
+    image: registry.gitlab.com/crafty-controller/crafty-4/crafty-4:latest
+    container_name: crafty-controller
+    restart: unless-stopped
+    ports:
+      - "${HTTPS_PORT:-8443}:8443"
+      - "${HTTP_PORT:-8000}:8000"
+      - "${MC_PORT:-25565}:25565"
+    volumes:
+      - ./backups:/crafty/backups
+      - ./logs:/crafty/logs
+      - ./servers:/crafty/servers
+      - ./config:/crafty/app/config
+      - ./import:/crafty/import
+    environment:
+      TZ: ${TZ:-UTC}

@@ -1,0 +1,7 @@
+services:
+  kibitzr:
+    image: peterdemin/kibitzr
+    container_name: kibitzr
+    volumes:
+      - ./config:/root
+    restart: unless-stopped

@@ -1,0 +1,36 @@
+services:
+  chamilo:
+    image: chamilo/docker-chamilo:${CHAMILO_VERSION:-1.10.8}
+    container_name: chamilo-lms
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    environment:
+      - CHAMILO_DB_HOST=mariadb
+      - CHAMILO_DB_USER=${DB_USER:-chamilo}
+      - CHAMILO_DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - CHAMILO_DB_NAME=${DB_NAME:-chamilo}
+      - CHAMILO_ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - CHAMILO_ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - CHAMILO_ADMIN_FIRSTNAME=${ADMIN_FIRSTNAME:-Admin}
+      - CHAMILO_ADMIN_LASTNAME=${ADMIN_LASTNAME:-User}
+    volumes:
+      - chamilo_data:/var/www/chamilo
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: chamilo-mariadb
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpass}
+      - MYSQL_DATABASE=${DB_NAME:-chamilo}
+      - MYSQL_USER=${DB_USER:-chamilo}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-changeme}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  chamilo_data:
+  mariadb_data:

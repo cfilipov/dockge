@@ -1,0 +1,14 @@
+services:
+  goploader:
+    image: daftaupe/goploader:latest
+    container_name: goploader
+    restart: unless-stopped
+    ports:
+      - "${GOPLOADER_PORT:-8080}:8080"
+    volumes:
+      - data:/data
+    environment:
+      TZ: ${TZ:-UTC}
+
+volumes:
+  data:

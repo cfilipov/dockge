@@ -1,0 +1,13 @@
+services:
+  zot:
+    image: ghcr.io/project-zot/zot-linux-amd64:latest
+    container_name: zot-oci-registry
+    restart: unless-stopped
+    ports:
+      - "${ZOT_PORT:-5000}:5000"
+    volumes:
+      - zot-data:/var/lib/registry
+      - ./config.json:/etc/zot/config.json:ro
+
+volumes:
+  zot-data:

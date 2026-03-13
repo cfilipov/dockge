@@ -1,0 +1,12 @@
+services:
+  reaparr:
+    image: reaparr/reaparr:latest
+    container_name: reaparr
+    ports:
+      - "${REAPARR_PORT}:7000"
+    volumes:
+      - ./config:/config
+      - ${DOWNLOADS_DIR}:/downloads
+    environment:
+      - TZ=${TZ}
+    restart: unless-stopped

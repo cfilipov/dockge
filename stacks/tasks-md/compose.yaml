@@ -1,0 +1,14 @@
+services:
+  tasks-md:
+    image: baldissaramatheus/tasks.md:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - data:/tasks
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+
+volumes:
+  data:

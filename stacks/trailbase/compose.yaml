@@ -1,0 +1,12 @@
+services:
+  trailbase:
+    image: trailbase/trailbase
+    container_name: trailbase
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - ADDRESS=0.0.0.0:4000
+    volumes:
+      - ./traildepot:/app/traildepot
+    command: /app/trail

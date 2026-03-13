@@ -1,0 +1,18 @@
+services:
+  weddingshare:
+    image: cirx08/wedding_share:latest
+    container_name: weddingshare
+    restart: unless-stopped
+    ports:
+      - "${WEDDINGSHARE_PORT:-5000}:8080"
+    environment:
+      TITLE: ${TITLE:-Our Wedding}
+      SECRET_KEY: ${SECRET_KEY:-}
+      ALLOWED_FILE_TYPES: ${ALLOWED_FILE_TYPES:-.jpg,.jpeg,.png,.gif,.webp,.mp4}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-10}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+    volumes:
+      - weddingshare-data:/app/data
+
+volumes:
+  weddingshare-data:

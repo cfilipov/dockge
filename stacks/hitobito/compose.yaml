@@ -1,0 +1,48 @@
+services:
+  hitobito:
+    image: hitobito/core:latest
+    ports:
+      - "${HITOBITO_PORT:-3000}:3000"
+    environment:
+      RAILS_ENV: production
+      DATABASE_URL: mysql2://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      RAILS_HOST_NAME: ${RAILS_HOST_NAME:-localhost}
+      MEMCACHE_SERVERS: memcached:11211
+      SMTP_ADDRESS: ${SMTP_ADDRESS:-smtp}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+    depends_on:
+      - db
+      - memcached
+    restart: unless-stopped
+
+  worker:
+    image: hitobito/core:latest
+    command: bundle exec rails jobs:work
+    environment:
+      RAILS_ENV: production
+      DATABASE_URL: mysql2://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      MEMCACHE_SERVERS: memcached:11211
+    depends_on:
+      - db
+      - memcached
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    volumes:
+      - hitobito_db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    restart: unless-stopped
+
+  memcached:
+    image: memcached:1.6
+    restart: unless-stopped
+
+volumes:
+  hitobito_db:

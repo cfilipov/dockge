@@ -1,0 +1,32 @@
+services:
+  newspipe:
+    image: cedricbonhomme/newspipe:${NEWSPIPE_TAG:-latest}
+    container_name: newspipe
+    restart: unless-stopped
+    ports:
+      - "${NEWSPIPE_PORT:-5000}:5000"
+    environment:
+      - NEWSPIPE_DB_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@newspipe-db:5432/${POSTGRES_DB}
+      - NEWSPIPE_SECRET_KEY=${NEWSPIPE_SECRET_KEY}
+    depends_on:
+      newspipe-db:
+        condition: service_healthy
+
+  newspipe-db:
+    image: postgres:16-alpine
+    container_name: newspipe-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - newspipe_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  newspipe_db:

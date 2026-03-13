@@ -1,0 +1,39 @@
+services:
+  wayback:
+    image: wabarc/wayback
+    ports:
+      - "8964:8964"
+    environment:
+      - WAYBACK_STORAGE_DIR=/data
+      - CHROME_REMOTE_ADDR=browser:9222
+      - WAYBACK_MEILI_ENDPOINT=http://meilisearch:7700
+      - PLAYBACK_MEILI_ENDPOINT=http://meilisearch:7700
+    volumes:
+      - storage:/data
+    depends_on:
+      - browser
+      - meilisearch
+    restart: unless-stopped
+
+  browser:
+    image: chromedp/headless-shell
+    ports:
+      - "9222:9222"
+    volumes:
+      - /dev/shm:/dev/shm
+    restart: unless-stopped
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.1.0
+    ports:
+      - "7700:7700"
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_HTTP_ADDR=0.0.0.0:7700
+      - MEILI_ENV=production
+    volumes:
+      - storage:/meili_data
+    restart: unless-stopped
+
+volumes:
+  storage:

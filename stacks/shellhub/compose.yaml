@@ -1,0 +1,80 @@
+services:
+  gateway:
+    image: shellhubio/gateway:${SHELLHUB_VERSION}
+    restart: unless-stopped
+    environment:
+      - SHELLHUB_VERSION=${SHELLHUB_VERSION}
+      - SHELLHUB_SSH_PORT=${SHELLHUB_SSH_PORT}
+      - SHELLHUB_PROXY=false
+      - SHELLHUB_DOMAIN=${SHELLHUB_DOMAIN}
+    ports:
+      - "${SHELLHUB_HTTP_PORT}:80"
+    depends_on:
+      - api
+      - ui
+    networks:
+      - shellhub
+
+  ssh:
+    image: shellhubio/ssh:${SHELLHUB_VERSION}
+    restart: unless-stopped
+    environment:
+      - PRIVATE_KEY=/run/secrets/ssh_private_key
+    ports:
+      - "${SHELLHUB_SSH_PORT}:2222"
+    secrets:
+      - ssh_private_key
+    depends_on:
+      - redis
+    networks:
+      - shellhub
+
+  api:
+    image: shellhubio/api:${SHELLHUB_VERSION}
+    restart: unless-stopped
+    environment:
+      - SHELLHUB_VERSION=${SHELLHUB_VERSION}
+      - PRIVATE_KEY=/run/secrets/api_private_key
+      - PUBLIC_KEY=/run/secrets/api_public_key
+      - SHELLHUB_DOMAIN=${SHELLHUB_DOMAIN}
+      - SHELLHUB_SSH_PORT=${SHELLHUB_SSH_PORT}
+    secrets:
+      - api_private_key
+      - api_public_key
+    depends_on:
+      - redis
+    networks:
+      - shellhub
+
+  ui:
+    image: shellhubio/ui:${SHELLHUB_VERSION}
+    restart: unless-stopped
+    environment:
+      - SHELLHUB_VERSION=${SHELLHUB_VERSION}
+    networks:
+      - shellhub
+
+  cli:
+    image: shellhubio/cli:${SHELLHUB_VERSION}
+    stop_signal: SIGKILL
+    command: /bin/sleep infinity
+    networks:
+      - shellhub
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    networks:
+      - shellhub
+
+secrets:
+  ssh_private_key:
+    file: ./ssh_private_key
+  api_private_key:
+    file: ./api_private_key
+  api_public_key:
+    file: ./api_public_key
+
+networks:
+  shellhub:

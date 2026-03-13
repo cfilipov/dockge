@@ -1,0 +1,10 @@
+services:
+  photofield:
+    image: ghcr.io/smilyorg/photofield:latest
+    container_name: photofield
+    restart: unless-stopped
+    ports:
+      - "${PHOTOFIELD_PORT:-8080}:8080"
+    volumes:
+      - ${DATA_DIR:-./data}:/app/data
+      - ${PHOTOS_DIR:-./photos}:/app/photos:ro

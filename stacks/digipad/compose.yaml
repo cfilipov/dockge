@@ -1,0 +1,18 @@
+services:
+  digipad:
+    image: ladigitale/digipad:${DIGIPAD_VERSION:-latest}
+    container_name: digipad
+    restart: unless-stopped
+    ports:
+      - "${DIGIPAD_PORT:-8080}:8080"
+    environment:
+      LEN_NOM_PAD: ${DIGIPAD_PAD_NAME_LENGTH:-40}
+      LEN_DESC_PAD: ${DIGIPAD_PAD_DESC_LENGTH:-400}
+      LEN_NOM_COLONNE: ${DIGIPAD_COL_NAME_LENGTH:-40}
+      LEN_TEXTE_CAPSULE: ${DIGIPAD_CAPSULE_LENGTH:-2000}
+      LEN_NOM_FICHIER: ${DIGIPAD_FILE_NAME_LENGTH:-200}
+    volumes:
+      - digipad_data:/app/data
+
+volumes:
+  digipad_data:

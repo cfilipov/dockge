@@ -1,0 +1,17 @@
+services:
+  piqueserver:
+    image: piqueserver/piqueserver:latest
+    container_name: piqueserver
+    restart: unless-stopped
+    ports:
+      - "${GAME_PORT:-32887}:32887/tcp"
+      - "${GAME_PORT:-32887}:32887/udp"
+      - "${STATUS_PORT:-32886}:32886/tcp"
+      - "${QUERY_PORT:-32885}:32885/tcp"
+    volumes:
+      - config_data:/config
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+
+volumes:
+  config_data:

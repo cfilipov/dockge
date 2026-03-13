@@ -1,0 +1,26 @@
+services:
+  mymangadb:
+    image: ghcr.io/fabianrolfmatthiasnoll/mymangadb-backend:latest
+    container_name: mymangadb-backend
+    environment:
+      - API_TOKEN=${API_TOKEN}
+    volumes:
+      - mymangadb-data:/app/data
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  mymangadb-web:
+    image: ghcr.io/fabianrolfmatthiasnoll/mymangadb-frontend:latest
+    container_name: mymangadb-frontend
+    environment:
+      - VITE_API_URL=http://mymangadb:8080
+      - VITE_API_KEY=${API_TOKEN}
+    ports:
+      - "3000:80"
+    depends_on:
+      - mymangadb
+    restart: unless-stopped
+
+volumes:
+  mymangadb-data:

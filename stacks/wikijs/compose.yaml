@@ -1,0 +1,38 @@
+services:
+  wikijs:
+    image: linuxserver/wikijs:${WIKIJS_VERSION:-latest}
+    container_name: wikijs
+    restart: unless-stopped
+    ports:
+      - "${WIKIJS_PORT:-3000}:3000"
+    volumes:
+      - wikijs-config:/config
+      - wikijs-data:/data
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-UTC}
+      - DB_TYPE=${DB_TYPE:-postgres}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-wikijs}
+      - DB_USER=${POSTGRES_USER:-wikijs}
+      - DB_PASS=${POSTGRES_PASSWORD:-changeme}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:${POSTGRES_VERSION:-16-alpine}
+    container_name: wikijs-db
+    restart: unless-stopped
+    volumes:
+      - wikijs-db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-wikijs}
+      - POSTGRES_USER=${POSTGRES_USER:-wikijs}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+
+volumes:
+  wikijs-config:
+  wikijs-data:
+  wikijs-db:

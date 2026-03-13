@@ -1,0 +1,32 @@
+services:
+  uwave:
+    image: imxdev/uwave:latest
+    container_name: uwave
+    restart: unless-stopped
+    ports:
+      - "${UWAVE_PORT:-6042}:6042"
+    environment:
+      - SECRET=${UWAVE_SECRET}
+      - MONGO_URL=mongodb://mongo:27017/${MONGO_DB}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongo
+      - redis
+
+  mongo:
+    image: mongo:7
+    container_name: uwave-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: uwave-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mongo_data:
+  redis_data:

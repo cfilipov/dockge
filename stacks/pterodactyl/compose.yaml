@@ -1,0 +1,60 @@
+services:
+  database:
+    image: mariadb:10.5
+    container_name: pterodactyl-db
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./database:/var/lib/mysql
+    environment:
+      MYSQL_PASSWORD: ${DB_PASSWORD:-PteroDBPass}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-PteroRootPass}
+      MYSQL_DATABASE: panel
+      MYSQL_USER: pterodactyl
+
+  cache:
+    image: redis:alpine
+    container_name: pterodactyl-cache
+    restart: always
+
+  panel:
+    image: ghcr.io/pterodactyl/panel:latest
+    container_name: pterodactyl-panel
+    restart: always
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./var:/app/var/
+      - ./nginx:/etc/nginx/http.d/
+      - ./certs:/etc/letsencrypt/
+      - ./logs:/app/storage/logs
+    environment:
+      APP_URL: ${APP_URL:-http://example.com}
+      APP_TIMEZONE: ${APP_TIMEZONE:-UTC}
+      APP_SERVICE_AUTHOR: ${APP_SERVICE_AUTHOR:-noreply@example.com}
+      APP_ENV: production
+      APP_ENVIRONMENT_ONLY: "false"
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      QUEUE_DRIVER: redis
+      REDIS_HOST: cache
+      DB_HOST: database
+      DB_PORT: "3306"
+      DB_PASSWORD: ${DB_PASSWORD:-PteroDBPass}
+      MAIL_FROM: ${MAIL_FROM:-noreply@example.com}
+      MAIL_DRIVER: ${MAIL_DRIVER:-smtp}
+      MAIL_HOST: ${MAIL_HOST:-mail}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-true}
+    depends_on:
+      - database
+      - cache
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

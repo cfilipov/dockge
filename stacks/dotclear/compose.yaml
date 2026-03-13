@@ -1,0 +1,43 @@
+volumes:
+  dc_app:
+  dc_db:
+
+services:
+  dc_db:
+    image: mariadb:11
+    container_name: dotcleardb
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    volumes:
+      - dc_db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  dc_app:
+    image: jcpd/docker-dotclear:latest
+    container_name: dotclearphp
+    restart: unless-stopped
+    volumes:
+      - dc_app:/var/www/dotclear
+    ports:
+      - "8080:80"
+    depends_on:
+      dc_db:
+        condition: service_healthy
+    environment:
+      DC_DBDRIVER: mysqlimb4
+      DC_DBHOST: dc_db
+      DC_DBNAME: ${MYSQL_DATABASE}
+      DC_DBUSER: ${MYSQL_USER}
+      DC_DBPASSWORD: ${MYSQL_PASSWORD}
+      DC_DBPREFIX: dc_
+      DC_ADMINMAILFROM: ${ADMIN_EMAIL}

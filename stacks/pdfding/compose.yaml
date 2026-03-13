@@ -1,0 +1,15 @@
+services:
+  pdfding:
+    image: mrmn/pdfding:latest
+    container_name: pdfding
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      HOST_NAME: "${HOST_NAME}"
+      SECRET_KEY: "${SECRET_KEY}"
+      CSRF_COOKIE_SECURE: "FALSE"
+      SESSION_COOKIE_SECURE: "FALSE"
+    volumes:
+      - sqlite_data:/home/nonroot/pdfding/db
+      - media:/home/nonroot/pdfding/media

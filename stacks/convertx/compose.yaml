@@ -1,0 +1,14 @@
+services:
+  convertx:
+    image: ghcr.io/c4illin/convertx:latest
+    container_name: convertx
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - convertx_data:/app/data
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-aLongAndSecretStringUsedToSignTheJSONWebToken1234}
+    restart: unless-stopped
+
+volumes:
+  convertx_data:

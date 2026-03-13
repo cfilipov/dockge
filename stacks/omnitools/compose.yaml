@@ -1,0 +1,6 @@
+services:
+  omnitools:
+    image: iib0011/omni-tools:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"

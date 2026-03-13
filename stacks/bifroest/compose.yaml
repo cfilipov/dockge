@@ -1,0 +1,12 @@
+services:
+  bifroest:
+    image: ghcr.io/engity-com/bifroest:latest
+    container_name: bifroest
+    restart: unless-stopped
+    ports:
+      - "22:22"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/etc/engity/bifroest
+      - ./data:/var/lib/engity/bifroest
+    command: run --log.colorMode=always

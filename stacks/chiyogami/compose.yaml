@@ -1,0 +1,21 @@
+services:
+  chiyogami:
+    image: ghcr.io/rhee876527/chiyogami:latest
+    container_name: chiyogami
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - CHOWN
+    security_opt:
+      - no-new-privileges
+    ports:
+      - "${CHIYOGAMI_PORT:-8000}:8000"
+    volumes:
+      - ./pastes:/pastes
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-changeme-random-secret}
+      - PASTE_DEFAULT_EXPIRATION=${PASTE_DEFAULT_EXPIRATION:-24h}
+      - MAX_CHAR_CONTENT=${MAX_CHAR_CONTENT:-50000}

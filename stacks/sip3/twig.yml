@@ -1,0 +1,6 @@
+sip3-twig:
+  mongo:
+    uri: mongodb://mongo:27017
+    db: sip3
+  server:
+    port: 8080

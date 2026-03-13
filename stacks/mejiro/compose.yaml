@@ -1,0 +1,11 @@
+services:
+  pellicola:
+    image: idocker1688/pellicola:latest
+    container_name: pellicola
+    restart: always
+    ports:
+      - "${PELLICOLA_PORT:-8080}:80"
+    volumes:
+      - ./photos:/usr/src/pellicola/photos
+      - ./pellicola_data/stats:/usr/src/pellicola/stats
+      - ./pellicola_data/config.php:/usr/src/pellicola/config.php:ro

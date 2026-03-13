@@ -1,0 +1,59 @@
+services:
+  proxy:
+    image: openremote/proxy:${PROXY_VERSION:-latest}
+    container_name: openremote-proxy
+    restart: always
+    depends_on:
+      manager:
+        condition: service_healthy
+    ports:
+      - "${OR_HTTP_PORT:-80}:80"
+      - "${OR_SSL_PORT:-443}:443"
+      - "8883:8883"
+    volumes:
+      - proxy-data:/deployment
+    environment:
+      DOMAINNAME: ${OR_HOSTNAME:-localhost}
+      LE_EMAIL: ${OR_EMAIL_ADMIN:-}
+
+  postgresql:
+    image: openremote/postgresql:${POSTGRESQL_VERSION:-latest-slim}
+    container_name: openremote-postgres
+    restart: always
+    shm_size: 128mb
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+      - manager-data:/storage
+
+  keycloak:
+    image: openremote/keycloak:${KEYCLOAK_VERSION:-latest}
+    container_name: openremote-keycloak
+    restart: always
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_ADMIN_PASSWORD: ${OR_ADMIN_PASSWORD:-secret}
+      KC_HOSTNAME: ${OR_HOSTNAME:-localhost}
+      KC_HOSTNAME_PORT: ${OR_SSL_PORT:--1}
+
+  manager:
+    image: openremote/manager:${MANAGER_VERSION:-latest}
+    container_name: openremote-manager
+    restart: always
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      OR_ADMIN_PASSWORD: ${OR_ADMIN_PASSWORD:-secret}
+      OR_HOSTNAME: ${OR_HOSTNAME:-localhost}
+      OR_SSL_PORT: ${OR_SSL_PORT:--1}
+      OR_DEV_MODE: ${OR_DEV_MODE:-false}
+      OR_METRICS_ENABLED: ${OR_METRICS_ENABLED:-true}
+    volumes:
+      - manager-data:/storage
+
+volumes:
+  proxy-data:
+  postgresql-data:
+  manager-data:

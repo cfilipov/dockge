@@ -1,0 +1,22 @@
+services:
+  front:
+    image: tombursch/kitchenowl-web:latest
+    container_name: kitchenowl-web
+    restart: unless-stopped
+    ports:
+      - "${KITCHENOWL_PORT}:80"
+    depends_on:
+      - back
+
+  back:
+    image: tombursch/kitchenowl-backend:latest
+    container_name: kitchenowl-backend
+    restart: unless-stopped
+    environment:
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - FRONT_URL=${FRONT_URL}
+    volumes:
+      - kitchenowl_data:/data
+
+volumes:
+  kitchenowl_data:

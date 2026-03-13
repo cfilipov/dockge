@@ -1,0 +1,45 @@
+services:
+  limbas_pgsql:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-limbasuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-limbaspass}
+      POSTGRES_DB: ${POSTGRES_DB:-openlimbas}
+      POSTGRES_INITDB_ARGS: "--locale C --encoding UTF8"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-limbasuser}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  limbas_web:
+    image: limbas/limbas:latest
+    restart: always
+    depends_on:
+      limbas_pgsql:
+        condition: service_healthy
+    ports:
+      - "8000:80"
+    environment:
+      LIMBAS_DB_HOST: limbas_pgsql
+    volumes:
+      - extensions:/opt/openlimbas/dependent/EXTENSIONS
+      - upload:/opt/openlimbas/dependent/UPLOAD
+      - user:/opt/openlimbas/dependent/USER
+      - temp:/opt/openlimbas/dependent/TEMP
+      - inc:/opt/openlimbas/dependent/inc
+      - backup:/opt/openlimbas/dependent/BACKUP
+      - localassets:/opt/openlimbas/dependent/localassets
+
+volumes:
+  postgres-data:
+  extensions:
+  upload:
+  user:
+  temp:
+  inc:
+  backup:
+  localassets:

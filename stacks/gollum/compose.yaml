@@ -1,0 +1,12 @@
+services:
+  gollum:
+    image: gollumwiki/gollum:master
+    container_name: gollum
+    restart: unless-stopped
+    ports:
+      - "${GOLLUM_PORT:-4567}:4567"
+    volumes:
+      - wiki_data:/wiki
+
+volumes:
+  wiki_data:

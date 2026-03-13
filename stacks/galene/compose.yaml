@@ -1,0 +1,16 @@
+services:
+  galene:
+    image: deburau/galene:latest
+    container_name: galene
+    restart: unless-stopped
+    ports:
+      - "${GALENE_PORT:-8443}:8443"
+    volumes:
+      - galene-data:/opt/galene/data
+      - galene-groups:/opt/galene/groups
+      - galene-recordings:/opt/galene/recordings
+
+volumes:
+  galene-data:
+  galene-groups:
+  galene-recordings:

@@ -1,0 +1,14 @@
+services:
+  lha:
+    image: javalikescript/lha:${LHA_VERSION:-latest}
+    container_name: lha
+    restart: unless-stopped
+    ports:
+      - "${LHA_PORT:-8080}:8080"
+    volumes:
+      - lha-data:/opt/lha/data
+    environment:
+      TZ: ${TZ:-UTC}
+
+volumes:
+  lha-data:

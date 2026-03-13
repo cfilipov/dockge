@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: akkoma
+      POSTGRES_USER: akkoma
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+  akkoma:
+    image: akkoma/akkoma:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      DB_HOST: db
+      DB_NAME: akkoma
+      DB_USER: akkoma
+      DB_PASS: ${POSTGRES_PASSWORD}
+      DOMAIN: ${AKKOMA_DOMAIN}
+      INSTANCE_NAME: ${INSTANCE_NAME}
+    volumes:
+      - ./uploads:/var/lib/akkoma/uploads
+      - ./static:/var/lib/akkoma/static

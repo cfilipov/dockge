@@ -1,0 +1,12 @@
+services:
+  flyimg:
+    image: flyimg/flyimg:latest
+    container_name: flyimg
+    restart: unless-stopped
+    ports:
+      - "${FLYIMG_PORT:-8080}:80"
+    volumes:
+      - flyimg_cache:/var/www/html/var
+
+volumes:
+  flyimg_cache:

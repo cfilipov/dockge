@@ -1,0 +1,21 @@
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "name": "Lura Gateway",
+  "port": 8080,
+  "timeout": "3000ms",
+  "cache_ttl": "300s",
+  "endpoints": [
+    {
+      "endpoint": "/api/example",
+      "method": "GET",
+      "backend": [
+        {
+          "url_pattern": "/posts",
+          "host": ["https://jsonplaceholder.typicode.com"],
+          "method": "GET"
+        }
+      ]
+    }
+  ]
+}

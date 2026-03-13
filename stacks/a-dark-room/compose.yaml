@@ -1,0 +1,11 @@
+services:
+  a-dark-room:
+    image: nginx:alpine
+    container_name: a-dark-room
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
+    environment:
+      - NGINX_HOST=${NGINX_HOST:-localhost}

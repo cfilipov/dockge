@@ -1,0 +1,14 @@
+services:
+  app:
+    image: machines/filestash:latest
+    container_name: filestash
+    restart: unless-stopped
+    ports:
+      - "${FILESTASH_PORT:-8334}:8334"
+    volumes:
+      - filestash_data:/app/data/state/
+    environment:
+      - APPLICATION_URL=${APPLICATION_URL:-}
+
+volumes:
+  filestash_data:

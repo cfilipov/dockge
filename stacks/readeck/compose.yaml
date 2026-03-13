@@ -1,0 +1,12 @@
+services:
+  readeck:
+    image: codeberg.org/readeck/readeck:latest
+    container_name: readeck
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - readeck_data:/readeck
+
+volumes:
+  readeck_data:

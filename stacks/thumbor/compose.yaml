@@ -1,0 +1,24 @@
+services:
+  thumbor:
+    image: thumbororg/thumbor:latest
+    container_name: thumbor
+    restart: unless-stopped
+    ports:
+      - "${THUMBOR_PORT:-8888}:8888"
+    environment:
+      THUMBOR_PORT: 8888
+      SECURITY_KEY: ${SECURITY_KEY:-changeme}
+      ALLOW_UNSAFE_URL: ${ALLOW_UNSAFE_URL:-True}
+      MAX_WIDTH: ${MAX_WIDTH:-1200}
+      MAX_HEIGHT: ${MAX_HEIGHT:-800}
+      QUALITY: ${QUALITY:-85}
+      AUTO_WEBP: ${AUTO_WEBP:-True}
+      STORAGE: thumbor.storages.file_storage
+      FILE_STORAGE_ROOT_PATH: /data/storage
+      RESULT_STORAGE: thumbor.result_storages.file_result_storage
+      RESULT_STORAGE_FILE_STORAGE_ROOT_PATH: /data/result_storage
+    volumes:
+      - thumbor-data:/data
+
+volumes:
+  thumbor-data:

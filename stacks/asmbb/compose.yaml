@@ -1,0 +1,12 @@
+services:
+  asmbb:
+    image: dhclly/asmbb:latest
+    container_name: asmbb
+    restart: unless-stopped
+    ports:
+      - "${ASMBB_PORT:-8080}:80"
+    volumes:
+      - asmbb-data:/opt/asmbb
+
+volumes:
+  asmbb-data:

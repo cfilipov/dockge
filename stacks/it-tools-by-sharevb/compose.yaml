@@ -1,0 +1,7 @@
+services:
+  it-tools:
+    image: sharevb/it-tools:latest
+    container_name: it-tools-sharevb
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"

@@ -1,0 +1,46 @@
+services:
+  pms-database:
+    image: mariadb:11.5.2
+    container_name: pms-database
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-pms}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-changeme}
+    volumes:
+      - pms-db-data:/var/lib/mysql
+
+  pms-nginx:
+    image: yobasystems/alpine-nginx:stable
+    container_name: pms-nginx
+    working_dir: /application
+    restart: always
+    volumes:
+      - pms-app-data:/application
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "${PMS_PORT:-8002}:80"
+    depends_on:
+      - pms-php-fpm
+
+  pms-php-fpm:
+    image: volmarg/personal-management-system:latest
+    container_name: pms-php-fpm
+    working_dir: /application
+    restart: always
+    depends_on:
+      - pms-database
+    volumes:
+      - pms-app-data:/application
+    environment:
+      - DATABASE_URL=mysql://root:${MYSQL_ROOT_PASSWORD:-changeme}@pms-database:3306/${MYSQL_DATABASE:-pms}
+
+  pms-adminer:
+    image: adminer:4.8.0
+    container_name: pms-adminer
+    restart: always
+    ports:
+      - "${ADMINER_PORT:-8081}:8080"
+
+volumes:
+  pms-db-data:
+  pms-app-data:

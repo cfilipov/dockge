@@ -1,0 +1,16 @@
+services:
+  viseron:
+    image: roflcoopter/viseron:latest
+    container_name: viseron
+    restart: unless-stopped
+    shm_size: "1024mb"
+    volumes:
+      - ./segments:/segments
+      - ./snapshots:/snapshots
+      - ./thumbnails:/thumbnails
+      - ./event_clips:/event_clips
+      - ./timelapse:/timelapse
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8888:8888"

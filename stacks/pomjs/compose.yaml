@@ -1,0 +1,8 @@
+services:
+  pomjs:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro

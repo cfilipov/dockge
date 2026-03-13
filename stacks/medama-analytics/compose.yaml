@@ -1,0 +1,14 @@
+services:
+  medama:
+    image: ghcr.io/medama-io/medama:latest
+    container_name: medama
+    restart: unless-stopped
+    ports:
+      - "${MEDAMA_PORT:-8080}:8080"
+    volumes:
+      - medama-data:/data
+    environment:
+      - MEDAMA_BASE_URL=${MEDAMA_BASE_URL:-http://localhost:8080}
+
+volumes:
+  medama-data:

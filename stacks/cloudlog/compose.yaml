@@ -1,0 +1,36 @@
+services:
+  web:
+    image: 2m0sql/cloudlog:latest
+    container_name: cloudlog
+    ports:
+      - "${PORT:-80}:80"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-cloudlog}
+      - MYSQL_USER=${MYSQL_USER:-cloudlog}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-cloudlog_secret}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10.11
+    volumes:
+      - cloudlog_db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_secret}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-cloudlog}
+      - MYSQL_USER=${MYSQL_USER:-cloudlog}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-cloudlog_secret}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  cloudlog_db:

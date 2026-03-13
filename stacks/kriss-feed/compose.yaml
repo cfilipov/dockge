@@ -1,0 +1,12 @@
+services:
+  kriss-feed:
+    image: php:8.2-apache
+    container_name: kriss-feed
+    restart: unless-stopped
+    ports:
+      - "${KRISS_PORT:-8080}:80"
+    volumes:
+      - kriss_data:/var/www/html
+
+volumes:
+  kriss_data:

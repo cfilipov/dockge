@@ -1,0 +1,80 @@
+services:
+  proxy:
+    image: nginx:alpine
+    container_name: tiledesk-proxy
+    ports:
+      - "8081:80"
+    depends_on:
+      - server
+      - dashboard
+    restart: unless-stopped
+
+  server:
+    image: tiledesk/tiledesk-server:latest
+    container_name: tiledesk-server
+    ports:
+      - "3000:3000"
+    environment:
+      MONGODB_URI: "mongodb://mongo:27017/tiledesk"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      RABBITMQ_URI: "amqp://rabbitmq"
+    depends_on:
+      - mongo
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+
+  dashboard:
+    image: tiledesk/tiledesk-dashboard:latest
+    container_name: tiledesk-dashboard
+    ports:
+      - "4500:80"
+    restart: unless-stopped
+
+  widget:
+    image: tiledesk/chat21-web-widget:latest
+    container_name: tiledesk-widget
+    ports:
+      - "4200:80"
+    restart: unless-stopped
+
+  chat21-server:
+    image: chat21/chat21-server:latest
+    container_name: tiledesk-chat21
+    environment:
+      MONGODB_URI: "mongodb://mongo:27017/chat21"
+      RABBITMQ_URI: "amqp://rabbitmq"
+    depends_on:
+      - mongo
+      - rabbitmq
+    restart: unless-stopped
+
+  chat21-http-server:
+    image: chat21/chat21-http-server:latest
+    container_name: tiledesk-chat21-http
+    ports:
+      - "8004:8004"
+    depends_on:
+      - chat21-server
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:6
+    container_name: tiledesk-mongo
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tiledesk-redis
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: tiledesk-rabbitmq
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

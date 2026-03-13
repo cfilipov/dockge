@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    restart: unless-stopped
+
+  elasticsearch:
+    image: ghcr.io/alephdata/aleph-elasticsearch:3bb5dbed97cfdb9955324d11e5c623a5c5bbc410
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS}
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "3600", "10"]
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/alephdata/aleph:${ALEPH_TAG}
+    command: aleph worker
+    depends_on:
+      - postgres
+      - elasticsearch
+      - redis
+    volumes:
+      - archive-data:/data
+    environment:
+      ALEPH_SECRET_KEY: ${ALEPH_SECRET_KEY}
+      ALEPH_APP_TITLE: ${ALEPH_APP_TITLE}
+      ALEPH_UI_URL: ${ALEPH_UI_URL}
+      ALEPH_DATABASE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      ALEPH_ELASTICSEARCH_URI: http://elasticsearch:9200
+      ARCHIVE_PATH: /data
+      REDIS_URL: redis://redis:6379/0
+    restart: on-failure
+
+  api:
+    image: ghcr.io/alephdata/aleph:${ALEPH_TAG}
+    expose:
+      - "8000"
+    depends_on:
+      - postgres
+      - elasticsearch
+      - redis
+      - worker
+    volumes:
+      - archive-data:/data
+    environment:
+      ALEPH_SECRET_KEY: ${ALEPH_SECRET_KEY}
+      ALEPH_APP_TITLE: ${ALEPH_APP_TITLE}
+      ALEPH_UI_URL: ${ALEPH_UI_URL}
+      ALEPH_DATABASE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      ALEPH_ELASTICSEARCH_URI: http://elasticsearch:9200
+      ARCHIVE_PATH: /data
+      REDIS_URL: redis://redis:6379/0
+    restart: unless-stopped
+
+  ui:
+    image: ghcr.io/alephdata/aleph-ui-production:${ALEPH_TAG}
+    depends_on:
+      - api
+    ports:
+      - "${ALEPH_PORT}:8080"
+    restart: unless-stopped
+
+volumes:
+  archive-data:
+  postgres-data:
+  redis-data:
+  elasticsearch-data:

@@ -1,0 +1,10 @@
+services:
+  dovel:
+    image: bleemayer/dovel:latest
+    container_name: dovel
+    ports:
+      - "25:25"
+      - "8080:8080"
+    volumes:
+      - ./config:/root/.config/dovel/
+    restart: unless-stopped

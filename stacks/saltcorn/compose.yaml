@@ -1,0 +1,35 @@
+services:
+  saltcorn-app:
+    image: saltcorn/saltcorn
+    container_name: saltcorn
+    depends_on:
+      - saltcorn-db
+    command: "serve"
+    restart: always
+    networks:
+      - saltcorn
+    ports:
+      - "3000:3000"
+    environment:
+      - SALTCORN_SESSION_SECRET=${SALTCORN_SECRET}
+      - PGHOST=saltcorn-db
+      - PGUSER=${PGUSER}
+      - PGDATABASE=${PGDATABASE}
+      - PGPASSWORD=${PGPASSWORD}
+
+  saltcorn-db:
+    image: postgres:13-alpine
+    container_name: saltcorn-db
+    restart: always
+    networks:
+      - saltcorn
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${PGUSER}
+      - POSTGRES_PASSWORD=${PGPASSWORD}
+      - POSTGRES_DB=${PGDATABASE}
+
+networks:
+  saltcorn:
+    name: saltcorn-net

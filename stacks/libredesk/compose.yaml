@@ -1,0 +1,44 @@
+services:
+  app:
+    image: libredesk/libredesk:latest
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      LIBREDESK_SYSTEM_USER_PASSWORD: ${LIBREDESK_SYSTEM_USER_PASSWORD:-}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - uploads:/libredesk/uploads:rw
+      - ./config.toml:/libredesk/config.toml
+    command: >
+      sh -c "./libredesk --install --idempotent-install --yes --config /libredesk/config.toml &&
+             ./libredesk --upgrade --yes --config /libredesk/config.toml &&
+             ./libredesk --config /libredesk/config.toml"
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-libredesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-libredesk}
+      POSTGRES_DB: ${POSTGRES_DB:-libredesk}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U libredesk -d libredesk"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  uploads:
+  postgres-data:
+  redis-data:

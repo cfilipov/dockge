@@ -1,0 +1,17 @@
+services:
+  signaturepdf:
+    image: xgaia/signaturepdf:latest
+    container_name: signaturepdf
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PDF_STORAGE_PATH: /data/pdfs
+      PDF_STORAGE_ENCRYPTION: "false"
+      DISABLE_ORGANIZATION: "false"
+      PDF_DEMO_LINK: "true"
+    volumes:
+      - pdf_data:/data/pdfs
+
+volumes:
+  pdf_data:

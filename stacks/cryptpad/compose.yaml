@@ -1,0 +1,29 @@
+services:
+  cryptpad:
+    image: cryptpad/cryptpad:latest
+    hostname: cryptpad
+    restart: unless-stopped
+    environment:
+      - CPAD_MAIN_DOMAIN=${CPAD_MAIN_DOMAIN:-https://localhost:3000}
+      - CPAD_SANDBOX_DOMAIN=${CPAD_SANDBOX_DOMAIN:-https://localhost:3001}
+      - CPAD_CONF=/cryptpad/config/config.js
+    volumes:
+      - blob-data:/cryptpad/blob
+      - block-data:/cryptpad/block
+      - customize:/cryptpad/customize
+      - data:/cryptpad/data
+      - datastore:/cryptpad/datastore
+    ports:
+      - "3000:3000"
+      - "3003:3003"
+    ulimits:
+      nofile:
+        soft: 1000000
+        hard: 1000000
+
+volumes:
+  blob-data:
+  block-data:
+  customize:
+  data:
+  datastore:

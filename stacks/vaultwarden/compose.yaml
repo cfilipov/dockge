@@ -1,0 +1,13 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    restart: always
+    environment:
+      SIGNUPS_ALLOWED: "true"
+    volumes:
+      - vw-data:/data
+    ports:
+      - "80:80"
+
+volumes:
+  vw-data:

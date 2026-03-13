@@ -1,0 +1,70 @@
+services:
+  api:
+    image: ghcr.io/saleor/saleor:3.22
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped
+    depends_on:
+      - db
+      - cache
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-saleor}:${POSTGRES_PASSWORD:-saleor}@db/${POSTGRES_DB:-saleor}
+      CACHE_URL: redis://cache:6379/0
+      CELERY_BROKER_URL: redis://cache:6379/1
+      SECRET_KEY: ${SECRET_KEY:-changeme}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+      DASHBOARD_URL: http://localhost:${DASHBOARD_PORT:-9000}/
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@example.com}
+      EMAIL_URL: smtp://mailpit:1025
+    volumes:
+      - saleor_media:/app/media
+
+  dashboard:
+    image: ghcr.io/saleor/saleor-dashboard:latest
+    ports:
+      - "${DASHBOARD_PORT:-9000}:80"
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saleor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saleor}
+      POSTGRES_DB: ${POSTGRES_DB:-saleor}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  cache:
+    image: valkey/valkey:8.1-alpine
+    restart: unless-stopped
+    volumes:
+      - cache_data:/data
+
+  worker:
+    image: ghcr.io/saleor/saleor:3.22
+    command: celery -A saleor --app=saleor.celeryconf:app worker --loglevel=info -B
+    restart: unless-stopped
+    depends_on:
+      - cache
+      - mailpit
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-saleor}:${POSTGRES_PASSWORD:-saleor}@db/${POSTGRES_DB:-saleor}
+      CACHE_URL: redis://cache:6379/0
+      CELERY_BROKER_URL: redis://cache:6379/1
+      SECRET_KEY: ${SECRET_KEY:-changeme}
+      EMAIL_URL: smtp://mailpit:1025
+    volumes:
+      - saleor_media:/app/media
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  cache_data:
+  saleor_media:

@@ -1,0 +1,21 @@
+services:
+  restreamer:
+    image: datarhei/restreamer:latest
+    container_name: restreamer
+    restart: unless-stopped
+    ports:
+      - "${RESTREAMER_HTTP_PORT:-8080}:8080"
+      - "${RESTREAMER_HTTPS_PORT:-8181}:8181"
+      - "${RESTREAMER_RTMP_PORT:-1935}:1935"
+      - "${RESTREAMER_SRT_PORT:-6000}:6000/udp"
+    volumes:
+      - restreamer-config:/core/config
+      - restreamer-data:/core/data
+    environment:
+      - CORE_API_AUTH_USERNAME=${CORE_API_AUTH_USERNAME}
+      - CORE_API_AUTH_PASSWORD=${CORE_API_AUTH_PASSWORD}
+      - CORE_API_AUTH_ENABLE=true
+
+volumes:
+  restreamer-config:
+  restreamer-data:

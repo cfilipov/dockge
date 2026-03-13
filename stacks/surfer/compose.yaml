@@ -1,0 +1,14 @@
+services:
+  surfer:
+    image: cloudron/io.cloudron.surfer:latest
+    container_name: surfer
+    restart: unless-stopped
+    ports:
+      - "${SURFER_PORT:-3000}:3000"
+    volumes:
+      - data:/app/data
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  data:

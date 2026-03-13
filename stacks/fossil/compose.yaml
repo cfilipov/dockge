@@ -1,0 +1,13 @@
+services:
+  fossil:
+    image: keyopt/fossil-scm:latest
+    container_name: fossil
+    restart: unless-stopped
+    ports:
+      - "${FOSSIL_PORT:-8080}:8080"
+    volumes:
+      - fossil-repos:/repos
+    command: ["fossil", "server", "--port", "8080", "--repolist", "/repos"]
+
+volumes:
+  fossil-repos:

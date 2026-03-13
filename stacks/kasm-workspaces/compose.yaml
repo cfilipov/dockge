@@ -1,0 +1,10 @@
+services:
+  kasm:
+    image: kasmweb/workspaces:1.18.0
+    container_name: kasm-workspaces
+    restart: unless-stopped
+    ports:
+      - "${HTTPS_PORT:-6901}:6901"
+    shm_size: 512m
+    environment:
+      VNC_PW: ${VNC_PW:-password}

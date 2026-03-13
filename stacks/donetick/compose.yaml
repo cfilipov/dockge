@@ -1,0 +1,14 @@
+services:
+  donetick:
+    image: donetick/donetick:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-2021}:2021"
+    volumes:
+      - ./config:/app/config:ro
+      - data:/app/data
+    environment:
+      DT_ENV: selfhosted
+
+volumes:
+  data:

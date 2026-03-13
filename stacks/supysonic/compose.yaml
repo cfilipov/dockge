@@ -1,0 +1,12 @@
+services:
+  supysonic:
+    image: ogarcia/supysonic:latest
+    container_name: supysonic
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ${MUSIC_DIR:-./music}:/music:ro
+      - ${DATA_DIR:-./data}:/var/lib/supysonic
+    environment:
+      - SUPYSONIC_DB_URI=${SUPYSONIC_DB_URI:-sqlite:////var/lib/supysonic/supysonic.db}
+    restart: unless-stopped

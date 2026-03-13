@@ -1,0 +1,20 @@
+services:
+  main:
+    image: ghcr.io/processone/ejabberd
+    container_name: ejabberd
+    environment:
+      - EJABBERD_MACRO_HOST=example.com
+      - EJABBERD_MACRO_ADMIN=admin@example.com
+      - REGISTER_ADMIN_PASSWORD=somePassw0rd
+      - CTL_ON_START=registered_users example.com ;
+                     status
+    ports:
+      - "5222:5222"
+      - "5269:5269"
+      - "5280:5280"
+      - "5443:5443"
+    volumes:
+      - database:/opt/ejabberd/database
+
+volumes:
+  database:

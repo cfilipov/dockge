@@ -1,0 +1,70 @@
+services:
+  proxy:
+    image: reallibrephotos/librephotos-proxy:${TAG:-latest}
+    container_name: librephotos-proxy
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-3000}:80"
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - ${SCAN_DIRECTORY:-./photos}:/data
+      - librephotos-media:/protected_media
+
+  db:
+    image: pgautoupgrade/pgautoupgrade:latest
+    container_name: librephotos-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - librephotos-db:/var/lib/postgresql
+    healthcheck:
+      test: psql -U ${DB_USER} -d ${DB_NAME} -c "SELECT 1;"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: reallibrephotos/librephotos-frontend:${TAG:-latest}
+    container_name: librephotos-frontend
+    restart: unless-stopped
+
+  backend:
+    image: reallibrephotos/librephotos:${TAG:-latest}
+    container_name: librephotos-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ${SCAN_DIRECTORY:-./photos}:/data
+      - librephotos-media:/protected_media
+      - librephotos-logs:/logs
+      - librephotos-cache:/root/.cache
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      BACKEND_HOST: backend
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      DB_BACKEND: postgresql
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_HOST: db
+      DB_PORT: "5432"
+      MAPBOX_API_KEY: ${MAPBOX_API_KEY:-}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
+      SKIP_PATTERNS: ${SKIP_PATTERNS:-}
+      ALLOW_UPLOAD: ${ALLOW_UPLOAD:-false}
+      DEBUG: "0"
+
+volumes:
+  librephotos-db:
+  librephotos-media:
+  librephotos-logs:
+  librephotos-cache:

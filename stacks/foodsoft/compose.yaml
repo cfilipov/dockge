@@ -1,0 +1,48 @@
+services:
+  foodsoft:
+    image: foodcoops/foodsoft:latest
+    restart: always
+    command: ./proc-start web
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=mysql2://root:${MYSQL_ROOT_PASSWORD}@mariadb/foodsoft?encoding=utf8mb4
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - RAILS_FORCE_SSL=false
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      - mariadb
+      - redis
+
+  foodsoft-worker:
+    image: foodcoops/foodsoft:latest
+    restart: always
+    command: ./proc-start worker
+    environment:
+      - DATABASE_URL=mysql2://root:${MYSQL_ROOT_PASSWORD}@mariadb/foodsoft?encoding=utf8mb4
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      - mariadb
+      - redis
+
+  mariadb:
+    image: mariadb:10.5
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=foodsoft
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  redis:
+    image: redis:6.2-alpine
+    restart: always
+
+volumes:
+  mariadb-data:
+  storage:

@@ -1,0 +1,12 @@
+services:
+  spooty:
+    image: raiper34/spooty:latest
+    container_name: spooty
+    restart: unless-stopped
+    ports:
+      - "${SPOOTY_PORT}:3000"
+    volumes:
+      - ${DOWNLOADS_DIR}:/spooty/backend/downloads
+    environment:
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}

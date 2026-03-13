@@ -1,0 +1,12 @@
+services:
+  wallos:
+    image: bellamy/wallos:latest
+    container_name: wallos
+    ports:
+      - "${WALLOS_PORT:-8282}:80/tcp"
+    environment:
+      TZ: ${TZ:-America/Toronto}
+    volumes:
+      - ./db:/var/www/html/db
+      - ./logos:/var/www/html/images/uploads/logos
+    restart: unless-stopped

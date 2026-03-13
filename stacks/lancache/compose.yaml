@@ -1,0 +1,21 @@
+services:
+  dns:
+    image: lancachenet/lancache-dns:latest
+    container_name: lancache-dns
+    restart: unless-stopped
+    ports:
+      - "${DNS_BIND_IP:-10.0.39.1}:53:53/udp"
+      - "${DNS_BIND_IP:-10.0.39.1}:53:53/tcp"
+    env_file: .env
+
+  monolithic:
+    image: lancachenet/monolithic:latest
+    container_name: lancache
+    restart: unless-stopped
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+    volumes:
+      - ${CACHE_ROOT:-./lancache}/cache:/data/cache
+      - ${CACHE_ROOT:-./lancache}/logs:/data/logs
+    env_file: .env

@@ -1,0 +1,17 @@
+services:
+  amusewiki:
+    image: rojen/amusewiki:latest
+    container_name: amusewiki
+    restart: unless-stopped
+    ports:
+      - "${AMUSEWIKI_PORT:-8080}:8080"
+    volumes:
+      - amusewiki_data:/var/lib/amusewiki
+      - amusewiki_log:/var/log/amusewiki
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+
+volumes:
+  amusewiki_data:
+  amusewiki_log:

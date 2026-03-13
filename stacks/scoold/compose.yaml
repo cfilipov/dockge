@@ -1,0 +1,28 @@
+services:
+  para:
+    image: erudikaltd/para:latest_stable
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      JAVA_OPTS: -Dconfig.file=/para/application.conf -Dloader.path=/para/lib
+    volumes:
+      - para-data:/para/data
+      - para-lib:/para/lib
+
+  scoold:
+    image: erudikaltd/scoold:latest_stable
+    restart: always
+    depends_on:
+      - para
+    ports:
+      - "8000:8000"
+    environment:
+      JAVA_OPTS: >-
+        -Dconfig.file=/scoold/application.conf
+        -Dscoold.para_endpoint=http://para:8080
+      BOOT_SLEEP: "5"
+
+volumes:
+  para-data:
+  para-lib:

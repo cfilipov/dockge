@@ -1,0 +1,24 @@
+services:
+  roundcubedb:
+    image: mysql:latest
+    volumes:
+      - ./db/mysql:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=roundcube-mysql-pw
+      - MYSQL_DATABASE=roundcubemail
+
+  roundcubemail:
+    image: roundcube/roundcubemail:latest
+    depends_on:
+      - roundcubedb
+    volumes:
+      - ./www:/var/www/html
+    ports:
+      - "9001:80"
+    environment:
+      - ROUNDCUBEMAIL_DB_TYPE=mysql
+      - ROUNDCUBEMAIL_DB_HOST=roundcubedb
+      - ROUNDCUBEMAIL_DB_PASSWORD=roundcube-mysql-pw
+      - ROUNDCUBEMAIL_SKIN=elastic
+      - ROUNDCUBEMAIL_DEFAULT_HOST=tls://mail.example.org
+      - ROUNDCUBEMAIL_SMTP_SERVER=tls://mail.example.org

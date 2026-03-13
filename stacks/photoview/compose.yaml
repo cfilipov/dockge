@@ -1,0 +1,49 @@
+services:
+  photoview:
+    image: photoview/photoview:2
+    container_name: photoview
+    restart: unless-stopped
+    stop_grace_period: 10s
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "${PHOTOVIEW_PORT:-8000}:80"
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    environment:
+      PHOTOVIEW_DATABASE_DRIVER: mysql
+      PHOTOVIEW_MYSQL_URL: "${MARIADB_USER}:${MARIADB_PASSWORD}@tcp(photoview-mariadb)/${MARIADB_DATABASE}"
+      PHOTOVIEW_LISTEN_IP: "0.0.0.0"
+      MAPBOX_TOKEN: ${MAPBOX_TOKEN:-}
+    volumes:
+      - ${PHOTO_DIR:-./photos}:/photos:ro
+      - photoview-cache:/home/photoview/media-cache
+
+  mariadb:
+    image: mariadb:11
+    container_name: photoview-mariadb
+    restart: unless-stopped
+    stop_grace_period: 5s
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    environment:
+      MARIADB_AUTO_UPGRADE: "1"
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-photoview}
+      MARIADB_USER: ${MARIADB_USER:-photoview}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-photosecret}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootsecret}
+    volumes:
+      - photoview-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  photoview-cache:
+  photoview-db:

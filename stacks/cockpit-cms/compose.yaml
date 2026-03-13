@@ -1,0 +1,25 @@
+services:
+  cockpit:
+    image: cockpithq/cockpit:core-latest
+    container_name: cockpit
+    ports:
+      - "8080:80"
+    environment:
+      COCKPIT_DATABASE_SERVER: mongodb://mongo:27017
+      COCKPIT_DATABASE_NAME: cockpit
+    depends_on:
+      - mongo
+    volumes:
+      - cockpit_storage:/var/www/html/storage
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:8
+    container_name: cockpit-mongo
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  cockpit_storage:
+  mongo_data:

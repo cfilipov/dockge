@@ -1,0 +1,51 @@
+services:
+  wordpress:
+    image: wordpress:latest
+    ports:
+      - "${WP_PORT:-8080}:80"
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE:-wordpress}
+      WORDPRESS_DB_USER: ${MYSQL_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:-wordpress}
+      WORDPRESS_TABLE_PREFIX: ${WP_TABLE_PREFIX:-wp_}
+    volumes:
+      - wordpress_data:/var/www/html
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-wordpress}
+      MYSQL_USER: ${MYSQL_USER:-wordpress}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wordpress}
+    volumes:
+      - db_data:/var/lib/mysql
+
+  wpcli:
+    image: wordpress:cli
+    depends_on:
+      - wordpress
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE:-wordpress}
+      WORDPRESS_DB_USER: ${MYSQL_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:-wordpress}
+    volumes:
+      - wordpress_data:/var/www/html
+    command: >
+      sh -c "
+        wp core install --url=${WP_URL:-http://localhost:8080} --title='WooCommerce Store' --admin_user=${WP_ADMIN_USER:-admin} --admin_password=${WP_ADMIN_PASSWORD:-admin} --admin_email=${WP_ADMIN_EMAIL:-admin@example.com} --skip-email;
+        wp plugin install woocommerce --activate;
+      "
+    profiles:
+      - setup
+
+volumes:
+  wordpress_data:
+  db_data:

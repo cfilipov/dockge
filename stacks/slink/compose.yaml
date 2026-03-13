@@ -1,0 +1,30 @@
+services:
+  slink:
+    image: anirdev/slink:latest
+    container_name: slink
+    restart: unless-stopped
+    ports:
+      - "${SLINK_PORT:-8080}:8080"
+    environment:
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@slink-db:5432/${POSTGRES_DB}?serverVersion=16
+      STORAGE_PROVIDER: local
+    volumes:
+      - slink-uploads:/app/var/storage
+    depends_on:
+      - slink-db
+
+  slink-db:
+    image: postgres:16-alpine
+    container_name: slink-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - slink-db:/var/lib/postgresql/data
+
+volumes:
+  slink-uploads:
+  slink-db:

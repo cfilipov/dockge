@@ -1,0 +1,14 @@
+services:
+  fmd-server:
+    image: nulide/fmd-server:${FMD_VERSION:-latest}
+    container_name: fmd-server
+    restart: unless-stopped
+    ports:
+      - "${FMD_PORT:-8080}:8080"
+    volumes:
+      - fmd-data:/data
+    environment:
+      TZ: ${TZ:-UTC}
+
+volumes:
+  fmd-data:

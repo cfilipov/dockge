@@ -1,0 +1,27 @@
+services:
+  zimbra:
+    image: zimbra/zm-docker:${ZIMBRA_VERSION:-10.1}
+    container_name: zimbra
+    restart: unless-stopped
+    hostname: ${ZIMBRA_HOSTNAME}
+    ports:
+      - "${ZIMBRA_HTTP_PORT:-8080}:80"
+      - "${ZIMBRA_HTTPS_PORT:-8443}:443"
+      - "${ZIMBRA_SMTP_PORT:-2525}:25"
+      - "${ZIMBRA_IMAP_PORT:-1143}:143"
+      - "${ZIMBRA_IMAPS_PORT:-1993}:993"
+      - "${ZIMBRA_ADMIN_PORT:-7071}:7071"
+    environment:
+      ZIMBRA_HOST: ${ZIMBRA_HOSTNAME}
+      ZIMBRA_ADMIN_PASSWORD: ${ZIMBRA_ADMIN_PASSWORD}
+    volumes:
+      - zimbra_opt:/opt/zimbra
+    networks:
+      - zimbra
+
+volumes:
+  zimbra_opt:
+
+networks:
+  zimbra:
+    driver: bridge

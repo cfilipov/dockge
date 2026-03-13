@@ -1,0 +1,41 @@
+services:
+  app:
+    image: robiningelbrecht/strava-statistics:latest
+    container_name: statistics-for-strava-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8081}:8080"
+    volumes:
+      - ./config/app:/var/www/config/app
+      - app-build:/var/www/build
+      - app-database:/var/www/storage/database
+      - app-files:/var/www/storage/files
+      - app-gear:/var/www/storage/gear-maintenance
+    environment:
+      - TZ=${TZ:-Europe/Brussels}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2019/metrics"]
+      start_period: 60s
+
+  daemon:
+    image: robiningelbrecht/strava-statistics:latest
+    container_name: statistics-for-strava-daemon
+    restart: unless-stopped
+    volumes:
+      - ./config/app:/var/www/config/app
+      - app-build:/var/www/build
+      - app-database:/var/www/storage/database
+      - app-files:/var/www/storage/files
+      - app-gear:/var/www/storage/gear-maintenance
+    environment:
+      - TZ=${TZ:-Europe/Brussels}
+    entrypoint: ["bin/console", "app:daemon:run"]
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /var/www/storage/database/strava.db && echo 'ok' || exit 1"]
+      start_period: 5s
+
+volumes:
+  app-build:
+  app-database:
+  app-files:
+  app-gear:

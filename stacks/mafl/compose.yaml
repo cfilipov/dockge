@@ -1,0 +1,9 @@
+services:
+  mafl:
+    image: hywax/mafl:latest
+    container_name: mafl
+    ports:
+      - "${MAFL_PORT:-3000}:3000"
+    volumes:
+      - ./config.yml:/app/data/config.yml
+    restart: unless-stopped

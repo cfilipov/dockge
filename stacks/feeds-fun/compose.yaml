@@ -1,0 +1,37 @@
+services:
+  postgresql:
+    image: postgres:16-alpine
+    container_name: feeds-fun-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - feeds_fun_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: tiendil/feeds.fun:${FFUN_TAG:-latest}
+    container_name: feeds-fun-backend
+    restart: unless-stopped
+    ports:
+      - "${FFUN_PORT:-8000}:8000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      - FFUN_POSTGRESQL_HOST=postgresql
+      - FFUN_POSTGRESQL_PORT=5432
+      - FFUN_POSTGRESQL_DB=${POSTGRES_DB}
+      - FFUN_POSTGRESQL_USER=${POSTGRES_USER}
+      - FFUN_POSTGRESQL_PASSWORD=${POSTGRES_PASSWORD}
+      - FFUN_ENABLE_API_SPA=${FFUN_ENABLE_API_SPA:-True}
+      - FFUN_ENABLE_API_ROOT=${FFUN_ENABLE_API_ROOT:-True}
+
+volumes:
+  feeds_fun_db:

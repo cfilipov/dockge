@@ -1,0 +1,80 @@
+services:
+  app:
+    image: aimeos/aimeos:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+      - "${VITE_PORT:-5173}:5173"
+    environment:
+      WWWUSER: "${WWWUSER:-1000}"
+      LARAVEL_SAIL: 1
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-aimeos}
+      DB_USERNAME: ${DB_USERNAME:-aimeos}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - app-data:/var/www/html
+    networks:
+      - aimeos
+    depends_on:
+      - mysql
+      - minio
+
+  mysql:
+    image: mysql/mysql-server:8.0
+    restart: unless-stopped
+    ports:
+      - "${FORWARD_DB_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:-secret}"
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: "${DB_DATABASE:-aimeos}"
+      MYSQL_USER: "${DB_USERNAME:-aimeos}"
+      MYSQL_PASSWORD: "${DB_PASSWORD:-secret}"
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - aimeos
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD:-secret}"]
+      retries: 3
+      timeout: 5s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    ports:
+      - "${FORWARD_MINIO_PORT:-9000}:9000"
+      - "${FORWARD_MINIO_CONSOLE_PORT:-8900}:8900"
+    environment:
+      MINIO_ROOT_USER: sail
+      MINIO_ROOT_PASSWORD: password
+    volumes:
+      - minio-data:/data/minio
+    networks:
+      - aimeos
+    command: minio server /data/minio --console-address ":8900"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      retries: 3
+      timeout: 5s
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "${FORWARD_MAILHOG_PORT:-1025}:1025"
+      - "${FORWARD_MAILHOG_DASHBOARD_PORT:-8025}:8025"
+    networks:
+      - aimeos
+
+networks:
+  aimeos:
+    driver: bridge
+
+volumes:
+  app-data:
+  mysql-data:
+  minio-data:

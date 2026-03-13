@@ -1,0 +1,12 @@
+services:
+  bludit:
+    image: bludit/docker:latest
+    container_name: bludit
+    ports:
+      - "8000:80"
+    volumes:
+      - bludit_content:/var/www/html/bl-content
+    restart: unless-stopped
+
+volumes:
+  bludit_content:

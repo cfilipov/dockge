@@ -1,0 +1,14 @@
+services:
+  statping:
+    image: adamboutcher/statping-ng:latest
+    container_name: statping
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      DB_CONN: sqlite
+    volumes:
+      - statping_data:/app
+
+volumes:
+  statping_data:

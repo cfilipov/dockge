@@ -1,0 +1,27 @@
+services:
+  couchcms:
+    image: php:8.1-apache
+    container_name: couchcms
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    volumes:
+      - couchcms_data:/var/www/html
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: couchcms-mysql
+    environment:
+      MYSQL_DATABASE: couchcms
+      MYSQL_USER: couchcms
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  couchcms_data:
+  mysql_data:

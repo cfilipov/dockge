@@ -1,0 +1,32 @@
+services:
+  uploady:
+    image: farisc0de/uploady:latest
+    container_name: uploady
+    restart: unless-stopped
+    ports:
+      - "${UPLOADY_PORT:-8080}:80"
+    environment:
+      DB_HOST: uploady-db
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASS: ${MYSQL_PASSWORD}
+    volumes:
+      - uploady-uploads:/var/www/html/uploads
+    depends_on:
+      - uploady-db
+
+  uploady-db:
+    image: mysql:8.0
+    container_name: uploady-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - uploady-db:/var/lib/mysql
+
+volumes:
+  uploady-uploads:
+  uploady-db:

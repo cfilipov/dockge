@@ -1,0 +1,10 @@
+ydl_server:
+  port: 8080
+  host: 0.0.0.0
+  metadata_db_path: '/youtube-dl/.ydl-metadata.db'
+  default_format: 'video/best'
+  download_workers_count: 2
+
+ydl_options:
+  output: '/youtube-dl/%(title)s [%(id)s].%(ext)s'
+  cache-dir: '/youtube-dl/.cache'

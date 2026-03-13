@@ -1,0 +1,21 @@
+services:
+  gonic:
+    image: sentriz/gonic:${GONIC_VERSION:-latest}
+    container_name: gonic
+    restart: unless-stopped
+    ports:
+      - "${GONIC_PORT:-4747}:4747"
+    environment:
+      GONIC_MUSIC_PATH: /music
+      GONIC_PODCAST_PATH: /podcasts
+      GONIC_PLAYLISTS_PATH: /playlists
+      GONIC_CACHE_PATH: /cache
+      GONIC_DB_PATH: /data/gonic.db
+      GONIC_SCAN_INTERVAL: ${GONIC_SCAN_INTERVAL:-60}
+      GONIC_SCAN_AT_START_ENABLED: ${GONIC_SCAN_AT_START:-true}
+    volumes:
+      - ./music:/music:ro
+      - ./podcasts:/podcasts
+      - ./playlists:/playlists
+      - ./cache:/cache
+      - ./data:/data

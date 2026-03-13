@@ -1,0 +1,21 @@
+# Based on https://doc.dovecot.org/2.4.2/installation/docker.html
+
+services:
+    dovecot:
+        container_name: dovecot
+        image: dovecot/dovecot:latest
+        restart: unless-stopped
+        ports:
+            - "143:31143"   # IMAP
+            - "993:31993"   # IMAPS
+            - "110:31110"   # POP3
+            - "995:31990"   # POP3S
+            - "465:31465"   # Submissions
+            - "587:31587"   # Submission
+            - "24:31024"    # LMTPS
+            - "4190:34190"  # ManageSieve
+            - "8080:8080"   # HTTP API
+            - "9090:9090"   # Metrics
+        volumes:
+            - ./vmail:/srv/vmail
+            - ./config:/etc/dovecot/conf.d:ro

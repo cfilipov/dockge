@@ -1,0 +1,12 @@
+services:
+  kottster:
+    image: kottster/kottster:latest
+    restart: unless-stopped
+    ports:
+      - "5480:5480"
+      - "5481:5481"
+    volumes:
+      - kottster-data:/app/data
+
+volumes:
+  kottster-data:

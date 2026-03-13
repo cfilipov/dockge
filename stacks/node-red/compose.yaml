@@ -1,0 +1,15 @@
+services:
+  node-red:
+    image: nodered/node-red:${NODERED_VERSION:-latest}
+    container_name: node-red
+    restart: unless-stopped
+    ports:
+      - "${NODERED_PORT:-1880}:1880"
+    volumes:
+      - node-red-data:/data
+    environment:
+      TZ: ${TZ:-UTC}
+      NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:-changeme}
+
+volumes:
+  node-red-data:

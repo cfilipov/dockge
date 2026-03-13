@@ -1,0 +1,15 @@
+services:
+  lesma:
+    image: ogarcia/lesma:latest
+    container_name: lesma
+    restart: unless-stopped
+    ports:
+      - "${LESMA_PORT:-8000}:8000"
+    volumes:
+      - ./data:/var/lib/lesma
+    environment:
+      - LESMA_LISTEN=0.0.0.0:8000
+      - LESMA_STORAGE=/var/lib/lesma
+      - LESMA_MAX_SIZE=${LESMA_MAX_SIZE:-5242880}
+      - LESMA_MAX_VIEWS=${LESMA_MAX_VIEWS:-100}
+      - LESMA_MAX_EXPIRATION=${LESMA_MAX_EXPIRATION:-168h}

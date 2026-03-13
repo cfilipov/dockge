@@ -1,0 +1,12 @@
+services:
+  haraka:
+    image: instrumentisto/haraka:latest
+    container_name: haraka
+    ports:
+      - "25:25"
+    volumes:
+      - haraka-config:/etc/haraka/config
+    restart: unless-stopped
+
+volumes:
+  haraka-config:

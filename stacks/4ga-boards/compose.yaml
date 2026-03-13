@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: 4gaBoards
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-A scram-sha-256"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d 4gaBoards"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  4gaboards:
+    image: ghcr.io/rargames/4gaboards:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:1337"
+    volumes:
+      - user-avatars:/app/public/user-avatars
+      - project-backgrounds:/app/public/project-background-images
+      - attachments:/app/private/attachments
+    environment:
+      BASE_URL: ${BASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db/4gaBoards
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  user-avatars:
+  project-backgrounds:
+  attachments:

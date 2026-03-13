@@ -1,0 +1,10 @@
+services:
+  mirotalkc2c:
+    image: mirotalk/c2c:latest
+    container_name: mirotalkc2c
+    hostname: mirotalkc2c
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    volumes:
+      - .env:/src/.env:ro

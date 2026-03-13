@@ -1,0 +1,16 @@
+services:
+  awstats:
+    image: pabra/awstats:latest
+    container_name: awstats
+    ports:
+      - "3000:80"
+    environment:
+      - AWSTATS_CONF_LOGFILE=/var/log/apache2/access.log
+      - AWSTATS_CONF_SITEDOMAIN=localhost
+    volumes:
+      - ./logs:/var/log/apache2:ro
+      - awstats-data:/var/lib/awstats
+    restart: unless-stopped
+
+volumes:
+  awstats-data:

@@ -1,0 +1,44 @@
+services:
+  cloudreve:
+    image: cloudreve/cloudreve:${CLOUDREVE_VERSION}
+    container_name: cloudreve-backend
+    restart: unless-stopped
+    ports:
+      - "${CLOUDREVE_PORT}:5212"
+      - "${CLOUDREVE_BT_PORT}:6888"
+      - "${CLOUDREVE_BT_PORT}:6888/udp"
+    environment:
+      CR_CONF_Database.Type: postgres
+      CR_CONF_Database.Host: postgresql
+      CR_CONF_Database.User: ${POSTGRES_USER}
+      CR_CONF_Database.Name: ${POSTGRES_DB}
+      CR_CONF_Database.Port: "5432"
+      CR_CONF_Redis.Server: "redis:6379"
+    volumes:
+      - backend_data:/cloudreve/data
+    depends_on:
+      - postgresql
+      - redis
+
+  postgresql:
+    image: postgres:${POSTGRES_VERSION}
+    container_name: cloudreve-postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - database_postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    container_name: cloudreve-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  backend_data:
+  database_postgres:
+  redis_data:

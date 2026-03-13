@@ -1,0 +1,16 @@
+services:
+  mikochi:
+    image: zer0tonin/mikochi:latest
+    container_name: mikochi
+    restart: unless-stopped
+    ports:
+      - "${MIKOCHI_PORT:-8080}:8080"
+    volumes:
+      - data:/data
+    environment:
+      - USERNAME=${MIKOCHI_USERNAME:-admin}
+      - PASSWORD=${MIKOCHI_PASSWORD:-changeme}
+      - TZ=${TZ:-UTC}
+
+volumes:
+  data:

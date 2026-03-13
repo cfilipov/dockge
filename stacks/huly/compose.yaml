@@ -1,0 +1,84 @@
+services:
+  mongodb:
+    image: mongo:${MONGODB_VERSION:-7}
+    container_name: huly-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb-data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-huly}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-huly}
+
+  elastic:
+    image: elasticsearch:${ELASTIC_VERSION:-7.17.24}
+    container_name: huly-elastic
+    restart: unless-stopped
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+
+  minio:
+    image: minio/minio:latest
+    container_name: huly-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+
+  account:
+    image: hardcoreeng/account:${HULY_VERSION:-latest}
+    container_name: huly-account
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      - MONGO_URL=mongodb://${MONGO_USER:-huly}:${MONGO_PASSWORD:-huly}@mongodb:27017
+      - SERVER_SECRET=${SERVER_SECRET:-secret}
+
+  front:
+    image: hardcoreeng/front:${HULY_VERSION:-latest}
+    container_name: huly-front
+    restart: unless-stopped
+    ports:
+      - "${HULY_PORT:-8080}:8080"
+    depends_on:
+      - account
+    environment:
+      - SERVER_SECRET=${SERVER_SECRET:-secret}
+      - ACCOUNTS_URL=http://account:3000
+      - MONGO_URL=mongodb://${MONGO_USER:-huly}:${MONGO_PASSWORD:-huly}@mongodb:27017
+
+  transactor:
+    image: hardcoreeng/transactor:${HULY_VERSION:-latest}
+    container_name: huly-transactor
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+      - elastic
+      - minio
+    environment:
+      - MONGO_URL=mongodb://${MONGO_USER:-huly}:${MONGO_PASSWORD:-huly}@mongodb:27017
+      - SERVER_SECRET=${SERVER_SECRET:-secret}
+      - ELASTIC_URL=http://elastic:9200
+
+  collaborator:
+    image: hardcoreeng/collaborator:${HULY_VERSION:-latest}
+    container_name: huly-collaborator
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+      - minio
+    environment:
+      - MONGO_URL=mongodb://${MONGO_USER:-huly}:${MONGO_PASSWORD:-huly}@mongodb:27017
+      - SERVER_SECRET=${SERVER_SECRET:-secret}
+
+volumes:
+  mongodb-data:
+  elastic-data:
+  minio-data:

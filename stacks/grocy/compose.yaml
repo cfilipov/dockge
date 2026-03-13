@@ -1,0 +1,19 @@
+# grocy - Kitchen/household management ERP
+# Based on: https://github.com/linuxserver/docker-grocy
+# Docs: https://github.com/grocy/grocy
+
+services:
+  grocy:
+    image: lscr.io/linuxserver/grocy:latest
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - config:/config
+    ports:
+      - "9283:80"
+    restart: unless-stopped
+
+volumes:
+  config:

@@ -1,0 +1,18 @@
+services:
+  openproject:
+    image: openproject/openproject:${OPENPROJECT_VERSION:-17}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    environment:
+      OPENPROJECT_SECRET__KEY__BASE: ${SECRET_KEY_BASE}
+      OPENPROJECT_HOST__NAME: ${HOST_NAME}
+      OPENPROJECT_HTTPS: "false"
+      OPENPROJECT_DEFAULT__LANGUAGE: en
+    volumes:
+      - op_pgdata:/var/openproject/pgdata
+      - op_assets:/var/openproject/assets
+
+volumes:
+  op_pgdata:
+  op_assets:

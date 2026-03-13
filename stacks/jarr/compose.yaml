@@ -1,0 +1,32 @@
+services:
+  jarr:
+    image: jaesivsm/jarr:${JARR_TAG:-latest}
+    container_name: jarr
+    restart: unless-stopped
+    ports:
+      - "${JARR_PORT:-5000}:5000"
+    environment:
+      - JARR_SECRET_KEY=${JARR_SECRET_KEY}
+      - JARR_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@jarr-db:5432/${POSTGRES_DB}
+    depends_on:
+      jarr-db:
+        condition: service_healthy
+
+  jarr-db:
+    image: postgres:16-alpine
+    container_name: jarr-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - jarr_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  jarr_db:

@@ -1,0 +1,52 @@
+services:
+  app:
+    image: loomio/loomio:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgresql://loomio:${DB_PASSWORD}@db/loomio
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      CANONICAL_HOST: ${CANONICAL_HOST}
+      SMTP_SERVER: ${SMTP_SERVER}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+    volumes:
+      - loomio-data:/loomio/storage
+
+  worker:
+    image: loomio/loomio:latest
+    restart: unless-stopped
+    command: bundle exec rake jobs:work
+    depends_on:
+      - app
+    environment:
+      DATABASE_URL: postgresql://loomio:${DB_PASSWORD}@db/loomio
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: loomio
+      POSTGRES_USER: loomio
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  loomio-data:
+  db-data:
+  redis-data:

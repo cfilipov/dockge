@@ -1,0 +1,23 @@
+services:
+  ots:
+    image: ghcr.io/luzifer/ots:latest
+    container_name: ots
+    ports:
+      - "3000:3000"
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      REDIS_KEY: "io.luzifer.ots"
+      SECRET_EXPIRY: "0"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ots-redis
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

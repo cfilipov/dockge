@@ -1,0 +1,31 @@
+services:
+  redmine:
+    image: redmine:${REDMINE_VERSION:-5}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8084}:3000"
+    environment:
+      REDMINE_DB_POSTGRES: postgres
+      REDMINE_DB_PORT: "5432"
+      REDMINE_DB_DATABASE: ${DB_NAME}
+      REDMINE_DB_USERNAME: ${DB_USER}
+      REDMINE_DB_PASSWORD: ${DB_PASSWORD}
+      REDMINE_SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+    depends_on:
+      - postgres
+    volumes:
+      - redmine_files:/usr/src/redmine/files
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  redmine_files:
+  pgdata:

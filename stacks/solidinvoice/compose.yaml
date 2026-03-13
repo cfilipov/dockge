@@ -1,0 +1,32 @@
+services:
+  solidinvoice:
+    image: solidinvoice/solidinvoice:latest
+    container_name: solidinvoice
+    ports:
+      - "${SOLIDINVOICE_PORT:-8080}:80"
+    environment:
+      - SOLIDINVOICE_DATABASE_DRIVER=pdo_mysql
+      - SOLIDINVOICE_DATABASE_HOST=db
+      - SOLIDINVOICE_DATABASE_PORT=3306
+      - SOLIDINVOICE_DATABASE_NAME=${DB_DATABASE:-solidinvoice}
+      - SOLIDINVOICE_DATABASE_USER=${DB_USER:-solidinvoice}
+      - SOLIDINVOICE_DATABASE_PASSWORD=${DB_PASSWORD:-changeme}
+      - SOLIDINVOICE_APP_SECRET=${APP_SECRET:-changeme-generate-random-secret}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10
+    container_name: solidinvoice-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-changeme}
+      MYSQL_DATABASE: ${DB_DATABASE:-solidinvoice}
+      MYSQL_USER: ${DB_USER:-solidinvoice}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - db-data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  db-data:

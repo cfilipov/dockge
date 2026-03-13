@@ -1,0 +1,14 @@
+services:
+  tube:
+    image: prologic/tube:latest
+    container_name: tube
+    restart: unless-stopped
+    ports:
+      - "${TUBE_PORT:-8000}:8000"
+    volumes:
+      - tube-data:/data
+    environment:
+      - TUBE_LIBRARY=/data
+
+volumes:
+  tube-data:

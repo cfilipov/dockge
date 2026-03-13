@@ -1,0 +1,54 @@
+services:
+  app:
+    image: archivesspace/archivesspace:${ARCHIVESSPACE_DOCKER_TAG}
+    container_name: archivesspace
+    depends_on:
+      - db
+      - solr
+    volumes:
+      - app-data:/archivesspace/data
+      - ./plugins:/archivesspace/plugins
+      - ./config:/archivesspace/config
+      - ./locales:/archivesspace/locales
+      - ./stylesheets:/archivesspace/stylesheets
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+
+  db:
+    image: mysql:8
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --innodb-buffer-pool-size=1G
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d
+
+  solr:
+    image: archivesspace/solr:${ARCHIVESSPACE_DOCKER_TAG}
+    container_name: solr
+    ports:
+      - "8983:8983"
+    command: solr-precreate archivesspace
+    volumes:
+      - solr-data:/var/solr
+
+  proxy:
+    image: nginx:1.21
+    container_name: proxy
+    ports:
+      - "${NGINX_PORT}:80"
+    depends_on:
+      - app
+    volumes:
+      - ./proxy-config:/etc/nginx/conf.d/
+
+volumes:
+  app-data:
+  db-data:
+  solr-data:

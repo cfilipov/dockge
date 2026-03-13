@@ -1,0 +1,15 @@
+services:
+  evcc:
+    image: evcc/evcc:${EVCC_VERSION:-latest}
+    container_name: evcc
+    restart: unless-stopped
+    ports:
+      - "${EVCC_PORT:-7070}:7070"
+    volumes:
+      - ./evcc.yaml:/etc/evcc.yaml:ro
+      - evcc-data:/root/.evcc
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  evcc-data:

@@ -1,0 +1,11 @@
+services:
+  enigma-bbs:
+    image: enigmabbs/enigma-bbs:latest
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./config:/enigma-bbs/config
+      - ./data:/enigma-bbs/db
+      - ./files:/enigma-bbs/file_base
+      - ./art:/enigma-bbs/art

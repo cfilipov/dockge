@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: wazo-nginx
+    restart: unless-stopped
+    ports:
+      - "8443:443"
+    depends_on:
+      - auth
+      - calld
+      - confd
+
+  postgres:
+    image: postgres:15
+    container_name: wazo-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=wazo
+      - POSTGRES_USER=wazo
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: wazo-rabbitmq
+    restart: unless-stopped
+    expose:
+      - "5672"
+
+  auth:
+    image: wazoplatform/wazo-auth:latest
+    container_name: wazo-auth
+    restart: unless-stopped
+    expose:
+      - "9497"
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  calld:
+    image: wazoplatform/wazo-calld:latest
+    container_name: wazo-calld
+    restart: unless-stopped
+    expose:
+      - "9500"
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  confd:
+    image: wazoplatform/wazo-confd:latest
+    container_name: wazo-confd
+    restart: unless-stopped
+    expose:
+      - "9486"
+    depends_on:
+      - postgres
+      - rabbitmq
+
+volumes:
+  pgdata:

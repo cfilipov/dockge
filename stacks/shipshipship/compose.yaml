@@ -1,0 +1,31 @@
+services:
+  shipshipship:
+    image: nelkinsky/shipshipship:latest
+    container_name: shipshipship
+    ports:
+      - "${SHIPSHIPSHIP_PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-shipshipship}:${DB_PASSWORD:-shipshipship_pass}@db:5432/${DB_NAME:-shipshipship}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: shipshipship-db
+    environment:
+      - POSTGRES_DB=${DB_NAME:-shipshipship}
+      - POSTGRES_USER=${DB_USER:-shipshipship}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-shipshipship_pass}
+    volumes:
+      - shipshipship_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-shipshipship}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  shipshipship_db:

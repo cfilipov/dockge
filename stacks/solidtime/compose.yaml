@@ -1,0 +1,84 @@
+services:
+  app:
+    restart: always
+    image: solidtime/solidtime:latest
+    user: "1000:1000"
+    ports:
+      - "8000:8000"
+    networks:
+      - internal
+    volumes:
+      - app-storage:/var/www/html/storage
+    environment:
+      CONTAINER_MODE: http
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health-check/up"]
+    env_file:
+      - laravel.env
+    depends_on:
+      - database
+
+  scheduler:
+    restart: always
+    image: solidtime/solidtime:latest
+    user: "1000:1000"
+    networks:
+      - internal
+    volumes:
+      - app-storage:/var/www/html/storage
+    environment:
+      CONTAINER_MODE: scheduler
+    healthcheck:
+      test: ["CMD", "healthcheck"]
+    env_file:
+      - laravel.env
+    depends_on:
+      - database
+
+  queue:
+    restart: always
+    image: solidtime/solidtime:latest
+    user: "1000:1000"
+    networks:
+      - internal
+    volumes:
+      - app-storage:/var/www/html/storage
+    environment:
+      CONTAINER_MODE: worker
+      WORKER_COMMAND: "php /var/www/html/artisan queue:work"
+    healthcheck:
+      test: ["CMD", "healthcheck"]
+    env_file:
+      - laravel.env
+    depends_on:
+      - database
+
+  database:
+    restart: always
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-solidtime}
+      POSTGRES_USER: ${DB_USERNAME:-solidtime}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-randompassword}
+    volumes:
+      - database-storage:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "${DB_DATABASE:-solidtime}", "-U", "${DB_USERNAME:-solidtime}"]
+      retries: 3
+      timeout: 5s
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--fail", "http://localhost:3000/health"]
+
+networks:
+  internal:
+
+volumes:
+  database-storage:
+  app-storage:

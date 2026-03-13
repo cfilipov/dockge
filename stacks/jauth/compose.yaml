@@ -1,0 +1,12 @@
+services:
+  jauth:
+    image: jipok/jauth:latest
+    container_name: jauth
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${SSH_PORT:-2222}:2222"
+    volumes:
+      - ./jauth.toml:/app/jauth.toml:ro
+      - ./data:/app/data

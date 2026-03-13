@@ -1,0 +1,18 @@
+services:
+  tamari:
+    image: alexbates/tamari:latest
+    container_name: tamari
+    restart: unless-stopped
+    ports:
+      - "${TAMARI_PORT}:4888"
+    environment:
+      - MAIL_SERVER=${MAIL_SERVER}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USE_TLS=${MAIL_USE_TLS}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+    volumes:
+      - tamari-data:/app/appdata
+
+volumes:
+  tamari-data:

@@ -1,0 +1,9 @@
+services:
+  rei3:
+    image: andibz/rei3:latest
+    container_name: rei3
+    ports:
+      - "${REI3_PORT:-443}:443"
+    volumes:
+      - ./data:/opt/rei3/data
+    restart: unless-stopped

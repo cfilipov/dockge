@@ -1,0 +1,14 @@
+services:
+  filegator:
+    image: filegator/filegator:latest
+    container_name: filegator
+    restart: unless-stopped
+    ports:
+      - "${FILEGATOR_PORT:-8080}:8080"
+    volumes:
+      - repository:/var/www/filegator/repository
+      - private:/var/www/filegator/private
+
+volumes:
+  repository:
+  private:

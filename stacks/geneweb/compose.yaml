@@ -1,0 +1,15 @@
+services:
+  geneweb:
+    image: schuellerf/geneweb:latest
+    container_name: geneweb
+    restart: unless-stopped
+    ports:
+      - "2316:2316"
+      - "2317:2317"
+    environment:
+      - LANGUAGE=en
+    volumes:
+      - geneweb-data:/genewebData
+
+volumes:
+  geneweb-data:

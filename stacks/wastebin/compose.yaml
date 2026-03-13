@@ -1,0 +1,11 @@
+services:
+  wastebin:
+    image: quxfoo/wastebin:latest
+    container_name: wastebin
+    restart: always
+    ports:
+      - "${WASTEBIN_PORT:-8088}:8088"
+    environment:
+      - WASTEBIN_DATABASE_PATH=/data/state.db
+    volumes:
+      - ./data:/data

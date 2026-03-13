@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:17
+    container_name: pinepods-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-pinepods_database}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-myS3curepass}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ${DB_DATA_DIR:-./pgdata}:/var/lib/postgresql/data
+    restart: always
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: pinepods-valkey
+    restart: always
+
+  pinepods:
+    image: madeofpendletonwool/pinepods:latest
+    container_name: pinepods
+    ports:
+      - "${PORT:-8040}:8040"
+    environment:
+      SEARCH_API_URL: ${SEARCH_API_URL:-https://search.pinepods.online/api/search}
+      PEOPLE_API_URL: ${PEOPLE_API_URL:-https://people.pinepods.online}
+      HOSTNAME: ${HOSTNAME:-http://localhost:8040}
+      DB_TYPE: ${DB_TYPE:-postgresql}
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-myS3curepass}
+      DB_NAME: ${DB_NAME:-pinepods_database}
+      VALKEY_HOST: valkey
+      VALKEY_PORT: "6379"
+      DEBUG_MODE: ${DEBUG_MODE:-false}
+      PUID: ${PUID:-911}
+      PGID: ${PGID:-911}
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      - ${DOWNLOADS_DIR:-./downloads}:/opt/pinepods/downloads
+      - ${BACKUPS_DIR:-./backups}:/opt/pinepods/backups
+    restart: always
+    depends_on:
+      - db
+      - valkey

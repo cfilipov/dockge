@@ -1,0 +1,15 @@
+services:
+  quickshare:
+    image: hexxa/quickshare:latest
+    container_name: quickshare
+    restart: unless-stopped
+    ports:
+      - "${QUICKSHARE_PORT:-8686}:8686"
+    environment:
+      DEFAULTADMIN: ${QUICKSHARE_ADMIN_USER}
+      DEFAULTADMINPWD: ${QUICKSHARE_ADMIN_PASSWORD}
+    volumes:
+      - quickshare-data:/quickshare/root
+
+volumes:
+  quickshare-data:

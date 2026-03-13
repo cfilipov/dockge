@@ -1,0 +1,9 @@
+services:
+  lighttpd:
+    image: sebp/lighttpd:${LIGHTTPD_VERSION:-latest}
+    container_name: lighttpd
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./htdocs:/var/www/localhost/htdocs:ro

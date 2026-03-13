@@ -1,0 +1,14 @@
+services:
+  oddmuse:
+    image: jamescherti/oddmuse:latest
+    container_name: oddmuse
+    restart: unless-stopped
+    ports:
+      - "${ODDMUSE_PORT:-8080}:8080"
+    environment:
+      - WikiURL=${WIKI_URL:-http://localhost:8080}
+    volumes:
+      - oddmuse_data:/opt/oddmuse/data
+
+volumes:
+  oddmuse_data:

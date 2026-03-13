@@ -1,0 +1,66 @@
+services:
+  mailman-core:
+    image: maxking/mailman-core:0.4
+    container_name: mailman-core
+    hostname: mailman-core
+    restart: unless-stopped
+    volumes:
+      - /opt/mailman/core:/opt/mailman/
+    stop_grace_period: 30s
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://mailman:mailmanpass@database/mailmandb
+      - DATABASE_TYPE=postgres
+      - DATABASE_CLASS=mailman.database.postgresql.PostgreSQLDatabase
+      - HYPERKITTY_API_KEY=someapikey
+    ports:
+      - "127.0.0.1:8001:8001"
+      - "127.0.0.1:8024:8024"
+    networks:
+      mailman:
+
+  mailman-web:
+    image: maxking/mailman-web:0.4
+    container_name: mailman-web
+    hostname: mailman-web
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - /opt/mailman/web:/opt/mailman-web-data
+    environment:
+      - DATABASE_TYPE=postgres
+      - DATABASE_URL=postgresql://mailman:mailmanpass@database/mailmandb
+      - HYPERKITTY_API_KEY=someapikey
+    ports:
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8080:8080"
+    networks:
+      mailman:
+
+  database:
+    image: postgres:12-alpine
+    environment:
+      - POSTGRES_DB=mailmandb
+      - POSTGRES_USER=mailman
+      - POSTGRES_PASSWORD=mailmanpass
+    volumes:
+      - /opt/mailman/database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --dbname mailmandb --username mailman"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      mailman:
+
+networks:
+  mailman:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.199.0/24

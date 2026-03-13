@@ -1,0 +1,13 @@
+services:
+  damselfly:
+    image: webreaper/damselfly:latest
+    container_name: damselfly
+    restart: unless-stopped
+    ports:
+      - "${DAMSELFLY_PORT:-6363}:6363"
+    volumes:
+      - ${PHOTOS_PATH:-./photos}:/photos
+      - ${THUMBS_PATH:-./config/thumbs}:/thumbs
+      - ./config:/config
+    environment:
+      TZ: ${TZ:-Etc/UTC}

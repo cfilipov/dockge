@@ -1,0 +1,18 @@
+services:
+  rss2email:
+    image: tuxmealux/rss2email:latest
+    container_name: rss2email
+    restart: unless-stopped
+    volumes:
+      - rss2email-data:/root/.config/rss2email
+      - ./feeds.txt:/feeds.txt:ro
+    environment:
+      - SMTP_SERVER=${SMTP_SERVER:-smtp.example.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-user@example.com}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-changeme}
+      - FROM_EMAIL=${FROM_EMAIL:-rss2email@example.com}
+      - TO_EMAIL=${TO_EMAIL:-user@example.com}
+
+volumes:
+  rss2email-data:

@@ -1,0 +1,11 @@
+services:
+  opensmtpd:
+    image: wodby/opensmtpd:latest
+    container_name: opensmtpd
+    environment:
+      - RELAY_HOST=${RELAY_HOST:-smtp.example.com}
+      - RELAY_PORT=${RELAY_PORT:-587}
+      - RELAY_PROTO=${RELAY_PROTO:-smtp+tls}
+    ports:
+      - "25:25"
+    restart: unless-stopped

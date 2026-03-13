@@ -1,0 +1,127 @@
+x-common: &common
+  restart: unless-stopped
+
+services:
+  activemq:
+    <<: *common
+    image: islandora/activemq:${ISLANDORA_TAG:-3.3.1}
+    environment:
+      ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD:-password}
+      ACTIVEMQ_WEB_ADMIN_PASSWORD: ${ACTIVEMQ_WEB_ADMIN_PASSWORD:-password}
+    volumes:
+      - activemq-data:/opt/activemq/data
+
+  alpaca:
+    <<: *common
+    image: islandora/alpaca:${ISLANDORA_TAG:-3.3.1}
+    depends_on:
+      activemq:
+        condition: service_healthy
+    environment:
+      ALPACA_JMS_PASSWORD: ${ACTIVEMQ_PASSWORD:-password}
+
+  blazegraph:
+    <<: *common
+    image: islandora/blazegraph:${ISLANDORA_TAG:-3.3.1}
+    volumes:
+      - blazegraph-data:/data
+
+  cantaloupe:
+    <<: *common
+    image: islandora/cantaloupe:${ISLANDORA_TAG:-3.3.1}
+    volumes:
+      - cantaloupe-data:/data
+
+  drupal:
+    <<: *common
+    image: islandora/sandbox:${ISLANDORA_TAG:-3.3.1}
+    environment:
+      DRUPAL_DEFAULT_BROKER_URL: tcp://activemq:61613
+      DRUPAL_DEFAULT_CANTALOUPE_URL: http://cantaloupe:8182/cantaloupe/iiif/2
+      DRUPAL_DEFAULT_FCREPO_HOST: fcrepo
+      DRUPAL_DEFAULT_FCREPO_PORT: 8080
+      DRUPAL_DEFAULT_FCREPO_URL: http://fcrepo:8080/fcrepo/rest/
+      DRUPAL_DEFAULT_INSTALL_EXISTING_CONFIG: "true"
+      DRUPAL_DEFAULT_NAME: Islandora Digital Collections
+      DRUPAL_DEFAULT_PROFILE: minimal
+      DRUPAL_DEFAULT_SOLR_CORE: default
+      DRUPAL_DEFAULT_ACCOUNT_PASSWORD: ${DRUPAL_DEFAULT_ACCOUNT_PASSWORD:-password}
+      DRUPAL_DEFAULT_DB_PASSWORD: ${DRUPAL_DEFAULT_DB_PASSWORD:-password}
+      DRUPAL_DEFAULT_SALT: ${DRUPAL_DEFAULT_SALT:-changeme}
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-password}
+    depends_on:
+      - activemq
+      - fcrepo
+      - mariadb
+      - solr
+    ports:
+      - "80:80"
+    volumes:
+      - drupal-public-files:/var/www/drupal/web/sites/default/files
+      - drupal-private-files:/var/www/drupal/private
+      - drupal-solr-config:/opt/solr/server/solr/default
+
+  fcrepo:
+    <<: *common
+    image: islandora/fcrepo6:${ISLANDORA_TAG:-3.3.1}
+    depends_on:
+      activemq:
+        condition: service_healthy
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      FCREPO_PERSISTENCE_TYPE: mysql
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-password}
+      FCREPO_DB_PASSWORD: ${FCREPO_DB_PASSWORD:-password}
+    volumes:
+      - fcrepo-data:/data
+
+  fits:
+    <<: *common
+    image: islandora/fits:${ISLANDORA_TAG:-3.3.1}
+
+  homarus:
+    <<: *common
+    image: islandora/homarus:${ISLANDORA_TAG:-3.3.1}
+
+  houdini:
+    <<: *common
+    image: islandora/houdini:${ISLANDORA_TAG:-3.3.1}
+
+  hypercube:
+    <<: *common
+    image: islandora/hypercube:${ISLANDORA_TAG:-3.3.1}
+
+  mariadb:
+    <<: *common
+    image: islandora/mariadb:${ISLANDORA_TAG:-3.3.1}
+    environment:
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-password}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  milliner:
+    <<: *common
+    image: islandora/milliner:${ISLANDORA_TAG:-3.3.1}
+    environment:
+      MILLINER_FEDORA6: "true"
+
+  solr:
+    <<: *common
+    image: islandora/solr:${ISLANDORA_TAG:-3.3.1}
+    depends_on:
+      - drupal
+    volumes:
+      - solr-data:/data
+      - drupal-solr-config:/opt/solr/server/solr/default
+
+volumes:
+  activemq-data:
+  blazegraph-data:
+  cantaloupe-data:
+  drupal-public-files:
+  drupal-private-files:
+  drupal-solr-config:
+  fcrepo-data:
+  mariadb-data:
+  solr-data:

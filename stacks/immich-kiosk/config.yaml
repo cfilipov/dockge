@@ -1,0 +1,21 @@
+# Immich Kiosk configuration
+# See https://github.com/damongolding/immich-kiosk for full options
+
+# Required: Immich server connection
+immich_api_key: "CHANGEME_YOUR_IMMICH_API_KEY"
+immich_url: "http://immich-server:2283"
+
+# Clock display
+show_time: false
+time_format: 24
+show_date: false
+date_format: YYYY/MM/DD
+
+# Slideshow behavior
+duration: 60
+disable_screensaver: false
+optimize_images: false
+use_gpu: true
+
+# Asset sources
+show_archived: false

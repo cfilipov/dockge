@@ -1,0 +1,11 @@
+services:
+  mytinytodo:
+    image: maxpozdeev/mytinytodo:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      - data:/var/www/html/db
+
+volumes:
+  data:

@@ -1,0 +1,17 @@
+services:
+  unison:
+    image: eugenmayer/unison:${UNISON_VERSION:-latest}
+    container_name: unison
+    restart: unless-stopped
+    ports:
+      - "${UNISON_PORT:-5000}:5000"
+    environment:
+      UNISON_DIR: /data
+      UNISON_OWNER: ${PUID:-1000}
+      UNISON_GROUP: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - unison_data:/data
+
+volumes:
+  unison_data:

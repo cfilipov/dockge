@@ -1,0 +1,14 @@
+services:
+  wiki-go:
+    image: leomoonstudios/wiki-go:${WIKIGO_VERSION:-latest}
+    container_name: wiki-go
+    restart: unless-stopped
+    ports:
+      - "${WIKIGO_PORT:-8080}:8080"
+    volumes:
+      - wiki-go-data:/app/data
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  wiki-go-data:

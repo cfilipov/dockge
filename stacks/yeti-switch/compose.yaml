@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  yeti-web:
+    image: switchyeti/yeti-web:pg13
+    container_name: yeti-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=yeti
+      - DATABASE_PASSWORD=${DB_PASSWORD}
+      - CDR_DATABASE_HOST=cdr-postgres
+      - CDR_DATABASE_PORT=5432
+      - CDR_DATABASE_USER=yeti
+      - CDR_DATABASE_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - postgres
+      - cdr-postgres
+
+  postgres:
+    image: postgres:13-alpine
+    container_name: yeti-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=yeti
+      - POSTGRES_USER=yeti
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - yeti-db-data:/var/lib/postgresql/data
+
+  cdr-postgres:
+    image: postgres:13-alpine
+    container_name: yeti-cdr-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=cdr
+      - POSTGRES_USER=yeti
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - yeti-cdr-data:/var/lib/postgresql/data
+
+volumes:
+  yeti-db-data:
+  yeti-cdr-data:

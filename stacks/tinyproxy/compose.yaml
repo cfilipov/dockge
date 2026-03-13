@@ -1,0 +1,11 @@
+services:
+  tinyproxy:
+    image: monokal/tinyproxy:latest
+    container_name: tinyproxy
+    ports:
+      - "8888:8888"
+    environment:
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER:-}
+      - BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD:-}
+    command: ANY
+    restart: unless-stopped

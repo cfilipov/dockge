@@ -1,0 +1,25 @@
+services:
+  send:
+    image: registry.gitlab.com/timvisee/send:latest
+    container_name: send
+    ports:
+      - 1443:1443
+    volumes:
+      - ./uploads:/uploads
+    environment:
+      - DETECT_BASE_URL=true
+      - REDIS_HOST=redis
+      - FILE_DIR=/uploads
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: send-redis
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

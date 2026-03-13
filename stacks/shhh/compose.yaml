@@ -1,0 +1,31 @@
+services:
+  shhh:
+    image: smallwat3r/shhh:latest
+    container_name: shhh
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: db
+      DB_USER: shhh
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: shhh
+      DB_ENGINE: postgres
+      SHHH_HOST: "0.0.0.0"
+      SHHH_PORT: "8081"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: shhh-db
+    environment:
+      POSTGRES_USER: shhh
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: shhh
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,0 +1,12 @@
+services:
+  websurfx:
+    image: neon-mmd/websurfx:${WEBSURFX_TAG}
+    container_name: websurfx
+    ports:
+      - "${WEBSURFX_PORT}:8080"
+    volumes:
+      - websurfx-config:/etc/xdg/websurfx
+    restart: unless-stopped
+
+volumes:
+  websurfx-config:

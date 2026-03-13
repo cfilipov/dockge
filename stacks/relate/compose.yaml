@@ -1,0 +1,39 @@
+services:
+  relate:
+    image: python:3.11-slim
+    container_name: relate
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8000}:8000"
+    environment:
+      - RELATE_DB_HOST=postgres
+      - RELATE_DB_NAME=${DB_NAME:-relate}
+      - RELATE_DB_USER=${DB_USER:-relate}
+      - RELATE_DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - RELATE_SECRET_KEY=${SECRET_KEY:-changeme}
+      - RELATE_ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - RELATE_EMAIL_HOST=${EMAIL_HOST:-localhost}
+      - RELATE_GIT_ROOT=/srv/relate/git-roots
+    volumes:
+      - relate_data:/srv/relate
+      - git_roots:/srv/relate/git-roots
+    working_dir: /srv/relate
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: relate-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USER:-relate}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+      - POSTGRES_DB=${DB_NAME:-relate}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  relate_data:
+  git_roots:
+  postgres_data:

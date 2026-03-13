@@ -1,0 +1,19 @@
+services:
+  teleport:
+    image: public.ecr.aws/gravitational/teleport-distroless:${TELEPORT_VERSION:-17}
+    restart: unless-stopped
+    hostname: ${TELEPORT_HOSTNAME:-teleport.example.com}
+    ports:
+      - "${TELEPORT_WEB_PORT:-3080}:3080"
+      - "${TELEPORT_AUTH_PORT:-3025}:3025"
+      - "${TELEPORT_PROXY_PORT:-3023}:3023"
+      - "${TELEPORT_TUNNEL_PORT:-3024}:3024"
+    volumes:
+      - teleport-config:/etc/teleport
+      - teleport-data:/var/lib/teleport
+    environment:
+      - TELEPORT_HOSTNAME=${TELEPORT_HOSTNAME:-teleport.example.com}
+
+volumes:
+  teleport-config:
+  teleport-data:

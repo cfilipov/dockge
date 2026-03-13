@@ -1,0 +1,14 @@
+services:
+  kallithea:
+    image: atnurgaliev/kallithea:latest
+    container_name: kallithea
+    restart: unless-stopped
+    ports:
+      - "${KALLITHEA_PORT:-5000}:5000"
+    volumes:
+      - kallithea-data:/srv/kallithea
+      - kallithea-repos:/srv/repos
+
+volumes:
+  kallithea-data:
+  kallithea-repos:

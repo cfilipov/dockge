@@ -1,0 +1,34 @@
+services:
+  pleroma:
+    image: git.pleroma.social:5050/pleroma/pleroma:latest
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+    environment:
+      DOMAIN: ${PLEROMA_DOMAIN}
+      INSTANCE_NAME: ${INSTANCE_NAME}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      DB_HOST: db
+      DB_NAME: pleroma
+      DB_USER: pleroma
+      DB_PASS: ${DB_PASSWORD}
+    volumes:
+      - pleroma-uploads:/var/lib/pleroma/uploads
+      - pleroma-static:/var/lib/pleroma/static
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pleroma
+      POSTGRES_USER: pleroma
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  pleroma-uploads:
+  pleroma-static:
+  db-data:

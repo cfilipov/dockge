@@ -1,0 +1,38 @@
+services:
+  ilias:
+    image: srsolutions/ilias:latest
+    container_name: ilias
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    environment:
+      - ILIAS_DB_HOST=mariadb
+      - ILIAS_DB_NAME=${DB_NAME:-ilias}
+      - ILIAS_DB_USER=${DB_USER:-ilias}
+      - ILIAS_DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - ILIAS_ROOT_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - ILIAS_CLIENT_NAME=${CLIENT_NAME:-default}
+      - ILIAS_HTTP_PATH=${ILIAS_URL:-http://localhost:8080}
+      - ILIAS_TIMEZONE=${TIMEZONE:-Europe/Berlin}
+    volumes:
+      - ilias_data:/var/ilias
+      - ilias_web:/var/www/html/ilias
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: ilias-mariadb
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpass}
+      - MYSQL_DATABASE=${DB_NAME:-ilias}
+      - MYSQL_USER=${DB_USER:-ilias}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-changeme}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  ilias_data:
+  ilias_web:
+  mariadb_data:

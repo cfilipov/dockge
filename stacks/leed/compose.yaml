@@ -1,0 +1,33 @@
+services:
+  leed:
+    image: php:8.2-apache
+    container_name: leed
+    restart: unless-stopped
+    ports:
+      - "${LEED_PORT:-8080}:80"
+    volumes:
+      - leed_data:/var/www/html
+    depends_on:
+      leed-db:
+        condition: service_healthy
+
+  leed-db:
+    image: mariadb:11
+    container_name: leed-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - leed_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  leed_data:
+  leed_db:

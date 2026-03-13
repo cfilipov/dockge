@@ -1,0 +1,71 @@
+services:
+  lychee_cache:
+    image: redis:alpine
+    container_name: lychee_redis
+    restart: on-failure:5
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+    volumes:
+      - cache:/data:rw
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+    networks:
+      - lychee
+
+  lychee_db:
+    image: mariadb:10
+    container_name: lychee_db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    expose:
+      - "3306"
+    volumes:
+      - mysql:/var/lib/mysql
+    networks:
+      - lychee
+
+  lychee:
+    image: lycheeorg/lychee:latest
+    container_name: lychee
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${LYCHEE_PORT:-90}:80"
+    depends_on:
+      - lychee_db
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: lychee_db
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      STARTUP_DELAY: "30"
+      SKIP_PERMISSIONS_CHECKS: ${SKIP_PERMISSIONS_CHECKS:-false}
+      CACHE_DRIVER: redis
+      REDIS_HOST: lychee_redis
+      REDIS_PORT: "6379"
+      TZ: ${TZ:-Etc/UTC}
+    volumes:
+      - ./lychee/conf:/conf
+      - ./lychee/uploads:/uploads
+      - ./lychee/sym:/sym
+      - ./lychee/logs:/logs
+    networks:
+      - lychee
+
+networks:
+  lychee:
+
+volumes:
+  mysql:
+  cache:

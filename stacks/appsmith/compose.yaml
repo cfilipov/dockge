@@ -1,0 +1,12 @@
+services:
+  appsmith:
+    image: appsmith/appsmith-ce:release
+    container_name: appsmith
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      APPSMITH_ENCRYPTION_PASSWORD: abcd
+      APPSMITH_ENCRYPTION_SALT: abcd
+    volumes:
+      - ./stacks:/appsmith-stacks

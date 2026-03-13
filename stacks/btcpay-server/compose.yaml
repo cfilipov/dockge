@@ -1,0 +1,31 @@
+services:
+  btcpayserver:
+    image: btcpayserver/btcpayserver:latest
+    restart: unless-stopped
+    ports:
+      - "${BTCPAY_PORT:-49392}:49392"
+    environment:
+      BTCPAY_POSTGRES: User ID=${DB_USER};Host=postgres;Port=5432;Application Name=btcpayserver;Database=${DB_DATABASE}
+      BTCPAY_NETWORK: ${NBITCOIN_NETWORK}
+      BTCPAY_BIND: 0.0.0.0:49392
+      BTCPAY_ROOTPATH: /
+      BTCPAY_DEBUGLOG: btcpay.log
+      BTCPAY_DOCKERDEPLOYMENT: "false"
+    depends_on:
+      - postgres
+    volumes:
+      - btcpay-datadir:/datadir
+
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  btcpay-datadir:
+  postgres-data:

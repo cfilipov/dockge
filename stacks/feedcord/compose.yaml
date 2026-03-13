@@ -1,0 +1,7 @@
+services:
+  feedcord:
+    image: qolors/feedcord:${FEEDCORD_TAG:-latest}
+    container_name: feedcord
+    restart: unless-stopped
+    volumes:
+      - ./appsettings.json:/app/appsettings.json:ro

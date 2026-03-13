@@ -1,0 +1,57 @@
+services:
+  plugnmeet-api:
+    image: mynaparrot/plugnmeet-server:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080/tcp"
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+    command: --config /config.yaml
+    depends_on:
+      - redis
+      - db
+      - livekit
+      - nats
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    ports:
+      - "7880:7880/tcp"
+      - "7881:7881/tcp"
+      - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/app/livekit.yaml:ro
+    command: --config /app/livekit.yaml --dev
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_DATABASE: plugnmeet
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  nats:
+    image: nats:2-alpine
+    restart: unless-stopped
+    ports:
+      - "4222:4222/tcp"
+
+  etherpad:
+    image: mynaparrot/plugnmeet-etherpad:latest
+    restart: unless-stopped
+    ports:
+      - "9001:9001/tcp"
+    depends_on:
+      - redis
+
+volumes:
+  mariadb_data:

@@ -1,0 +1,13 @@
+services:
+  app:
+    image: ghcr.io/itskovacs/trip:1
+    container_name: trip
+    restart: unless-stopped
+    ports:
+      - "${TRIP_PORT}:8000"
+    volumes:
+      - trip_storage:/app/storage
+    command: ["fastapi", "run", "/app/trip/main.py", "--host", "0.0.0.0"]
+
+volumes:
+  trip_storage:

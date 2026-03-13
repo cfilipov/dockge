@@ -1,0 +1,14 @@
+services:
+  liwan:
+    image: ghcr.io/explodingcamera/liwan:edge
+    container_name: liwan
+    restart: unless-stopped
+    ports:
+      - "${LIWAN_PORT:-8080}:80"
+    volumes:
+      - liwan-data:/data
+    environment:
+      - LIWAN_BASE_URL=${LIWAN_BASE_URL:-http://localhost:8080}
+
+volumes:
+  liwan-data:

@@ -1,0 +1,28 @@
+services:
+  nodebb:
+    image: ghcr.io/nodebb/nodebb:latest
+    restart: unless-stopped
+    ports:
+      - "4567:4567"
+    depends_on:
+      - mongo
+    environment:
+      url: http://localhost:4567
+      database: mongo
+      mongo__host: mongo
+      mongo__port: "27017"
+      mongo__database: nodebb
+    volumes:
+      - nodebb-data:/usr/src/app/build
+      - nodebb-uploads:/usr/src/app/public/uploads
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  nodebb-data:
+  nodebb-uploads:
+  mongo-data:

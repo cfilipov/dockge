@@ -1,0 +1,27 @@
+services:
+  concretecms:
+    image: php:8.2-apache
+    container_name: concretecms
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    volumes:
+      - concrete_data:/var/www/html
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: concretecms-mysql
+    environment:
+      MYSQL_DATABASE: concretecms
+      MYSQL_USER: concretecms
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  concrete_data:
+  mysql_data:

@@ -1,0 +1,12 @@
+services:
+  pinchflat:
+    image: ghcr.io/kieraneglin/pinchflat:latest
+    container_name: pinchflat
+    environment:
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "${PORT:-8945}:8945"
+    volumes:
+      - ./config:/config
+      - ${DOWNLOADS_DIR}:/downloads
+    restart: unless-stopped

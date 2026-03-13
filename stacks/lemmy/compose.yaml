@@ -1,0 +1,48 @@
+services:
+  lemmy:
+    image: dessalines/lemmy:latest
+    restart: unless-stopped
+    ports:
+      - "8536:8536"
+    depends_on:
+      - postgres
+      - pictrs
+    environment:
+      RUST_LOG: warn
+      LEMMY_DATABASE_URL: postgres://lemmy:${DB_PASSWORD}@postgres:5432/lemmy
+    volumes:
+      - lemmy-data:/app/data
+
+  lemmy-ui:
+    image: dessalines/lemmy-ui:latest
+    restart: unless-stopped
+    ports:
+      - "1234:1234"
+    depends_on:
+      - lemmy
+    environment:
+      LEMMY_UI_LEMMY_INTERNAL_HOST: lemmy:8536
+      LEMMY_UI_LEMMY_EXTERNAL_HOST: ${LEMMY_HOSTNAME}
+
+  pictrs:
+    image: asonix/pictrs:0.5
+    restart: unless-stopped
+    environment:
+      PICTRS__SERVER__API_KEY: ${PICTRS_API_KEY}
+    volumes:
+      - pictrs-data:/mnt/sled-repo
+
+  postgres:
+    image: pgautoupgrade/pgautoupgrade:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lemmy
+      POSTGRES_USER: lemmy
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  lemmy-data:
+  pictrs-data:
+  postgres-data:

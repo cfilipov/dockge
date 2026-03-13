@@ -1,0 +1,13 @@
+services:
+  bootstrap-node:
+    image: toxchat/bootstrap-node:latest
+    restart: unless-stopped
+    ports:
+      - "${TOX_UDP_PORT:-33445}:33445/udp"
+      - "${TOX_TCP_PORT:-33445}:33445/tcp"
+      - "${TOX_WEBSOCKET_PORT:-33446}:33446"
+    volumes:
+      - tox-data:/var/lib/tox-bootstrapd
+
+volumes:
+  tox-data:

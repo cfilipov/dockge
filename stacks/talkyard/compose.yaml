@@ -1,0 +1,53 @@
+services:
+  web:
+    image: debiki/talkyard-web:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - app
+    volumes:
+      - talkyard-webgen:/opt/talkyard/generated
+
+  app:
+    image: debiki/talkyard-app:latest
+    restart: unless-stopped
+    depends_on:
+      - rdb
+      - cache
+      - search
+    volumes:
+      - talkyard-uploads:/opt/talkyard/uploads
+
+  cache:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - cache-data:/data
+
+  rdb:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: talkyard
+      POSTGRES_USER: talkyard
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - rdb-data:/var/lib/postgresql/data
+
+  search:
+    image: elasticsearch:7.17.24
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms256m -Xmx256m
+    volumes:
+      - search-data:/usr/share/elasticsearch/data
+
+volumes:
+  talkyard-webgen:
+  talkyard-uploads:
+  cache-data:
+  rdb-data:
+  search-data:

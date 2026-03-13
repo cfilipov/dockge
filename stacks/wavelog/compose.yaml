@@ -1,0 +1,38 @@
+services:
+  wavelog:
+    image: philipreinken/wavelog:latest
+    restart: unless-stopped
+    ports:
+      - "${WAVELOG_PORT:-8080}:80"
+    volumes:
+      - wavelog-config:/var/www/html/application/config
+      - wavelog-uploads:/var/www/html/uploads
+    environment:
+      - DATABASE_HOSTNAME=db
+      - DATABASE_USERNAME=${DB_USER:-wavelog}
+      - DATABASE_PASSWORD=${DB_PASS:-wavelog_secret}
+      - DATABASE_NAME=${DB_NAME:-wavelog}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    volumes:
+      - wavelog-db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASS:-root_secret}
+      - MYSQL_DATABASE=${DB_NAME:-wavelog}
+      - MYSQL_USER=${DB_USER:-wavelog}
+      - MYSQL_PASSWORD=${DB_PASS:-wavelog_secret}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  wavelog-config:
+  wavelog-uploads:
+  wavelog-db:

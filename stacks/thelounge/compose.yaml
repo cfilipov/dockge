@@ -1,0 +1,11 @@
+services:
+  thelounge:
+    image: ghcr.io/thelounge/thelounge:latest
+    ports:
+      - "9000:9000"
+    volumes:
+      - thelounge:/var/opt/thelounge
+    restart: always
+
+volumes:
+  thelounge:

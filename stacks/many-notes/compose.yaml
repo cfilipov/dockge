@@ -1,0 +1,12 @@
+services:
+  many-notes:
+    image: ghcr.io/brufdev/many-notes:latest
+    container_name: many-notes
+    restart: unless-stopped
+    ports:
+      - "${MANY_NOTES_PORT:-8787}:80"
+    volumes:
+      - ./data:/app/storage
+    environment:
+      - APP_KEY=${APP_KEY}
+      - APP_URL=${APP_URL}

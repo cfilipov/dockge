@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:17
+    container_name: readflow-db
+    restart: always
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-readflow}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secret}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  readflow:
+    image: ncarlier/readflow:latest
+    container_name: readflow
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "${READFLOW_PORT:-8080}:8080"
+    environment:
+      - READFLOW_DATABASE_URI=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-secret}@db/${POSTGRES_DB:-readflow}?sslmode=disable
+      - READFLOW_AUTHN_METHOD=basic
+      - READFLOW_AUTHN_BASIC_HTPASSWD_FILE=file:///var/local/demo.htpasswd
+    volumes:
+      - ./demo.htpasswd:/var/local/demo.htpasswd:ro
+
+volumes:
+  db-data:

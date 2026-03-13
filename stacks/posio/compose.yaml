@@ -1,0 +1,37 @@
+services:
+  web:
+    image: python:3.12-slim-bookworm
+    container_name: posio-web
+    restart: unless-stopped
+    ports:
+      - "${POSIO_PORT:-8000}:8000"
+    environment:
+      - REDIS_HOST=redis
+      - PYTHONUNBUFFERED=true
+    depends_on:
+      - redis
+    volumes:
+      - spatialite-data:/app/db
+
+  gameloops:
+    image: python:3.12-slim-bookworm
+    container_name: posio-gameloops
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis
+      - PYTHONUNBUFFERED=true
+    depends_on:
+      - redis
+    volumes:
+      - spatialite-data:/app/db
+
+  redis:
+    image: redis:7.2-bookworm
+    container_name: posio-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  spatialite-data:
+  redis-data:

@@ -1,0 +1,13 @@
+# Pomerium configuration
+# See https://www.pomerium.com/docs/reference/ for details
+
+authenticate_service_url: https://authenticate.example.com
+
+routes:
+  - from: https://app.example.com
+    to: http://app:8080
+    policy:
+      - allow:
+          or:
+            - email:
+                is: user@example.com

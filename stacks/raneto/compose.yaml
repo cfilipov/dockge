@@ -1,0 +1,16 @@
+services:
+  raneto:
+    image: raneto/raneto:${RANETO_VERSION:-latest}
+    container_name: raneto
+    restart: unless-stopped
+    ports:
+      - "${RANETO_PORT:-3000}:3000"
+    volumes:
+      - ./content:/opt/raneto/content
+      - ./config:/opt/raneto/config
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+      - NODE_ENV=production
+
+volumes: {}

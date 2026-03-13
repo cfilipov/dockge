@@ -1,0 +1,147 @@
+services:
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-15}
+    container_name: libretime-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U ${POSTGRES_USER:-libretime}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:${RABBITMQ_VERSION:-3.13-alpine}
+    container_name: libretime-mq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    healthcheck:
+      test: nc -z 127.0.0.1 5672
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  playout:
+    image: ghcr.io/libretime/libretime-playout:${LIBRETIME_VERSION:-latest}
+    container_name: libretime-playout
+    restart: unless-stopped
+    init: true
+    ulimits:
+      nofile: 1024
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./config.yml:/etc/libretime/config.yml:ro
+      - libretime_playout:/app
+    environment:
+      LIBRETIME_GENERAL_PUBLIC_URL: http://nginx:8080
+
+  liquidsoap:
+    image: ghcr.io/libretime/libretime-playout:${LIBRETIME_VERSION:-latest}
+    container_name: libretime-liquidsoap
+    restart: unless-stopped
+    command: /usr/local/bin/libretime-liquidsoap
+    init: true
+    ulimits:
+      nofile: 1024
+    ports:
+      - "${LIBRETIME_STREAM_PORT_1:-8001}:8001"
+      - "${LIBRETIME_STREAM_PORT_2:-8002}:8002"
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./config.yml:/etc/libretime/config.yml:ro
+      - libretime_playout:/app
+    environment:
+      LIBRETIME_GENERAL_PUBLIC_URL: http://nginx:8080
+
+  analyzer:
+    image: ghcr.io/libretime/libretime-analyzer:${LIBRETIME_VERSION:-latest}
+    container_name: libretime-analyzer
+    restart: unless-stopped
+    init: true
+    ulimits:
+      nofile: 1024
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./config.yml:/etc/libretime/config.yml:ro
+      - libretime_storage:/srv/libretime
+    environment:
+      LIBRETIME_GENERAL_PUBLIC_URL: http://nginx:8080
+
+  worker:
+    image: ghcr.io/libretime/libretime-worker:${LIBRETIME_VERSION:-latest}
+    container_name: libretime-worker
+    restart: unless-stopped
+    init: true
+    ulimits:
+      nofile: 1024
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./config.yml:/etc/libretime/config.yml:ro
+    environment:
+      LIBRETIME_GENERAL_PUBLIC_URL: http://nginx:8080
+
+  api:
+    image: ghcr.io/libretime/libretime-api:${LIBRETIME_VERSION:-latest}
+    container_name: libretime-api
+    restart: unless-stopped
+    init: true
+    ulimits:
+      nofile: 1024
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./config.yml:/etc/libretime/config.yml:ro
+      - libretime_storage:/srv/libretime
+
+  legacy:
+    image: ghcr.io/libretime/libretime-legacy:${LIBRETIME_VERSION:-latest}
+    container_name: libretime-legacy
+    restart: unless-stopped
+    init: true
+    ulimits:
+      nofile: 1024
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./config.yml:/etc/libretime/config.yml:ro
+      - libretime_storage:/srv/libretime
+
+  nginx:
+    image: ghcr.io/libretime/libretime-nginx:${LIBRETIME_VERSION:-latest}
+    container_name: libretime-nginx
+    restart: unless-stopped
+    ports:
+      - "${LIBRETIME_PORT:-8080}:8080"
+    depends_on:
+      - legacy
+    volumes:
+      - libretime_storage:/srv/libretime:ro
+
+  icecast:
+    image: ghcr.io/libretime/icecast:${ICECAST_VERSION:-2.4.4}
+    container_name: libretime-icecast
+    restart: unless-stopped
+    ports:
+      - "${ICECAST_PORT:-8000}:8000"
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD}
+
+volumes:
+  postgres_data:
+  libretime_storage:
+  libretime_playout:

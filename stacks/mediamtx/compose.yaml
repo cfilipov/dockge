@@ -1,0 +1,16 @@
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    restart: unless-stopped
+    ports:
+      - "${RTSP_PORT:-8554}:8554"
+      - "${RTMP_PORT:-1935}:1935"
+      - "${HLS_PORT:-8888}:8888"
+      - "${WEBRTC_PORT:-8889}:8889"
+      - "${SRT_PORT:-8890}:8890/udp"
+      - "${API_PORT:-9997}:9997"
+    environment:
+      - MTX_PROTOCOLS=${MTX_PROTOCOLS}
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro

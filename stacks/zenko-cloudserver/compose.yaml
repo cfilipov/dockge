@@ -1,0 +1,19 @@
+services:
+  cloudserver:
+    image: zenko/cloudserver:latest
+    container_name: cloudserver
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      SCALITY_ACCESS_KEY_ID: ${SCALITY_ACCESS_KEY_ID:-accessKey1}
+      SCALITY_SECRET_ACCESS_KEY: ${SCALITY_SECRET_ACCESS_KEY:-verySecretKey1}
+      S3DATA: file
+      LOG_LEVEL: info
+    volumes:
+      - data:/usr/src/app/localData
+      - metadata:/usr/src/app/localMetadata
+
+volumes:
+  data:
+  metadata:

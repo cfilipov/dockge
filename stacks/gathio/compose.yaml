@@ -1,0 +1,23 @@
+services:
+  gathio:
+    image: lowercasename/gathio:latest
+    ports:
+      - "${GATHIO_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+    volumes:
+      - ./config:/app/config
+      - gathio_images:/app/public/events
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - gathio_db:/data/db
+    restart: unless-stopped
+
+volumes:
+  gathio_db:
+  gathio_images:

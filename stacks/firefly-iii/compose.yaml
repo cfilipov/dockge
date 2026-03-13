@@ -1,0 +1,58 @@
+services:
+  app:
+    image: fireflyiii/core:latest
+    restart: always
+    ports:
+      - "${PORT:-80}:8080"
+    volumes:
+      - firefly-upload:/var/www/html/storage/upload
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - SITE_OWNER=${SITE_OWNER}
+      - APP_KEY=${APP_KEY}
+      - DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE}
+      - DEFAULT_LOCALE=${DEFAULT_LOCALE}
+      - TZ=${TZ}
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - STATIC_CRON_TOKEN=${STATIC_CRON_TOKEN}
+    depends_on:
+      - db
+    networks:
+      - firefly
+
+  db:
+    image: mariadb:lts
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
+    volumes:
+      - firefly-db:/var/lib/mysql
+    networks:
+      - firefly
+
+  cron:
+    image: alpine
+    restart: always
+    command: >
+      sh -c "echo \"0 3 * * * wget -qO- http://app:8080/api/v1/cron/${STATIC_CRON_TOKEN}\" | crontab - && crond -f -L /dev/stdout"
+    depends_on:
+      - app
+    networks:
+      - firefly
+
+volumes:
+  firefly-upload:
+  firefly-db:
+
+networks:
+  firefly:
+    driver: bridge

@@ -1,0 +1,10 @@
+services:
+  sqlpage:
+    image: lovasoa/sqlpage
+    container_name: sqlpage
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./source:/var/www
+      - ./configuration:/etc/sqlpage:ro

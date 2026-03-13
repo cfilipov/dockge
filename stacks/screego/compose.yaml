@@ -1,0 +1,11 @@
+services:
+  screego:
+    image: screego/server:latest
+    container_name: screego
+    ports:
+      - "5050:5050"
+      - "3478:3478/udp"
+    environment:
+      SCREEGO_EXTERNAL_IP: "127.0.0.1"
+      SCREEGO_SECRET: ${SCREEGO_SECRET}
+    restart: unless-stopped

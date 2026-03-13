@@ -1,0 +1,12 @@
+services:
+  atomic-server:
+    image: joepmeneer/atomic-server
+    container_name: atomic-server
+    ports:
+      - "80:80"
+    volumes:
+      - atomic-storage:/atomic-storage
+
+volumes:
+  atomic-storage:
+    driver: local

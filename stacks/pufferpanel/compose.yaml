@@ -1,0 +1,16 @@
+services:
+  pufferpanel:
+    image: pufferpanel/pufferpanel:latest
+    container_name: pufferpanel
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+      - "${SFTP_PORT:-5657}:5657"
+    volumes:
+      - ./config:/etc/pufferpanel
+      - ./servers:/var/lib/pufferpanel/servers
+      - ./binaries:/var/lib/pufferpanel/binaries
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      PUFFER_LOGS__CONSOLE__LEVEL: ${LOG_LEVEL:-INFO}
+      PUFFER_PANEL__REGISTRATIONENABLED: ${REGISTRATION_ENABLED:-true}

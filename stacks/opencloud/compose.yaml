@@ -1,0 +1,19 @@
+services:
+  opencloud:
+    image: docker.io/opencloud/opencloud:${OPENCLOUD_VERSION}
+    restart: unless-stopped
+    ports:
+      - "${OPENCLOUD_PORT}:9200"
+    environment:
+      OPENCLOUD_URL: https://${OPENCLOUD_DOMAIN}
+      OPENCLOUD_LOG_LEVEL: ${OPENCLOUD_LOG_LEVEL}
+      OPENCLOUD_INSECURE: "true"
+      OPENCLOUD_ADMIN_USER_ID: ${ADMIN_USER}
+      OPENCLOUD_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    volumes:
+      - opencloud-config:/etc/opencloud
+      - opencloud-data:/var/lib/opencloud
+
+volumes:
+  opencloud-config:
+  opencloud-data:

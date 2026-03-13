@@ -1,0 +1,19 @@
+services:
+  podfetch:
+    image: samuel19982/podfetch:latest
+    container_name: podfetch
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - podfetch-podcasts:/app/podcasts
+      - podfetch-db:/app/db
+    environment:
+      - POLLING_INTERVAL=${POLLING_INTERVAL:-60}
+      - SERVER_URL=${SERVER_URL}
+      - DATABASE_URL=sqlite:///app/db/podcast.db
+    restart: unless-stopped
+
+volumes:
+  podfetch-podcasts:
+  podfetch-db:

@@ -1,0 +1,47 @@
+services:
+  server:
+    image: opensign/opensignserver:main
+    container_name: opensign-server
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "8080:8080"
+    volumes:
+      - opensign_files:/usr/src/app/files
+    environment:
+      NODE_ENV: production
+      APP_ID: "${APP_ID}"
+      MASTER_KEY: "${MASTER_KEY}"
+      MONGODB_URI: "mongodb://mongo:27017/opensign"
+      SERVER_URL: "http://localhost:8080/api/app"
+      PUBLIC_URL: "http://localhost:3000"
+      MAILGUN_API_KEY: "${MAILGUN_API_KEY}"
+      MAILGUN_DOMAIN: "${MAILGUN_DOMAIN}"
+      MAILGUN_SENDER: "${MAILGUN_SENDER}"
+
+  client:
+    image: opensign/opensign:main
+    container_name: opensign-client
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "3000:3000"
+    environment:
+      PUBLIC_URL: "http://localhost:3000"
+      REACT_APP_SERVERURL: "http://localhost:8080/api/app"
+      REACT_APP_APPID: "${APP_ID}"
+
+  mongo:
+    image: mongo:7
+    container_name: opensign-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+
+volumes:
+  mongo_data:
+  opensign_files:

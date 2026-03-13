@@ -1,0 +1,38 @@
+services:
+  diaspora:
+    image: koehn/diaspora:latest
+    container_name: diaspora
+    restart: unless-stopped
+    ports:
+      - "${DIASPORA_PORT:-3000}:3000"
+    environment:
+      RAILS_ENV: production
+      DIASPORA_DOMAIN: ${DIASPORA_DOMAIN:-localhost}
+    volumes:
+      - diaspora-data:/home/diaspora/diaspora
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:15-alpine
+    container_name: diaspora-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-diaspora}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-diaspora}
+      POSTGRES_DB: ${DB_NAME:-diaspora_production}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: diaspora-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  diaspora-data:
+  db-data:
+  redis-data:

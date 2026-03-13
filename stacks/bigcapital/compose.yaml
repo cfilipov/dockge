@@ -1,0 +1,94 @@
+services:
+  webapp:
+    image: bigcapitalhq/webapp:latest
+    restart: on-failure
+    networks:
+      - bigcapital_network
+
+  server:
+    image: bigcapitalhq/server:latest
+    restart: on-failure
+    expose:
+      - "3000"
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - bigcapital_network
+    environment:
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_SECURE=${MAIL_SECURE}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
+      - DB_HOST=mysql
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_CHARSET=${DB_CHARSET}
+      - SYSTEM_DB_NAME=${SYSTEM_DB_NAME}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_HOST=redis
+      - QUEUE_PORT=6379
+      - TENANT_DB_NAME_PERFIX=${TENANT_DB_NAME_PERFIX}
+      - JWT_SECRET=${JWT_SECRET}
+      - BASE_URL=${BASE_URL}
+      - SIGNUP_DISABLED=${SIGNUP_DISABLED}
+      - GOTENBERG_URL=http://gotenberg:3000
+      - GOTENBERG_DOCS_URL=http://server:3000/public/
+
+  mysql:
+    image: mariadb:10
+    restart: on-failure
+    environment:
+      - MYSQL_DATABASE=${SYSTEM_DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql:/var/lib/mysql
+    expose:
+      - "3306"
+    networks:
+      - bigcapital_network
+
+  redis:
+    image: redis:7-alpine
+    restart: on-failure
+    expose:
+      - "6379"
+    volumes:
+      - redis:/data
+    networks:
+      - bigcapital_network
+
+  proxy:
+    image: envoyproxy/envoy:v1.30-latest
+    restart: on-failure
+    depends_on:
+      - server
+      - webapp
+    ports:
+      - "${PUBLIC_PROXY_PORT:-80}:80"
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml:ro
+    networks:
+      - bigcapital_network
+
+  gotenberg:
+    image: gotenberg/gotenberg:7
+    restart: on-failure
+    expose:
+      - "9000"
+    networks:
+      - bigcapital_network
+
+volumes:
+  mysql:
+  redis:
+
+networks:
+  bigcapital_network:
+    driver: bridge

@@ -1,0 +1,20 @@
+services:
+  para:
+    image: erudika/para:latest
+    restart: unless-stopped
+    ports:
+      - "${PARA_PORT:-8080}:8080"
+    environment:
+      JAVA_OPTS: "-Xmx512m"
+      para.app_name: ${PARA_APP_NAME}
+      para.port: "8080"
+      para.env: production
+      para.dao: "H2DAO"
+      para.search: "LuceneSearch"
+      para.app_secret_key: ${PARA_SECRET_KEY}
+      para.admin_ident: ${PARA_ADMIN_IDENT}
+    volumes:
+      - para-data:/para/data
+
+volumes:
+  para-data:

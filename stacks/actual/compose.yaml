@@ -1,0 +1,13 @@
+services:
+  actual:
+    image: actualbudget/actual-server:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5006}:5006"
+    volumes:
+      - actual-data:/data
+    environment:
+      - ACTUAL_UPLOAD_FILE_SYNC_SIZE_LIMIT_MB=${UPLOAD_LIMIT:-20}
+
+volumes:
+  actual-data:

@@ -1,0 +1,11 @@
+services:
+  kiwiirc:
+    image: crashbuggy/kiwiirc:latest
+    restart: unless-stopped
+    ports:
+      - "${KIWI_PORT:-8080}:80"
+    volumes:
+      - kiwi-config:/etc/kiwiirc
+
+volumes:
+  kiwi-config:

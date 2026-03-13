@@ -1,0 +1,14 @@
+services:
+  kresus:
+    image: bnjbvr/kresus:latest
+    restart: unless-stopped
+    ports:
+      - "${KRESUS_PORT:-9876}:9876"
+    environment:
+      - LOCAL_USER_ID=${LOCAL_USER_ID:-1000}
+      - KRESUS_SALT=${KRESUS_SALT:-changeme-random-salt}
+    volumes:
+      - kresus_data:/home/user/data
+
+volumes:
+  kresus_data:

@@ -1,0 +1,41 @@
+services:
+  pretalx:
+    image: pretalx/standalone:latest
+    container_name: pretalx
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - db
+    environment:
+      PRETALX_FILESYSTEM_MEDIA: /public/media
+      PRETALX_FILESYSTEM_STATIC: /public/static
+    ports:
+      - "80:80"
+    volumes:
+      - ./conf/pretalx.cfg:/etc/pretalx/pretalx.cfg:ro
+      - pretalx-data:/data
+      - pretalx-public:/public
+
+  db:
+    image: postgres:15-alpine
+    container_name: pretalx-db
+    restart: unless-stopped
+    volumes:
+      - pretalx-database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: veryunsecureplschange
+      POSTGRES_USER: pretalx
+      POSTGRES_DB: pretalx
+
+  redis:
+    image: redis:latest
+    container_name: pretalx-redis
+    restart: unless-stopped
+    volumes:
+      - pretalx-redis:/data
+
+volumes:
+  pretalx-database:
+  pretalx-data:
+  pretalx-public:
+  pretalx-redis:

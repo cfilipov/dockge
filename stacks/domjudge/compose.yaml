@@ -1,0 +1,32 @@
+services:
+  mariadb:
+    image: mariadb:latest
+    container_name: domjudge-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-domjudge}
+      MYSQL_USER: ${MYSQL_USER:-domjudge}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-domjudge}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-domjudge}
+    command: --max-connections=1000 --max-allowed-packet=512M
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  domserver:
+    image: domjudge/domserver:latest
+    container_name: domjudge-server
+    restart: unless-stopped
+    ports:
+      - "${DOMJUDGE_PORT:-12345}:80"
+    environment:
+      CONTAINER_TIMEZONE: ${CONTAINER_TIMEZONE:-UTC}
+      MYSQL_HOST: mariadb
+      MYSQL_USER: ${MYSQL_USER:-domjudge}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-domjudge}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-domjudge}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-domjudge}
+    depends_on:
+      - mariadb
+
+volumes:
+  mariadb_data:

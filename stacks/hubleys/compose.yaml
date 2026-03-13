@@ -1,0 +1,11 @@
+services:
+  hubleys:
+    image: ghcr.io/knrdl/hubleys-dashboard:latest
+    container_name: hubleys
+    ports:
+      - "${HUBLEYS_PORT:-8080}:8080"
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+    restart: unless-stopped

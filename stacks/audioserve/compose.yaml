@@ -1,0 +1,16 @@
+services:
+  audioserve:
+    image: izderadicka/audioserve:${AUDIOSERVE_VERSION:-latest}
+    container_name: audioserve
+    restart: unless-stopped
+    command: --tags /audiobooks
+    ports:
+      - "${AUDIOSERVE_PORT:-3000}:3000"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      AUDIOSERVE_SHARED_SECRET: ${AUDIOSERVE_SHARED_SECRET}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config:/home/audioserve/.audioserve
+      - ./audiobooks:/audiobooks

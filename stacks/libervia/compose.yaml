@@ -1,0 +1,60 @@
+services:
+  prosody:
+    image: libervia/prosody:demo
+    depends_on:
+      - backend
+    tmpfs:
+      - /var/log/prosody
+    networks:
+      default:
+        aliases:
+          - server1.test
+
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-test_e2e}
+      POSTGRES_DB: pubsub
+    tmpfs: /var/lib/postgresql/data
+
+  pubsub:
+    image: libervia/pubsub
+    depends_on:
+      - db
+      - prosody
+    environment:
+      PGHOST: db
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:-test_e2e}
+      LIBERVIA_PUBSUB_RHOST: server1.test
+      LIBERVIA_PUBSUB_JID: pubsub.server1.test
+      LIBERVIA_PUBSUB_XMPP_PWD: ${XMPP_PASSWORD:-test_e2e}
+
+  backend:
+    image: libervia/backend:dev-demo
+    volumes:
+      - libervia_data:/home/libervia/.local/share/libervia
+    ports:
+      - "${HTTP_UPLOAD_PORT:-7777}:7777"
+    networks:
+      default:
+        aliases:
+          - libervia-backend.test
+
+  web:
+    image: libervia/web:dev-demo
+    depends_on:
+      - backend
+    environment:
+      LIBERVIA_PASSPHRASE: ${LIBERVIA_PASSPHRASE:-test_demo}
+    volumes:
+      - libervia_data:/home/libervia/.local/share/libervia
+    ports:
+      - "${PORT:-8880}:8880"
+    networks:
+      default:
+        aliases:
+          - libervia-web.test
+
+volumes:
+  libervia_data:

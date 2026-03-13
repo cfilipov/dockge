@@ -1,0 +1,14 @@
+services:
+  fcrepo:
+    image: fcrepo/fcrepo:${FCREPO_VERSION:-6.5.1}
+    container_name: fcrepo
+    environment:
+      FEDORA_ADMIN_USERNAME: ${FEDORA_ADMIN_USERNAME:-fedoraAdmin}
+      FEDORA_ADMIN_PASSWORD: ${FEDORA_ADMIN_PASSWORD:-fedoraAdmin}
+    ports:
+      - "8080:8080"
+    volumes:
+      - fcrepo_data:/usr/local/tomcat/fcrepo-home
+
+volumes:
+  fcrepo_data:

@@ -1,0 +1,52 @@
+services:
+  nefarious:
+    image: lardbit/nefarious:latest
+    container_name: nefarious
+    ports:
+      - "${NEFARIOUS_PORT:-8080}:80"
+    environment:
+      - NEFARIOUS_USER=${NEFARIOUS_USER:-admin}
+      - NEFARIOUS_PASS=${NEFARIOUS_PASS:-admin}
+      - JACKETT_HOST=jackett
+      - JACKETT_PORT=9117
+      - TRANSMISSION_HOST=transmission
+      - TRANSMISSION_PORT=9091
+    depends_on:
+      - redis
+      - jackett
+      - transmission
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: nefarious-redis
+    expose:
+      - "6379"
+    restart: unless-stopped
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: nefarious-jackett
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Etc/UTC}
+    volumes:
+      - ./jackett-config:/config
+    ports:
+      - "${JACKETT_PORT:-9117}:9117"
+    restart: unless-stopped
+
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: nefarious-transmission
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Etc/UTC}
+    volumes:
+      - ./transmission-config:/config
+      - ${DOWNLOADS_DIR}:/downloads
+    ports:
+      - "${TRANSMISSION_PORT:-9091}:9091"
+    restart: unless-stopped

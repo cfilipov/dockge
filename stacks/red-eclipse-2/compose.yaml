@@ -1,0 +1,19 @@
+services:
+  server:
+    image: iceflower/redeclipse-server:${REDECLIPSE_VERSION:-latest}
+    container_name: redeclipse-server
+    restart: unless-stopped
+    ports:
+      - "${REDECLIPSE_PORT:-28801}:28801/udp"
+      - "${REDECLIPSE_PORT:-28801}:28801/tcp"
+    environment:
+      - SERVER_NAME=${SERVER_NAME:-Red Eclipse Server}
+      - SERVER_DESC=${SERVER_DESC:-A Red Eclipse 2 game server}
+      - SERVER_PASS=${SERVER_PASS:-}
+      - ADMIN_PASS=${ADMIN_PASS:-}
+    volumes:
+      - server-data:/home/redeclipse/.redeclipse
+      - ./servinit.cfg:/home/redeclipse/servinit.cfg:ro
+
+volumes:
+  server-data:

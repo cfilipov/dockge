@@ -1,0 +1,33 @@
+services:
+  framadate:
+    image: framasoft/framadate:latest
+    ports:
+      - "${FRAMADATE_PORT:-8080}:80"
+    environment:
+      APP_NAME: ${APP_NAME:-Framadate}
+      ADMIN_MAIL: ${ADMIN_MAIL}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DB: ${MYSQL_DATABASE}
+      MYSQL_HOST: db
+      MYSQL_PORT: "3306"
+      ADMIN_USER: ${ADMIN_USER}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SMTP_SERVER: ${SMTP_SERVER:-smtp:1025}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    volumes:
+      - framadate_db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    restart: unless-stopped
+
+volumes:
+  framadate_db:

@@ -1,0 +1,39 @@
+services:
+  cytube:
+    image: ghcr.io/calzoneman/sync:latest
+    container_name: cytube
+    restart: unless-stopped
+    ports:
+      - "${CYTUBE_HTTP_PORT:-8080}:8080"
+      - "${CYTUBE_IO_PORT:-1443}:1443"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - MYSQL_HOST=cytube-db
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    depends_on:
+      cytube-db:
+        condition: service_healthy
+
+  cytube-db:
+    image: mariadb:11
+    container_name: cytube-db
+    restart: unless-stopped
+    volumes:
+      - cytube-db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cytube-db:

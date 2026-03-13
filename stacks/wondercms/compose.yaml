@@ -1,0 +1,11 @@
+services:
+  wondercms:
+    image: wondercms/wondercms:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - data:/var/www/html
+    restart: unless-stopped
+
+volumes:
+  data:

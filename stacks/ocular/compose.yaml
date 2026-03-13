@@ -1,0 +1,11 @@
+services:
+  ocular:
+    image: ghcr.io/simonwep/ocular:v2
+    container_name: ocular
+    restart: unless-stopped
+    ports:
+      - "${OCULAR_PORT:-3030}:80"
+    volumes:
+      - ./data:/data/genesis
+    environment:
+      - GENESIS_JWT_SECRET=${GENESIS_JWT_SECRET:-changeme-generate-a-random-secret}

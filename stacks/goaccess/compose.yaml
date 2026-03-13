@@ -1,0 +1,15 @@
+services:
+  goaccess:
+    image: allinurl/goaccess:latest
+    container_name: goaccess
+    ports:
+      - "7890:7890"
+    command: --log-format=COMBINED --real-time-html -o /report/report.html
+    volumes:
+      - ./logs:/var/log/access:ro
+      - report-data:/report
+    stdin_open: true
+    restart: unless-stopped
+
+volumes:
+  report-data:

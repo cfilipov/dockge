@@ -1,0 +1,14 @@
+services:
+  vince:
+    image: ghcr.io/vinceanalytics/vince:latest
+    container_name: vince
+    restart: unless-stopped
+    ports:
+      - "${VINCE_PORT:-8080}:8080"
+    volumes:
+      - vince-data:/data
+    environment:
+      - VINCE_SITE=${VINCE_SITE:-example.com}
+
+volumes:
+  vince-data:

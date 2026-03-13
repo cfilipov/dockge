@@ -1,0 +1,122 @@
+services:
+  api_server:
+    image: onyxdotapp/onyx-backend:latest
+    environment:
+      - AUTH_TYPE=basic
+      - POSTGRES_HOST=relational_db
+      - VESPA_HOST=index
+      - REDIS_HOST=cache
+      - MODEL_SERVER_HOST=inference_model_server
+      - INDEXING_MODEL_SERVER_HOST=indexing_model_server
+    volumes:
+      - file-system:/app/file-system
+    depends_on:
+      relational_db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+      inference_model_server:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 25s
+    restart: always
+
+  background:
+    image: onyxdotapp/onyx-backend:latest
+    command: /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+    environment:
+      - POSTGRES_HOST=relational_db
+      - VESPA_HOST=index
+      - REDIS_HOST=cache
+      - MODEL_SERVER_HOST=inference_model_server
+      - INDEXING_MODEL_SERVER_HOST=indexing_model_server
+    volumes:
+      - file-system:/app/file-system
+    depends_on:
+      relational_db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+      inference_model_server:
+        condition: service_started
+      indexing_model_server:
+        condition: service_started
+    restart: always
+
+  web_server:
+    image: onyxdotapp/onyx-web-server:latest
+    environment:
+      - INTERNAL_URL=http://api_server:8080
+    depends_on:
+      - api_server
+    restart: always
+
+  inference_model_server:
+    image: onyxdotapp/onyx-model-server:latest
+    volumes:
+      - model_cache_huggingface:/app/.cache/huggingface/
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/api/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    restart: always
+
+  indexing_model_server:
+    image: onyxdotapp/onyx-model-server:latest
+    environment:
+      - INDEXING_ONLY=True
+    volumes:
+      - indexing_huggingface_model_cache:/app/.cache/huggingface/
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/api/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    restart: always
+
+  relational_db:
+    image: postgres:15.2-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - db_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  index:
+    image: vespaengine/vespa:8.609.39
+    environment:
+      - VESPA_SKIP_UPGRADE_CHECK=true
+    volumes:
+      - vespa_volume:/opt/vespa/var
+    restart: always
+
+  cache:
+    image: redis:7.4-alpine
+    restart: always
+
+  nginx:
+    image: nginx:1.25.5-alpine
+    ports:
+      - "3000:80"
+    depends_on:
+      - api_server
+      - web_server
+    restart: always
+
+volumes:
+  file-system:
+  db_volume:
+  vespa_volume:
+  model_cache_huggingface:
+  indexing_huggingface_model_cache:

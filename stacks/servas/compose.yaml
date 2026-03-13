@@ -1,0 +1,13 @@
+services:
+  servas:
+    image: beromir/servas:latest
+    container_name: servas
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      - ./.env.servas:/app/.env
+      - servas-db:/app/database/database.sqlite
+
+volumes:
+  servas-db:

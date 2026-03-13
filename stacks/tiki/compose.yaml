@@ -1,0 +1,32 @@
+services:
+  tiki:
+    image: tikiwiki/tikiwiki:${TIKI_VERSION:-latest}
+    container_name: tiki
+    restart: unless-stopped
+    ports:
+      - "${TIKI_PORT:-8080}:80"
+    volumes:
+      - tiki-data:/var/www/html
+    environment:
+      - TIKI_DB_HOST=db
+      - TIKI_DB_NAME=${MYSQL_DATABASE:-tiki}
+      - TIKI_DB_USER=${MYSQL_USER:-tiki}
+      - TIKI_DB_PASS=${MYSQL_PASSWORD:-changeme}
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-11}
+    container_name: tiki-db
+    restart: unless-stopped
+    volumes:
+      - tiki-db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootchangeme}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-tiki}
+      - MYSQL_USER=${MYSQL_USER:-tiki}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+
+volumes:
+  tiki-data:
+  tiki-db:

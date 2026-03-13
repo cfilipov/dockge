@@ -1,0 +1,157 @@
+services:
+  caddy:
+    image: caddy:latest
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - revel_media:/srv/revel_media
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - revel_network
+
+  web:
+    image: ghcr.io/letsrevel/revel:latest
+    command: >
+      gunicorn revel.wsgi:application
+      --worker-class gthread
+      --workers 4
+      --threads 2
+      --bind 0.0.0.0:8000
+      --timeout 60
+    expose:
+      - "8000"
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: pgbouncer
+      DB_PORT: "6432"
+      DB_USE_PGBOUNCER: "True"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      SECRET_KEY: ${SECRET_KEY}
+      SALT_KEY: ${SALT_KEY}
+      DEBUG: "False"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      BASE_URL: ${BASE_URL}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
+    volumes:
+      - revel_media:/app/src/media
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - revel_network
+
+  celery_default:
+    image: ghcr.io/letsrevel/revel:latest
+    command: celery -A revel worker -l info -Q default
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: pgbouncer
+      DB_PORT: "6432"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      SECRET_KEY: ${SECRET_KEY}
+      SALT_KEY: ${SALT_KEY}
+    depends_on:
+      - pgbouncer
+      - redis
+    restart: unless-stopped
+    networks:
+      - revel_network
+
+  celery_beat:
+    image: ghcr.io/letsrevel/revel:latest
+    command: celery -A revel beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: pgbouncer
+      DB_PORT: "6432"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      SECRET_KEY: ${SECRET_KEY}
+      SALT_KEY: ${SALT_KEY}
+    depends_on:
+      - pgbouncer
+      - redis
+    restart: unless-stopped
+    networks:
+      - revel_network
+
+  db:
+    image: postgres:16
+    volumes:
+      - revel_db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - revel_network
+
+  pgbouncer:
+    image: bitnami/pgbouncer:latest
+    environment:
+      POSTGRESQL_HOST: db
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USERNAME: ${DB_USER}
+      POSTGRESQL_PASSWORD: ${DB_PASSWORD}
+      POSTGRESQL_DATABASE: ${DB_NAME}
+      PGBOUNCER_DATABASE: ${DB_NAME}
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: "200"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "20"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - revel_network
+
+  redis:
+    image: redis:7
+    volumes:
+      - revel_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - revel_network
+
+networks:
+  revel_network:
+
+volumes:
+  revel_db:
+  revel_redis:
+  revel_media:
+  caddy_data:
+  caddy_config:

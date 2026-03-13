@@ -1,0 +1,17 @@
+services:
+  mindustry:
+    image: hetsh/mindustry:latest
+    container_name: mindustry
+    restart: unless-stopped
+    ports:
+      - "${GAME_PORT:-6567}:6567/tcp"
+      - "${GAME_PORT:-6567}:6567/udp"
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+    volumes:
+      - server_data:/mindustry/config
+    stdin_open: true
+    tty: true
+
+volumes:
+  server_data:

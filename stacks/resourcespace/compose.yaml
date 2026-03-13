@@ -1,0 +1,31 @@
+services:
+  resourcespace:
+    image: suntorytimed/resourcespace:latest
+    container_name: resourcespace
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    ports:
+      - "${RESOURCESPACE_PORT:-8080}:80"
+    volumes:
+      - include:/var/www/html/include
+      - filestore:/var/www/html/filestore
+    environment:
+      - TZ=${TZ:-UTC}
+
+  mariadb:
+    image: mariadb:11
+    container_name: resourcespace-db
+    restart: unless-stopped
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-resourcespace_root}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-resourcespace}
+      - MYSQL_USER=${MYSQL_USER:-resourcespace}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-resourcespace_pass}
+
+volumes:
+  include:
+  filestore:
+  mariadb_data:

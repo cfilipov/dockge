@@ -1,0 +1,16 @@
+services:
+  digirecord:
+    image: node:20-alpine
+    container_name: digirecord
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "${DIGIRECORD_PORT:-3000}:3000"
+    volumes:
+      - app-data:/app/fichiers
+    environment:
+      NODE_ENV: production
+      TZ: ${TZ:-UTC}
+
+volumes:
+  app-data:

@@ -1,0 +1,45 @@
+services:
+  app:
+    image: ghcr.io/0pandadev/ziit:latest
+    ports:
+      - "3000:3000"
+    environment:
+      NUXT_DATABASE_URL: "postgresql://postgres:CHANGEME@postgres:5432/ziit"
+      NUXT_PASETO_KEY: ""
+      NUXT_ADMIN_KEY: ""
+      NUXT_HOST: ""
+      NUXT_DISABLE_REGISTRATION: "false"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ziit-network
+
+  postgres:
+    image: timescale/timescaledb-ha:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: CHANGEME
+      POSTGRES_DB: ziit
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      ziit-network:
+        aliases:
+          - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ziit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres:
+
+networks:
+  ziit-network:
+    driver: bridge

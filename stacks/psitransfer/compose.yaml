@@ -1,0 +1,14 @@
+services:
+  psitransfer:
+    image: psitrax/psitransfer:latest
+    container_name: psitransfer
+    restart: unless-stopped
+    ports:
+      - "${PSITRANSFER_PORT:-3000}:3000"
+    environment:
+      PSITRANSFER_ADMIN_PASS: ${PSITRANSFER_ADMIN_PASS}
+    volumes:
+      - psitransfer-data:/data
+
+volumes:
+  psitransfer-data:

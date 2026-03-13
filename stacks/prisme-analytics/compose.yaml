@@ -1,0 +1,44 @@
+services:
+  prisme:
+    image: prismelabs/analytics:latest
+    container_name: prisme
+    ports:
+      - "8000:80"
+    environment:
+      - PRISME_CLICKHOUSE_ADDRESS=clickhouse:9000
+      - PRISME_CLICKHOUSE_DATABASE=prisme
+      - PRISME_GRAFANA_URL=http://grafana:3000
+    depends_on:
+      - clickhouse
+      - grafana
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8-alpine
+    container_name: prisme-clickhouse
+    environment:
+      - CLICKHOUSE_DB=prisme
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: prisme-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  clickhouse-data:
+  grafana-data:

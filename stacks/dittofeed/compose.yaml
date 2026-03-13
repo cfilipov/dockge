@@ -1,0 +1,89 @@
+x-database-credentials: &database-credentials
+  DATABASE_USER: ${DATABASE_USER:-postgres}
+  DATABASE_PASSWORD: ${DATABASE_PASSWORD:-password}
+
+x-clickhouse-credentials: &clickhouse-credentials
+  CLICKHOUSE_USER: ${CLICKHOUSE_USER:-dittofeed}
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
+
+x-backend-app-env: &backend-app-env
+  <<: [*clickhouse-credentials, *database-credentials]
+  NODE_ENV: production
+  DATABASE_HOST: postgres
+  DATABASE_PORT: "5432"
+  CLICKHOUSE_HOST: http://clickhouse-server:8123
+  TEMPORAL_ADDRESS: temporal:7233
+  WORKSPACE_NAME: Default
+  AUTH_MODE: single-tenant
+  SECRET_KEY: GEGL1RHjFVOxIO80Dp8+ODlZPOjm2IDBJB/UunHlf3c=
+  PASSWORD: password
+  DASHBOARD_API_BASE: http://localhost:3000
+
+services:
+  lite:
+    image: dittofeed/dittofeed-lite:v0.23.0
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - temporal
+      - clickhouse-server
+    environment:
+      <<: *backend-app-env
+      BOOTSTRAP: "true"
+    networks:
+      - dittofeed-network-lite
+
+  temporal:
+    image: temporalio/auto-setup:1.22.4
+    container_name: temporal
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=password
+      - POSTGRES_SEEDS=postgres
+    networks:
+      - dittofeed-network-lite
+    ports:
+      - "7233:7233"
+
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=dittofeed
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      - dittofeed-network-lite
+
+  clickhouse-server:
+    image: clickhouse/clickhouse-server:24.12.6.70-alpine
+    restart: always
+    environment:
+      <<: *clickhouse-credentials
+    ports:
+      - "8123:8123"
+    volumes:
+      - clickhouse_lib:/var/lib/clickhouse
+      - clickhouse_log:/var/log/clickhouse-server
+    networks:
+      - dittofeed-network-lite
+
+volumes:
+  postgres:
+  clickhouse_lib:
+  clickhouse_log:
+
+networks:
+  dittofeed-network-lite:
+    driver: bridge

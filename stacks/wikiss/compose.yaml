@@ -1,0 +1,14 @@
+services:
+  wikiss:
+    image: php:${PHP_VERSION:-8.3-apache}
+    container_name: wikiss
+    restart: unless-stopped
+    ports:
+      - "${WIKISS_PORT:-8080}:80"
+    volumes:
+      - wikiss-data:/var/www/html
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  wikiss-data:

@@ -1,0 +1,16 @@
+services:
+  pictshare:
+    image: ghcr.io/hascheksolutions/pictshare:latest
+    container_name: pictshare
+    restart: unless-stopped
+    ports:
+      - "${PICTSHARE_PORT:-8080}:80"
+    environment:
+      URL: ${PICTSHARE_URL}
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-100}
+      LOG_UPLOADER: "true"
+    volumes:
+      - pictshare-data:/var/www/data
+
+volumes:
+  pictshare-data:

@@ -1,0 +1,11 @@
+services:
+  nullboard:
+    image: richardsoper/nullboard:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - data:/nullboard/data
+
+volumes:
+  data:

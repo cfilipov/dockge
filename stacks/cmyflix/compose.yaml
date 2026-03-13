@@ -1,0 +1,15 @@
+services:
+  cmyflix:
+    image: farfalleflickan/cmyflix:latest
+    container_name: cmyflix
+    restart: unless-stopped
+    ports:
+      - "${CMYFLIX_PORT:-5000}:5000"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./config:/app/config
+      - ${MOVIES_PATH}:/movies:ro
+      - ${TV_PATH}:/tv:ro
+
+volumes: {}

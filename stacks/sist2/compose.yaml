@@ -1,0 +1,27 @@
+services:
+  elasticsearch:
+    image: elasticsearch:${ES_TAG}
+    container_name: sist2-es
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS}
+    restart: unless-stopped
+
+  sist2:
+    image: simon987/sist2:${SIST2_TAG}
+    container_name: sist2
+    volumes:
+      - sist2-data:/sist2-admin
+    ports:
+      - "${SIST2_PORT}:4090"
+    depends_on:
+      - elasticsearch
+    environment:
+      - SIST2_ES_URL=http://elasticsearch:9200
+    restart: unless-stopped
+
+volumes:
+  es-data:
+  sist2-data:

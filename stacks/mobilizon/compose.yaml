@@ -1,0 +1,35 @@
+services:
+  mobilizon:
+    image: framasoft/mobilizon:latest
+    ports:
+      - "${MOBILIZON_PORT:-4000}:4000"
+    environment:
+      MOBILIZON_INSTANCE_NAME: ${INSTANCE_NAME:-Mobilizon}
+      MOBILIZON_INSTANCE_HOST: ${INSTANCE_HOST:-localhost}
+      MOBILIZON_INSTANCE_PORT: ${MOBILIZON_PORT:-4000}
+      MOBILIZON_INSTANCE_REGISTRATIONS_OPEN: "true"
+      MOBILIZON_DATABASE_DBNAME: ${POSTGRES_DB}
+      MOBILIZON_DATABASE_USERNAME: ${POSTGRES_USER}
+      MOBILIZON_DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      MOBILIZON_DATABASE_HOST: db
+      MOBILIZON_INSTANCE_SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      MOBILIZON_INSTANCE_SECRET_KEY: ${SECRET_KEY}
+    volumes:
+      - mobilizon_uploads:/var/lib/mobilizon/uploads
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgis/postgis:16-3.4
+    volumes:
+      - mobilizon_db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    restart: unless-stopped
+
+volumes:
+  mobilizon_db:
+  mobilizon_uploads:

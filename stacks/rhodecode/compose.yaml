@@ -1,0 +1,30 @@
+services:
+  rhodecode:
+    image: rhodecode/rhodecode-ce:${RC_VERSION:-stable}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8086}:10020"
+    environment:
+      RC_APP_HOST: "0.0.0.0"
+      RC_APP_PORT: "10020"
+      DB_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+    depends_on:
+      - postgres
+    volumes:
+      - rc_data:/var/opt/rhodecode_data
+      - rc_repos:/var/opt/rhodecode_repo_store
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  rc_data:
+  rc_repos:
+  pgdata:

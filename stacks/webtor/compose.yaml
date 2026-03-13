@@ -1,0 +1,14 @@
+services:
+  webtor:
+    image: ghcr.io/webtor-io/self-hosted:latest
+    container_name: webtor
+    ports:
+      - 8080:8080
+    volumes:
+      - data:/data
+      - pgdata:/pgdata
+    restart: always
+
+volumes:
+  data:
+  pgdata:

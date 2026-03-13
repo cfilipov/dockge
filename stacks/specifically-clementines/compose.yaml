@@ -1,0 +1,26 @@
+services:
+  clementines-server:
+    image: ghcr.io/davideshay/groceries-server:latest
+    container_name: clementines-server
+    restart: unless-stopped
+    ports:
+      - "${SERVER_PORT}:5000"
+    environment:
+      - COUCHDB_URL=http://${COUCHDB_USER}:${COUCHDB_PASSWORD}@couchdb:5984
+      - COUCHDB_DATABASE=${COUCHDB_DATABASE}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - couchdb
+
+  couchdb:
+    image: couchdb:3
+    container_name: clementines-couchdb
+    restart: unless-stopped
+    environment:
+      - COUCHDB_USER=${COUCHDB_USER}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb-data:/opt/couchdb/data
+
+volumes:
+  couchdb-data:

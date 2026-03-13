@@ -1,0 +1,13 @@
+services:
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: osrm
+    restart: unless-stopped
+    ports:
+      - "${OSRM_PORT}:5000"
+    volumes:
+      - osrm_data:/data
+    command: osrm-routed --algorithm mld /data/${OSM_PBF_NAME}.osrm
+
+volumes:
+  osrm_data:

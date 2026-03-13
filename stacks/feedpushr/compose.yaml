@@ -1,0 +1,12 @@
+services:
+  feedpushr:
+    image: ncarlier/feedpushr:${FEEDPUSHR_TAG:-latest}
+    container_name: feedpushr
+    restart: unless-stopped
+    ports:
+      - "${FEEDPUSHR_PORT:-8080}:8080"
+    volumes:
+      - feedpushr_data:/var/opt/feedpushr
+
+volumes:
+  feedpushr_data:

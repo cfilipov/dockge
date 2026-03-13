@@ -1,0 +1,12 @@
+services:
+  gitit:
+    image: hyzual/gitit:latest
+    container_name: gitit
+    restart: unless-stopped
+    ports:
+      - "${GITIT_PORT:-5001}:5001"
+    volumes:
+      - gitit_data:/data
+
+volumes:
+  gitit_data:

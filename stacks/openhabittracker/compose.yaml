@@ -1,0 +1,17 @@
+services:
+  openhabittracker:
+    image: jinjinov/openhabittracker:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AppSettings__UserName: ${APP_USERNAME}
+      AppSettings__Email: ${APP_EMAIL}
+      AppSettings__Password: ${APP_PASSWORD}
+      AppSettings__JwtSecret: ${JWT_SECRET}
+    volumes:
+      - data:/app/.OpenHabitTracker
+
+volumes:
+  data:

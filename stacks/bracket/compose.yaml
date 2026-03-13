@@ -1,0 +1,37 @@
+services:
+  bracket:
+    image: ghcr.io/evroon/bracket:latest
+    ports:
+      - "${BRACKET_PORT:-8400}:8400"
+    environment:
+      ENVIRONMENT: PRODUCTION
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      PG_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SERVE_FRONTEND: "true"
+      API_PREFIX: /api
+    volumes:
+      - bracket_static:/app/static
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - bracket_lan
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - bracket_pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - bracket_lan
+
+networks:
+  bracket_lan:
+
+volumes:
+  bracket_pg_data:
+  bracket_static:

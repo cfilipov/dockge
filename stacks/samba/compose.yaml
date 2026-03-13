@@ -1,0 +1,21 @@
+services:
+  samba:
+    image: dperson/samba:${SAMBA_VERSION:-latest}
+    container_name: samba
+    restart: unless-stopped
+    ports:
+      - "${SMB_PORT:-445}:445"
+      - "${NETBIOS_PORT:-139}:139"
+    environment:
+      TZ: ${TZ:-UTC}
+      USERID: ${PUID:-1000}
+      GROUPID: ${PGID:-1000}
+    command: >-
+      -u "${SAMBA_USER:-admin};${SAMBA_PASSWORD:-changeme}"
+      -s "${SAMBA_SHARE_NAME:-share};/share;yes;no;no;${SAMBA_USER:-admin};${SAMBA_USER:-admin};${SAMBA_SHARE_COMMENT:-Shared Files}"
+      -p
+    volumes:
+      - samba_share:/share
+
+volumes:
+  samba_share:

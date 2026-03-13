@@ -1,0 +1,16 @@
+services:
+  server:
+    image: wesnoth/wesnoth:${WESNOTH_VERSION:-steamrt-sniper}
+    container_name: wesnoth-server
+    restart: unless-stopped
+    ports:
+      - "${WESNOTH_PORT:-15000}:15000"
+    environment:
+      - WESNOTHD_PORT=15000
+    volumes:
+      - server-data:/var/lib/wesnoth
+      - ./wesnothd.cfg:/etc/wesnoth/wesnothd.cfg:ro
+    command: ["wesnothd", "--config", "/etc/wesnoth/wesnothd.cfg"]
+
+volumes:
+  server-data:

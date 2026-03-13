@@ -1,0 +1,33 @@
+# Ente Museum server configuration
+# See https://github.com/ente-io/ente/blob/main/server/configurations/local.yaml
+
+http:
+  port: 8080
+
+db:
+  host: postgres
+  port: 5432
+  name: ente_db
+  user: pguser
+  password: changeme_pgpass
+
+s3:
+  are_local_buckets: true
+  b2-eu-cen:
+    key: changeme
+    secret: changeme1234
+    endpoint: http://localhost:3200
+    region: eu-central-1
+    bucket: b2-eu-cen
+  wasabi-eu-central-2-v3:
+    key: changeme
+    secret: changeme1234
+    endpoint: http://localhost:3200
+    region: eu-central-2
+    bucket: wasabi-eu-central-2-v3
+  scw-eu-fr-v3:
+    key: changeme
+    secret: changeme1234
+    endpoint: http://localhost:3200
+    region: eu-fr-1
+    bucket: scw-eu-fr-v3

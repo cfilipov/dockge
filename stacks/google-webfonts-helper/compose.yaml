@@ -1,0 +1,9 @@
+services:
+  google-webfonts-helper:
+    image: ghcr.io/majodev/google-webfonts-helper:latest
+    container_name: google-webfonts-helper
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      GOOGLE_FONTS_API_KEY: ${GOOGLE_FONTS_API_KEY}

@@ -1,0 +1,56 @@
+services:
+  firezone:
+    image: firezone/firezone:latest
+    container_name: firezone
+    ports:
+      - "${WIREGUARD_PORT:-51820}:51820/udp"
+    environment:
+      EXTERNAL_URL: ${EXTERNAL_URL:-https://firezone.example.com}
+      DEFAULT_ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      DEFAULT_ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
+      GUARDIAN_SECRET_KEY: ${GUARDIAN_SECRET_KEY:-changeme_generate_with_mix_guardian_gen_secret}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-changeme_generate_with_mix_phx_gen_secret}
+      DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY:-changeme_generate_with_openssl_rand_base64_32}
+      LIVE_VIEW_SIGNING_SALT: ${LIVE_VIEW_SIGNING_SALT:-changeme_generate_with_mix_phx_gen_secret}
+      COOKIE_SIGNING_SALT: ${COOKIE_SIGNING_SALT:-changeme_generate_with_mix_phx_gen_secret}
+      COOKIE_ENCRYPTION_SALT: ${COOKIE_ENCRYPTION_SALT:-changeme_generate_with_mix_phx_gen_secret}
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB:-firezone}
+      DATABASE_USER: ${POSTGRES_USER:-firezone}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      LOCAL_AUTH_ENABLED: "true"
+    volumes:
+      - firezone-data:/var/firezone
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: firezone-postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-firezone}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-firezone}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    restart: unless-stopped
+
+volumes:
+  firezone-data:
+  postgres-data:

@@ -1,0 +1,16 @@
+services:
+  pmwiki:
+    image: sesceu/pmwiki:${PMWIKI_VERSION:-latest}
+    container_name: pmwiki
+    restart: unless-stopped
+    ports:
+      - "${PMWIKI_PORT:-8080}:80"
+    volumes:
+      - pmwiki-data:/var/www/html/wiki.d
+      - pmwiki-uploads:/var/www/html/uploads
+    environment:
+      - TZ=${TZ:-UTC}
+
+volumes:
+  pmwiki-data:
+  pmwiki-uploads:

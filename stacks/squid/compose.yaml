@@ -1,0 +1,12 @@
+services:
+  squid:
+    image: ubuntu/squid:5.2-22.04_beta
+    container_name: squid
+    ports:
+      - "3128:3128"
+    environment:
+      - TZ=UTC
+    volumes:
+      - ./logs:/var/log/squid
+      - ./data:/var/spool/squid
+    restart: unless-stopped

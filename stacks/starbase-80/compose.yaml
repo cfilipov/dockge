@@ -1,0 +1,9 @@
+services:
+  starbase-80:
+    image: ghcr.io/notclickable-jordan/starbase-80:latest
+    container_name: starbase-80
+    ports:
+      - "${STARBASE_PORT:-4173}:4173"
+    volumes:
+      - ./config.json:/app/src/config.json:ro
+    restart: unless-stopped

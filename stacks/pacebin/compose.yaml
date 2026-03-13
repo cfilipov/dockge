@@ -1,0 +1,15 @@
+services:
+  pacebin:
+    image: pacebin/pacebin:latest
+    container_name: pacebin
+    restart: unless-stopped
+    ports:
+      - "${PACEBIN_PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///data/pacebin.db}
+      - SECRET_KEY=${SECRET_KEY:-changeme-secret}
+    volumes:
+      - pacebin-data:/data
+
+volumes:
+  pacebin-data:

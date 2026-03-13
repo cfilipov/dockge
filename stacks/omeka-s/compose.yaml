@@ -1,0 +1,25 @@
+services:
+  omeka-s:
+    image: dodeeric/omeka-s:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - omeka_data:/var/www/html/files
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10.11
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=omeka
+      - MYSQL_USER=omeka
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  omeka_data:
+  db_data:

@@ -1,0 +1,66 @@
+services:
+  server:
+    image: standardnotes/server:latest
+    container_name: standard-notes-server
+    restart: unless-stopped
+    ports:
+      - "${SN_PORT:-3004}:3000"
+      - "${SN_FILES_PORT:-3125}:3104"
+    env_file: .env
+    volumes:
+      - ./logs:/var/lib/server/logs
+      - ./uploads:/opt/server/packages/files/dist/uploads
+    depends_on:
+      - db
+      - cache
+      - localstack
+    networks:
+      - standardnotes
+
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: standard-notes-localstack
+    restart: unless-stopped
+    expose:
+      - 4566
+    environment:
+      - SERVICES=sns,sqs
+      - HOSTNAME_EXTERNAL=localstack
+      - LS_LOG=warn
+    networks:
+      - standardnotes
+
+  db:
+    image: mysql:8
+    container_name: standard-notes-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    expose:
+      - 3306
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - standardnotes
+
+  cache:
+    image: redis:6.0-alpine
+    container_name: standard-notes-cache
+    restart: unless-stopped
+    expose:
+      - 6379
+    volumes:
+      - redis_data:/data
+    networks:
+      - standardnotes
+
+networks:
+  standardnotes:
+    name: standardnotes
+
+volumes:
+  mysql_data:
+  redis_data:

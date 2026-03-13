@@ -1,0 +1,60 @@
+services:
+  apache:
+    image: bitnami/apache:latest
+    restart: unless-stopped
+    ports:
+      - "${HTTP_EXPOSE_PORT:-8080}:8080"
+    depends_on:
+      - php
+    networks:
+      - opencart
+
+  php:
+    image: bitnami/php-fpm:8.4
+    restart: unless-stopped
+    ports:
+      - "${PHP_FPM_EXPOSE_PORT:-9000}:9000"
+    environment:
+      TZ: ${TZ:-UTC}
+      DB_DRIVER: ${DB_DRIVER:-mysqli}
+      DB_HOSTNAME: ${DB_HOSTNAME:-mysql}
+      DB_USERNAME: ${DB_USERNAME:-opencart}
+      DB_PASSWORD: ${DB_PASSWORD:-opencart}
+      DB_DATABASE: ${DB_DATABASE:-opencart}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_PREFIX: ${DB_PREFIX:-oc_}
+    volumes:
+      - opencart-data:/var/www/html
+    depends_on:
+      - mysql
+    networks:
+      - opencart
+
+  mysql:
+    image: mariadb:latest
+    restart: unless-stopped
+    ports:
+      - "${DB_EXPOSE_PORT:-3306}:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-opencart}
+      MARIADB_DATABASE: ${DB_DATABASE:-opencart}
+      MARIADB_USER: ${DB_USERNAME:-opencart}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-opencart}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-opencart}"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 30s
+    networks:
+      - opencart
+
+networks:
+  opencart:
+    driver: bridge
+
+volumes:
+  opencart-data:
+  mysql-data:

@@ -1,0 +1,33 @@
+services:
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-modoboa}
+      POSTGRES_USER: ${POSTGRES_USER:-modoboa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-modoboa}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  dovecot:
+    image: dovecot/dovecot:2.3-latest
+    restart: unless-stopped
+    ports:
+      - "${IMAP_PORT:-143}:143"
+      - "${IMAPS_PORT:-993}:993"
+    volumes:
+      - dovecot-config:/etc/dovecot
+      - mail-data:/var/mail
+
+volumes:
+  redis-data:
+  postgres-data:
+  dovecot-config:
+  mail-data:

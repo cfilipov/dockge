@@ -1,0 +1,30 @@
+# farmOS - Farm management platform
+# Based on: https://github.com/farmOS/farmOS/blob/4.x/docker/docker-compose.production.yml
+# Docs: https://farmos.org/hosting/docker/
+
+services:
+  db:
+    image: postgres:17
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: farm
+      POSTGRES_PASSWORD: farm
+      POSTGRES_DB: farm
+    restart: always
+
+  www:
+    image: farmos/farmos:4.0.2
+    depends_on:
+      - db
+    volumes:
+      - sites:/opt/drupal/web/sites
+      - keys:/opt/drupal/keys
+    ports:
+      - "80:80"
+    restart: always
+
+volumes:
+  db-data:
+  sites:
+  keys:

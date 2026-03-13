@@ -1,0 +1,13 @@
+services:
+  remark42:
+    image: umputun/remark42:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      REMARK_URL: ${REMARK_URL}
+      SECRET: ${REMARK_SECRET}
+      SITE: ${SITE_ID}
+      ADMIN_SHARED_ID: ${ADMIN_SHARED_ID}
+    volumes:
+      - ./data:/srv/var

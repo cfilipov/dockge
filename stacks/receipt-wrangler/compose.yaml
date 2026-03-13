@@ -1,0 +1,26 @@
+services:
+  receipt-wrangler:
+    image: noah231515/receipt-wrangler:latest
+    container_name: receipt-wrangler
+    ports:
+      - "${RW_PORT:-9082}:8081"
+    environment:
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-changeme-generate-a-random-key}
+    volumes:
+      - ./data:/go/api/data
+    restart: unless-stopped
+
+  db:
+    image: mariadb:latest
+    container_name: receipt-wrangler-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-changeme}
+      MYSQL_DATABASE: ${DB_DATABASE:-receipt-wrangler}
+      MYSQL_USER: ${DB_USER:-receipt-wrangler}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - db-data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  db-data:

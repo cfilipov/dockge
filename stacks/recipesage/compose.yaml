@@ -1,0 +1,104 @@
+services:
+  proxy:
+    image: julianpoy/recipesage-selfhost-proxy:v4.0.0
+    container_name: recipesage-proxy
+    restart: unless-stopped
+    ports:
+      - "${RECIPESAGE_PORT}:80"
+    depends_on:
+      - static
+      - api
+      - pushpin
+
+  static:
+    image: julianpoy/recipesage-selfhost:static-v3.0.10
+    container_name: recipesage-static
+    restart: unless-stopped
+
+  api:
+    image: julianpoy/recipesage-selfhost:api-v3.0.10
+    container_name: recipesage-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      typesense:
+        condition: service_started
+      pushpin:
+        condition: service_started
+      browserless:
+        condition: service_started
+    command: sh -c "npx prisma migrate deploy; npx nx seed prisma; npx ts-node --swc --project packages/backend/tsconfig.json packages/backend/src/bin/www"
+    environment:
+      - STORAGE_TYPE=filesystem
+      - FILESYSTEM_STORAGE_PATH=/rs-media
+      - NODE_ENV=selfhost
+      - VERBOSE=false
+      - VERSION=selfhost
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=postgres
+      - POSTGRES_SSL=false
+      - POSTGRES_LOGGING=false
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - GRIP_URL=http://pushpin:5561/
+      - GRIP_KEY=${GRIP_KEY}
+      - SEARCH_PROVIDER=typesense
+      - "TYPESENSE_NODES=[{\"host\": \"typesense\", \"port\": 8108, \"protocol\": \"http\"}]"
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY}
+      - BROWSERLESS_HOST=browserless
+      - BROWSERLESS_PORT=3000
+      - INGREDIENT_INSTRUCTION_CLASSIFIER_URL=http://ingredient-instruction-classifier:3000/
+    volumes:
+      - apimedia:/rs-media
+
+  typesense:
+    image: typesense/typesense:0.24.1
+    container_name: recipesage-typesense
+    restart: unless-stopped
+    volumes:
+      - typesensedata:/data
+    command: "--data-dir /data --api-key=${TYPESENSE_API_KEY} --enable-cors"
+
+  pushpin:
+    image: julianpoy/pushpin:2023-09-17
+    container_name: recipesage-pushpin
+    restart: unless-stopped
+    entrypoint: /bin/sh -c
+    command:
+      - 'sed -i "s/sig_key=changeme/sig_key=$$GRIP_KEY/" /etc/pushpin/pushpin.conf && echo "* $${TARGET},over_http" > /etc/pushpin/routes && pushpin --merge-output'
+    environment:
+      - GRIP_KEY=${GRIP_KEY}
+      - TARGET=api:3000
+
+  postgres:
+    image: postgres:16
+    container_name: recipesage-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgresdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  browserless:
+    image: ghcr.io/browserless/chromium:v2.24.3
+    container_name: recipesage-browserless
+    restart: unless-stopped
+    environment:
+      - MAX_CONCURRENT_SESSIONS=3
+      - MAX_QUEUE_LENGTH=10
+
+volumes:
+  apimedia:
+  typesensedata:
+  postgresdata:

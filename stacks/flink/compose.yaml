@@ -1,0 +1,12 @@
+services:
+  flink:
+    image: quay.io/rtraceio/flink
+    container_name: flink
+    ports:
+      - "8080:8080"
+    volumes:
+      - flink-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  flink-data:

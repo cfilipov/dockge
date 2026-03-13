@@ -1,0 +1,14 @@
+services:
+  quassel-core:
+    image: lscr.io/linuxserver/quassel-core:latest
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - RUN_OPTS=--config-from-environment
+    volumes:
+      - ./data:/config
+    ports:
+      - "4242:4242"
+      - "113:10113"
+    restart: unless-stopped

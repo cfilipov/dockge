@@ -1,0 +1,10 @@
+services:
+  polaris:
+    image: ogarcia/polaris:latest
+    container_name: polaris
+    ports:
+      - "${PORT:-5050}:5050"
+    volumes:
+      - ${MUSIC_DIR:-./music}:/music:ro
+      - ${DATA_DIR:-./data}:/var/lib/polaris
+    restart: unless-stopped

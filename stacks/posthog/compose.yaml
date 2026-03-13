@@ -1,0 +1,118 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: posthog-db
+    environment:
+      - POSTGRES_USER=posthog
+      - POSTGRES_PASSWORD=${POSTHOG_DB_PASSWORD}
+      - POSTGRES_DB=posthog
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: posthog-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    container_name: posthog-clickhouse
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    restart: unless-stopped
+
+  kafka:
+    image: docker.redpanda.com/redpandadata/redpanda:v25.1.9
+    container_name: posthog-kafka
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --overprovisioned
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://kafka:9092
+    volumes:
+      - kafka-data:/var/lib/redpanda/data
+    restart: unless-stopped
+
+  objectstorage:
+    image: minio/minio:latest
+    container_name: posthog-objectstorage
+    command: server /data
+    environment:
+      - MINIO_ROOT_USER=posthog
+      - MINIO_ROOT_PASSWORD=${POSTHOG_DB_PASSWORD}
+    volumes:
+      - objectstorage-data:/data
+    restart: unless-stopped
+
+  web:
+    image: posthog/posthog:latest
+    container_name: posthog-web
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://posthog:${POSTHOG_DB_PASSWORD}@db:5432/posthog
+      - REDIS_URL=redis://redis:6379
+      - CLICKHOUSE_HOST=clickhouse
+      - KAFKA_HOSTS=kafka:9092
+      - SECRET_KEY=${POSTHOG_SECRET}
+      - OBJECT_STORAGE_ENDPOINT=http://objectstorage:9000
+      - SITE_URL=http://localhost:8000
+    depends_on:
+      - db
+      - redis
+      - clickhouse
+      - kafka
+      - objectstorage
+    restart: unless-stopped
+
+  worker:
+    image: posthog/posthog:latest
+    container_name: posthog-worker
+    command: ./bin/docker-worker-celery --with-scheduler
+    environment:
+      - DATABASE_URL=postgres://posthog:${POSTHOG_DB_PASSWORD}@db:5432/posthog
+      - REDIS_URL=redis://redis:6379
+      - CLICKHOUSE_HOST=clickhouse
+      - KAFKA_HOSTS=kafka:9092
+      - SECRET_KEY=${POSTHOG_SECRET}
+      - OBJECT_STORAGE_ENDPOINT=http://objectstorage:9000
+    depends_on:
+      - db
+      - redis
+      - clickhouse
+      - kafka
+    restart: unless-stopped
+
+  plugins:
+    image: posthog/posthog:latest
+    container_name: posthog-plugins
+    command: ./bin/plugin-server --no-restart-loop
+    environment:
+      - DATABASE_URL=postgres://posthog:${POSTHOG_DB_PASSWORD}@db:5432/posthog
+      - REDIS_URL=redis://redis:6379
+      - CLICKHOUSE_HOST=clickhouse
+      - KAFKA_HOSTS=kafka:9092
+      - SECRET_KEY=${POSTHOG_SECRET}
+    depends_on:
+      - db
+      - redis
+      - clickhouse
+      - kafka
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  clickhouse-data:
+  kafka-data:
+  objectstorage-data:

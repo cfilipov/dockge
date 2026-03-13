@@ -1,0 +1,79 @@
+services:
+  caddy:
+    image: caddy:2
+    container_name: stoat-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/stoatchat/server:v0.11.1
+    container_name: stoat-api
+    environment:
+      MONGODB_URI: "mongodb://mongo:27017"
+      REDIS_URI: "redis://redis/"
+      RABBITMQ_URI: "amqp://rabbitmq"
+    depends_on:
+      - mongo
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+
+  events:
+    image: ghcr.io/stoatchat/bonfire:v0.11.1
+    container_name: stoat-events
+    depends_on:
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/stoatchat/client:latest
+    container_name: stoat-web
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    container_name: stoat-mongo
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: eqalpha/keydb:latest
+    container_name: stoat-redis
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: stoat-rabbitmq
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: stoat-minio
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:v1.9.6
+    container_name: stoat-livekit
+    ports:
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  mongo_data:
+  minio_data:

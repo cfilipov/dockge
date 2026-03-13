@@ -1,0 +1,61 @@
+services:
+  tuleap:
+    image: tuleap/tuleap-community-edition:latest
+    container_name: tuleap
+    hostname: ${TULEAP_FQDN}
+    ports:
+      - "${TULEAP_HTTP_PORT:-80}:80"
+      - "${TULEAP_HTTPS_PORT:-443}:443"
+    environment:
+      - TULEAP_FQDN=${TULEAP_FQDN}
+      - TULEAP_SYS_DBHOST=db
+      - TULEAP_SYS_DBPASSWD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_ADMIN_USER=root
+      - DB_ADMIN_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - SITE_ADMINISTRATOR_PASSWORD=${SITE_ADMIN_PASSWORD}
+      - TULEAP_FPM_SESSION_MODE=redis
+      - TULEAP_REDIS_SERVER=redis
+    volumes:
+      - tuleap_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    container_name: tuleap-db
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql-mode="NO_ENGINE_SUBSTITUTION"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - tuleap_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tuleap-redis
+    volumes:
+      - tuleap_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  tuleap_data:
+  tuleap_db:
+  tuleap_redis:

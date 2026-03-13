@@ -1,0 +1,105 @@
+services:
+  django:
+    image: cyber5k/mistborn:${MISTBORN_TAG:-latest}
+    container_name: mistborn_django
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "${MISTBORN_DNS_BIND_IP:-10.2.0.1}:5000:5000/tcp"
+    environment:
+      - MISTBORN_TAG=${MISTBORN_TAG:-latest}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-mistborn}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-mistborn}
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - mistborn-media:/mistborn-media
+      - mistborn-private-media:/mistborn-private-media
+    command: /start
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: mistborn_postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - postgres-backups:/backups
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mistborn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-mistborn}
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: mistborn_redis
+    restart: unless-stopped
+
+  celeryworker:
+    image: cyber5k/mistborn:${MISTBORN_TAG:-latest}
+    container_name: mistborn_celeryworker
+    environment:
+      - MISTBORN_TAG=${MISTBORN_TAG:-latest}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-mistborn}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-mistborn}
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - mistborn-media:/mistborn-media
+      - mistborn-private-media:/mistborn-private-media
+    depends_on:
+      - django
+    command: /start-celeryworker
+    restart: unless-stopped
+
+  celerybeat:
+    image: cyber5k/mistborn:${MISTBORN_TAG:-latest}
+    container_name: mistborn_celerybeat
+    environment:
+      - MISTBORN_TAG=${MISTBORN_TAG:-latest}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-mistborn}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-mistborn}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - django
+    command: /start-celerybeat
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:v2.10
+    container_name: mistborn_traefik
+    depends_on:
+      - django
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - --log.level=ERROR
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+    restart: unless-stopped
+
+  pihole:
+    image: pihole/pihole:latest
+    container_name: mistborn_pihole
+    ports:
+      - "${MISTBORN_DNS_BIND_IP:-10.2.0.1}:53:53/tcp"
+      - "${MISTBORN_DNS_BIND_IP:-10.2.0.1}:53:53/udp"
+    environment:
+      - PIHOLE_DNS_=10.2.0.2#5054
+      - IPv6=false
+      - DNSMASQ_LISTENING=all
+    volumes:
+      - pihole-etc:/etc/pihole/
+      - pihole-dnsmasq:/etc/dnsmasq.d/
+    dns:
+      - 127.0.0.1
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  postgres-backups:
+  mistborn-media:
+  mistborn-private-media:
+  pihole-etc:
+  pihole-dnsmasq:

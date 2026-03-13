@@ -1,0 +1,13 @@
+services:
+  miniserve:
+    image: svenstaro/miniserve:latest
+    container_name: miniserve
+    restart: unless-stopped
+    ports:
+      - "${MINISERVE_PORT:-8080}:8080"
+    volumes:
+      - data:/data
+    command: /data --port 8080 --upload-files --mkdir
+
+volumes:
+  data:

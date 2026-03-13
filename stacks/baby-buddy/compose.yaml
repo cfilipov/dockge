@@ -1,0 +1,17 @@
+services:
+  babybuddy:
+    image: linuxserver/babybuddy:latest
+    container_name: babybuddy
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - babybuddy_config:/config
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Etc/UTC}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-http://localhost:8000}
+    restart: unless-stopped
+
+volumes:
+  babybuddy_config:

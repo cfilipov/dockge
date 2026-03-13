@@ -1,0 +1,15 @@
+services:
+  christmas-community:
+    image: wingysam/christmas-community:latest
+    ports:
+      - "${PORT:-3000}:80"
+    environment:
+      NODE_ENV: production
+      DATABASE: /data/christmas-community.db
+      SECRET: ${SECRET}
+    volumes:
+      - christmas_data:/data
+    restart: unless-stopped
+
+volumes:
+  christmas_data:

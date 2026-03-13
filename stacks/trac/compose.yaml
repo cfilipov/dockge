@@ -1,0 +1,16 @@
+services:
+  trac:
+    image: pabloszx/trac:latest
+    container_name: trac
+    ports:
+      - "${TRAC_PORT:-8080}:80"
+    environment:
+      - TRAC_PROJECT_NAME=${TRAC_PROJECT_NAME:-MyProject}
+      - TRAC_ADMIN_USER=${TRAC_ADMIN_USER:-admin}
+      - TRAC_ADMIN_PASSWORD=${TRAC_ADMIN_PASSWORD:-admin}
+    volumes:
+      - trac_data:/var/trac
+    restart: unless-stopped
+
+volumes:
+  trac_data:
