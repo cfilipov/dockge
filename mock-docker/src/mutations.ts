@@ -305,6 +305,9 @@ export function containerCreate(
     emitter: EventEmitter,
     clock: Clock,
 ): MutationResult<{ Id: string }> {
+    if (!config.Image) {
+        return fail(400, "image is required");
+    }
     const now = clock.now();
     const name = config.name || randomishName(now);
     const nameWithSlash = name.startsWith("/") ? name : `/${name}`;

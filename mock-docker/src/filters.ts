@@ -84,7 +84,7 @@ export function applyContainerFilters(containers: ContainerInspect[], filters: P
                     const name = c.Name.startsWith("/") ? c.Name.slice(1) : c.Name;
                     matches = matchAny(values, (v) => {
                         const vName = v.startsWith("/") ? v.slice(1) : v;
-                        return name === vName;
+                        return name.includes(vName);
                     });
                     break;
                 }

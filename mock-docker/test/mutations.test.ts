@@ -554,6 +554,27 @@ describe("containerCreate", () => {
     let env: TestEnv;
     beforeEach(() => { env = makeTestState(); });
 
+    it("fails with 400 when Image is missing", () => {
+        const { state, clock, emitter, events } = env;
+        const result = containerCreate(state, { } as any, emitter, clock);
+        expect("error" in result).toBe(true);
+        if ("error" in result) {
+            expect(result.statusCode).toBe(400);
+            expect(result.error).toBe("image is required");
+        }
+        expect(events).toHaveLength(0);
+    });
+
+    it("fails with 400 when Image is empty string", () => {
+        const { state, clock, emitter, events } = env;
+        const result = containerCreate(state, { Image: "" } as any, emitter, clock);
+        expect("error" in result).toBe(true);
+        if ("error" in result) {
+            expect(result.statusCode).toBe(400);
+        }
+        expect(events).toHaveLength(0);
+    });
+
     it("creates a container in created state", () => {
         const { state, clock, emitter, events } = env;
         const result = containerCreate(state, { Image: "myapp:latest", name: "test-ctr" }, emitter, clock);

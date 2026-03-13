@@ -161,6 +161,17 @@ describe("applyContainerFilters", () => {
         expect(result).toHaveLength(1);
     });
 
+    it("filters by name substring match", () => {
+        const result = applyContainerFilters(containers, new Map([["name", ["web"]]]));
+        expect(result).toHaveLength(1);
+        expect(result[0].Name).toBe("/stack1-web-1");
+    });
+
+    it("filters by name prefix match across multiple containers", () => {
+        const result = applyContainerFilters(containers, new Map([["name", ["stack1"]]]));
+        expect(result).toHaveLength(2);
+    });
+
     it("filters by id prefix", () => {
         const result = applyContainerFilters(containers, new Map([["id", ["abcdef"]]]));
         expect(result).toHaveLength(1);
