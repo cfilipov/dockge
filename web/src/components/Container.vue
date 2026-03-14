@@ -35,8 +35,8 @@
             <div class="btn-group service-actions ms-2" role="group">
                 <button v-if="!started" type="button" class="btn btn-sm btn-primary" :title="tooltipStart" :aria-label="tooltipStart" :disabled="processing" @click="startService"><svg class="svg-icon" :viewBox="icons.play.viewBox"><path fill="currentColor" :d="icons.play.path" /></svg></button>
                 <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="tooltipRestart" :aria-label="tooltipRestart" :disabled="processing" @click="restartService"><svg class="svg-icon" :viewBox="icons.rotate.viewBox"><path fill="currentColor" :d="icons.rotate.path" /></svg></button>
-                <button type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="tooltipRecreate" :aria-label="tooltipRecreate" :disabled="processing" @click="recreateService"><svg class="svg-icon" :viewBox="icons.rocket.viewBox"><path fill="currentColor" :d="icons.rocket.path" /></svg></button>
-                <button type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="tooltipUpdate" :aria-label="tooltipUpdate" :disabled="processing" @click="emit('update-service', name)"><svg class="svg-icon" :viewBox="icons['cloud-arrow-down'].viewBox"><path fill="currentColor" :d="icons['cloud-arrow-down'].path" /></svg></button>
+                <button v-if="isManaged !== false" type="button" class="btn btn-sm" :class="serviceRecreateNecessary ? 'btn-info' : 'btn-normal'" :title="tooltipRecreate" :aria-label="tooltipRecreate" :disabled="processing" @click="recreateService"><svg class="svg-icon" :viewBox="icons.rocket.viewBox"><path fill="currentColor" :d="icons.rocket.path" /></svg></button>
+                <button v-if="isManaged !== false" type="button" class="btn btn-sm" :class="serviceImageUpdateAvailable ? 'btn-info' : 'btn-normal'" :title="tooltipUpdate" :aria-label="tooltipUpdate" :disabled="processing" @click="emit('update-service', name)"><svg class="svg-icon" :viewBox="icons['cloud-arrow-down'].viewBox"><path fill="currentColor" :d="icons['cloud-arrow-down'].path" /></svg></button>
                 <button v-if="started" type="button" class="btn btn-sm btn-normal" :title="tooltipStop" :aria-label="tooltipStop" :disabled="processing" @click="stopService"><svg class="svg-icon" :viewBox="icons.stop.viewBox"><path fill="currentColor" :d="icons.stop.path" /></svg></button>
             </div>
         </div>
@@ -400,19 +400,15 @@ const status = computed(() => {
 // Tooltips: show the actual docker command that will run
 const tooltipStart = computed(() => props.isManaged !== false
     ? t("tooltipServiceStart", [props.name])
-    : t("tooltipContainerStart", [stackName.value, props.name]));
+    : t("tooltipStandaloneStart", [containerName.value]));
 const tooltipStop = computed(() => props.isManaged !== false
     ? t("tooltipServiceStop", [props.name])
-    : t("tooltipContainerStop", [stackName.value, props.name]));
+    : t("tooltipStandaloneStop", [containerName.value]));
 const tooltipRestart = computed(() => props.isManaged !== false
     ? t("tooltipServiceRestart", [props.name])
-    : t("tooltipContainerRestart", [stackName.value, props.name]));
-const tooltipRecreate = computed(() => props.isManaged !== false
-    ? t("tooltipServiceRecreate", [props.name])
-    : t("tooltipContainerRecreate", [stackName.value, props.name]));
-const tooltipUpdate = computed(() => props.isManaged !== false
-    ? t("tooltipServiceUpdate", [props.name])
-    : t("tooltipContainerUpdate", [stackName.value, props.name]));
+    : t("tooltipStandaloneRestart", [containerName.value]));
+const tooltipRecreate = computed(() => t("tooltipServiceRecreate", [props.name]));
+const tooltipUpdate = computed(() => t("tooltipServiceUpdate", [props.name]));
 
 // Methods
 function parsePort(port: any) {
