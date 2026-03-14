@@ -659,9 +659,11 @@ function buildNetworkSettings(
             DNSNames: [serviceName, `${project}-${serviceName}-1`, resolvedName],
         };
 
-        if (svcNet.aliases) {
-            endpoint.Aliases = svcNet.aliases;
-        }
+        const cid = containerIds.get(serviceName) || "";
+        const defaultAliases = [serviceName, `${project}-${serviceName}-1`, cid.slice(0, 12)];
+        endpoint.Aliases = svcNet.aliases
+            ? [...svcNet.aliases, ...defaultAliases]
+            : defaultAliases;
         if (svcNet.ipv4Address) {
             endpoint.IPAMConfig = { IPv4Address: svcNet.ipv4Address };
         }
