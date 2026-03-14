@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -271,7 +272,12 @@ func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
-	go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
+	if app.isStackManaged(stackName) {
+		go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
+	} else {
+		// Unmanaged: use docker compose -p to start existing containers
+		go app.runUnmanagedStackAction(stackName, "start", "start")
+	}
 }
 
 func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -291,7 +297,11 @@ func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
 	}
 
-	go app.runComposeAction(stackName, "stop", "stop")
+	if app.isStackManaged(stackName) {
+		go app.runComposeAction(stackName, "stop", "stop")
+	} else {
+		go app.runUnmanagedStackAction(stackName, "stop", "stop")
+	}
 }
 
 func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -311,7 +321,11 @@ func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
 	}
 
-	go app.runComposeAction(stackName, "restart", "restart")
+	if app.isStackManaged(stackName) {
+		go app.runComposeAction(stackName, "restart", "restart")
+	} else {
+		go app.runUnmanagedStackAction(stackName, "restart", "restart")
+	}
 }
 
 func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -331,7 +345,11 @@ func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
 	}
 
-	go app.runComposeAction(stackName, "down", "down")
+	if app.isStackManaged(stackName) {
+		go app.runComposeAction(stackName, "down", "down")
+	} else {
+		go app.runUnmanagedStackAction(stackName, "down", "down")
+	}
 }
 
 func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -524,6 +542,38 @@ func (app *App) runComposeAction(stackName, action string, composeArgs ...string
 			errMsg := "\r\n[Error] " + err.Error() + "\r\n"
 			term.Write([]byte(errMsg))
 			slog.Error("compose action", "action", action, "stack", stackName, "err", err)
+		}
+	} else {
+		term.Write([]byte("\r\n[Done]\r\n"))
+	}
+
+	// Schedule terminal cleanup after a grace period
+	app.Terms.RemoveAfter(termName, 30*time.Second)
+}
+
+// runUnmanagedStackAction runs a compose command for an unmanaged stack (no
+// compose file on disk) using "docker compose -p <project>". Docker Compose v2
+// discovers containers by their project label, so start/stop/restart/down work
+// without a compose file.
+func (app *App) runUnmanagedStackAction(stackName, action string, composeArgs ...string) {
+	termName := "compose-" + stackName
+	cmdDisplay := fmt.Sprintf("$ docker compose -p %s %s\r\n", stackName, strings.Join(composeArgs, " "))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	term := app.Terms.Recreate(termName, terminal.TypePTY)
+	term.Write([]byte(cmdDisplay))
+
+	cmdArgs := []string{"compose", "-p", stackName}
+	cmdArgs = append(cmdArgs, composeArgs...)
+	cmd := exec.CommandContext(ctx, "docker", cmdArgs...)
+
+	if err := term.RunPTY(cmd); err != nil {
+		if ctx.Err() == nil {
+			errMsg := "\r\n[Error] " + err.Error() + "\r\n"
+			term.Write([]byte(errMsg))
+			slog.Error("unmanaged stack action", "action", action, "stack", stackName, "err", err)
 		}
 	} else {
 		term.Write([]byte("\r\n[Done]\r\n"))

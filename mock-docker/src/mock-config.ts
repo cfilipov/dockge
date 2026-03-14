@@ -41,10 +41,16 @@ export interface MockStandaloneContainer {
     labels?: Record<string, string>;
 }
 
+export interface MockDanglingImageDef {
+    size: number;
+    created: string;
+}
+
 export interface MockGlobalConfig {
     networks: Record<string, MockGlobalNetworkDef>;
     volumes: Record<string, MockGlobalVolumeDef>;
     containers: MockStandaloneContainer[];
+    danglingImages: MockDanglingImageDef[];
 }
 
 function parseServiceOverride(raw: Record<string, unknown>): MockServiceOverride {
@@ -106,6 +112,7 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
         networks: {},
         volumes: {},
         containers: [],
+        danglingImages: [],
     };
 
     if (yamlContent === null || yamlContent.trim() === "") {
@@ -121,6 +128,7 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
         networks: {},
         volumes: {},
         containers: [],
+        danglingImages: [],
     };
 
     if (raw.networks && typeof raw.networks === "object") {
@@ -163,6 +171,18 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
                     volumes: c.volumes as string[] | undefined,
                     environment: c.environment as string[] | undefined,
                     labels: c.labels as Record<string, string> | undefined,
+                });
+            }
+        }
+    }
+
+    if (raw.dangling_images && Array.isArray(raw.dangling_images)) {
+        for (const dRaw of raw.dangling_images) {
+            if (dRaw && typeof dRaw === "object") {
+                const d = dRaw as Record<string, unknown>;
+                config.danglingImages.push({
+                    size: (d.size as number) || 0,
+                    created: (d.created as string) || "",
                 });
             }
         }

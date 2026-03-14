@@ -4,7 +4,7 @@ import type { Clock } from "./clock.js";
 import type { EventEmitter } from "./events.js";
 import { makeEvent } from "./events.js";
 import { resolveByIdOrName } from "./name-resolution.js";
-import { deterministicId, deterministicInt, deterministicIp, deterministicMac, serviceSeed, networkSeed, imageSeed } from "./deterministic.js";
+import { deterministicId, deterministicInt, deterministicIp, deterministicMac, containerIdFromLabels, networkSeed, imageSeed } from "./deterministic.js";
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -311,8 +311,7 @@ export function containerCreate(
     const now = clock.now();
     const name = config.name || uniquifyName(config);
     const nameWithSlash = name.startsWith("/") ? name : `/${name}`;
-    const seed = nameWithSlash;
-    const containerId = deterministicId(seed, "container-id");
+    const containerId = containerIdFromLabels(config.Labels || {}, nameWithSlash);
 
     const imageRef = config.Image;
     const imgResult = resolveImage(state, imageRef);

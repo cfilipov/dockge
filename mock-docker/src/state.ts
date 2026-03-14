@@ -5,6 +5,7 @@ import type {
     ImageInspect,
     ExecInspect,
 } from "./types.js";
+import type { LogTemplates } from "./log-templates.js";
 
 export class MockState {
     containers: Map<string, ContainerInspect>;
@@ -12,6 +13,7 @@ export class MockState {
     volumes: Map<string, VolumeInspect>;
     images: Map<string, ImageInspect>;
     execSessions: Map<string, ExecInspect>;
+    logTemplates: LogTemplates | null;
 
     constructor() {
         this.containers = new Map();
@@ -19,6 +21,7 @@ export class MockState {
         this.volumes = new Map();
         this.images = new Map();
         this.execSessions = new Map();
+        this.logTemplates = null;
     }
 
     clear(): void {
@@ -27,5 +30,6 @@ export class MockState {
         this.volumes.clear();
         this.images.clear();
         this.execSessions.clear();
+        // logTemplates is intentionally NOT cleared — it's loaded from source, not runtime state
     }
 }

@@ -57,7 +57,9 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
 	if app.isStackManaged(stackName) {
 		go app.runServiceAction(stackName, serviceName, "up", "up", "-d", serviceName)
 	} else {
-		go app.runUnmanagedServiceAction(stackName, serviceName, "up", "up", "-d", serviceName)
+		// Unmanaged: no compose file, use plain docker start on the container
+		containerName := stackName + "-" + serviceName + "-1"
+		go app.runContainerActionForStack(stackName, containerName, "start")
 	}
 }
 
@@ -82,7 +84,9 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
 	if app.isStackManaged(stackName) {
 		go app.runServiceAction(stackName, serviceName, "stop", "stop", serviceName)
 	} else {
-		go app.runUnmanagedServiceAction(stackName, serviceName, "stop", "stop", serviceName)
+		// Unmanaged: no compose file, use plain docker stop on the container
+		containerName := stackName + "-" + serviceName + "-1"
+		go app.runContainerActionForStack(stackName, containerName, "stop")
 	}
 }
 
@@ -107,7 +111,9 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
 	if app.isStackManaged(stackName) {
 		go app.runServiceAction(stackName, serviceName, "restart", "restart", serviceName)
 	} else {
-		go app.runUnmanagedServiceAction(stackName, serviceName, "restart", "restart", serviceName)
+		// Unmanaged: no compose file, use plain docker restart on the container
+		containerName := stackName + "-" + serviceName + "-1"
+		go app.runContainerActionForStack(stackName, containerName, "restart")
 	}
 }
 
@@ -129,12 +135,14 @@ func (app *App) handleRecreateService(c *ws.Conn, msg *ws.ClientMessage) {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Recreated"})
 	}
 
-	if app.isStackManaged(stackName) {
-		go app.runServiceAction(stackName, serviceName, "recreate", "up", "-d", "--force-recreate", serviceName)
-	} else {
-		// No compose file — restart is the closest equivalent
-		go app.runUnmanagedServiceAction(stackName, serviceName, "restart", "restart", serviceName)
+	if !app.isStackManaged(stackName) {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Cannot recreate: stack is not managed by Dockge"})
+		}
+		return
 	}
+
+	go app.runServiceAction(stackName, serviceName, "recreate", "up", "-d", "--force-recreate", serviceName)
 }
 
 func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
@@ -155,22 +163,22 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
 	}
 
-	if app.isStackManaged(stackName) {
-		go func() {
-			app.runServiceAction(stackName, serviceName, "pull", "pull", serviceName)
-			app.runServiceAction(stackName, serviceName, "up", "up", "-d", "--force-recreate", serviceName)
-			// Clear stale "update available" cache and re-check with new images
-			if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
-				slog.Warn("clear image update cache", "stack", stackName, "err", err)
-			}
-			app.checkImageUpdatesForStack(stackName)
-		}()
-	} else {
-		go func() {
-			app.runUnmanagedServiceAction(stackName, serviceName, "pull", "pull", serviceName)
-			app.runUnmanagedServiceAction(stackName, serviceName, "up", "up", "-d", "--force-recreate", serviceName)
-		}()
+	if !app.isStackManaged(stackName) {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Cannot update: stack is not managed by Dockge"})
+		}
+		return
 	}
+
+	go func() {
+		app.runServiceAction(stackName, serviceName, "pull", "pull", serviceName)
+		app.runServiceAction(stackName, serviceName, "up", "up", "-d", "--force-recreate", serviceName)
+		// Clear stale "update available" cache and re-check with new images
+		if err := app.ImageUpdates.DeleteForStack(stackName); err != nil {
+			slog.Warn("clear image update cache", "stack", stackName, "err", err)
+		}
+		app.checkImageUpdatesForStack(stackName)
+	}()
 }
 
 // runServiceAction runs a per-service compose command, streaming output to the
@@ -214,13 +222,12 @@ func (app *App) isStackManaged(stackName string) bool {
 	return compose.FindComposeFile(app.StacksDir, stackName) != ""
 }
 
-// runUnmanagedServiceAction runs a compose command for an unmanaged container
-// using "docker compose -p <project>" (no project directory or env files).
-// Docker Compose v2 discovers containers by their project label, so this works
-// without a compose file and produces the same animated progress output.
-func (app *App) runUnmanagedServiceAction(stackName, serviceName, action string, composeArgs ...string) {
+// runContainerActionForStack runs a plain docker command (start/stop/restart)
+// for an unmanaged service container, writing output to the stack's compose
+// terminal so the Compose page progress terminal shows the output.
+func (app *App) runContainerActionForStack(stackName, containerName, action string) {
 	termName := "compose-" + stackName
-	cmdDisplay := fmt.Sprintf("$ docker compose -p %s %s\r\n", stackName, strings.Join(composeArgs, " "))
+	cmdDisplay := fmt.Sprintf("$ docker %s %s\r\n", action, containerName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -228,21 +235,17 @@ func (app *App) runUnmanagedServiceAction(stackName, serviceName, action string,
 	term := app.Terms.Recreate(termName, terminal.TypePTY)
 	term.Write([]byte(cmdDisplay))
 
-	cmdArgs := []string{"compose", "-p", stackName}
-	cmdArgs = append(cmdArgs, composeArgs...)
-	cmd := exec.CommandContext(ctx, "docker", cmdArgs...)
-
+	cmd := exec.CommandContext(ctx, "docker", action, containerName)
 	if err := term.RunPTY(cmd); err != nil {
 		if ctx.Err() == nil {
 			errMsg := fmt.Sprintf("\r\n[Error] %s\r\n", err.Error())
 			term.Write([]byte(errMsg))
-			slog.Error("unmanaged service action", "action", action, "stack", stackName, "service", serviceName, "err", err)
+			slog.Error("unmanaged container action", "action", action, "stack", stackName, "container", containerName, "err", err)
 		}
 	} else {
 		term.Write([]byte("\r\n[Done]\r\n"))
 	}
 
-	// Schedule terminal cleanup after a grace period
 	app.Terms.RemoveAfter(termName, 30*time.Second)
 }
 

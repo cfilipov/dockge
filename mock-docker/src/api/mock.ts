@@ -25,6 +25,7 @@ export const mockRoutes: Route[] = [
                 state.volumes = fresh.volumes;
                 state.images = fresh.images;
                 state.execSessions = fresh.execSessions;
+                state.logTemplates = fresh.logTemplates;
 
                 sendJSON(res, 200, { status: "ok" });
             } catch (err) {

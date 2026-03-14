@@ -76,6 +76,26 @@ export function serviceSeed(project: string, service: string): string {
     return hashToSeed([ROOT_SEED, "service", project, service]);
 }
 
+/**
+ * Canonical container ID derivation.  Both generator (init) and mutations
+ * (runtime) MUST use this so the same logical container always gets the
+ * same ID regardless of which code path creates it.
+ *
+ * Compose containers: seed from (project, service) labels.
+ * Standalone containers: seed from name.
+ */
+export function containerIdFromLabels(
+    labels: Record<string, string>,
+    name: string,
+): string {
+    const project = labels["com.docker.compose.project"];
+    const service = labels["com.docker.compose.service"];
+    const seed = project && service
+        ? serviceSeed(project, service)
+        : name;
+    return deterministicId(seed, "container-id");
+}
+
 export function networkSeed(networkName: string): string {
     return hashToSeed([ROOT_SEED, "network", networkName]);
 }

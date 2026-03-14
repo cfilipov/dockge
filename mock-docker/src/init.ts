@@ -6,6 +6,7 @@ import { parseCompose, findComposeFile } from "./compose-parser.js";
 import { parseStackMockConfig, parseGlobalMockConfig } from "./mock-config.js";
 import type { MockGlobalConfig, MockStandaloneContainer } from "./mock-config.js";
 import { generateStack } from "./generator.js";
+import { loadLogTemplates } from "./log-templates.js";
 import type { Clock } from "./clock.js";
 import type {
     ContainerInspect, ContainerState, NetworkInspect, VolumeInspect, ImageInspect,
@@ -35,6 +36,9 @@ export async function initState(opts: InitOptions): Promise<MockState> {
     const state = new MockState();
     const baseTime = clock.now().toISOString();
 
+    // Load log templates from stacks source (before copying, so we read from pristine source)
+    state.logTemplates = loadLogTemplates(stacksSource);
+
     // Step 1: Copy stacks source to runtime dir
     if (stacksSource !== stacksDir) {
         cpSync(stacksSource, stacksDir, { recursive: true });
@@ -44,6 +48,12 @@ export async function initState(opts: InitOptions): Promise<MockState> {
     const globalMockPath = join(stacksDir, ".mock.yaml");
     const globalMockContent = readFileSafe(globalMockPath);
     const globalConfig = parseGlobalMockConfig(globalMockContent);
+
+    // Create default Docker system networks (bridge, host, none)
+    for (const sysDef of DEFAULT_SYSTEM_NETWORKS) {
+        const net = createSystemNetwork(sysDef, baseTime);
+        state.networks.set(net.Id, net);
+    }
 
     // Create global networks
     for (const [name, netDef] of Object.entries(globalConfig.networks)) {
@@ -55,6 +65,28 @@ export async function initState(opts: InitOptions): Promise<MockState> {
     for (const [name, volDef] of Object.entries(globalConfig.volumes)) {
         const vol = createGlobalVolume(name, volDef, baseTime);
         state.volumes.set(vol.Name, vol);
+    }
+
+    // Create dangling images (no tags)
+    for (let i = 0; i < globalConfig.danglingImages.length; i++) {
+        const dImg = globalConfig.danglingImages[i];
+        const seed = hashToSeed(["dangling-image", String(i)]);
+        const id = `sha256:${deterministicId(seed, "image-id")}`;
+        state.images.set(id, {
+            Id: id,
+            RepoTags: [],
+            RepoDigests: [],
+            Created: dImg.created || deterministicTimestamp(seed + "created", baseTime),
+            Architecture: "amd64",
+            Os: "linux",
+            Size: dImg.size,
+            RootFS: { Type: "layers", Layers: [`sha256:${deterministicId(seed, "layer-0")}`] },
+            Config: {
+                Cmd: ["/bin/sh"],
+                Env: ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+                Labels: {},
+            },
+        });
     }
 
     // Step 2b: Create standalone containers (not part of any compose stack)
@@ -490,6 +522,56 @@ function parsePortSpec(spec: string): { hostIp?: string; hostPort?: number; cont
         return { hostPort: parseInt(parts[0], 10), containerPort: parseInt(parts[1], 10), protocol };
     }
     return { containerPort: parseInt(parts[0], 10), protocol };
+}
+
+// ---------------------------------------------------------------------------
+// Default Docker system networks (bridge, host, none)
+// ---------------------------------------------------------------------------
+
+interface SystemNetworkDef {
+    name: string;
+    driver: string;
+    subnet?: string;
+    gateway?: string;
+    scope: string;
+}
+
+const DEFAULT_SYSTEM_NETWORKS: SystemNetworkDef[] = [
+    { name: "bridge", driver: "bridge", subnet: "172.17.0.0/16", gateway: "172.17.0.1", scope: "local" },
+    { name: "host", driver: "host", scope: "local" },
+    { name: "none", driver: "null", scope: "local" },
+];
+
+function createSystemNetwork(def: SystemNetworkDef, baseTime: string): NetworkInspect {
+    const seed = networkSeed(def.name);
+    const id = deterministicId(seed, "network-id");
+
+    const ipamConfig = def.subnet
+        ? [{ Subnet: def.subnet, Gateway: def.gateway || "" }]
+        : [];
+
+    return {
+        Name: def.name,
+        Id: id,
+        Created: deterministicTimestamp(seed + "created", baseTime),
+        Scope: def.scope,
+        Driver: def.driver,
+        EnableIPv4: !!def.subnet,
+        EnableIPv6: false,
+        IPAM: {
+            Driver: "default",
+            Config: ipamConfig,
+            Options: {},
+        },
+        Internal: false,
+        Attachable: false,
+        Ingress: false,
+        ConfigFrom: { Network: "" },
+        ConfigOnly: false,
+        Containers: {},
+        Options: {},
+        Labels: {},
+    };
 }
 
 function generateSyntheticImage(ref: string, baseTime: string): ImageInspect {

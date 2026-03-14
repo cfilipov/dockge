@@ -12,6 +12,12 @@ networks:
     subnet: 172.32.0.0/16
     gateway: 172.32.0.1
 
+dangling_images:
+  - size: 245300000
+    created: "2025-11-15T04:00:00Z"
+  - size: 89700000
+    created: "2025-10-20T02:00:00Z"
+
 containers:
   - name: portainer
     image: portainer/portainer-ce:latest

@@ -395,14 +395,17 @@ async function composeStop(
     restArgs: string[],
     composeFilePath?: string,
 ): Promise<void> {
-    const { services: allServices } = loadCompose(composeFilePath);
     const svcArg = findServiceArg(restArgs);
-    const serviceNames = svcArg ? [svcArg] : allServices;
+
+    // Discover services from containers (works without a compose file)
+    const containers = await listContainersByProject(socketPath, project);
+    const serviceNames = svcArg
+        ? [svcArg]
+        : [...new Set(containers.map((c) => c.Labels["com.docker.compose.service"] || "").filter(Boolean))];
 
     const tasks = composeStopTasks(project, serviceNames);
     await renderProgress("Stopping", tasks);
 
-    const containers = await listContainersByProject(socketPath, project);
     for (const ctr of containers) {
         const svcLabel = ctr.Labels["com.docker.compose.service"] || "";
         if (serviceNames.includes(svcLabel)) {
@@ -414,24 +417,28 @@ async function composeStop(
 async function composeDown(
     socketPath: string,
     project: string,
-    parsed: ParsedCompose,
+    parsed: ParsedCompose | null,
     restArgs: string[],
 ): Promise<void> {
     const removeVolumes = hasFlag(restArgs, "-v") || hasFlag(restArgs, "--volumes");
-    const serviceNames = Object.keys(parsed.services);
+
+    // Discover services from containers (works without a compose file)
+    const containers = await listContainersByProject(socketPath, project);
+    const serviceNames = parsed
+        ? Object.keys(parsed.services)
+        : [...new Set(containers.map((c) => c.Labels["com.docker.compose.service"] || "").filter(Boolean))];
 
     const tasks = composeDownTasks(project, serviceNames, removeVolumes);
     await renderProgress("Running", tasks);
 
     // Stop and remove containers
-    const containers = await listContainersByProject(socketPath, project);
     for (const ctr of containers) {
         await stopContainer(socketPath, ctr.Id);
         await removeContainer(socketPath, ctr.Id);
     }
 
     // Remove volumes if requested
-    if (removeVolumes) {
+    if (removeVolumes && parsed) {
         for (const volName of Object.keys(parsed.volumes)) {
             const fullName = `${project}_${volName}`;
             await requestJSON(socketPath, "DELETE", `/volumes/${encodeURIComponent(fullName)}`);
@@ -458,16 +465,18 @@ async function composeRestart(
     socketPath: string,
     project: string,
     restArgs: string[],
-    composeFilePath?: string,
 ): Promise<void> {
-    const { services: allServices } = loadCompose(composeFilePath);
     const svcArg = findServiceArg(restArgs);
-    const serviceNames = svcArg ? [svcArg] : allServices;
+
+    // Discover services from containers (works without a compose file)
+    const containers = await listContainersByProject(socketPath, project);
+    const serviceNames = svcArg
+        ? [svcArg]
+        : [...new Set(containers.map((c) => c.Labels["com.docker.compose.service"] || "").filter(Boolean))];
 
     const tasks = composeRestartTasks(project, serviceNames);
     await renderProgress("Restarting", tasks);
 
-    const containers = await listContainersByProject(socketPath, project);
     for (const ctr of containers) {
         const svcLabel = ctr.Labels["com.docker.compose.service"] || "";
         if (serviceNames.includes(svcLabel)) {
@@ -486,16 +495,39 @@ async function composePull(restArgs: string[], composeFilePath?: string): Promis
     // No actual pull — this is a mock
 }
 
+async function composeStart(
+    socketPath: string,
+    project: string,
+    restArgs: string[],
+): Promise<void> {
+    const svcArg = findServiceArg(restArgs);
+
+    // Discover services from containers (works without a compose file)
+    const containers = await listContainersByProject(socketPath, project);
+    const serviceNames = svcArg
+        ? [svcArg]
+        : [...new Set(containers.map((c) => c.Labels["com.docker.compose.service"] || "").filter(Boolean))];
+
+    const tasks = composeUpTasks(project, serviceNames, !svcArg, false);
+    await renderProgress("Running", tasks);
+
+    for (const ctr of containers) {
+        const svcLabel = ctr.Labels["com.docker.compose.service"] || "";
+        if (serviceNames.includes(svcLabel)) {
+            await requestJSON(socketPath, "POST", `/containers/${ctr.Id}/start`);
+        }
+    }
+}
+
 async function composePause(
     socketPath: string,
     project: string,
-    composeFilePath?: string,
 ): Promise<void> {
-    const { services: allServices } = loadCompose(composeFilePath);
+    const containers = await listContainersByProject(socketPath, project);
+    const allServices = [...new Set(containers.map((c) => c.Labels["com.docker.compose.service"] || "").filter(Boolean))];
     const tasks = composePauseTasks(project, allServices);
     await renderProgress("Pausing", tasks);
 
-    const containers = await listContainersByProject(socketPath, project);
     for (const ctr of containers) {
         await requestJSON(socketPath, "POST", `/containers/${ctr.Id}/pause`);
     }
@@ -504,13 +536,12 @@ async function composePause(
 async function composeUnpause(
     socketPath: string,
     project: string,
-    composeFilePath?: string,
 ): Promise<void> {
-    const { services: allServices } = loadCompose(composeFilePath);
+    const containers = await listContainersByProject(socketPath, project);
+    const allServices = [...new Set(containers.map((c) => c.Labels["com.docker.compose.service"] || "").filter(Boolean))];
     const tasks = composeUnpauseTasks(project, allServices);
     await renderProgress("Unpausing", tasks);
 
-    const containers = await listContainersByProject(socketPath, project);
     for (const ctr of containers) {
         await requestJSON(socketPath, "POST", `/containers/${ctr.Id}/unpause`);
     }
@@ -731,25 +762,30 @@ export async function handleCompose(
             await composeUp(socketPath, projectName, parsed, envOverrides, restArgs);
             break;
         }
+        case "start":
+            await composeStart(socketPath, projectName, restArgs);
+            break;
         case "stop":
-            await composeStop(socketPath, projectName, restArgs, cf);
+            await composeStop(socketPath, projectName, restArgs);
             break;
         case "down": {
-            const { parsed } = loadCompose(cf);
+            // Compose file is optional for down — discover from containers if missing
+            const composeFile2 = cf || findComposeFile(process.cwd());
+            const parsed = composeFile2 ? parseCompose(readFileSync(composeFile2, "utf-8")) : null;
             await composeDown(socketPath, projectName, parsed, restArgs);
             break;
         }
         case "restart":
-            await composeRestart(socketPath, projectName, restArgs, cf);
+            await composeRestart(socketPath, projectName, restArgs);
             break;
         case "pull":
             await composePull(restArgs, cf);
             break;
         case "pause":
-            await composePause(socketPath, projectName, cf);
+            await composePause(socketPath, projectName);
             break;
         case "unpause":
-            await composeUnpause(socketPath, projectName, cf);
+            await composeUnpause(socketPath, projectName);
             break;
         case "config":
             await composeConfig(cf);

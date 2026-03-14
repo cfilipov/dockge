@@ -25,6 +25,7 @@ import {
     serviceSeed,
     networkSeed,
     imageSeed,
+    containerIdFromLabels,
 } from "./deterministic.js";
 
 export interface GeneratorInput {
@@ -88,10 +89,18 @@ export function generateStack(input: GeneratorInput): GeneratedStack {
 
     // Generate containers
     const containers: ContainerInspect[] = [];
-    // Pre-generate container IDs for service: network mode resolution
+    // Pre-generate container IDs for service: network mode resolution.
+    // Uses containerIdFromLabels — the same function mutations.ts uses —
+    // so init and runtime always produce the same ID for a given service.
     const containerIds = new Map<string, string>();
-    for (const name of Object.keys(parsed.services)) {
-        containerIds.set(name, deterministicId(serviceSeed(project, name), "container-id"));
+    for (const [name, svc] of Object.entries(parsed.services)) {
+        const labels = {
+            "com.docker.compose.project": project,
+            "com.docker.compose.service": name,
+        };
+        const containerName = svc.containerName || `/${project}-${name}-1`;
+        const nameWithSlash = containerName.startsWith("/") ? containerName : `/${containerName}`;
+        containerIds.set(name, containerIdFromLabels(labels, nameWithSlash));
     }
 
     for (const [name, svc] of Object.entries(parsed.services)) {
