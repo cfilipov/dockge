@@ -38,6 +38,7 @@
     "cancel": "Cancel",
     "forceDeleteStackMsg": "Force deleting may leave behind some files or configuration. Are you sure you want to force delete this stack?",
     "stackNotManagedByDockgeMsg": "This stack is not managed by Dockge.",
+    "downUnmanagedStackMsg": "This will remove all containers for this stack. Since this stack is not managed by Dockge, it cannot be started again from here.",
     "primaryHostname": "Primary Hostname",
     "general": "General",
     "container": "Container | Containers",

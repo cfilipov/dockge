@@ -15,6 +15,7 @@
                         :recreate-necessary="recreateNecessary"
                         :stack-name="stackName"
                         :service-name="serviceName"
+                        :container-name="containerName"
                         :is-managed="stackManaged"
                         @start="startService"
                         @stop="stopService"

@@ -10,12 +10,12 @@
             {{ $t("restartStack") }}
         </button>
 
-        <button class="btn" :class="recreateNecessary ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="tooltipRecreate" @click="recreateService">
+        <button v-if="isManaged !== false" class="btn" :class="recreateNecessary ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="tooltipRecreate" @click="recreateService">
             <font-awesome-icon icon="rocket" class="me-1" />
             <span class="d-none d-xl-inline">{{ $t("recreate") }}</span>
         </button>
 
-        <button class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="tooltipUpdate" @click="showDialog = true">
+        <button v-if="isManaged !== false" class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="tooltipUpdate" @click="showDialog = true">
             <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
             <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
         </button>
@@ -32,7 +32,7 @@
             {{ $t("stopStack") }}
         </button>
 
-        <BDropdown right text="" variant="normal" menu-class="overflow-dropdown">
+        <BDropdown v-if="isManaged !== false" right text="" variant="normal" menu-class="overflow-dropdown">
             <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
                 <font-awesome-icon icon="search" class="me-1" />
                 {{ $t("checkUpdates") }}
@@ -56,24 +56,21 @@ const props = defineProps<{
     recreateNecessary: boolean;
     stackName: string;
     serviceName: string;
+    containerName?: string;
     isManaged?: boolean;
 }>();
 
+const fullContainerName = computed(() => props.containerName || `${props.stackName}-${props.serviceName}-1`);
+
 const tooltipStart = computed(() => props.isManaged !== false
     ? t("tooltipServiceStart", [props.serviceName])
-    : t("tooltipContainerStart", [props.stackName, props.serviceName]));
+    : t("tooltipStandaloneStart", [fullContainerName.value]));
 const tooltipStop = computed(() => props.isManaged !== false
     ? t("tooltipServiceStop", [props.serviceName])
-    : t("tooltipContainerStop", [props.stackName, props.serviceName]));
+    : t("tooltipStandaloneStop", [fullContainerName.value]));
 const tooltipRestart = computed(() => props.isManaged !== false
     ? t("tooltipServiceRestart", [props.serviceName])
-    : t("tooltipContainerRestart", [props.stackName, props.serviceName]));
-const tooltipRecreate = computed(() => props.isManaged !== false
-    ? t("tooltipServiceRecreate", [props.serviceName])
-    : t("tooltipContainerRecreate", [props.stackName, props.serviceName]));
-const tooltipUpdate = computed(() => props.isManaged !== false
-    ? t("tooltipServiceUpdate", [props.serviceName])
-    : t("tooltipContainerUpdate", [props.stackName, props.serviceName]));
+    : t("tooltipStandaloneRestart", [fullContainerName.value]));
 
 const emit = defineEmits<{
     start: [];

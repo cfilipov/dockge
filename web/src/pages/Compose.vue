@@ -6,20 +6,20 @@
                 <Uptime :stack="globalStack" :pill="true" /> {{ stack.name }}
             </h1>
 
-            <div v-if="isManaged || isAdd" class="d-flex align-items-center justify-content-between mb-3">
+            <div v-if="isManaged || isManaged === false || isAdd" class="d-flex align-items-center justify-content-between mb-3">
                 <div class="d-flex align-items-center">
                     <div class="btn-group me-2" role="group">
-                        <button v-if="isEditMode" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackDeploy')" @click="deployStack">
+                        <button v-if="(isManaged || isAdd) && isEditMode" class="btn btn-primary" :disabled="processing" :title="$t('tooltipStackDeploy')" @click="deployStack">
                             <font-awesome-icon icon="rocket" class="me-1" />
                             {{ $t("deployStack") }}
                         </button>
 
-                        <button v-if="isEditMode" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackSave')" @click="saveStack">
+                        <button v-if="(isManaged || isAdd) && isEditMode" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackSave')" @click="saveStack">
                             <font-awesome-icon icon="save" class="me-1" />
                             {{ $t("saveStackDraft") }}
                         </button>
 
-                        <button v-if="!isEditMode" class="btn btn-secondary" :disabled="processing" :title="$t('tooltipStackEdit')" @click="enableEditMode">
+                        <button v-if="(isManaged || isAdd) && !isEditMode" class="btn btn-secondary" :disabled="processing" :title="$t('tooltipStackEdit')" @click="enableEditMode">
                             <font-awesome-icon icon="pen" class="me-1" />
                             {{ $t("editStack") }}
                         </button>
@@ -34,7 +34,7 @@
                             {{ $t("restartStack") }}
                         </button>
 
-                        <button v-if="!isEditMode" class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
+                        <button v-if="isManaged && !isEditMode" class="btn" :class="imageUpdatesAvailable ? 'btn-info' : 'btn-normal'" :disabled="processing" :title="$t('tooltipStackUpdate')" @click="showUpdateDialog = true">
                             <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
                             <span class="d-none d-xl-inline">{{ $t("updateStack") }}</span>
                         </button>
@@ -55,26 +55,30 @@
                             <template #button-content>
                                 <span class="visually-hidden">{{ $t("moreActions") }}</span>
                             </template>
-                            <BDropdownItem :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
+                            <BDropdownItem v-if="isManaged" :title="$t('tooltipCheckUpdates')" @click="checkImageUpdates">
                                 <font-awesome-icon icon="search" class="me-1" />
                                 {{ $t("checkUpdates") }}
                             </BDropdownItem>
-                            <BDropdownItem :title="$t('tooltipStackDown')" @click="downStack">
+                            <BDropdownItem v-if="isManaged" :title="$t('tooltipStackDown')" @click="downStack">
                                 <font-awesome-icon icon="stop" class="me-1" />
                                 {{ $t("downStack") }}
                             </BDropdownItem>
-                            <BDropdownItem v-if="!isEditMode && !errorDelete" :title="$t('tooltipStackDelete')" @click="showDeleteDialog = !showDeleteDialog">
+                            <BDropdownItem v-if="isManaged === false" :title="$t('tooltipStackDown')" @click="showDownConfirmDialog = true">
+                                <font-awesome-icon icon="stop" class="me-1 text-warning" />
+                                {{ $t("downStack") }}
+                            </BDropdownItem>
+                            <BDropdownItem v-if="isManaged && !isEditMode && !errorDelete" :title="$t('tooltipStackDelete')" @click="showDeleteDialog = !showDeleteDialog">
                                 <font-awesome-icon icon="trash" class="me-1 text-danger" />
                                 {{ $t("deleteStack") }}
                             </BDropdownItem>
-                            <BDropdownItem v-if="errorDelete" :title="$t('tooltipStackForceDelete')" @click="showForceDeleteDialog = !showForceDeleteDialog">
+                            <BDropdownItem v-if="isManaged && errorDelete" :title="$t('tooltipStackForceDelete')" @click="showForceDeleteDialog = !showForceDeleteDialog">
                                 <font-awesome-icon icon="trash" class="me-1 text-danger" />
                                 {{ $t("forceDeleteStack") }}
                             </BDropdownItem>
                         </BDropdown>
                     </div>
 
-                    <button v-if="isEditMode && !isAdd" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackDiscard')" @click="discardStack">{{ $t("discardStack") }}</button>
+                    <button v-if="isManaged && isEditMode && !isAdd" class="btn btn-normal" :disabled="processing" :title="$t('tooltipStackDiscard')" @click="discardStack">{{ $t("discardStack") }}</button>
                 </div>
 
                 <!-- Parsed / Raw toggle -->
@@ -379,6 +383,11 @@ scrollable size="fullscreen" hide-footer>
             <BModal v-model="showForceDeleteDialog" :okTitle="$t('forceDeleteStack')" okVariant="danger" @ok="forceDeleteDialog">
                 {{ $t("forceDeleteStackMsg") }}
             </BModal>
+
+            <!-- Unmanaged Stack Down Confirmation -->
+            <BModal v-if="isManaged === false" v-model="showDownConfirmDialog" :cancelTitle="$t('cancel')" :okTitle="$t('downStack')" okVariant="warning" @ok="downStack">
+                {{ $t("downUnmanagedStackMsg") }}
+            </BModal>
         </div>
     </transition>
 </template>
@@ -616,6 +625,8 @@ const {
     forceDeleteDialog,
     checkImageUpdates: checkImageUpdatesRaw,
 } = useStackActions(stack, progressTerminalRef);
+
+const showDownConfirmDialog = ref(false);
 
 function checkImageUpdates() {
     checkImageUpdatesRaw();
