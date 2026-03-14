@@ -17,7 +17,7 @@ import { parseFilters, applyContainerFilters } from "../filters.js";
 import { projectToContainerListEntry } from "../projections.js";
 import { resolveByIdOrName } from "../name-resolution.js";
 import type { ContainerInspect } from "../types.js";
-import { getHistoricalLogs, generatePeriodicLogLine } from "../logs.js";
+import { getHistoricalLogs, generatePeriodicLogLine, generateShutdownLogs, generateStartupLogs } from "../logs.js";
 import { generateStats } from "../stats.js";
 import { generateTop } from "../top.js";
 import { frameOutput } from "../stream.js";
@@ -200,19 +200,49 @@ export const containerRoutes: Route[] = [
                 return;
             }
 
-            // Follow mode: stream periodic lines
-            let lineCounter = 0;
-            const interval = setInterval(() => {
-                const line = generatePeriodicLogLine(container, lineCounter++, clock);
+            const write = (line: string) => {
                 if (isTty) {
                     res.write(line + "\n");
                 } else {
                     res.write(frameOutput(line));
                 }
+            };
+
+            // Emit startup logs for freshly-started containers
+            const startupLines = generateStartupLogs(container, clock);
+            for (const line of startupLines) {
+                write(line);
+            }
+
+            // Follow mode: stream periodic lines, stop when container dies
+            let lineCounter = 0;
+            let stopped = false;
+            const interval = setInterval(() => {
+                if (stopped) return;
+                const line = generatePeriodicLogLine(container, lineCounter++, clock);
+                write(line);
             }, ctx.logInterval);
+
+            // Subscribe to events so we detect stop synchronously (same
+            // emitter.emit() call that fires the die event to /events).
+            // This ensures shutdown logs are written to the log stream
+            // before the Go backend receives the die event.
+            const onEvent = (event: import("../list-types.js").DockerEvent) => {
+                if (event.Action !== "die" || event.Actor.ID !== container.Id) return;
+                stopped = true;
+                clearInterval(interval);
+                ctx.emitter.unsubscribe(onEvent);
+                const shutdownLines = generateShutdownLogs(container, clock);
+                for (const line of shutdownLines) {
+                    write(line);
+                }
+                res.end();
+            };
+            ctx.emitter.subscribe(onEvent);
 
             req.on("close", () => {
                 clearInterval(interval);
+                ctx.emitter.unsubscribe(onEvent);
             });
         },
     },

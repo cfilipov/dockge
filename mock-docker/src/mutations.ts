@@ -311,7 +311,7 @@ export function containerCreate(
     const now = clock.now();
     const name = config.name || randomishName(now);
     const nameWithSlash = name.startsWith("/") ? name : `/${name}`;
-    const seed = nameWithSlash + now.toISOString();
+    const seed = nameWithSlash;
     const containerId = deterministicId(seed, "container-id");
 
     const imageRef = config.Image;

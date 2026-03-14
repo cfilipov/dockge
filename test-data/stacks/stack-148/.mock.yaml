@@ -1,0 +1,11 @@
+services:
+  grafana:
+    state: exited
+  caddy-1:
+    state: exited
+  ubuntu-2:
+    state: exited
+  ruby-3:
+    state: exited
+  consul-4:
+    state: exited

@@ -1,0 +1,7 @@
+services:
+  redis:
+    state: exited
+  mongo-1:
+    state: exited
+  httpd-2:
+    state: exited

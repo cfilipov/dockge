@@ -1,0 +1,3 @@
+services:
+  wordpress:
+    update_available: true

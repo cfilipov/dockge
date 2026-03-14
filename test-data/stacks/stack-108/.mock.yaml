@@ -1,0 +1,7 @@
+services:
+  python:
+    state: exited
+  rabbitmq-1:
+    state: exited
+  elasticsearch-2:
+    state: exited

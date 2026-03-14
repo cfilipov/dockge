@@ -1,0 +1,5 @@
+services:
+  nginx:
+    update_available: true
+  redis:
+    state: exited

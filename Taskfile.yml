@@ -16,6 +16,7 @@ tasks:
       - cd web-svelte && pnpm install
       - cd e2e && pnpm install
       - cd e2e && npx playwright install chromium
+      - cd mock-docker && npm install
 
   build:
     desc: Build everything
@@ -37,35 +38,18 @@ tasks:
       - bin/{{.BINARY}}
 
   build-mock-docker:
-    desc: Build mock docker binary for dev/test
-    cmd: go build -o bin/docker ./cmd/mock-docker
-    sources:
-      - cmd/mock-docker/**/*.go
-      - go.mod
-    generates:
-      - bin/docker
-
-  build-mock-docker-ts:
-    desc: Build TypeScript mock docker CLI binary
+    desc: Build mock docker CLI binary
     dir: mock-docker
     cmds:
       - npm run build:cli
       - cp dist/docker ../bin/docker
-    sources:
-      - mock-docker/cli/**/*.ts
-      - mock-docker/src/**/*.ts
-    generates:
-      - bin/docker
 
   build-mock-daemon:
-    desc: Build mock daemon binary for dev/test
-    cmd: go build -o bin/mock-daemon ./cmd/mock-daemon
-    sources:
-      - cmd/mock-daemon/**/*.go
-      - internal/docker/**/*.go
-      - go.mod
-    generates:
-      - bin/mock-daemon
+    desc: Build TypeScript mock daemon
+    dir: mock-docker
+    cmds:
+      - npm install --prefer-offline
+      - npm run build
 
   build-seed-testdb:
     desc: Build seed-testdb utility for dev/test
@@ -94,13 +78,14 @@ tasks:
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
-          rm -rf .run/dev-5001 && mkdir -p .run/dev-5001/data && cp -a test-data/stacks .run/dev-5001/stacks
+          rm -rf .run/dev-5001 && mkdir -p .run/dev-5001/data
           MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
           mkdir -p "$(dirname "$MOCK_SOCK")"
-          ./bin/mock-daemon \
+          node mock-docker/dist/src/main.js \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
-            --stacks-dir .run/dev-5001/stacks &
+            --stacks-dir .run/dev-5001/stacks \
+            --images-json mock-docker/scripts/images.json &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
           ./bin/seed-testdb --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks
           export DOCKER_HOST="unix://$MOCK_SOCK"
@@ -120,11 +105,12 @@ tasks:
           MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
           mkdir -p "$(dirname "$MOCK_SOCK")"
           mkdir -p {{.DATA_DIR}}
-          ./bin/mock-daemon \
+          node mock-docker/dist/src/main.js \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
             --stacks-dir {{.STACKS_DIR}} \
-            --no-heartbeat &
+            --images-json mock-docker/scripts/images.json \
+            --e2e &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
           ./bin/seed-testdb --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
           DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/bin:$PATH" \
@@ -145,13 +131,14 @@ tasks:
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
-          rm -rf .run/dev-6001 && mkdir -p .run/dev-6001/data && cp -a test-data/stacks .run/dev-6001/stacks
+          rm -rf .run/dev-6001 && mkdir -p .run/dev-6001/data
           MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
           mkdir -p "$(dirname "$MOCK_SOCK")"
-          ./bin/mock-daemon \
+          node mock-docker/dist/src/main.js \
             --socket "$MOCK_SOCK" \
             --stacks-source test-data/stacks \
-            --stacks-dir .run/dev-6001/stacks &
+            --stacks-dir .run/dev-6001/stacks \
+            --images-json mock-docker/scripts/images.json &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
           ./bin/seed-testdb --data-dir .run/dev-6001/data --stacks-dir .run/dev-6001/stacks
           export DOCKER_HOST="unix://$MOCK_SOCK"
@@ -186,18 +173,8 @@ tasks:
         ignore_error: true
       - cmd: pkill -f 'node.*vite' 2>/dev/null
         ignore_error: true
-      - cmd: pkill -f 'mock-daemon' 2>/dev/null
+      - cmd: pkill -f 'node.*mock-docker' 2>/dev/null
         ignore_error: true
-
-  build-gen-mock-yaml:
-    desc: Build gen-mock-yaml utility
-    cmd: go build -o bin/gen-mock-yaml ./cmd/gen-mock-yaml
-    sources:
-      - cmd/gen-mock-yaml/**/*.go
-      - internal/docker/mock/**/*.go
-      - go.mod
-    generates:
-      - bin/gen-mock-yaml
 
   clean:
     desc: Remove build artifacts

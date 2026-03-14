@@ -280,16 +280,17 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
 
     // Spawn initial readers (tail=100 for history)
     for _, c := range containers {
+        wasRunning := c.State == "running"
         activeReaders.Store(c.ID, struct{}{})
-        go func(id, svc string, idx int) {
+        go func(id, svc string, idx int, running bool) {
             defer activeReaders.Delete(id)
-            app.readContainerLogs(ctx, id, svc, maxLen, idx, "100", lineCh)
-        }(c.ID, c.Service, colorMap[c.Service])
+            app.readContainerLogs(ctx, id, svc, maxLen, idx, "100", running, lineCh)
+        }(c.ID, c.Service, colorMap[c.Service], wasRunning)
     }
 
     // Watch for container events via the shared EventBus:
     // - "start": inject banner + spawn reader for new container IDs
-    // - "die": inject stop banner (event-driven, not stream-end)
+    // - "die": stop banner is injected by readContainerLogs after stream EOF
     eventCh, unsub := app.EventBus.Subscribe(64)
     defer unsub()
 
@@ -317,14 +318,8 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
                 if _, loaded := activeReaders.LoadOrStore(evt.ContainerID, struct{}{}); !loaded {
                     go func(id, svc string, ci int) {
                         defer activeReaders.Delete(id)
-                        app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", lineCh)
+                        app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", true, lineCh)
                     }(evt.ContainerID, evt.Service, idx)
-                }
-            case "die":
-                select {
-                case lineCh <- []byte(stopBanner(evt.Service)):
-                case <-ctx.Done():
-                    return
                 }
             }
         case <-ctx.Done():
@@ -337,9 +332,12 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
 // with a colored service name. Runs until the stream closes or ctx is cancelled.
 // Start banners are injected by the caller. Stop banners are injected here
 // after the stream ends (ensuring they appear after all shutdown log output).
+// wasRunning indicates the container was running when the reader started — if
+// true, a stop banner is injected after EOF (the container transitioned to
+// stopped). If false (container was already stopped), no banner is shown.
 // Use tail="100" for initial readers (show history) and tail="0" for
 // event-spawned readers (follow only).
-func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, tail string, lineCh chan<- []byte) {
+func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, tail string, wasRunning bool, lineCh chan<- []byte) {
     stream, _, err := app.Docker.ContainerLogs(ctx, containerID, tail, true)
     if err != nil {
         if ctx.Err() == nil {
@@ -365,8 +363,15 @@ func (app *App) readContainerLogs(ctx context.Context, containerID, service stri
             return
         }
     }
-    // Stop banners are injected by the event loop on "die" events,
-    // not here on stream end, to avoid misleading banners on stream close.
+    // Inject stop banner after EOF if the container was running when we
+    // started. This guarantees the banner follows all shutdown log output
+    // (both are sequential on this goroutine's channel sends).
+    if wasRunning && ctx.Err() == nil {
+        select {
+        case lineCh <- []byte(stopBanner(service)):
+        case <-ctx.Done():
+        }
+    }
 }
 
 // flushLogLines drains lineCh in batches on a 50ms tick and writes them to the

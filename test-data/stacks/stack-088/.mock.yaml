@@ -1,0 +1,9 @@
+services:
+  alpine:
+    state: exited
+  golang-1:
+    state: exited
+  vault-2:
+    state: exited
+  nginx-3:
+    state: exited

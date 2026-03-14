@@ -109,7 +109,8 @@ export function generateStats(container: ContainerInspect, counter: number, cloc
     const onlineCpus = 4;
     const systemCpuUsage = counter * 1_000_000_000; // ns
     const totalUsage = Math.floor(cpuPercent / 100 * systemCpuUsage / onlineCpus);
-    const prevTotalUsage = Math.floor((cpuPercent / 100) * ((counter - 1) * 1_000_000_000) / onlineCpus);
+    const prevCounter = Math.max(0, counter - 1);
+    const prevTotalUsage = Math.floor((cpuPercent / 100) * (prevCounter * 1_000_000_000) / onlineCpus);
     const kernelUsage = Math.floor(totalUsage * 0.3);
     const userUsage = totalUsage - kernelUsage;
 
@@ -156,7 +157,7 @@ export function generateStats(container: ContainerInspect, counter: number, cloc
                 usage_in_kernelmode: Math.floor(prevTotalUsage * 0.3),
                 usage_in_usermode: prevTotalUsage - Math.floor(prevTotalUsage * 0.3),
             },
-            system_cpu_usage: (counter - 1) * 1_000_000_000,
+            system_cpu_usage: prevCounter * 1_000_000_000,
             online_cpus: onlineCpus,
             throttling_data: { periods: 0, throttled_periods: 0, throttled_time: 0 },
         },

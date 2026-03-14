@@ -29,11 +29,10 @@ const { values } = parseArgs({
     strict: true,
 });
 
-const stacksDir = values["stacks-dir"];
-if (!stacksDir) {
+const stacksDir: string = values["stacks-dir"] ?? (() => {
     console.error("Usage: npx tsx scripts/generate-mock-configs.ts --stacks-dir <path>");
     process.exit(1);
-}
+})();
 
 // ---------------------------------------------------------------------------
 // Deterministic helpers (mirrors deterministic.ts but standalone)

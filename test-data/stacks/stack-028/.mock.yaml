@@ -1,0 +1,7 @@
+services:
+  php:
+    state: exited
+  minio-1:
+    state: exited
+  postgres-2:
+    state: exited

@@ -17,7 +17,11 @@ export function parseFilters(queryParam: string | undefined): ParsedFilters {
         const result: ParsedFilters = new Map();
         for (const [key, value] of Object.entries(parsed)) {
             if (Array.isArray(value) && value.every((v) => typeof v === "string")) {
+                // Array format: {"label": ["key=val"]}
                 result.set(key, value as string[]);
+            } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+                // Map format (Go SDK): {"label": {"key=val": true}}
+                result.set(key, Object.keys(value as Record<string, unknown>));
             }
         }
         return result;

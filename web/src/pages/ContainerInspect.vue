@@ -673,6 +673,8 @@ function fetchProcesses() {
                 user: userIdx >= 0 ? row[userIdx] : row[1] || "",
                 command: cmdIdx >= 0 ? row[cmdIdx] : row[row.length - 1] || "",
             }));
+        } else {
+            processList.value = [];
         }
     });
 }
