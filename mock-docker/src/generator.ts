@@ -13,7 +13,7 @@ import type {
     RestartPolicy,
     HealthState,
 } from "./types.js";
-import type { ParsedCompose, ParsedService, ParsedNetwork, ParsedPort, ParsedVolumeMount } from "./compose-parser.js";
+import type { ParsedCompose, ParsedService, ParsedNetwork, ParsedPort, ParsedVolumeMount, ParsedVolume } from "./compose-parser.js";
 import type { MockStackConfig, MockServiceOverride } from "./mock-config.js";
 import type { Clock } from "./clock.js";
 import {
@@ -257,7 +257,7 @@ function generateContainer(
     const hostConfig = buildHostConfig(project, svc, networkMap, containerIds, input.parsed.networks);
 
     // Mounts
-    const mounts = buildMounts(svc, project, stackDir);
+    const mounts = buildMounts(svc, project, stackDir, input.parsed.volumes);
 
     // NetworkSettings
     const networkSettings = buildNetworkSettings(project, serviceName, svc, networkMap, containerIds, input.parsed.networks);
@@ -550,7 +550,7 @@ function parseRestartPolicy(restart: string): RestartPolicy {
 
 // --- Mounts ---
 
-function buildMounts(svc: ParsedService, project: string, stackDir: string): MountPoint[] {
+function buildMounts(svc: ParsedService, project: string, stackDir: string, parsedVolumes: Record<string, ParsedVolume>): MountPoint[] {
     return svc.volumes.map((vol): MountPoint => {
         if (vol.type === "bind") {
             // Resolve relative bind paths against stack dir
@@ -565,8 +565,13 @@ function buildMounts(svc: ParsedService, project: string, stackDir: string): Mou
             };
         }
 
-        // Named or anonymous volume
-        const volumeName = vol.source || `${deterministicId(serviceSeed(project, vol.target), "anon-vol").slice(0, 64)}`;
+        // Named or anonymous volume — resolve through the same helper used for volume generation
+        let volumeName: string;
+        if (vol.source && parsedVolumes[vol.source]) {
+            volumeName = resolveVolumeName(project, vol.source, parsedVolumes[vol.source]);
+        } else {
+            volumeName = vol.source || `${deterministicId(serviceSeed(project, vol.target), "anon-vol").slice(0, 64)}`;
+        }
         return {
             Type: "volume",
             Name: volumeName,
@@ -717,6 +722,11 @@ export function resolveNetworkNameFromConfig(
     return config.name || `${project}_${key}`;
 }
 
+function resolveVolumeName(project: string, key: string, config: ParsedVolume): string {
+    if (config.external) return config.name || key;
+    return config.name || `${project}_${key}`;
+}
+
 function generateNetworks(input: GeneratorInput, baseTime: string): NetworkInspect[] {
     const { project, parsed } = input;
     const networks: NetworkInspect[] = [];
@@ -759,7 +769,7 @@ function generateSingleNetwork(
     config: { name?: string; driver?: string; internal?: boolean; attachable?: boolean; external?: boolean; labels?: Record<string, string>; enableIpv4?: boolean; enableIpv6?: boolean; ipam?: { driver?: string; config?: Array<{ subnet?: string; ipRange?: string; gateway?: string }> }; driverOpts?: Record<string, string> },
     baseTime: string,
 ): NetworkInspect {
-    const resolvedName = config.external ? (config.name || key) : (config.name || `${project}_${key}`);
+    const resolvedName = resolveNetworkNameFromConfig(project, key, { name: config.name, external: !!config.external });
     const seed = networkSeed(resolvedName);
     const id = deterministicId(seed, "network-id");
     const subnet = config.ipam?.config?.[0]?.subnet || `172.${deterministicInt(seed + "subnet-b", 18, 31)}.0.0/16`;
@@ -805,7 +815,7 @@ function generateVolumes(input: GeneratorInput, baseTime: string): VolumeInspect
     const volumes: VolumeInspect[] = [];
 
     for (const [key, config] of Object.entries(parsed.volumes)) {
-        const resolvedName = config.external ? (config.name || key) : (config.name || `${project}_${key}`);
+        const resolvedName = resolveVolumeName(project, key, config);
         const vol: VolumeInspect = {
             Name: resolvedName,
             Driver: config.driver,
