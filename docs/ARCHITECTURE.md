@@ -482,8 +482,9 @@ flows through as it arrives.
 ## Mock System Architecture
 
 The mock system enables development and E2E testing without a real Docker daemon.
-It consists of three standalone binaries and a data-driven test fixture, with
-**zero mock code in the production binary**.
+It consists of two standalone binaries (both TypeScript, compiled to native with
+Bun) and a data-driven test fixture, with **zero mock code in the production
+binary**.
 
 ### Separation principle
 
@@ -498,72 +499,53 @@ through environment manipulation:
 The only production code exception is `POST /api/mock/reset`, a proxy handler in
 main.go guarded by `--dev` flag with a Unix socket safety check.
 
+In `--dev` mode, the backend auto-creates an admin user (`admin`/`testpass123`)
+on first startup when no users exist.
+
 ### Components
 
 ```
 test-data/stacks/
-  ├── mock.yaml                    ← Global: standalone containers, external stacks
+  ├── .mock.yaml                   ← Global: standalone containers, networks
   ├── log-templates.yaml           ← Per-image log templates
   ├── test-alpine/
   │   ├── compose.yaml
-  │   └── mock.yaml                ← status: running, per-service overrides
+  │   └── .mock.yaml               ← deployed, per-service state overrides
   ├── web-app/
   │   ├── compose.yaml
-  │   └── mock.yaml
+  │   └── .mock.yaml
   └── ...
 
-                ┌──────────────────────────┐
-                │  BuildMockData()         │  Parses all compose.yaml + mock.yaml
-                └────────────┬─────────────┘
-                             │
-                ┌────────────▼─────────────┐
-                │   MockData (immutable)   │  Images, networks, volumes, services,
-                │                          │  update flags, log templates
-                └────────────┬─────────────┘
-                             │
-          ┌──────────────────┼──────────────────┐
-          │                  │                  │
-   ┌──────▼──────┐    ┌─────▼──────┐    ┌──────▼──────────┐
-   │  MockState  │    │ MockWorld  │    │  seed-testdb    │
-   │  (mutable)  │    │ (live view │    │  SeedFromMock() │
-   │  stack →    │    │  built from│    │  → BoltDB       │
-   │  status map │    │  Data +    │    └─────────────────┘
-   └──────┬──────┘    │  State)    │
-          │           └─────┬──────┘
-          └────────┬────────┘
-                   │
-          ┌────────▼────────┐
-          │  FakeDaemon     │  Unix socket HTTP server
-          │  Docker Engine  │  implementing the Docker API
-          │  API            │
-          └────────┬────────┘
+          ┌──────────────────┐         ┌──────────────────┐
+          │  mock-daemon     │         │  mock-docker CLI │
+          │  (TS, compiled)  │◄───────►│  (TS, compiled)  │
+          │  Docker Engine   │  HTTP   │  /_mock/state/*  │
+          │  API on socket   │         └──────────────────┘
+          └────────┬─────────┘
                    │ DOCKER_HOST
-          ┌────────▼────────┐         ┌──────────────────┐
-          │  dockge binary  │◄───────►│  mock-docker CLI │
-          │  (SDKClient)    │  exec   │  (on PATH)       │
-          └─────────────────┘         │  /_mock/state/*  │
-                                      └──────────────────┘
+          ┌────────▼─────────┐
+          │  dockge binary   │
+          │  (SDKClient)     │
+          └──────────────────┘
 ```
 
-### Mock daemon (`cmd/mock-daemon`)
+### Mock daemon (`mock-docker/src/main.ts` → `bin/mock-daemon`)
 
-Standalone process that serves a fake Docker Engine API:
+TypeScript process compiled to a native binary with Bun. Serves a fake Docker
+Engine API on a Unix socket:
 
-1. Calls `BuildMockData(stacksDir)` to parse all test stack definitions
-2. Calls `DefaultDevStateFromData(mockData)` to create the initial `MockState`
-3. Builds a `MockWorld` — a materialized view of live Docker state from Data + State
-4. Calls `StartFakeDaemonOnSocket()` to serve HTTP on the Unix socket
+1. Copies stacks from `--stacks-source` to `--stacks-dir`
+2. Parses all `compose.yaml` + `.mock.yaml` files to build in-memory state
+3. Serves Docker API routes: `/containers/json`, `/containers/{id}/json`,
+   `/containers/{id}/start`, `/containers/{id}/stop`, `/containers/{id}/stats`,
+   `/containers/{id}/logs`, `/images/json`, `/networks`, `/volumes`, `/events`,
+   `/distribution/{name}/json`, and more
 
-The fake daemon implements the Docker Engine API routes that the SDK client uses:
-`/containers/json`, `/containers/{id}/json`, `/containers/{id}/stats`,
-`/containers/{id}/logs`, `/images/json`, `/networks`, `/volumes`, `/events`,
-`/distribution/{name}/json`, and more.
+For image update simulation, the `/distribution/{name}/json` endpoint returns a
+different registry digest when the `.mock.yaml` sets `update_available: true`,
+making the backend's digest comparison detect a "new version available."
 
-For image update simulation, `handleDistributionInspect()` returns a different
-registry digest when `HasUpdateAvailable(imageRef)` is true, making the backend's
-digest comparison detect a "new version available."
-
-### Mock docker CLI (`cmd/mock-docker`)
+### Mock docker CLI (`mock-docker/cli/index.ts` → `bin/docker`)
 
 Masquerades as the `docker` CLI. When the backend calls
 `exec.Command("docker", "compose", "up", ...)`, this binary:
@@ -572,21 +554,10 @@ Masquerades as the `docker` CLI. When the backend calls
    terminal UI (spinners, checkmarks, elapsed times)
 2. Sends `POST /_mock/state/{stack}` to the mock daemon over the Unix socket to
    update the in-memory state
-3. The daemon updates MockState, rebuilds MockWorld, and publishes Docker events
-   to all subscribers
+3. The daemon updates its state and publishes Docker events to all subscribers
 
 The mock-docker CLI is stateless — it communicates all state changes back to the
 daemon via HTTP.
-
-### BoltDB seeder (`cmd/seed-testdb`)
-
-Runs once after the mock daemon starts to pre-populate BoltDB:
-
-1. Creates admin user (`admin` / `testpass123`)
-2. Ensures a JWT secret exists
-3. Seeds image update flags from `MockData.UpdateFlags()` into BoltDB
-4. Stamps `imageUpdateLastCheck` to prevent the background checker from running
-   immediately
 
 ### Mock reset flow
 
@@ -597,9 +568,7 @@ state between test runs:
 POST /api/mock/reset
   → backend proxies to daemon's /_mock/reset
   → daemon restores files from pristine source copy
-  → daemon rebuilds MockData + MockState + MockWorld
-  → daemon returns updateFlags in response body
-  → backend re-seeds BoltDB image updates from flags
+  → daemon rebuilds in-memory state
   → backend triggers all 6 broadcast channels
   → frontend receives fresh state
 ```
@@ -608,19 +577,19 @@ POST /api/mock/reset
 
 `task dev` orchestrates the full startup sequence:
 
-1. **Build** — compiles 4 binaries into `bin/`: `dockge`, `mock-daemon`, `docker`, `seed-testdb`
+1. **Build** — compiles 3 binaries into `bin/`: `dockge`, `mock-daemon`, `docker`
 2. **Start mock daemon** — launches on a Unix socket, polls until ready (up to 5s)
-3. **Seed database** — runs `seed-testdb` to populate BoltDB
-4. **Set environment** — exports `DOCKER_HOST` and prepends mock binaries to `PATH`
-5. **Start servers** — launches Vite (HMR on :5000) and dockge (backend on :5001) in parallel
+3. **Set environment** — exports `DOCKER_HOST` and prepends mock binaries to `PATH`
+4. **Start servers** — launches Vite (HMR on :5000) and dockge (backend on :5001) in parallel
+
+The backend auto-creates the admin user on first startup in `--dev` mode.
 
 ### Key files
 
-- `cmd/mock-daemon/main.go` — Mock daemon entry point
-- `cmd/mock-docker/main.go` — Mock docker CLI
-- `cmd/seed-testdb/main.go` — BoltDB seeder
-- `internal/docker/mock/mockdata.go` — Test data parsing from `test-data/stacks/`
-- `internal/docker/mock/mockstate.go` — In-memory mutable state
-- `internal/docker/mock/mockworld.go` — Materialized live Docker environment
-- `internal/docker/mock/fakedaemon.go` — Fake Docker Engine API server
-- `internal/models/image_update.go` — BoltDB image update cache + `SeedFromMock()`
+- `mock-docker/src/main.ts` — Mock daemon entry point (compiled to `bin/mock-daemon`)
+- `mock-docker/cli/index.ts` — Mock docker CLI (compiled to `bin/docker`)
+- `mock-docker/src/init.ts` — State initialization from compose + mock YAML files
+- `mock-docker/src/generator.ts` — Container/network/volume generation from parsed stacks
+- `mock-docker/src/mock-config.ts` — `.mock.yaml` schema parsing
+- `mock-docker/src/mutations.ts` — Container start/stop/restart state mutations
+- `internal/models/image_update.go` — BoltDB image update cache

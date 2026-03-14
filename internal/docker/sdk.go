@@ -346,6 +346,12 @@ func (s *SDKClient) ContainerTop(ctx context.Context, id string) ([]string, [][]
     return resp.Titles, resp.Processes, nil
 }
 
+// ContainerStart starts a stopped container.
+// Only used in tests to transition mock containers from exited → running.
+func (s *SDKClient) ContainerStart(ctx context.Context, containerID string) error {
+    return s.cli.ContainerStart(ctx, containerID, container.StartOptions{})
+}
+
 func (s *SDKClient) ContainerStartedAt(ctx context.Context, containerID string) (time.Time, error) {
     inspect, err := s.cli.ContainerInspect(ctx, containerID)
     if err != nil {

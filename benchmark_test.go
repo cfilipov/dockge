@@ -8,7 +8,6 @@ import (
     "runtime/pprof"
     "testing"
 
-    "github.com/cfilipov/dockge/internal/docker/mock"
     "github.com/cfilipov/dockge/internal/testutil"
 )
 
@@ -164,11 +163,8 @@ func BenchmarkGetStack200(b *testing.B) {
     env := testutil.SetupFull(b)
     env.SeedAdmin(b)
 
-    // Set all stacks to their default states
-    state := mock.DefaultDevState()
-    for name, status := range state.All() {
-        env.State.Set(name, status)
-    }
+    // The daemon starts with all stacks in their .mock.yaml states —
+    // no explicit state setup needed.
 
     conn := env.DialWS(b)
     env.Login(b, conn)
@@ -188,10 +184,8 @@ func BenchmarkGetStack200_HeapProfile(b *testing.B) {
     env := testutil.SetupFull(b)
     env.SeedAdmin(b)
 
-    state := mock.DefaultDevState()
-    for name, status := range state.All() {
-        env.State.Set(name, status)
-    }
+    // The daemon starts with all stacks in their .mock.yaml states —
+    // no explicit state setup needed.
 
     conn := env.DialWS(b)
     env.Login(b, conn)

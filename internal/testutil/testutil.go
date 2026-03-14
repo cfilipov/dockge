@@ -3,9 +3,12 @@ package testutil
 import (
     "context"
     "encoding/json"
+    "fmt"
+    "log"
     "net/http"
     "net/http/httptest"
     "os"
+    "os/exec"
     "path/filepath"
     "sync/atomic"
     "testing"
@@ -13,7 +16,6 @@ import (
 
     "github.com/cfilipov/dockge/internal/db"
     "github.com/cfilipov/dockge/internal/docker"
-    "github.com/cfilipov/dockge/internal/docker/mock"
     "github.com/cfilipov/dockge/internal/handlers"
     "github.com/cfilipov/dockge/internal/models"
     "github.com/cfilipov/dockge/internal/terminal"
@@ -24,6 +26,84 @@ import (
 
 var msgIDCounter int64
 
+// daemon holds the singleton mock daemon process state.
+var daemon struct {
+    proc      *os.Process
+    stacksDir string // the --stacks-dir the daemon is serving
+    tmpDir    string // temp dir containing socket + stacks
+}
+
+// StartDaemon launches the mock daemon binary on a temp Unix socket,
+// sets DOCKER_HOST to point to it, and prepends dockerCLI's directory
+// to PATH. Call this once from TestMain before m.Run().
+//
+// daemonBin: path to the compiled mock-daemon binary
+// dockerCLI: path to the compiled mock docker CLI binary
+func StartDaemon(daemonBin, dockerCLI string) {
+    tmpDir, err := os.MkdirTemp("", "dockge-test-*")
+    if err != nil {
+        log.Fatalf("testutil: create temp dir: %v", err)
+    }
+    daemon.tmpDir = tmpDir
+
+    sockPath := filepath.Join(tmpDir, "docker.sock")
+    stacksDir := filepath.Join(tmpDir, "stacks")
+    daemon.stacksDir = stacksDir
+
+    // Locate test-data/stacks and images.json relative to project root
+    stacksSource := findStacksDirFatal()
+    imagesJSON := filepath.Join(filepath.Dir(stacksSource), "..", "mock-docker", "scripts", "images.json")
+
+    cmd := exec.Command(daemonBin,
+        "--socket", sockPath,
+        "--stacks-source", stacksSource,
+        "--stacks-dir", stacksDir,
+        "--images-json", imagesJSON,
+    )
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    if err := cmd.Start(); err != nil {
+        os.RemoveAll(tmpDir)
+        log.Fatalf("testutil: start mock daemon: %v", err)
+    }
+    daemon.proc = cmd.Process
+
+    // Wait for socket to appear (up to 5s)
+    for i := 0; i < 50; i++ {
+        if _, err := os.Stat(sockPath); err == nil {
+            break
+        }
+        time.Sleep(100 * time.Millisecond)
+    }
+    if _, err := os.Stat(sockPath); err != nil {
+        daemon.proc.Kill()
+        os.RemoveAll(tmpDir)
+        log.Fatalf("testutil: mock daemon socket not ready after 5s")
+    }
+
+    os.Setenv("DOCKER_HOST", "unix://"+sockPath)
+
+    // Prepend mock docker CLI directory to PATH
+    cliDir := filepath.Dir(dockerCLI)
+    if abs, err := filepath.Abs(cliDir); err == nil {
+        cliDir = abs
+    }
+    os.Setenv("PATH", cliDir+":"+os.Getenv("PATH"))
+}
+
+// StopDaemon kills the mock daemon and cleans up temp files.
+// Call this from TestMain after m.Run() returns.
+func StopDaemon() {
+    if daemon.proc != nil {
+        daemon.proc.Kill()
+        daemon.proc.Wait()
+    }
+    if daemon.tmpDir != "" {
+        os.RemoveAll(daemon.tmpDir)
+    }
+    os.Unsetenv("DOCKER_HOST")
+}
+
 // TestEnv holds a fully wired test application with temp DB and mock Docker.
 type TestEnv struct {
     App       *handlers.App
@@ -31,12 +111,11 @@ type TestEnv struct {
     WSServer  *ws.Server
     StacksDir string
     DataDir   string
-    State     *mock.MockState
     cancel    context.CancelFunc
 }
 
 // Setup creates a test environment with a real HTTP server, BoltDB, and mock Docker.
-// Only copies "test-stack" from test-data — fast for unit tests.
+// Only uses "test-stack" from the daemon's stacks dir — fast for unit tests.
 func Setup(t testing.TB) *TestEnv {
     return setupWithStacks(t, "test-stack")
 }
@@ -47,37 +126,31 @@ func SetupFull(t testing.TB) *TestEnv {
     return setupWithStacks(t)
 }
 
-// setupWithStacks creates a test env. If stackNames is empty, copies all stacks;
-// otherwise only the named ones.
+// setupWithStacks creates a test env. If the daemon was started via StartDaemon,
+// uses its stacks dir. Otherwise falls back to copying stacks to a temp dir
+// (for IDE test runners with DOCKER_HOST set externally).
 func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     t.Helper()
 
-    // Create temp directories
-    tmpDir := t.TempDir()
-    stacksDir := filepath.Join(tmpDir, "stacks")
-    dataDir := filepath.Join(tmpDir, "data")
-
-    if err := os.MkdirAll(stacksDir, 0755); err != nil {
-        t.Fatal(err)
-    }
-
-    // Copy test stacks from test-data
-    testdataDir := findTestdata(t)
-    srcStacks := filepath.Join(testdataDir, "stacks")
-    if len(stackNames) == 0 {
-        // Copy everything
-        copyDir(t, srcStacks, stacksDir)
-    } else {
-        // Copy only named stacks
+    // Use daemon's stacks dir if available, otherwise fall back
+    stacksDir := daemon.stacksDir
+    if stacksDir == "" {
+        stacksDir = fallbackStacksDir(t, stackNames...)
+    } else if len(stackNames) > 0 {
+        // Create a filtered view with symlinks so the App only sees named stacks
+        filtered := t.TempDir()
         for _, name := range stackNames {
-            src := filepath.Join(srcStacks, name)
-            dst := filepath.Join(stacksDir, name)
-            if err := os.MkdirAll(dst, 0755); err != nil {
-                t.Fatal(err)
+            src := filepath.Join(stacksDir, name)
+            dst := filepath.Join(filtered, name)
+            if err := os.Symlink(src, dst); err != nil {
+                t.Fatal("symlink stack:", err)
             }
-            copyDir(t, src, dst)
         }
+        stacksDir = filtered
     }
+
+    // Create temp data dir for BoltDB
+    dataDir := filepath.Join(t.TempDir(), "data")
 
     // Open BoltDB in temp dir
     database, err := db.Open(dataDir)
@@ -102,21 +175,19 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
         t.Fatal(err)
     }
 
-    // Start fake Docker daemon with shared in-memory state
-    state := mock.NewMockState()
-    data := mock.BuildMockData(stacksDir)
-    sockPath, daemonCleanup, err := mock.StartFakeDaemon(state, data, stacksDir, "")
-    if err != nil {
-        t.Fatal("start fake daemon:", err)
-    }
-
-    // Set DOCKER_HOST so SDKClient connects to fake daemon
-    os.Setenv("DOCKER_HOST", "unix://"+sockPath)
-
+    // Connect to the mock daemon (or real Docker) via DOCKER_HOST
     dockerClient, err := docker.NewSDKClient()
     if err != nil {
-        daemonCleanup()
         t.Fatal("new sdk client:", err)
+    }
+
+    // Force API version negotiation before any concurrent use. The Docker SDK
+    // client with WithAPIVersionNegotiation() lazily writes the negotiated
+    // version on the first request, which races if Events() and ContainerList()
+    // fire concurrently from different goroutines. A ContainerList call triggers
+    // the negotiation; subsequent calls are no-ops.
+    if _, err := dockerClient.ContainerList(context.Background(), false, ""); err != nil {
+        t.Fatal("pre-negotiate docker API version:", err)
     }
 
     // Terminal manager
@@ -171,9 +242,7 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
         cancel()
         server.Close()
         dockerClient.Close()
-        daemonCleanup()
         database.Close()
-        os.Unsetenv("DOCKER_HOST")
     })
 
     return &TestEnv{
@@ -182,7 +251,6 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
         WSServer:  wss,
         StacksDir: stacksDir,
         DataDir:   dataDir,
-        State:     state,
         cancel:    cancel,
     }
 }
@@ -197,10 +265,23 @@ func (e *TestEnv) SeedAdmin(t testing.TB) {
     e.App.NeedSetup = false
 }
 
-// SetStackRunning marks a stack as running in the mock state.
+// SetStackRunning starts all containers for a stack via the Docker API.
+// The test-stack's .mock.yaml sets services to "exited" by default; this
+// calls POST /containers/{id}/start on each to transition them to "running".
 func (e *TestEnv) SetStackRunning(t testing.TB, stackName string) {
     t.Helper()
-    e.State.Set(stackName, "running")
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    containers, err := e.App.Docker.ContainerList(ctx, true, stackName)
+    if err != nil {
+        t.Fatal("list containers for SetStackRunning:", err)
+    }
+    for _, c := range containers {
+        if err := e.App.Docker.ContainerStart(ctx, c.ID); err != nil {
+            t.Fatalf("start container %s: %v", c.Name, err)
+        }
+    }
 }
 
 // DialWS opens a WebSocket connection to the test server.
@@ -324,16 +405,65 @@ func (e *TestEnv) SendEvent(t testing.TB, conn *websocket.Conn, event string, ar
     }
 }
 
+// findStacksDirFatal locates test-data/stacks by walking up from cwd.
+// Calls log.Fatalf on failure (for use in TestMain context where testing.TB
+// is not available).
+func findStacksDirFatal() string {
+    dir, err := os.Getwd()
+    if err != nil {
+        log.Fatalf("testutil: cannot get cwd: %v", err)
+    }
+    for {
+        candidate := filepath.Join(dir, "test-data", "stacks")
+        if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+            abs, _ := filepath.Abs(candidate)
+            return abs
+        }
+        parent := filepath.Dir(dir)
+        if parent == dir {
+            log.Fatalf("testutil: test-data/stacks not found")
+        }
+        dir = parent
+    }
+    panic("unreachable")
+}
+
+// fallbackStacksDir copies stacks from test-data into a temp dir for tests
+// running without StartDaemon (e.g., IDE test runners with DOCKER_HOST set).
+func fallbackStacksDir(t testing.TB, stackNames ...string) string {
+    t.Helper()
+
+    stacksSource := findTestdata(t)
+    srcStacks := filepath.Join(stacksSource, "stacks")
+
+    tmpDir := t.TempDir()
+    stacksDir := filepath.Join(tmpDir, "stacks")
+    if err := os.MkdirAll(stacksDir, 0755); err != nil {
+        t.Fatal(err)
+    }
+
+    if len(stackNames) == 0 {
+        copyDir(t, srcStacks, stacksDir)
+    } else {
+        for _, name := range stackNames {
+            src := filepath.Join(srcStacks, name)
+            dst := filepath.Join(stacksDir, name)
+            if err := os.MkdirAll(dst, 0755); err != nil {
+                t.Fatal(err)
+            }
+            copyDir(t, src, dst)
+        }
+    }
+    return stacksDir
+}
+
 // findTestdata locates the test-data directory relative to the project root.
 func findTestdata(t testing.TB) string {
     t.Helper()
-
-    // Walk up from cwd to find test-data/
     dir, err := os.Getwd()
     if err != nil {
         t.Fatal(err)
     }
-
     for {
         candidate := filepath.Join(dir, "test-data")
         if info, err := os.Stat(candidate); err == nil && info.IsDir() {
@@ -345,6 +475,7 @@ func findTestdata(t testing.TB) string {
         }
         dir = parent
     }
+    panic(fmt.Sprintf("unreachable"))
 }
 
 // copyDir recursively copies src to dst.

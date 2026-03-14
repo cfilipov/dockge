@@ -149,6 +149,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Dev mode: auto-create admin user if no users exist
+	if cfg.Dev && userCount == 0 {
+		if _, err := users.Create("admin", "testpass123"); err != nil {
+			slog.Error("dev auto-create admin", "err", err)
+			os.Exit(1)
+		}
+		slog.Info("dev mode: created admin user", "username", "admin")
+		userCount = 1
+	}
+
 	// Docker client — connects to whatever DOCKER_HOST points to.
 	// In dev+mock environments, the external mock-daemon sets DOCKER_HOST
 	// to its Unix socket. In production, it connects to the real Docker daemon.
@@ -199,20 +209,13 @@ func main() {
 
 	// Dev mode: mock reset proxy endpoint.
 	// Forwards POST /_mock/reset to the mock daemon over the DOCKER_HOST Unix socket,
-	// then seeds BoltDB image updates from the response and triggers broadcasts.
+	// then triggers broadcasts so the frontend sees fresh state.
 	if cfg.Dev {
 		mux.HandleFunc("POST /api/mock/reset", func(w http.ResponseWriter, _ *http.Request) {
-			resp, err := resetViaDaemon()
-			if err != nil {
+			if err := resetViaDaemon(); err != nil {
 				slog.Error("mock reset proxy", "err", err)
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
-			}
-
-			if resp.UpdateFlags != nil {
-				if err := imageUpdates.SeedFromMock(resp.UpdateFlags); err != nil {
-					slog.Error("seed image updates on mock reset", "err", err)
-				}
 			}
 
 			// Re-stamp last check time so the background checker doesn't
@@ -342,19 +345,13 @@ func main() {
 	srv.Shutdown(shutdownCtx)
 }
 
-// resetResponse is the JSON shape returned by the mock daemon's /_mock/reset.
-type resetResponse struct {
-	OK          bool            `json:"ok"`
-	UpdateFlags map[string]bool `json:"updateFlags,omitempty"`
-}
-
 // resetViaDaemon sends POST /_mock/reset to the mock daemon over the DOCKER_HOST
-// Unix socket and returns the parsed response. Returns an error if DOCKER_HOST
-// is not a Unix socket (i.e., running against a real Docker daemon).
-func resetViaDaemon() (*resetResponse, error) {
+// Unix socket. Returns an error if DOCKER_HOST is not a Unix socket (i.e.,
+// running against a real Docker daemon).
+func resetViaDaemon() error {
 	dh := os.Getenv("DOCKER_HOST")
 	if !strings.HasPrefix(dh, "unix://") {
-		return nil, fmt.Errorf("DOCKER_HOST is not a Unix socket (got %q)", dh)
+		return fmt.Errorf("DOCKER_HOST is not a Unix socket (got %q)", dh)
 	}
 	sockPath := strings.TrimPrefix(dh, "unix://")
 
@@ -369,19 +366,14 @@ func resetViaDaemon() (*resetResponse, error) {
 
 	resp, err := client.Post("http://docker/_mock/reset", "", nil)
 	if err != nil {
-		return nil, fmt.Errorf("POST /_mock/reset: %w", err)
+		return fmt.Errorf("POST /_mock/reset: %w", err)
 	}
-	defer resp.Body.Close()
+	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("/_mock/reset returned %d", resp.StatusCode)
+		return fmt.Errorf("/_mock/reset returned %d", resp.StatusCode)
 	}
-
-	var result resetResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode reset response: %w", err)
-	}
-	return &result, nil
+	return nil
 }
 
 // spaHandler serves static files from the given FS. If the requested file

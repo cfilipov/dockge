@@ -38,7 +38,7 @@ web/                             # Vue 3 frontend (self-contained Node project)
 e2e/                             # Playwright E2E tests (own package.json)
   tests/                         # Test specs
   __screenshots__/               # Golden screenshots (committed)
-bin/                             # Build output: dockge, mock-daemon, docker, seed-testdb (gitignored)
+bin/                             # Build output: dockge, mock-daemon, docker (gitignored)
 .run/                            # Runtime ephemera: dev-5001/, e2e-5052/ etc. (gitignored)
 test-data/
   stacks/                        # Mock stack templates (checked in)

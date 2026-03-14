@@ -50,18 +50,8 @@ tasks:
     cmds:
       - npm install --prefer-offline
       - npm run build
-
-  build-seed-testdb:
-    desc: Build seed-testdb utility for dev/test
-    cmd: go build -o bin/seed-testdb ./cmd/seed-testdb
-    sources:
-      - cmd/seed-testdb/**/*.go
-      - internal/db/**/*.go
-      - internal/models/**/*.go
-      - internal/docker/mock/**/*.go
-      - go.mod
-    generates:
-      - bin/seed-testdb
+      - npm run build:daemon
+      - cp dist/mock-daemon ../bin/mock-daemon
 
   dev:
     desc: Run mock daemon + Go backend + Vite HMR (ports 5001 + 5000)
@@ -74,7 +64,7 @@ tasks:
 
   dev-go:
     desc: Run mock daemon + Go backend only (port 5001)
-    deps: [build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    deps: [build-go, build-mock-daemon, build-mock-docker]
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
@@ -87,14 +77,13 @@ tasks:
             --stacks-dir .run/dev-5001/stacks \
             --images-json mock-docker/scripts/images.json &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./bin/seed-testdb --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks
           export DOCKER_HOST="unix://$MOCK_SOCK"
           export PATH="$(pwd)/bin:$PATH"
           ./bin/{{.BINARY}} --dev --port 5001 --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks
 
   start-mock-env:
     desc: Start mock daemon + dockge for dev/test
-    deps: [build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    deps: [build-go, build-mock-daemon, build-mock-docker]
     vars:
       PORT: '{{.PORT | default "5001"}}'
       STACKS_DIR: '{{.STACKS_DIR | default ".run/e2e-{{.PORT}}/stacks"}}'
@@ -112,7 +101,6 @@ tasks:
             --images-json mock-docker/scripts/images.json \
             --e2e &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./bin/seed-testdb --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
           DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/bin:$PATH" \
             exec ./bin/{{.BINARY}} --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
 
@@ -127,7 +115,7 @@ tasks:
 
   dev-svelte-go:
     desc: Run mock daemon + Go backend for Svelte (port 6001)
-    deps: [build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    deps: [build-go, build-mock-daemon, build-mock-docker]
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
@@ -140,7 +128,6 @@ tasks:
             --stacks-dir .run/dev-6001/stacks \
             --images-json mock-docker/scripts/images.json &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          ./bin/seed-testdb --data-dir .run/dev-6001/data --stacks-dir .run/dev-6001/stacks
           export DOCKER_HOST="unix://$MOCK_SOCK"
           export PATH="$(pwd)/bin:$PATH"
           ./bin/{{.BINARY}} --dev --port 6001 --data-dir .run/dev-6001/data --stacks-dir .run/dev-6001/stacks
@@ -205,11 +192,14 @@ tasks:
 
   test-go:
     desc: Run Go tests with race detector
-    cmd: go test -race ./...
+    deps: [build-mock-daemon, build-mock-docker]
+    cmds:
+      - go test -race -count=1 . -args -mock-daemon=./bin/mock-daemon -mock-docker=./bin/docker
+      - go test -race -count=1 ./internal/...
 
   test-e2e:
     desc: Run Playwright E2E tests
-    deps: [build-web, build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
     dir: e2e
     cmd: E2E_PORT=5052 pnpm test
 
@@ -220,19 +210,19 @@ tasks:
 
   update-screenshots:
     desc: Update E2E golden screenshots
-    deps: [build-web, build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
     dir: e2e
     cmd: E2E_PORT=5052 pnpm run test:update-screenshots
 
   update-benchmarks:
     desc: Update E2E performance golden baselines (requires full test run)
-    deps: [build-web, build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
     dir: e2e
     cmd: E2E_PORT=5052 UPDATE_BENCHMARKS=1 pnpm test
 
   test-e2e-trace:
     desc: Run E2E test with tracing (use -- <test-file>)
-    deps: [build-web, build-go, build-mock-daemon, build-mock-docker, build-seed-testdb]
+    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
     dir: e2e
     cmd: E2E_PORT=5052 npx playwright test {{.CLI_ARGS}} --trace on
 

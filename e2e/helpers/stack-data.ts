@@ -4,7 +4,7 @@
  *
  * Mirrors the Go backend status computation logic from:
  *   - internal/stack/list.go (stack status aggregation)
- *   - internal/docker/mockdata.go (service state resolution)
+ *   - mock-docker/src/mock-config.ts (service state resolution)
  *   - internal/compose/parse.go (dockge.status.ignore label)
  */
 

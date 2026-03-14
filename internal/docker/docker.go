@@ -30,6 +30,10 @@ type Client interface {
     // If projectFilter is non-empty, only returns stats for that compose project.
     ContainerStats(ctx context.Context, projectFilter string) (map[string]ContainerStat, error)
 
+    // ContainerStart starts a stopped container.
+    // Only used in tests to transition mock containers from exited → running.
+    ContainerStart(ctx context.Context, containerID string) error
+
     // ContainerStartedAt returns when the container was last started.
     // Returns zero time if the container has never started or info is unavailable.
     ContainerStartedAt(ctx context.Context, containerID string) (time.Time, error)
