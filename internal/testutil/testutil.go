@@ -216,10 +216,13 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     handlers.RegisterStackHandlers(app)
     handlers.RegisterDockerHandlers(app)
     handlers.RegisterServiceHandlers(app)
+    handlers.RegisterTerminalHandlers(app)
 
     // Wire disconnect cleanup
     wss.OnDisconnect(func(c *ws.Conn) {
-        terms.RemoveWriterFromAll(c.ID())
+        for _, s := range c.DrainSessions() {
+            terms.RemoveWriterAndCleanup(s.TermName, s.WriterKey)
+        }
         app.CancelStatsSub(c.ID())
     })
 

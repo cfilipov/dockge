@@ -36,3 +36,29 @@ type ErrorResponse struct {
     Msg     string `json:"msg"`
     MsgI18n bool   `json:"msgi18n,omitempty"`
 }
+
+// TerminalJoinArgs is the payload for "terminalJoin" events.
+type TerminalJoinArgs struct {
+    Type      string `json:"type"`
+    Stack     string `json:"stack,omitempty"`
+    Service   string `json:"service,omitempty"`
+    Container string `json:"container,omitempty"`
+    Shell     string `json:"shell,omitempty"`
+}
+
+// TerminalJoinResponse is the ack payload for "terminalJoin".
+type TerminalJoinResponse struct {
+    OK        bool   `json:"ok"`
+    SessionID uint16 `json:"sessionId"`
+    Msg       string `json:"msg,omitempty"`
+}
+
+// TerminalLeaveArgs is the payload for "terminalLeave" events.
+type TerminalLeaveArgs struct {
+    SessionID uint16 `json:"sessionId"`
+}
+
+// TerminalExitedData is the payload for "terminalExited" server push events.
+type TerminalExitedData struct {
+    SessionID uint16 `json:"sessionId"`
+}

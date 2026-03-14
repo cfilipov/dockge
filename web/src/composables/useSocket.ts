@@ -22,6 +22,8 @@ class DockgeWebSocket {
     private maxReconnectDelay = 30000;
     private shouldReconnect = true;
 
+    private binaryHandlers: ((sessionId: number, data: Uint8Array) => void)[] = [];
+
     connect(url: string) {
         this.url = url;
         this.shouldReconnect = true;
@@ -31,6 +33,7 @@ class DockgeWebSocket {
     private doConnect() {
         try {
             this.ws = new WebSocket(this.url);
+            this.ws.binaryType = "arraybuffer";
         } catch {
             this.scheduleReconnect();
             return;
@@ -42,6 +45,19 @@ class DockgeWebSocket {
         };
 
         this.ws.onmessage = (e) => {
+            // Binary frame: terminal data
+            if (e.data instanceof ArrayBuffer) {
+                const arr = new Uint8Array(e.data);
+                if (arr.length < 2) return;
+                const sessionId = (arr[0] << 8) | arr[1];
+                const payload = arr.subarray(2);
+                for (const handler of this.binaryHandlers) {
+                    handler(sessionId, payload);
+                }
+                return;
+            }
+
+            // Text frame: JSON message
             try {
                 const msg = JSON.parse(e.data);
                 this.handleMessage(msg);
@@ -98,6 +114,21 @@ class DockgeWebSocket {
             const idx = list.indexOf(handler);
             if (idx !== -1) list.splice(idx, 1);
         }
+    }
+
+    sendBinary(data: ArrayBuffer) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(data);
+        }
+    }
+
+    onBinary(handler: (sessionId: number, data: Uint8Array) => void) {
+        this.binaryHandlers.push(handler);
+    }
+
+    offBinary(handler: (sessionId: number, data: Uint8Array) => void) {
+        const idx = this.binaryHandlers.indexOf(handler);
+        if (idx !== -1) this.binaryHandlers.splice(idx, 1);
     }
 
     get connected(): boolean {

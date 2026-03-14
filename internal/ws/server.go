@@ -19,8 +19,9 @@ type Server struct {
     mu    sync.RWMutex
     conns map[*Conn]struct{}
 
-    handlers     map[string]HandlerFunc
-    disconnectFn func(c *Conn) // called when a connection is removed
+    handlers      map[string]HandlerFunc
+    disconnectFn  func(c *Conn)                                  // called when a connection is removed
+    binaryHandler func(c *Conn, session *TermSession, data []byte) // handles binary terminal frames
 }
 
 func NewServer() *Server {
@@ -33,6 +34,13 @@ func NewServer() *Server {
 // Handle registers a handler for a named event.
 func (s *Server) Handle(event string, fn HandlerFunc) {
     s.handlers[event] = fn
+}
+
+// OnBinary registers a handler for binary WebSocket frames (terminal data).
+// The handler receives the connection, the already-looked-up session, and the
+// payload after the 2-byte session ID header.
+func (s *Server) OnBinary(fn func(c *Conn, session *TermSession, data []byte)) {
+    s.binaryHandler = fn
 }
 
 // ServeHTTP upgrades the HTTP request to a WebSocket connection.

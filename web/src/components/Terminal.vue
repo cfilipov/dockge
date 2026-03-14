@@ -11,7 +11,7 @@ import type { ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_COLS, TERMINAL_ROWS } from "../common/util-common";
 import { useTheme } from "../composables/useTheme";
-import { useTerminalSocket, type TerminalSocket } from "../composables/useTerminalSocket";
+import { useTerminalMux, type TerminalSession } from "../composables/useTerminalMux";
 
 const { isDark } = useTheme();
 
@@ -88,7 +88,7 @@ const terminal = shallowRef<Terminal | null>(null);
 let terminalFitAddOn: FitAddon | null = null;
 let first = true;
 let stopDarkWatcher: (() => void) | null = null;
-let termSocket: TerminalSocket | null = null;
+let termSession: TerminalSession | null = null;
 let spinnerTimer: ReturnType<typeof setTimeout> | null = null;
 let spinnerInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -98,8 +98,8 @@ function interactiveTerminalConfig() {
             handlePaste();
             return;
         }
-        if (termSocket) {
-            termSocket.sendInput(e.key);
+        if (termSession) {
+            termSession.sendInput(e.key);
         }
     });
 }
@@ -131,24 +131,24 @@ function stopSpinner() {
     }
 }
 
-function connectDedicatedTerminal() {
+function connectTerminal() {
     startSpinnerDebounce();
 
-    termSocket = useTerminalSocket({
+    const mux = useTerminalMux();
+    termSession = mux.join({
         type: props.terminalType,
-        params: props.terminalParams,
+        stack: props.terminalParams?.stack,
+        service: props.terminalParams?.service,
+        container: props.terminalParams?.container,
+        shell: props.terminalParams?.shell,
     });
 
     let firstMessage = true;
-    termSocket.onData((data: Uint8Array) => {
+    termSession.onData((data: Uint8Array) => {
         if (!terminal.value) return;
         if (firstMessage) {
             stopSpinner();
-            // reset() fully clears the terminal including current line and scrollback,
-            // unlike clear() which preserves the cursor line (leaving spinner residue).
             terminal.value.reset();
-            // Restore cursor visibility — the spinner hides it with \x1b[?25l,
-            // and reset() doesn't always re-enable it (xterm.js quirk).
             terminal.value.write("\x1b[?25h");
             firstMessage = false;
         }
@@ -160,11 +160,8 @@ function connectDedicatedTerminal() {
         }
     });
 
-    // On disconnect, reset state so the spinner/clear logic runs again on reconnect
-    termSocket.onDisconnect(() => {
-        firstMessage = true;
-        stopSpinner();
-        startSpinnerDebounce();
+    termSession.onExited(() => {
+        // Terminal process exited — could show a message or auto-reconnect
     });
 }
 
@@ -187,8 +184,8 @@ function onResizeEvent() {
     if (rows === lastSentRows && cols === lastSentCols) return;
     lastSentRows = rows;
     lastSentCols = cols;
-    if (termSocket) {
-        termSocket.sendResize(rows, cols);
+    if (termSession) {
+        termSession.sendResize(rows, cols);
     }
 }
 
@@ -204,8 +201,8 @@ async function handlePaste() {
 }
 
 function pasteText(text: string) {
-    if (props.mode === "interactive" && termSocket) {
-        termSocket.sendInput(text);
+    if (props.mode === "interactive" && termSession) {
+        termSession.sendInput(text);
     }
 }
 
@@ -274,7 +271,7 @@ onMounted(() => {
         }
     });
 
-    connectDedicatedTerminal();
+    connectTerminal();
 
     updateTerminalSize();
 
@@ -295,10 +292,10 @@ onUnmounted(() => {
     if (terminalEl.value) {
         terminalEl.value.removeEventListener("contextmenu", handleContextMenu);
     }
-    if (termSocket) {
-        console.debug("Terminal: closing dedicated WS", props.name);
-        termSocket.close();
-        termSocket = null;
+    if (termSession) {
+        console.debug("Terminal: leaving session", props.name);
+        termSession.leave();
+        termSession = null;
     }
     terminal.value?.dispose();
 });

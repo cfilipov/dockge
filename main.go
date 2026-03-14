@@ -201,9 +201,7 @@ func main() {
 	handlers.RegisterStackHandlers(app)
 	handlers.RegisterDockerHandlers(app)
 	handlers.RegisterServiceHandlers(app)
-
-	// Dedicated terminal WebSocket endpoint (binary protocol, per-instance connections)
-	mux.HandleFunc("/ws/terminal/", app.HandleTerminalWS)
+	handlers.RegisterTerminalHandlers(app)
 
 	// Dev mode: broadcast metrics and mock reset proxy endpoints.
 	if cfg.Dev {
@@ -269,7 +267,10 @@ func main() {
 
 	// Clean up terminal writers and stats subscriptions when a connection disconnects.
 	wss.OnDisconnect(func(c *ws.Conn) {
-		terms.RemoveWriterFromAll(c.ID())
+		// Drain all terminal sessions and clean up each one
+		for _, s := range c.DrainSessions() {
+			terms.RemoveWriterAndCleanup(s.TermName, s.WriterKey)
+		}
 		app.CancelStatsSub(c.ID())
 		app.CancelTopSub(c.ID())
 	})
