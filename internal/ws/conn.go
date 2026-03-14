@@ -135,6 +135,10 @@ func (c *Conn) Close() {
     c.closeLocked()
 }
 
+// Done returns a channel that is closed when the connection is closed.
+// Handler goroutines can select on this to detect disconnection.
+func (c *Conn) Done() <-chan struct{} { return c.closeCh }
+
 func (c *Conn) closeLocked() {
     if c.closed {
         return

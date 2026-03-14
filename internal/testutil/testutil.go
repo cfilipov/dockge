@@ -220,6 +220,7 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     // Wire disconnect cleanup
     wss.OnDisconnect(func(c *ws.Conn) {
         terms.RemoveWriterFromAll(c.ID())
+        app.CancelStatsSub(c.ID())
     })
 
     // HTTP mux with WS and health
@@ -403,6 +404,43 @@ func (e *TestEnv) SendEvent(t testing.TB, conn *websocket.Conn, event string, ar
     if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
         t.Fatal("write:", err)
     }
+}
+
+// WaitForEvent reads messages from the WebSocket until it receives a push event
+// with the given event name. Returns the event's data payload.
+// Times out after 15 seconds.
+func (e *TestEnv) WaitForEvent(t testing.TB, conn *websocket.Conn, eventName string) map[string]interface{} {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	for {
+		_, respData, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("WaitForEvent(%s): read: %v", eventName, err)
+		}
+
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(respData, &raw); err != nil {
+			t.Fatalf("WaitForEvent(%s): unmarshal: %v", eventName, err)
+		}
+
+		// Push events have "event" field but no "id" field
+		if evtRaw, ok := raw["event"]; ok {
+			var evt string
+			if err := json.Unmarshal(evtRaw, &evt); err == nil && evt == eventName {
+				var parsed struct {
+					Data map[string]interface{} `json:"data"`
+				}
+				if err := json.Unmarshal(respData, &parsed); err != nil {
+					t.Fatalf("WaitForEvent(%s): unmarshal data: %v", eventName, err)
+				}
+				return parsed.Data
+			}
+		}
+		// Not the event we're looking for, keep reading
+	}
 }
 
 // findStacksDirFatal locates test-data/stacks by walking up from cwd.

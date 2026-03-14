@@ -12,10 +12,15 @@ import (
 )
 
 func RegisterDockerHandlers(app *App) {
+	app.statsSubs = make(map[string]*statsSubscription)
+	app.topSubs = make(map[string]*topSubscription)
+
 	app.WS.Handle("serviceStatusList", app.handleServiceStatusList)
-	app.WS.Handle("dockerStats", app.handleDockerStats)
+	app.WS.Handle("subscribeStats", app.handleSubscribeStats)
+	app.WS.Handle("unsubscribeStats", app.handleUnsubscribeStats)
+	app.WS.Handle("subscribeTop", app.handleSubscribeTop)
+	app.WS.Handle("unsubscribeTop", app.handleUnsubscribeTop)
 	app.WS.Handle("containerInspect", app.handleContainerInspect)
-	app.WS.Handle("containerTop", app.handleContainerTop)
 	app.WS.Handle("getDockerNetworkList", app.handleGetDockerNetworkList)
 	app.WS.Handle("networkInspect", app.handleNetworkInspect)
 	app.WS.Handle("getDockerImageList", app.handleGetDockerImageList)
@@ -161,36 +166,6 @@ func extractServiceName(containerName string) string {
 	return parts[len(parts)-2]
 }
 
-// handleDockerStats returns resource usage stats via the Docker client.
-// Args: [stackName] — if provided, only fetches stats for that stack's containers.
-func (app *App) handleDockerStats(c *ws.Conn, msg *ws.ClientMessage) {
-	if checkLogin(c, msg) == 0 {
-		return
-	}
-
-	args := parseArgs(msg)
-	stackName := argString(args, 0)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	stats, err := app.Docker.ContainerStats(ctx, stackName)
-	if err != nil {
-		slog.Warn("dockerStats", "err", err)
-		stats = map[string]docker.ContainerStat{}
-	}
-
-	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, struct {
-			OK          bool                            `json:"ok"`
-			DockerStats map[string]docker.ContainerStat `json:"dockerStats"`
-		}{
-			OK:          true,
-			DockerStats: stats,
-		})
-	}
-}
-
 // handleContainerInspect returns full container inspect data via the Docker client.
 func (app *App) handleContainerInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	if checkLogin(c, msg) == 0 {
@@ -225,46 +200,6 @@ func (app *App) handleContainerInspect(c *ws.Conn, msg *ws.ClientMessage) {
 		}{
 			OK:          true,
 			InspectData: inspectData,
-		})
-	}
-}
-
-// handleContainerTop returns running processes inside a container.
-func (app *App) handleContainerTop(c *ws.Conn, msg *ws.ClientMessage) {
-	if checkLogin(c, msg) == 0 {
-		return
-	}
-
-	args := parseArgs(msg)
-	containerName := argString(args, 0)
-	if containerName == "" {
-		if msg.ID != nil {
-			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Container name required"})
-		}
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	titles, processes, err := app.Docker.ContainerTop(ctx, containerName)
-	if err != nil {
-		slog.Warn("containerTop", "err", err, "container", containerName)
-		if msg.ID != nil {
-			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
-		}
-		return
-	}
-
-	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, struct {
-			OK        bool       `json:"ok"`
-			Titles    []string   `json:"titles"`
-			Processes [][]string `json:"processes"`
-		}{
-			OK:        true,
-			Titles:    titles,
-			Processes: processes,
 		})
 	}
 }
@@ -395,6 +330,229 @@ func (app *App) handleImageInspect(c *ws.Conn, msg *ws.ClientMessage) {
 			ImageDetail: detail,
 		})
 	}
+}
+
+// handleSubscribeStats starts a background goroutine that streams Docker stats
+// for a single container to the client. Cancels any existing subscription.
+// Args: [containerName]
+func (app *App) handleSubscribeStats(c *ws.Conn, msg *ws.ClientMessage) {
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+
+	args := parseArgs(msg)
+	containerName := argString(args, 0)
+
+	// Cancel any existing subscription for this connection
+	app.cancelStatsSub(c.ID())
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	app.statsSubsMu.Lock()
+	app.statsSubs[c.ID()] = &statsSubscription{cancel: cancel, container: containerName}
+	app.statsSubsMu.Unlock()
+
+	if msg.ID != nil {
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
+	}
+
+	go app.streamStats(ctx, c, containerName)
+}
+
+// handleUnsubscribeStats stops the stats streaming goroutine for this connection.
+func (app *App) handleUnsubscribeStats(c *ws.Conn, msg *ws.ClientMessage) {
+	app.cancelStatsSub(c.ID())
+	if msg.ID != nil {
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
+	}
+}
+
+// streamStats opens a single streaming stats connection for one container
+// and pushes updates to the client, throttled to one push per 5 seconds.
+func (app *App) streamStats(ctx context.Context, c *ws.Conn, containerName string) {
+	defer app.removeStatsSub(c.ID())
+
+	if containerName == "" {
+		return
+	}
+
+	statsCh, err := app.Docker.ContainerStatStream(ctx, containerName)
+	if err != nil {
+		slog.Debug("streamStats open", "err", err, "container", containerName)
+		return
+	}
+
+	// Throttle: push at most once per 5 seconds
+	var lastPush time.Time
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.Done():
+			return
+		case stat, ok := <-statsCh:
+			if !ok {
+				return // stream ended (container stopped or EOF)
+			}
+
+			now := time.Now()
+			if !lastPush.IsZero() && now.Sub(lastPush) < 5*time.Second {
+				continue // skip intermediate frames
+			}
+			lastPush = now
+
+			ws.SendEvent(c, "dockerStats", struct {
+				OK          bool                            `json:"ok"`
+				DockerStats map[string]docker.ContainerStat `json:"dockerStats"`
+			}{
+				OK:          true,
+				DockerStats: map[string]docker.ContainerStat{containerName: stat},
+			})
+		}
+	}
+}
+
+// cancelStatsSub cancels the stats subscription for the given connection ID.
+func (app *App) cancelStatsSub(connID string) {
+	app.statsSubsMu.Lock()
+	defer app.statsSubsMu.Unlock()
+	if sub, ok := app.statsSubs[connID]; ok {
+		sub.cancel()
+		delete(app.statsSubs, connID)
+	}
+}
+
+// removeStatsSub removes a subscription entry (called by the goroutine on exit).
+func (app *App) removeStatsSub(connID string) {
+	app.statsSubsMu.Lock()
+	defer app.statsSubsMu.Unlock()
+	delete(app.statsSubs, connID)
+}
+
+// CancelStatsSub is the exported version for use in disconnect callbacks.
+func (app *App) CancelStatsSub(connID string) {
+	app.cancelStatsSub(connID)
+}
+
+// handleSubscribeTop starts a background goroutine that polls Docker container top
+// (process list) and pushes updates to the client every 10 seconds.
+// Args: [containerName]
+func (app *App) handleSubscribeTop(c *ws.Conn, msg *ws.ClientMessage) {
+	if checkLogin(c, msg) == 0 {
+		return
+	}
+
+	args := parseArgs(msg)
+	containerName := argString(args, 0)
+
+	// Cancel any existing subscription for this connection
+	app.cancelTopSub(c.ID())
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	app.topSubsMu.Lock()
+	app.topSubs[c.ID()] = &topSubscription{cancel: cancel, container: containerName}
+	app.topSubsMu.Unlock()
+
+	if msg.ID != nil {
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
+	}
+
+	go app.streamTop(ctx, c, containerName)
+}
+
+// handleUnsubscribeTop stops the top streaming goroutine for this connection.
+func (app *App) handleUnsubscribeTop(c *ws.Conn, msg *ws.ClientMessage) {
+	app.cancelTopSub(c.ID())
+	if msg.ID != nil {
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
+	}
+}
+
+// streamTop polls Docker container top every 10 seconds and pushes process list
+// updates to the client. Sends one snapshot immediately on subscribe.
+func (app *App) streamTop(ctx context.Context, c *ws.Conn, containerName string) {
+	defer app.removeTopSub(c.ID())
+
+	if containerName == "" {
+		return
+	}
+
+	// Push one snapshot immediately
+	app.pushTop(ctx, c, containerName)
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.Done():
+			return
+		case <-ticker.C:
+			if !app.pushTop(ctx, c, containerName) {
+				return // error (container not running, etc.) — exit gracefully
+			}
+		}
+	}
+}
+
+// pushTop fetches container top and sends it to the client. Returns false if
+// the goroutine should exit (error or container not running).
+func (app *App) pushTop(ctx context.Context, c *ws.Conn, containerName string) bool {
+	fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	titles, processes, err := app.Docker.ContainerTop(fetchCtx, containerName)
+	if err != nil {
+		slog.Debug("streamTop poll", "err", err, "container", containerName)
+		// Send empty update so frontend clears the list
+		ws.SendEvent(c, "containerTop", struct {
+			OK        bool       `json:"ok"`
+			Titles    []string   `json:"titles"`
+			Processes [][]string `json:"processes"`
+		}{
+			OK:        true,
+			Titles:    []string{},
+			Processes: [][]string{},
+		})
+		return false
+	}
+
+	ws.SendEvent(c, "containerTop", struct {
+		OK        bool       `json:"ok"`
+		Titles    []string   `json:"titles"`
+		Processes [][]string `json:"processes"`
+	}{
+		OK:        true,
+		Titles:    titles,
+		Processes: processes,
+	})
+	return true
+}
+
+// cancelTopSub cancels the top subscription for the given connection ID.
+func (app *App) cancelTopSub(connID string) {
+	app.topSubsMu.Lock()
+	defer app.topSubsMu.Unlock()
+	if sub, ok := app.topSubs[connID]; ok {
+		sub.cancel()
+		delete(app.topSubs, connID)
+	}
+}
+
+// removeTopSub removes a top subscription entry (called by the goroutine on exit).
+func (app *App) removeTopSub(connID string) {
+	app.topSubsMu.Lock()
+	defer app.topSubsMu.Unlock()
+	delete(app.topSubs, connID)
+}
+
+// CancelTopSub is the exported version for use in disconnect callbacks.
+func (app *App) CancelTopSub(connID string) {
+	app.cancelTopSub(connID)
 }
 
 // handleGetDockerVolumeList returns Docker volume summaries via the Docker client.

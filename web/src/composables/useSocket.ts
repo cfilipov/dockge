@@ -92,6 +92,14 @@ class DockgeWebSocket {
         this.listeners.set(event, list);
     }
 
+    off(event: string, handler: (...args: unknown[]) => void) {
+        const list = this.listeners.get(event);
+        if (list) {
+            const idx = list.indexOf(handler);
+            if (idx !== -1) list.splice(idx, 1);
+        }
+    }
+
     get connected(): boolean {
         return this.ws?.readyState === WebSocket.OPEN;
     }

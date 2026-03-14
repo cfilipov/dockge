@@ -272,8 +272,9 @@ export const containerRoutes: Route[] = [
             const stream = query.stream !== "false" && !oneShot && !ctx.e2eMode;
 
             if (!stream) {
-                // Single stats response
-                const stats = generateStats(container, 0, clock);
+                // Single stats response — use persistent counter for varying data
+                const counter = ctx.e2eMode ? 0 : ctx.state.nextStatsCounter(container.Id);
+                const stats = generateStats(container, counter, clock);
                 sendJSON(res, 200, stats);
                 return;
             }

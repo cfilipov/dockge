@@ -125,16 +125,64 @@ func TestDockerStats(t *testing.T) {
     conn := env.DialWS(t)
     env.Login(t, conn)
 
-    resp := env.SendAndReceive(t, conn, "dockerStats", "test-stack")
+    // Subscribe to stats for a specific container
+    resp := env.SendAndReceive(t, conn, "subscribeStats", "test-stack-web-1")
     ok, _ := resp["ok"].(bool)
     if !ok {
-        t.Fatalf("dockerStats failed: %v", resp)
+        t.Fatalf("subscribeStats failed: %v", resp)
     }
 
-    stats, _ := resp["dockerStats"].(map[string]interface{})
-    if stats == nil {
-        t.Fatal("expected dockerStats map in response")
+    // Wait for the first pushed dockerStats event
+    pushed := env.WaitForEvent(t, conn, "dockerStats")
+    ok, _ = pushed["ok"].(bool)
+    if !ok {
+        t.Fatalf("pushed dockerStats not ok: %v", pushed)
     }
+
+    stats, _ := pushed["dockerStats"].(map[string]interface{})
+    if stats == nil {
+        t.Fatal("expected dockerStats map in pushed event")
+    }
+    if _, exists := stats["test-stack-web-1"]; !exists {
+        t.Fatalf("expected stats for test-stack-web-1, got keys: %v", stats)
+    }
+
+    // Unsubscribe
+    env.SendAndReceive(t, conn, "unsubscribeStats")
+}
+
+func TestContainerTop(t *testing.T) {
+	env := testutil.Setup(t)
+	env.SeedAdmin(t)
+	env.SetStackRunning(t, "test-stack")
+
+	conn := env.DialWS(t)
+	env.Login(t, conn)
+
+	// Subscribe to top for a specific container
+	resp := env.SendAndReceive(t, conn, "subscribeTop", "test-stack-web-1")
+	ok, _ := resp["ok"].(bool)
+	if !ok {
+		t.Fatalf("subscribeTop failed: %v", resp)
+	}
+
+	// Wait for the first pushed containerTop event
+	pushed := env.WaitForEvent(t, conn, "containerTop")
+	ok, _ = pushed["ok"].(bool)
+	if !ok {
+		t.Fatalf("pushed containerTop not ok: %v", pushed)
+	}
+
+	processes, _ := pushed["processes"].([]interface{})
+	if processes == nil {
+		t.Fatal("expected processes array in pushed event")
+	}
+	if len(processes) == 0 {
+		t.Error("expected non-empty processes list")
+	}
+
+	// Unsubscribe
+	env.SendAndReceive(t, conn, "unsubscribeTop")
 }
 
 func TestServiceStatusList(t *testing.T) {

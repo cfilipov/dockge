@@ -414,7 +414,7 @@ import type { ContainersSubView } from "../composables/useViewMode";
 const route = useRoute();
 const { t } = useI18n();
 const { isDark } = useTheme();
-const { emit } = useSocket();
+const { getSocket, emit } = useSocket();
 const containerStore = useContainerStore();
 const stackStoreInstance = useStackStore();
 const updateStoreInstance = useUpdateStore();
@@ -452,8 +452,6 @@ const dockerStats = ref<Record<string, any>>({});
 const progressTerminalRef = ref<InstanceType<typeof ProgressTerminal>>();
 const now = ref(Date.now());
 let uptimeTimer: ReturnType<typeof setInterval> | null = null;
-let processTimer: ReturnType<typeof setInterval> | null = null;
-let statsTimer: ReturnType<typeof setInterval> | null = null;
 
 // Process list from containerTop
 const processList = ref<Array<{ pid: string; user: string; command: string }>>([]);
@@ -580,13 +578,11 @@ const memParts = computed(() => splitPair(containerStat.value?.MemUsage));
 const blockParts = computed(() => splitPair(containerStat.value?.BlockIO));
 const netParts = computed(() => splitPair(containerStat.value?.NetIO));
 
-function requestDockerStats() {
-    if (!containerName.value) return;
-    emit("dockerStats", stackName.value, (res: any) => {
-        if (res.ok) {
-            dockerStats.value = res.dockerStats || {};
-        }
-    });
+function onDockerStats(data: unknown) {
+    const res = data as any;
+    if (res.ok) {
+        dockerStats.value = res.dockerStats || {};
+    }
 }
 
 // Networks extracted from inspect data
@@ -659,25 +655,22 @@ const uptimeStr = computed(() => {
     return parts.join(" ");
 });
 
-function fetchProcesses() {
-    if (!containerName.value) return;
-    emit("containerTop", containerName.value, (res: any) => {
-        if (res.ok && res.processes) {
-            // Map columns by title position (PID, USER, COMMAND)
-            const titles: string[] = res.titles || [];
-            const pidIdx = titles.findIndex((t: string) => t === "PID");
-            const userIdx = titles.findIndex((t: string) => t === "USER");
-            const cmdIdx = titles.findIndex((t: string) => t === "COMMAND" || t === "CMD" || t === "ARGS");
+function onContainerTop(data: unknown) {
+    const res = data as any;
+    if (res.ok && res.processes) {
+        const titles: string[] = res.titles || [];
+        const pidIdx = titles.findIndex((t: string) => t === "PID");
+        const userIdx = titles.findIndex((t: string) => t === "USER");
+        const cmdIdx = titles.findIndex((t: string) => t === "COMMAND" || t === "CMD" || t === "ARGS");
 
-            processList.value = res.processes.map((row: string[]) => ({
-                pid: pidIdx >= 0 ? row[pidIdx] : row[0] || "",
-                user: userIdx >= 0 ? row[userIdx] : row[1] || "",
-                command: cmdIdx >= 0 ? row[cmdIdx] : row[row.length - 1] || "",
-            }));
-        } else {
-            processList.value = [];
-        }
-    });
+        processList.value = res.processes.map((row: string[]) => ({
+            pid: pidIdx >= 0 ? row[pidIdx] : row[0] || "",
+            user: userIdx >= 0 ? row[userIdx] : row[1] || "",
+            command: cmdIdx >= 0 ? row[cmdIdx] : row[row.length - 1] || "",
+        }));
+    } else {
+        processList.value = [];
+    }
 }
 
 // Logs terminal name
@@ -712,11 +705,13 @@ onMounted(() => {
             }
         });
 
-        fetchProcesses();
-        processTimer = setInterval(fetchProcesses, 10000);
+        // Subscribe to server-pushed process list
+        getSocket().on("containerTop", onContainerTop);
+        emit("subscribeTop", containerName.value);
 
-        requestDockerStats();
-        statsTimer = setInterval(requestDockerStats, 5000);
+        // Subscribe to server-pushed stats
+        getSocket().on("dockerStats", onDockerStats);
+        emit("subscribeStats", containerName.value);
     }
 
     uptimeTimer = setInterval(() => {
@@ -728,12 +723,12 @@ onUnmounted(() => {
     if (uptimeTimer) {
         clearInterval(uptimeTimer);
     }
-    if (processTimer) {
-        clearInterval(processTimer);
-    }
-    if (statsTimer) {
-        clearInterval(statsTimer);
-    }
+    // Unsubscribe from process list streaming
+    getSocket().off("containerTop", onContainerTop);
+    emit("unsubscribeTop");
+    // Unsubscribe from stats streaming
+    getSocket().off("dockerStats", onDockerStats);
+    emit("unsubscribeStats");
 });
 </script>
 

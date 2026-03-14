@@ -14,6 +14,7 @@ export class MockState {
     images: Map<string, ImageInspect>;
     execSessions: Map<string, ExecInspect>;
     logTemplates: LogTemplates | null;
+    private statsCounters: Map<string, number>;
 
     constructor() {
         this.containers = new Map();
@@ -22,6 +23,14 @@ export class MockState {
         this.images = new Map();
         this.execSessions = new Map();
         this.logTemplates = null;
+        this.statsCounters = new Map();
+    }
+
+    /** Returns the next stats counter for a container, incrementing it for future calls. */
+    nextStatsCounter(containerId: string): number {
+        const current = this.statsCounters.get(containerId) ?? 0;
+        this.statsCounters.set(containerId, current + 1);
+        return current;
     }
 
     clear(): void {
@@ -30,6 +39,7 @@ export class MockState {
         this.volumes.clear();
         this.images.clear();
         this.execSessions.clear();
+        this.statsCounters.clear();
         // logTemplates is intentionally NOT cleared — it's loaded from source, not runtime state
     }
 }

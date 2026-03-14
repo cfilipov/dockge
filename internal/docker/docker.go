@@ -26,9 +26,10 @@ type Client interface {
     // ContainerInspect returns the raw JSON inspect output for a container.
     ContainerInspect(ctx context.Context, id string) (string, error)
 
-    // ContainerStats returns resource usage stats for running containers.
-    // If projectFilter is non-empty, only returns stats for that compose project.
-    ContainerStats(ctx context.Context, projectFilter string) (map[string]ContainerStat, error)
+    // ContainerStatStream opens a streaming stats connection for a single container.
+    // Returns a channel that receives one ContainerStat per Docker stats frame.
+    // The channel closes when ctx is cancelled or the stream ends.
+    ContainerStatStream(ctx context.Context, containerName string) (<-chan ContainerStat, error)
 
     // ContainerStart starts a stopped container.
     // Only used in tests to transition mock containers from exited → running.

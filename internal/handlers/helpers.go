@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
 
 	"github.com/cfilipov/dockge/internal/docker"
 	"github.com/cfilipov/dockge/internal/models"
@@ -34,6 +36,26 @@ type App struct {
 	// EventBus fans out Docker events from the single broadcast watcher
 	// to per-terminal subscribers, replacing per-terminal Events() calls.
 	EventBus *EventBus
+
+	// Stats streaming subscriptions: connID → active subscription
+	statsSubs   map[string]*statsSubscription
+	statsSubsMu sync.Mutex
+
+	// Top (process list) streaming subscriptions: connID → active subscription
+	topSubs   map[string]*topSubscription
+	topSubsMu sync.Mutex
+}
+
+// statsSubscription tracks an active stats streaming goroutine for a connection.
+type statsSubscription struct {
+	cancel    context.CancelFunc
+	container string
+}
+
+// topSubscription tracks an active process-list streaming goroutine for a connection.
+type topSubscription struct {
+	cancel    context.CancelFunc
+	container string
 }
 
 // checkLogin verifies that the connection is authenticated.

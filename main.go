@@ -267,9 +267,11 @@ func main() {
 		})
 	}
 
-	// Clean up terminal writers when a connection disconnects.
+	// Clean up terminal writers and stats subscriptions when a connection disconnects.
 	wss.OnDisconnect(func(c *ws.Conn) {
 		terms.RemoveWriterFromAll(c.ID())
+		app.CancelStatsSub(c.ID())
+		app.CancelTopSub(c.ID())
 	})
 
 	// Start background tasks
