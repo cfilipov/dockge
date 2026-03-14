@@ -175,6 +175,12 @@ func main() {
 	// Image update cache
 	imageUpdates := models.NewImageUpdateStore(database)
 
+	// In dev mode, seed image update flags from .mock.yaml so the UI
+	// shows update icons immediately without the background checker.
+	if cfg.Dev {
+		seedImageUpdatesFromMockYAML(cfg.StacksDir, imageUpdates)
+	}
+
 	// Wire up handlers
 	app := &handlers.App{
 		Users:        users,
@@ -223,6 +229,10 @@ func main() {
 			if err := imageUpdates.SetLastCheckTime(time.Now()); err != nil {
 				slog.Error("set last check time on mock reset", "err", err)
 			}
+
+			// Seed image update flags from .mock.yaml so the UI shows
+			// update icons without waiting for the background checker.
+			seedImageUpdatesFromMockYAML(cfg.StacksDir, imageUpdates)
 
 			// Mock reset bypasses Docker commands, so no events fire.
 			// Trigger all broadcasts explicitly.
@@ -472,4 +482,66 @@ func formatBytes(b uint64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f%ciB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+// seedImageUpdatesFromMockYAML reads .mock.yaml files from stacksDir and
+// populates the ImageUpdateStore with update_available flags. This ensures
+// the frontend shows update icons without waiting for the background checker.
+func seedImageUpdatesFromMockYAML(stacksDir string, store *models.ImageUpdateStore) {
+	// Clear all existing entries first so stale data from previous
+	// image update checks doesn't leak across mock resets.
+	if err := store.ClearAll(); err != nil {
+		slog.Warn("seed image updates: clear failed", "err", err)
+	}
+
+	entries, err := os.ReadDir(stacksDir)
+	if err != nil {
+		slog.Warn("seed image updates: cannot read stacks dir", "err", err, "dir", stacksDir)
+		return
+	}
+	var seeded int
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		stackName := entry.Name()
+		mockPath := filepath.Join(stacksDir, stackName, ".mock.yaml")
+		data, err := os.ReadFile(mockPath)
+		if err != nil {
+			continue
+		}
+
+		// Simple line-based parsing: find services with update_available: true.
+		// .mock.yaml format:
+		//   services:
+		//     wordpress:
+		//       update_available: true
+		lines := strings.Split(string(data), "\n")
+		var currentService string
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			// Service name line: exactly 2 spaces indent, ends with ':'
+			if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "    ") && strings.HasSuffix(trimmed, ":") {
+				currentService = strings.TrimSuffix(trimmed, ":")
+			}
+			if currentService != "" && trimmed == "update_available: true" {
+				// Get image ref from compose file
+				composePath := compose.FindComposeFile(stacksDir, stackName)
+				serviceData := compose.ParseFile(composePath)
+				imageRef := ""
+				if sd, ok := serviceData[currentService]; ok {
+					imageRef = sd.Image
+				}
+				if err := store.Upsert(stackName, currentService, imageRef, "sha256:local", "sha256:remote", true); err != nil {
+					slog.Error("seed image update", "err", err, "stack", stackName, "service", currentService)
+				} else {
+					seeded++
+					slog.Debug("seeded image update", "stack", stackName, "service", currentService, "image", imageRef)
+				}
+			}
+		}
+	}
+	if seeded > 0 {
+		slog.Info("seeded image updates from .mock.yaml", "count", seeded)
+	}
 }

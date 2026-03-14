@@ -164,6 +164,20 @@ func (s *ImageUpdateStore) DeleteForStack(stackName string) error {
 	})
 }
 
+// ClearAll removes all cached image update entries.
+func (s *ImageUpdateStore) ClearAll() error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(db.BucketImageUpdates)
+		c := b.Cursor()
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			if err := b.Delete(k); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // DeleteService removes a single service's cache entry.
 func (s *ImageUpdateStore) DeleteService(stackName, serviceName string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
