@@ -1,3 +1,4 @@
 services:
   wordpress:
     update_available: true
+    needs_recreation: true

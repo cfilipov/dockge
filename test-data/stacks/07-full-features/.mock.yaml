@@ -14,5 +14,6 @@ services:
     health: unhealthy
   search:
     health: starting
+    needs_recreation: true
   proxy:
     health: healthy
