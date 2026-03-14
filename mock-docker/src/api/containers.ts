@@ -179,7 +179,7 @@ export const containerRoutes: Route[] = [
             const isTty = container.Config.Tty || false;
 
             // Get historical logs
-            const lines = getHistoricalLogs(container, clock, { tail, since, until });
+            const lines = getHistoricalLogs(container, clock, { tail, since, until }, state.logTemplates);
 
             if (isTty) {
                 // Raw mode for TTY containers
@@ -195,7 +195,7 @@ export const containerRoutes: Route[] = [
                 }
             }
 
-            if (!follow || !container.State.Running || ctx.e2eMode) {
+            if (!follow || !container.State.Running) {
                 res.end();
                 return;
             }
@@ -209,7 +209,7 @@ export const containerRoutes: Route[] = [
             };
 
             // Emit startup logs for freshly-started containers
-            const startupLines = generateStartupLogs(container, clock);
+            const startupLines = generateStartupLogs(container, clock, state.logTemplates);
             for (const line of startupLines) {
                 write(line);
             }
@@ -219,7 +219,7 @@ export const containerRoutes: Route[] = [
             let stopped = false;
             const interval = setInterval(() => {
                 if (stopped) return;
-                const line = generatePeriodicLogLine(container, lineCounter++, clock);
+                const line = generatePeriodicLogLine(container, lineCounter++, clock, state.logTemplates);
                 write(line);
             }, ctx.logInterval);
 
@@ -232,7 +232,7 @@ export const containerRoutes: Route[] = [
                 stopped = true;
                 clearInterval(interval);
                 ctx.emitter.unsubscribe(onEvent);
-                const shutdownLines = generateShutdownLogs(container, clock);
+                const shutdownLines = generateShutdownLogs(container, clock, state.logTemplates);
                 for (const line of shutdownLines) {
                     write(line);
                 }
