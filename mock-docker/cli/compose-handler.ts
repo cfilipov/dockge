@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { basename, resolve, dirname } from "node:path";
-import { requestJSON } from "./socket-client.js";
+import { requestJSON, requestInteractive } from "./socket-client.js";
 import {
     renderProgress,
     composeUpTasks,
@@ -532,11 +532,25 @@ async function composeConfig(composeFilePath?: string): Promise<void> {
     // For mock purposes, success is enough
 }
 
-async function composeExec(restArgs: string[]): Promise<void> {
+async function composeExec(
+    socketPath: string,
+    project: string,
+    restArgs: string[],
+    composeFilePath?: string,
+): Promise<void> {
     // docker compose exec [flags] <service> <command> [args...]
+    let interactive = false;
+    let tty = false;
     const rest: string[] = [];
     for (let i = 0; i < restArgs.length; i++) {
         const a = restArgs[i];
+        if (a === "-it" || a === "-ti") {
+            interactive = true;
+            tty = true;
+            continue;
+        }
+        if (a === "-i") { interactive = true; continue; }
+        if (a === "-t") { tty = true; continue; }
         if (a.startsWith("-")) {
             // Skip flags that take a value
             if (["-u", "--user", "-e", "--env", "-w", "--workdir"].includes(a)) {
@@ -550,8 +564,50 @@ async function composeExec(restArgs: string[]): Promise<void> {
         process.stderr.write("[mock-docker] compose exec: service and command required\n");
         process.exit(1);
     }
-    const shell = rest[1];
-    await execShell(shell);
+    const serviceName = rest[0];
+    const command = rest[1];
+    const cmdArgs = rest.slice(2);
+
+    // Resolve container name from compose file + project name
+    const { parsed } = loadCompose(composeFilePath);
+    const svc = parsed.services[serviceName];
+    const containerName = svc?.containerName || `${project}-${serviceName}-1`;
+
+    // Default to interactive TTY for compose exec (matches real docker compose behavior)
+    const useTty = interactive || tty || (!restArgs.some((a) => a === "-T"));
+
+    // Create exec instance
+    const createRes = await requestJSON<{ Id: string }>(
+        socketPath,
+        "POST",
+        `/containers/${encodeURIComponent(containerName)}/exec`,
+        {
+            Cmd: [command, ...cmdArgs],
+            AttachStdin: useTty,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: useTty,
+        },
+    );
+    if (createRes.statusCode >= 400) {
+        process.stderr.write(`Error: No such container: ${containerName}\n`);
+        process.exitCode = 1;
+        return;
+    }
+    const execId = createRes.data?.Id;
+    if (!execId) {
+        process.stderr.write("[mock-docker] compose exec: failed to create exec instance\n");
+        process.exitCode = 1;
+        return;
+    }
+
+    // Start exec with interactive streaming
+    await requestInteractive(
+        socketPath,
+        "POST",
+        `/exec/${execId}/start`,
+        { Detach: false, Tty: useTty },
+    );
 }
 
 async function composeLogs(
@@ -657,33 +713,6 @@ async function fetchServiceStartupLogs(
     return [`[INFO] ${service} started`];
 }
 
-async function execShell(shell: string): Promise<void> {
-    // In Node.js we can't do syscall.Exec like Go. Use child_process.spawn
-    // with stdio: "inherit" and forward exit code.
-    const { spawn } = await import("node:child_process");
-    const child = spawn(shell, [], {
-        stdio: "inherit",
-        env: process.env,
-    });
-    child.on("error", () => {
-        // Try fallback to sh
-        const fallback = spawn("sh", [], {
-            stdio: "inherit",
-            env: process.env,
-        });
-        fallback.on("error", () => {
-            process.stderr.write("[mock-docker] exec: no shell available\n");
-            process.exit(1);
-        });
-        fallback.on("exit", (code) => {
-            process.exit(code || 0);
-        });
-    });
-    child.on("exit", (code) => {
-        process.exit(code || 0);
-    });
-}
-
 // ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
@@ -726,7 +755,7 @@ export async function handleCompose(
             await composeConfig(cf);
             break;
         case "exec":
-            await composeExec(restArgs);
+            await composeExec(socketPath, projectName, restArgs, cf);
             break;
         case "logs":
             await composeLogs(socketPath, projectName, restArgs, cf);

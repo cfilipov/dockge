@@ -1,4 +1,4 @@
-import { requestJSON, requestRaw, requestStream } from "./socket-client.js";
+import { requestJSON, requestRaw, requestStream, requestInteractive } from "./socket-client.js";
 
 // ---------------------------------------------------------------------------
 // docker subcommand handlers
@@ -43,10 +43,18 @@ async function dockerExec(
     args: string[],
 ): Promise<void> {
     // docker exec [-it] <container> <command> [args...]
+    let interactive = false;
+    let tty = false;
     const rest: string[] = [];
     for (let i = 0; i < args.length; i++) {
         const a = args[i];
-        if (a === "-i" || a === "-t" || a === "-it" || a === "-ti") continue;
+        if (a === "-it" || a === "-ti") {
+            interactive = true;
+            tty = true;
+            continue;
+        }
+        if (a === "-i") { interactive = true; continue; }
+        if (a === "-t") { tty = true; continue; }
         if (a.startsWith("-") && !a.startsWith("--")) continue;
         rest.push(a);
     }
@@ -58,12 +66,20 @@ async function dockerExec(
     const command = rest[1];
     const cmdArgs = rest.slice(2);
 
+    const useTty = interactive && tty;
+
     // Step 1: Create exec instance
     const createRes = await requestJSON<{ Id: string }>(
         socketPath,
         "POST",
         `/containers/${encodeURIComponent(container)}/exec`,
-        { Cmd: [command, ...cmdArgs], AttachStdout: true, AttachStderr: true, Tty: false },
+        {
+            Cmd: [command, ...cmdArgs],
+            AttachStdin: useTty,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: useTty,
+        },
     );
     if (createRes.statusCode >= 400) {
         process.stderr.write(`Error: No such container: ${container}\n`);
@@ -77,7 +93,18 @@ async function dockerExec(
         return;
     }
 
-    // Step 2: Start exec and read output
+    if (useTty) {
+        // Interactive mode: bidirectional stream
+        await requestInteractive(
+            socketPath,
+            "POST",
+            `/exec/${execId}/start`,
+            { Detach: false, Tty: true },
+        );
+        return;
+    }
+
+    // Non-interactive: one-shot read
     const { statusCode, body } = await requestRaw(
         socketPath,
         "POST",
