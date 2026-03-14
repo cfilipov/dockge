@@ -309,7 +309,7 @@ export function containerCreate(
         return fail(400, "image is required");
     }
     const now = clock.now();
-    const name = config.name || randomishName(now);
+    const name = config.name || uniquifyName(config);
     const nameWithSlash = name.startsWith("/") ? name : `/${name}`;
     const seed = nameWithSlash;
     const containerId = deterministicId(seed, "container-id");
@@ -388,8 +388,15 @@ export function containerCreate(
     return ok({ Id: containerId });
 }
 
-function randomishName(date: Date): string {
-    return `mock-${date.getTime().toString(36)}`;
+function uniquifyName(config: ContainerCreateConfig): string {
+    const parts = [
+        config.Image,
+        ...(config.Cmd || []),
+        ...(config.Env || []).sort(),
+        ...Object.entries(config.Labels || {}).sort().map(([k, v]) => `${k}=${v}`),
+    ];
+    const hash = deterministicId(parts.join("\0"), "container-name");
+    return `mock-${hash.slice(0, 12)}`;
 }
 
 export function containerRename(

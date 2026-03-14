@@ -80,7 +80,7 @@ export const systemRoutes: Route[] = [
     {
         method: "GET",
         pattern: "/events",
-        handler: async ({ req, res, query, emitter }) => {
+        handler: async ({ req, res, query, emitter, clock }) => {
             const filters = parseFilters(query.filters);
             const since = query.since ? parseFloat(query.since) : undefined;
             const until = query.until ? parseFloat(query.until) : undefined;
@@ -91,7 +91,7 @@ export const systemRoutes: Route[] = [
             });
 
             // If until is in the past, close immediately
-            if (until !== undefined && until <= Date.now() / 1000) {
+            if (until !== undefined && until <= clock.now().getTime() / 1000) {
                 res.end();
                 return;
             }
@@ -111,7 +111,7 @@ export const systemRoutes: Route[] = [
             // If until is specified, set a timeout to close
             let untilTimer: ReturnType<typeof setTimeout> | undefined;
             if (until !== undefined) {
-                const delayMs = Math.max(0, until * 1000 - Date.now());
+                const delayMs = Math.max(0, until * 1000 - clock.now().getTime());
                 untilTimer = setTimeout(() => {
                     emitter.unsubscribe(listener);
                     res.end();
