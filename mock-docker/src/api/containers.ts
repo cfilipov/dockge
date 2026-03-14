@@ -17,7 +17,7 @@ import { parseFilters, applyContainerFilters } from "../filters.js";
 import { projectToContainerListEntry } from "../projections.js";
 import { resolveByIdOrName } from "../name-resolution.js";
 import type { ContainerInspect } from "../types.js";
-import { getHistoricalLogs, generatePeriodicLogLine, generateShutdownLogs, generateStartupLogs } from "../logs.js";
+import { getHistoricalLogs, generatePeriodicLogLine, generateShutdownLogs, generateStartupLogs, formatTimestamp } from "../logs.js";
 import { generateStats } from "../stats.js";
 import { generateTop } from "../top.js";
 import { frameOutput } from "../stream.js";
@@ -176,10 +176,16 @@ export const containerRoutes: Route[] = [
             const tail = query.tail !== undefined && query.tail !== "all" ? parseInt(query.tail, 10) : undefined;
             const since = query.since ? parseFloat(query.since) : undefined;
             const until = query.until ? parseFloat(query.until) : undefined;
+            const timestamps = query.timestamps === "1" || query.timestamps === "true";
             const isTty = container.Config.Tty || false;
 
-            // Get historical logs
-            const lines = getHistoricalLogs(container, clock, { tail, since, until }, state.logTemplates);
+            // Get historical logs (returns {ts, line}[])
+            const tsLines = getHistoricalLogs(container, clock, { tail, since, until }, state.logTemplates);
+
+            // Format lines: optionally prepend timestamps
+            const lines = timestamps
+                ? tsLines.map((l) => formatTimestamp(new Date(l.ts)) + " " + l.line)
+                : tsLines.map((l) => l.line);
 
             if (isTty) {
                 // Raw mode for TTY containers

@@ -6,6 +6,7 @@ import (
     "context"
     "fmt"
     "log/slog"
+    "sort"
     "strings"
     "sync"
     "time"
@@ -172,7 +173,7 @@ func (app *App) runContainerLogByNameLoop(ctx context.Context, term *terminal.Te
 // streamContainerLogsToChannel opens a log stream for a container and sends
 // each line to lineCh (for batch flushing) until the stream ends or ctx is cancelled.
 func (app *App) streamContainerLogsToChannel(ctx context.Context, containerID, tail string, lineCh chan<- []byte) {
-    stream, _, err := app.Docker.ContainerLogs(ctx, containerID, tail, true)
+    stream, _, err := app.Docker.ContainerLogs(ctx, containerID, tail, true, false)
     if err != nil {
         if ctx.Err() == nil {
             slog.Warn("container log stream", "err", err, "container", containerID)
@@ -272,19 +273,67 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
         }
     }
 
-    // Start the flusher BEFORE spawning readers — it drains lineCh and writes
-    // to the terminal. Must be a goroutine because the spawning loop below
-    // calls injectBanner synchronously, which writes to lineCh. Without the
-    // flusher running, the channel fills up and deadlocks the loop.
+    // Start the flusher BEFORE writing anything — it drains lineCh and writes
+    // to the terminal. Must be a goroutine because the code below writes to
+    // lineCh synchronously.
     go flushLogLines(ctx, term, lineCh)
 
-    // Spawn initial readers (tail=100 for history)
+    // Phase 1: Fetch historical logs from all containers with timestamps,
+    // merge-sort by timestamp, then write in chronological order. This
+    // eliminates the non-deterministic goroutine interleaving that caused
+    // flaky E2E screenshots.
+    type tsLine struct {
+        ts      string // RFC3339Nano prefix (lexicographic sort = chronological)
+        display []byte // coloredPrefix + original line + \n
+    }
+    var allHistorical []tsLine
+
+    for _, c := range containers {
+        stream, _, err := app.Docker.ContainerLogs(ctx, c.ID, "100", false, true) // no follow, with timestamps
+        if err != nil {
+            if ctx.Err() == nil {
+                slog.Warn("combined logs: historical fetch", "err", err, "container", c.ID)
+            }
+            continue
+        }
+        prefix := coloredPrefix(c.Service, maxLen, colorMap[c.Service])
+        scanner := bufio.NewScanner(stream)
+        scanner.Buffer(make([]byte, 64*1024), 64*1024)
+        for scanner.Scan() {
+            raw := scanner.Text()
+            // Docker timestamps format: "2024-01-15T10:30:00.123456789Z rest of line"
+            ts, line := splitTimestamp(raw)
+            display := make([]byte, 0, len(prefix)+len(line)+1)
+            display = append(display, prefix...)
+            display = append(display, line...)
+            display = append(display, '\n')
+            allHistorical = append(allHistorical, tsLine{ts: ts, display: display})
+        }
+        stream.Close()
+    }
+
+    // Sort by timestamp (RFC3339Nano strings sort lexicographically)
+    sort.Slice(allHistorical, func(i, j int) bool {
+        return allHistorical[i].ts < allHistorical[j].ts
+    })
+
+    // Write sorted historical lines
+    for _, l := range allHistorical {
+        select {
+        case lineCh <- l.display:
+        case <-ctx.Done():
+            return
+        }
+    }
+
+    // Phase 2: Spawn parallel follow goroutines (tail=0, no timestamps).
+    // Lines arrive in real-time so ordering is naturally correct.
     for _, c := range containers {
         wasRunning := c.State == "running"
         activeReaders.Store(c.ID, struct{}{})
         go func(id, svc string, idx int, running bool) {
             defer activeReaders.Delete(id)
-            app.readContainerLogs(ctx, id, svc, maxLen, idx, "100", running, lineCh)
+            app.readContainerLogs(ctx, id, svc, maxLen, idx, "0", true, running, lineCh)
         }(c.ID, c.Service, colorMap[c.Service], wasRunning)
     }
 
@@ -318,7 +367,7 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
                 if _, loaded := activeReaders.LoadOrStore(evt.ContainerID, struct{}{}); !loaded {
                     go func(id, svc string, ci int) {
                         defer activeReaders.Delete(id)
-                        app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", true, lineCh)
+                        app.readContainerLogs(ctx, id, svc, maxLen, ci, "0", true, true, lineCh)
                     }(evt.ContainerID, evt.Service, idx)
                 }
             }
@@ -337,8 +386,8 @@ func (app *App) runCombinedLogs(ctx context.Context, term *terminal.Terminal, st
 // stopped). If false (container was already stopped), no banner is shown.
 // Use tail="100" for initial readers (show history) and tail="0" for
 // event-spawned readers (follow only).
-func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, tail string, wasRunning bool, lineCh chan<- []byte) {
-    stream, _, err := app.Docker.ContainerLogs(ctx, containerID, tail, true)
+func (app *App) readContainerLogs(ctx context.Context, containerID, service string, maxLen, colorIdx int, tail string, follow, wasRunning bool, lineCh chan<- []byte) {
+    stream, _, err := app.Docker.ContainerLogs(ctx, containerID, tail, follow, false)
     if err != nil {
         if ctx.Err() == nil {
             slog.Warn("combined logs: container stream", "err", err, "container", containerID)
@@ -441,6 +490,20 @@ func (app *App) findContainerID(ctx context.Context, stackName, serviceName stri
     }
     // Last resort: return the name as-is (docker CLI will resolve it)
     return stackName + "-" + serviceName + "-1", nil
+}
+
+// splitTimestamp splits a Docker log line with timestamps enabled into the
+// timestamp prefix and the remaining content. Docker prefixes each line with
+// an RFC3339Nano timestamp followed by a space, e.g.:
+// "2024-01-15T10:30:00.123456789Z actual log line content"
+// If no timestamp is found, returns ("", raw) so sorting still works (empty
+// strings sort first).
+func splitTimestamp(raw string) (ts, line string) {
+    if idx := strings.IndexByte(raw, ' '); idx > 0 && idx <= 35 {
+        // Sanity check: RFC3339Nano timestamps are 20-35 chars
+        return raw[:idx], raw[idx+1:]
+    }
+    return "", raw
 }
 
 // extractCombinedStackName extracts the stack name from a combined terminal name.

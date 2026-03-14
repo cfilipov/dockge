@@ -20,7 +20,7 @@ function containerSeed(container: ContainerInspect): string {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatTimestamp(date: Date): string {
+export function formatTimestamp(date: Date): string {
     return date.toISOString();
 }
 
@@ -109,12 +109,17 @@ export function generatePeriodicLogLine(
     return generateGenericPeriodicLogLine(container, lineNumber, clock);
 }
 
+export interface TimestampedLine {
+    ts: number;
+    line: string;
+}
+
 export function getHistoricalLogs(
     container: ContainerInspect,
     clock: Clock,
     opts: { tail?: number; since?: number; until?: number } = {},
     templates?: LogTemplates | null,
-): string[] {
+): TimestampedLine[] {
     const imageRef = getImageRef(container);
     const tmpl = templates ? lookupTemplate(templates, imageRef) : null;
 
@@ -176,7 +181,7 @@ export function getHistoricalLogs(
         filtered = filtered.slice(-opts.tail);
     }
 
-    return filtered.map((l) => l.line);
+    return filtered;
 }
 
 // ===========================================================================
@@ -284,7 +289,7 @@ function getGenericHistoricalLogs(
     container: ContainerInspect,
     clock: Clock,
     opts: { tail?: number; since?: number; until?: number } = {},
-): string[] {
+): TimestampedLine[] {
     const seed = containerSeed(container);
     const totalLines = 100;
     const startedAt = new Date(container.State.StartedAt).getTime();
@@ -336,5 +341,5 @@ function getGenericHistoricalLogs(
         filtered = filtered.slice(-opts.tail);
     }
 
-    return filtered.map((l) => l.line);
+    return filtered;
 }

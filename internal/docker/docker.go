@@ -42,7 +42,7 @@ type Client interface {
     // ContainerLogs opens a log stream for a container.
     // Returns the stream, whether the container uses a TTY, and any error.
     // The caller must close the returned ReadCloser.
-    ContainerLogs(ctx context.Context, containerID string, tail string, follow bool) (io.ReadCloser, bool, error)
+    ContainerLogs(ctx context.Context, containerID string, tail string, follow bool, timestamps bool) (io.ReadCloser, bool, error)
 
     // ImageInspect returns the RepoDigests for a local image.
     // Returns nil if the image is not found locally.

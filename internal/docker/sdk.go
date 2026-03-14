@@ -328,7 +328,7 @@ func (s *SDKClient) ContainerStartedAt(ctx context.Context, containerID string) 
     return t, nil
 }
 
-func (s *SDKClient) ContainerLogs(ctx context.Context, containerID string, tail string, follow bool) (io.ReadCloser, bool, error) {
+func (s *SDKClient) ContainerLogs(ctx context.Context, containerID string, tail string, follow bool, timestamps bool) (io.ReadCloser, bool, error) {
     // Check if container uses TTY
     inspect, err := s.cli.ContainerInspect(ctx, containerID)
     if err != nil {
@@ -341,7 +341,7 @@ func (s *SDKClient) ContainerLogs(ctx context.Context, containerID string, tail 
         ShowStderr: true,
         Follow:     follow,
         Tail:       tail,
-        Timestamps: false,
+        Timestamps: timestamps,
     }
 
     stream, err := s.cli.ContainerLogs(ctx, containerID, opts)
