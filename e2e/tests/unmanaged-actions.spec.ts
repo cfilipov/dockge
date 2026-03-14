@@ -8,7 +8,8 @@ const terminal = (page: import("@playwright/test").Page) =>
 // ── Section 1: Unmanaged Stack — Stacks Tab (Container Cards) ──────────────
 //
 // 10-unmanaged is an external stack: containers have com.docker.compose.project
-// labels but no compose file on disk. Actions use "docker compose -p <project>".
+// labels but no compose file on disk. Service-level actions use plain docker
+// commands (start/stop/restart) since compose up/recreate need a compose file.
 // Both services (web, cache) start as "running" in DefaultDevState.
 //
 // Buttons on Container.vue have aria-label matching the docker command.
@@ -29,32 +30,30 @@ test.describe("Unmanaged Stack — Stacks Tab", () => {
         await expect(page.getByRole("heading", { name: /10-unmanaged/, level: 1 })).toBeVisible({ timeout: 15000 });
 
         // --- Phase 1: Stop cache ---
-        // cache is running → stop button visible
-        const stopBtn = page.getByRole("button", { name: "docker compose -p 10-unmanaged stop cache" });
+        // cache is running → stop button visible (plain docker command for unmanaged)
+        const stopBtn = page.getByRole("button", { name: "docker stop 10-unmanaged-cache-1" });
         await expect(stopBtn).toBeVisible({ timeout: 15000 });
         await stopBtn.evaluate((el: HTMLElement) => el.click());
 
         // Verify stop terminal output
         const term = terminal(page);
-        await expect(term).toContainText("$ docker compose -p 10-unmanaged stop cache", { timeout: 15000 });
+        await expect(term).toContainText("$ docker stop 10-unmanaged-cache-1", { timeout: 15000 });
         await expect(term).toContainText("[Done]", { timeout: 15000 });
-        await expect(term).toContainText("✔");
-        await expect(term).toContainText("Stopped");
 
         // UI: start button appears for cache
-        const startBtn = page.getByRole("button", { name: "docker compose -p 10-unmanaged up -d cache" });
+        const startBtn = page.getByRole("button", { name: "docker start 10-unmanaged-cache-1" });
         await expect(startBtn).toBeVisible({ timeout: 10000 });
 
         // --- Phase 2: Start cache ---
         await startBtn.evaluate((el: HTMLElement) => el.click());
 
-        // Verify start terminal output ("Started" is unique to the start command)
-        await expect(term).toContainText("$ docker compose -p 10-unmanaged up -d cache", { timeout: 15000 });
-        await expect(term).toContainText("Started", { timeout: 15000 });
+        // Verify start terminal output
+        await expect(term).toContainText("$ docker start 10-unmanaged-cache-1", { timeout: 15000 });
+        await expect(term).toContainText("[Done]", { timeout: 15000 });
 
         // UI: restart and stop buttons visible for cache
-        await expect(page.getByRole("button", { name: "docker compose -p 10-unmanaged restart cache" })).toBeVisible({ timeout: 10000 });
-        await expect(page.getByRole("button", { name: "docker compose -p 10-unmanaged stop cache" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "docker restart 10-unmanaged-cache-1" })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("button", { name: "docker stop 10-unmanaged-cache-1" })).toBeVisible();
     });
 
     // Test 2: Restart web service
@@ -63,53 +62,48 @@ test.describe("Unmanaged Stack — Stacks Tab", () => {
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /10-unmanaged/, level: 1 })).toBeVisible({ timeout: 15000 });
 
-        // web is running → restart button visible
-        const restartBtn = page.getByRole("button", { name: "docker compose -p 10-unmanaged restart web" });
+        // web is running → restart button visible (plain docker command for unmanaged)
+        const restartBtn = page.getByRole("button", { name: "docker restart 10-unmanaged-web-1" });
         await expect(restartBtn).toBeVisible({ timeout: 15000 });
         await restartBtn.evaluate((el: HTMLElement) => el.click());
 
         // Verify terminal output
         const term = terminal(page);
-        await expect(term).toContainText("$ docker compose -p 10-unmanaged restart web", { timeout: 15000 });
+        await expect(term).toContainText("$ docker restart 10-unmanaged-web-1", { timeout: 15000 });
         await expect(term).toContainText("[Done]", { timeout: 15000 });
-        await expect(term).toContainText("✔");
-        await expect(term).toContainText("Started");
 
         // UI: restart and stop still visible (web is still running)
-        await expect(page.getByRole("button", { name: "docker compose -p 10-unmanaged restart web" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "docker compose -p 10-unmanaged stop web" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "docker restart 10-unmanaged-web-1" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "docker stop 10-unmanaged-web-1" })).toBeVisible();
     });
 
-    // Test 3: Recreate web service
-    // For unmanaged stacks (no compose file), recreate falls back to restart.
-    test("recreate web service", async ({ page }) => {
+    // Test 3: No recreate or update buttons for unmanaged stacks
+    // Recreate and Update require a compose file, so they're hidden for unmanaged stacks.
+    test("no recreate or update buttons", async ({ page }) => {
         await page.goto("/stacks/10-unmanaged");
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /10-unmanaged/, level: 1 })).toBeVisible({ timeout: 15000 });
 
-        // Recreate button uses the --force-recreate tooltip as aria-label
-        const recreateBtn = page.getByRole("button", { name: "docker compose -p 10-unmanaged up -d --force-recreate web" });
-        await expect(recreateBtn).toBeVisible({ timeout: 15000 });
-        await recreateBtn.evaluate((el: HTMLElement) => el.click());
+        // The web service card should have restart and stop but NOT recreate or update
+        const webRegion = page.getByRole("region", { name: "web" });
+        await expect(webRegion.getByRole("button", { name: "docker restart 10-unmanaged-web-1" })).toBeVisible({ timeout: 10000 });
+        await expect(webRegion.getByRole("button", { name: "docker stop 10-unmanaged-web-1" })).toBeVisible();
 
-        // Backend falls back to restart for unmanaged stacks
-        const term = terminal(page);
-        await expect(term).toContainText("$ docker compose -p 10-unmanaged restart web", { timeout: 15000 });
-        await expect(term).toContainText("[Done]", { timeout: 15000 });
-        await expect(term).toContainText("✔");
-        await expect(term).toContainText("Started");
-
-        // UI: restart and stop still visible (web is still running)
-        await expect(page.getByRole("button", { name: "docker compose -p 10-unmanaged restart web" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "docker compose -p 10-unmanaged stop web" })).toBeVisible();
+        // Recreate (rocket icon) and Update (cloud-arrow-down icon) should not be present
+        // These buttons would have tooltipServiceRecreate / tooltipServiceUpdate aria-labels
+        // for managed stacks, but should be completely absent for unmanaged
+        const buttons = await webRegion.getByRole("button").all();
+        const labels = await Promise.all(buttons.map(b => b.getAttribute("aria-label")));
+        expect(labels.some(l => l?.includes("force-recreate"))).toBe(false);
+        expect(labels.some(l => l?.includes("pull"))).toBe(false);
     });
 });
 
 // ── Section 2: Unmanaged Stack — Containers Tab ────────────────────────────
 //
 // Container inspect page for 10-unmanaged containers. ServiceActionBar renders
-// because stackName is set from the compose project label. Buttons have title
-// attributes with the full command; visible text is generic (Start/Stop/Restart).
+// because stackName is set from the compose project label. For unmanaged stacks,
+// actions use plain docker commands (same as standalone containers).
 
 test.describe("Unmanaged Stack — Containers Tab", () => {
 
@@ -131,9 +125,9 @@ test.describe("Unmanaged Stack — Containers Tab", () => {
         await expect(stopBtn).toBeVisible({ timeout: 15000 });
         await stopBtn.evaluate((el: HTMLElement) => el.click());
 
-        // Verify terminal output
+        // Verify terminal output — plain docker command for unmanaged
         const term = terminal(page);
-        await expect(term).toContainText("$ docker compose -p 10-unmanaged stop web", { timeout: 15000 });
+        await expect(term).toContainText("$ docker stop 10-unmanaged-web-1", { timeout: 15000 });
         await expect(term).toContainText("[Done]", { timeout: 15000 });
     });
 
@@ -148,9 +142,9 @@ test.describe("Unmanaged Stack — Containers Tab", () => {
         await expect(restartBtn).toBeVisible({ timeout: 15000 });
         await restartBtn.evaluate((el: HTMLElement) => el.click());
 
-        // Verify terminal output
+        // Verify terminal output — plain docker command for unmanaged
         const term = terminal(page);
-        await expect(term).toContainText("$ docker compose -p 10-unmanaged restart cache", { timeout: 15000 });
+        await expect(term).toContainText("$ docker restart 10-unmanaged-cache-1", { timeout: 15000 });
         await expect(term).toContainText("[Done]", { timeout: 15000 });
     });
 });

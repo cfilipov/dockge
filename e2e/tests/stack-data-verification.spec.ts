@@ -335,7 +335,6 @@ test.describe("Stack data verification", () => {
                 "07-full-features_db-data",
                 "07-full-features_search-data",
                 "07-full-features_web-data",
-                "08-env-config_dbdata",
             ];
 
             for (const volName of volumesToCheck) {

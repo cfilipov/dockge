@@ -52,12 +52,13 @@ export interface ServiceTestData {
 // ── Mock YAML Schema ──
 
 interface MockYAML {
-    status?: string;
+    deployed?: boolean;
+    untracked?: boolean;
     services?: Record<string, {
         state?: string;
         health?: string;
-        running_image?: string;
         update_available?: boolean;
+        needs_recreation?: boolean;
     }>;
 }
 
@@ -205,22 +206,22 @@ function resolveServiceHealth(svcMock?: { health?: string }): string {
 export function loadStackData(stacksDir: string, stackName: string): StackTestData {
     const stackDir = path.join(stacksDir, stackName);
     const composePath = path.join(stackDir, "compose.yaml");
-    const mockPath = path.join(stackDir, "mock.yaml");
+    const dotMockPath = path.join(stackDir, ".mock.yaml");
 
     // Read compose.yaml
     const composeYAML = fs.readFileSync(composePath, "utf-8");
     const compose: ComposeYAML = parseYAML(composeYAML) || {};
 
-    // Read mock.yaml (optional)
+    // Read .mock.yaml (the same file the mock daemon reads)
     let mock: MockYAML = {};
-    if (fs.existsSync(mockPath)) {
-        mock = parseYAML(fs.readFileSync(mockPath, "utf-8")) || {};
+    if (fs.existsSync(dotMockPath)) {
+        mock = parseYAML(fs.readFileSync(dotMockPath, "utf-8")) || {};
     }
 
     // Determine effective stack-level status
-    // mock.yaml status overrides hardcoded default
+    // .mock.yaml: deployed=false → inactive; otherwise use hardcoded default
     const hardcodedStatus = HARDCODED_DEFAULTS[stackName] || "running";
-    const mockStatus = mock.status || hardcodedStatus;
+    const mockStatus = mock.deployed === false ? "inactive" : hardcodedStatus;
 
     // Parse top-level networks and volumes
     const networks = compose.networks ? Object.keys(compose.networks) : [];
@@ -233,7 +234,9 @@ export function loadStackData(stacksDir: string, stackName: string): StackTestDa
     for (const [svcName, svcDef] of Object.entries(composeServices)) {
         const composeImage = svcDef.image || "";
         const svcMock = mock.services?.[svcName];
-        const runningImage = svcMock?.running_image || composeImage;
+        // Mock daemon uses imageRef + "-old" when needs_recreation is true (generator.ts:235)
+        const needsRecreation = svcMock?.needs_recreation || false;
+        const runningImage = needsRecreation ? composeImage + "-old" : composeImage;
         const updateAvailable = svcMock?.update_available || false;
         const statusIgnore = hasStatusIgnore(svcDef.labels);
 
