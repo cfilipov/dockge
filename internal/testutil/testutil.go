@@ -449,6 +449,26 @@ func (e *TestEnv) WaitForEvent(t testing.TB, conn *websocket.Conn, eventName str
 	}
 }
 
+// WaitForBinary reads WebSocket messages until a binary frame arrives.
+// Returns the raw binary data. Times out after 15 seconds.
+func (e *TestEnv) WaitForBinary(t testing.TB, conn *websocket.Conn) []byte {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	for {
+		typ, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("WaitForBinary: read: %v", err)
+		}
+		if typ == websocket.MessageBinary {
+			return data
+		}
+		// Not binary — skip text messages
+	}
+}
+
 // findStacksDirFatal locates test-data/stacks by walking up from cwd.
 // Calls log.Fatalf on failure (for use in TestMain context where testing.TB
 // is not available).
