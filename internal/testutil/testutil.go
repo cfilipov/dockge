@@ -127,6 +127,12 @@ func SetupFull(t testing.TB) *TestEnv {
     return setupWithStacks(t)
 }
 
+// SetupWith creates a test environment with the specified stacks.
+// Use this when you need more than one stack but not the full set.
+func SetupWith(t testing.TB, stackNames ...string) *TestEnv {
+    return setupWithStacks(t, stackNames...)
+}
+
 // setupWithStacks creates a test env. If the daemon was started via StartDaemon,
 // uses its stacks dir. Otherwise falls back to copying stacks to a temp dir
 // (for IDE test runners with DOCKER_HOST set externally).

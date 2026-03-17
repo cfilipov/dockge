@@ -222,96 +222,121 @@ func (app *App) broadcastVolumesMap() {
 	app.BcastMetrics.recordSent(chanVolumes)
 }
 
-// broadcastContainersMapWithDestroys queries Docker for all containers, includes
-// explicit null entries for destroyed container names, and broadcasts.
-func (app *App) broadcastContainersMapWithDestroys(destroyed []string) {
+// broadcastContainersByIDs queries Docker for specific containers and broadcasts a partial map.
+// Falls back to a full broadcast if fullSync is true.
+func (app *App) broadcastContainersByIDs(ids map[string]bool, destroyed []string) {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	containers, err := app.Docker.ContainerListDetailed(ctx)
-	if err != nil {
-		slog.Warn("broadcastContainersMapWithDestroys", "err", err)
-		containers = []docker.ContainerBroadcast{}
+	m := make(map[string]any, len(ids)+len(destroyed))
+	for id := range ids {
+		containers, err := app.Docker.ContainerListDetailedByID(ctx, id)
+		if err != nil {
+			slog.Warn("broadcastContainersByIDs", "id", id, "err", err)
+			continue
+		}
+		for _, c := range containers {
+			m[c.Name] = c
+		}
 	}
-	m := containersToMap(containers)
 	for _, name := range destroyed {
 		if _, exists := m[name]; !exists {
 			m[name] = nil
 		}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanContainers, m)
-	app.BcastMetrics.recordSent(chanContainers)
+	if len(m) > 0 {
+		ws.BroadcastAuthenticated(app.WS, chanContainers, m)
+		app.BcastMetrics.recordSent(chanContainers)
+	}
 }
 
-// broadcastNetworksMapWithDestroys queries Docker for all networks, includes
-// explicit null entries for destroyed network names, and broadcasts.
-func (app *App) broadcastNetworksMapWithDestroys(destroyed []string) {
+// broadcastNetworksByIDs queries Docker for specific networks and broadcasts a partial map.
+func (app *App) broadcastNetworksByIDs(ids map[string]bool, destroyed []string) {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	networks, err := app.Docker.NetworkList(ctx)
-	if err != nil {
-		slog.Warn("broadcastNetworksMapWithDestroys", "err", err)
-		networks = []docker.NetworkSummary{}
+	m := make(map[string]any, len(ids)+len(destroyed))
+	for id := range ids {
+		networks, err := app.Docker.NetworkListByID(ctx, id)
+		if err != nil {
+			slog.Warn("broadcastNetworksByIDs", "id", id, "err", err)
+			continue
+		}
+		for _, n := range networks {
+			m[n.Name] = n
+		}
 	}
-	m := networksToMap(networks)
 	for _, name := range destroyed {
 		if _, exists := m[name]; !exists {
 			m[name] = nil
 		}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanNetworks, m)
-	app.BcastMetrics.recordSent(chanNetworks)
+	if len(m) > 0 {
+		ws.BroadcastAuthenticated(app.WS, chanNetworks, m)
+		app.BcastMetrics.recordSent(chanNetworks)
+	}
 }
 
-// broadcastImagesMapWithDestroys queries Docker for all images, includes
-// explicit null entries for destroyed image IDs, and broadcasts.
-func (app *App) broadcastImagesMapWithDestroys(destroyed []string) {
+// broadcastImagesByIDs queries Docker for specific images and broadcasts a partial map.
+func (app *App) broadcastImagesByIDs(ids map[string]bool, destroyed []string) {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	images, err := app.Docker.ImageList(ctx)
-	if err != nil {
-		slog.Warn("broadcastImagesMapWithDestroys", "err", err)
-		images = []docker.ImageSummary{}
+	m := make(map[string]any, len(ids)+len(destroyed))
+	for id := range ids {
+		images, err := app.Docker.ImageListByID(ctx, id)
+		if err != nil {
+			slog.Warn("broadcastImagesByIDs", "id", id, "err", err)
+			continue
+		}
+		for _, img := range images {
+			m[img.ID] = img
+		}
 	}
-	m := imagesToMap(images)
 	for _, id := range destroyed {
 		if _, exists := m[id]; !exists {
 			m[id] = nil
 		}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanImages, m)
-	app.BcastMetrics.recordSent(chanImages)
+	if len(m) > 0 {
+		ws.BroadcastAuthenticated(app.WS, chanImages, m)
+		app.BcastMetrics.recordSent(chanImages)
+	}
 }
 
-// broadcastVolumesMapWithDestroys queries Docker for all volumes, includes
-// explicit null entries for destroyed volume names, and broadcasts.
-func (app *App) broadcastVolumesMapWithDestroys(destroyed []string) {
+// broadcastVolumesByNames queries Docker for specific volumes and broadcasts a partial map.
+func (app *App) broadcastVolumesByNames(names map[string]bool, destroyed []string) {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	volumes, err := app.Docker.VolumeList(ctx)
-	if err != nil {
-		slog.Warn("broadcastVolumesMapWithDestroys", "err", err)
-		volumes = []docker.VolumeSummary{}
+	m := make(map[string]any, len(names)+len(destroyed))
+	for name := range names {
+		volumes, err := app.Docker.VolumeListByName(ctx, name)
+		if err != nil {
+			slog.Warn("broadcastVolumesByNames", "name", name, "err", err)
+			continue
+		}
+		for _, v := range volumes {
+			m[v.Name] = v
+		}
 	}
-	m := volumesToMap(volumes)
 	for _, name := range destroyed {
 		if _, exists := m[name]; !exists {
 			m[name] = nil
 		}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanVolumes, m)
-	app.BcastMetrics.recordSent(chanVolumes)
+	if len(m) > 0 {
+		ws.BroadcastAuthenticated(app.WS, chanVolumes, m)
+		app.BcastMetrics.recordSent(chanVolumes)
+	}
 }
 
 // broadcastUpdates reads BoltDB image update cache and broadcasts container names with updates.
@@ -470,71 +495,132 @@ func (app *App) runDispatchWorker(ctx context.Context) {
 		quiet.Stop()
 		deadline.Stop()
 
-		// Process: full syncs take priority (they replace the whole channel).
-		// For events, determine which channels need a full refresh.
-		// Track destroyed resource names so we can send explicit null entries
-		// to the frontend (merge-based stores need null to delete keys).
-		channels := fullSyncs
+		// Process: track specific resource IDs to query (deduped via map).
+		// Full syncs override filtered queries for that channel.
+		affectedContainerIDs := make(map[string]bool)
+		affectedNetworkIDs := make(map[string]bool)
+		affectedImageIDs := make(map[string]bool)
+		affectedVolumeNames := make(map[string]bool)
+
 		var destroyedContainers []string
 		var destroyedNetworks []string
 		var destroyedImages []string
 		var destroyedVolumes []string
+
 		for _, evt := range events {
 			switch evt.Type {
 			case "container":
-				channels[chanContainers] = true
+				if evt.ContainerID != "" {
+					affectedContainerIDs[evt.ContainerID] = true
+				}
 				if evt.Action == "destroy" && evt.Name != "" {
 					destroyedContainers = append(destroyedContainers, evt.Name)
 				}
 			case "network":
 				if evt.Action == "connect" || evt.Action == "disconnect" {
-					channels[chanContainers] = true
+					// Network connect/disconnect changes a container's network list
+					if evt.ContainerID != "" {
+						affectedContainerIDs[evt.ContainerID] = true
+					} else {
+						// Defensive: no container ID, fall back to full container sync
+						fullSyncs[chanContainers] = true
+					}
 				} else {
-					channels[chanNetworks] = true
+					if evt.ActorID != "" {
+						affectedNetworkIDs[evt.ActorID] = true
+					}
 					if evt.Action == "destroy" && evt.Name != "" {
 						destroyedNetworks = append(destroyedNetworks, evt.Name)
 					}
 				}
 			case "image":
-				channels[chanImages] = true
+				if evt.ActorID != "" {
+					affectedImageIDs[evt.ActorID] = true
+				}
 				if evt.Action == "delete" && evt.ActorID != "" {
 					destroyedImages = append(destroyedImages, evt.ActorID)
 				}
 			case "volume":
 				if evt.Action == "mount" || evt.Action == "unmount" {
-					channels[chanContainers] = true
+					// Volume mount/unmount changes a container's mount list
+					if evt.ContainerID != "" {
+						affectedContainerIDs[evt.ContainerID] = true
+					} else {
+						// Defensive: no container ID, fall back to full container sync
+						fullSyncs[chanContainers] = true
+					}
 				} else {
-					channels[chanVolumes] = true
-					if evt.Action == "destroy" {
-						name := evt.Name
-						if name == "" {
-							name = evt.ActorID
-						}
-						if name != "" {
-							destroyedVolumes = append(destroyedVolumes, name)
-						}
+					name := evt.Name
+					if name == "" {
+						name = evt.ActorID
+					}
+					if name != "" {
+						affectedVolumeNames[name] = true
+					}
+					if evt.Action == "destroy" && name != "" {
+						destroyedVolumes = append(destroyedVolumes, name)
 					}
 				}
 			}
 		}
 
-		// Flush: one full-list broadcast per affected channel.
-		// Include explicit null entries for destroyed resources so the
-		// frontend's merge-based stores remove them.
-		for ch := range channels {
-			app.BcastMetrics.recordTriggered(ch)
-			switch ch {
-			case chanContainers:
-				app.broadcastContainersMapWithDestroys(destroyedContainers)
-			case chanNetworks:
-				app.broadcastNetworksMapWithDestroys(destroyedNetworks)
-			case chanImages:
-				app.broadcastImagesMapWithDestroys(destroyedImages)
-			case chanVolumes:
-				app.broadcastVolumesMapWithDestroys(destroyedVolumes)
-			default:
-				app.dispatchFullSync(ctx, ch)
+		// Flush: filtered broadcasts for event-driven updates,
+		// full-list broadcasts for explicit full-syncs.
+		if len(affectedContainerIDs) > 0 || len(destroyedContainers) > 0 {
+			app.BcastMetrics.recordTriggered(chanContainers)
+			if fullSyncs[chanContainers] {
+				app.broadcastContainersMap()
+			} else {
+				app.broadcastContainersByIDs(affectedContainerIDs, destroyedContainers)
 			}
+		} else if fullSyncs[chanContainers] {
+			app.BcastMetrics.recordTriggered(chanContainers)
+			app.broadcastContainersMap()
+		}
+
+		if len(affectedNetworkIDs) > 0 || len(destroyedNetworks) > 0 {
+			app.BcastMetrics.recordTriggered(chanNetworks)
+			if fullSyncs[chanNetworks] {
+				app.broadcastNetworksMap()
+			} else {
+				app.broadcastNetworksByIDs(affectedNetworkIDs, destroyedNetworks)
+			}
+		} else if fullSyncs[chanNetworks] {
+			app.BcastMetrics.recordTriggered(chanNetworks)
+			app.broadcastNetworksMap()
+		}
+
+		if len(affectedImageIDs) > 0 || len(destroyedImages) > 0 {
+			app.BcastMetrics.recordTriggered(chanImages)
+			if fullSyncs[chanImages] {
+				app.broadcastImagesMap()
+			} else {
+				app.broadcastImagesByIDs(affectedImageIDs, destroyedImages)
+			}
+		} else if fullSyncs[chanImages] {
+			app.BcastMetrics.recordTriggered(chanImages)
+			app.broadcastImagesMap()
+		}
+
+		if len(affectedVolumeNames) > 0 || len(destroyedVolumes) > 0 {
+			app.BcastMetrics.recordTriggered(chanVolumes)
+			if fullSyncs[chanVolumes] {
+				app.broadcastVolumesMap()
+			} else {
+				app.broadcastVolumesByNames(affectedVolumeNames, destroyedVolumes)
+			}
+		} else if fullSyncs[chanVolumes] {
+			app.BcastMetrics.recordTriggered(chanVolumes)
+			app.broadcastVolumesMap()
+		}
+
+		// Handle remaining full-syncs (stacks, updates, etc.)
+		for ch := range fullSyncs {
+			if ch == chanContainers || ch == chanNetworks || ch == chanImages || ch == chanVolumes {
+				continue // already handled above
+			}
+			app.BcastMetrics.recordTriggered(ch)
+			app.dispatchFullSync(ctx, ch)
 		}
 	}
 }

@@ -1428,6 +1428,81 @@ func TestDisconnectOtherSocketClients(t *testing.T) {
     }
 }
 
+// TestEventBroadcastSendsFilteredContainers verifies that Docker events trigger
+// filtered (partial) container broadcasts, not full-list broadcasts. This catches
+// the regression from 4446433 where event coalescing replaced filtered queries
+// with full-list queries.
+func TestEventBroadcastSendsFilteredContainers(t *testing.T) {
+	env := testutil.SetupWith(t, "test-stack", "01-web-app")
+	env.SeedAdmin(t)
+
+	// Start both stacks so all containers are running
+	env.SetStackRunning(t, "test-stack")
+	env.SetStackRunning(t, "01-web-app")
+
+	// conn1: will issue commands
+	conn1 := env.DialWS(t)
+	env.Login(t, conn1)
+
+	// conn2: observer for broadcasts
+	conn2 := env.DialWS(t)
+	env.Login(t, conn2)
+
+	// Wait for the initial full containers broadcast on conn2
+	initial := env.WaitForEvent(t, conn2, "containers")
+
+	// Count containers from each stack
+	var testStackKeys, webAppKeys []string
+	for key := range initial {
+		if len(key) >= len("test-stack") && key[:len("test-stack")] == "test-stack" {
+			testStackKeys = append(testStackKeys, key)
+		}
+		if len(key) >= len("01-web-app") && key[:len("01-web-app")] == "01-web-app" {
+			webAppKeys = append(webAppKeys, key)
+		}
+	}
+	if len(testStackKeys) == 0 {
+		t.Fatalf("expected test-stack containers in initial broadcast, got keys: %v", keys(initial))
+	}
+	if len(webAppKeys) == 0 {
+		t.Fatalf("expected 01-web-app containers in initial broadcast, got keys: %v", keys(initial))
+	}
+	totalInitial := len(initial)
+
+	// Stop test-stack — this generates container stop/die events
+	resp := env.SendAndReceive(t, conn1, "stopStack", "test-stack")
+	ok, _ := resp["ok"].(bool)
+	if !ok {
+		t.Fatalf("stopStack failed: %v", resp)
+	}
+
+	// Wait for the event-driven containers broadcast on conn2
+	postStop := env.WaitForEvent(t, conn2, "containers")
+
+	// The filtered broadcast should contain ONLY test-stack containers
+	// (with updated state), NOT containers from 01-web-app.
+	// If the code does a full-list query, we'd see all containers.
+	if len(postStop) >= totalInitial {
+		t.Errorf("expected filtered broadcast with fewer containers than initial full list (%d), got %d keys: %v",
+			totalInitial, len(postStop), keys(postStop))
+	}
+
+	// Verify the broadcast contains test-stack containers
+	hasTestStack := false
+	for key := range postStop {
+		if len(key) >= len("test-stack") && key[:len("test-stack")] == "test-stack" {
+			hasTestStack = true
+		}
+		// 01-web-app containers should NOT be in the filtered broadcast
+		if len(key) >= len("01-web-app") && key[:len("01-web-app")] == "01-web-app" {
+			t.Errorf("filtered broadcast should not contain 01-web-app container %q", key)
+		}
+	}
+	if !hasTestStack {
+		t.Errorf("expected test-stack containers in post-stop broadcast, got keys: %v", keys(postStop))
+	}
+}
+
 func TestConcurrentStackOperations(t *testing.T) {
     env := testutil.Setup(t)
     env.SeedAdmin(t)

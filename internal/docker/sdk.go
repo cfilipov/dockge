@@ -695,6 +695,8 @@ func (s *SDKClient) Events(ctx context.Context) (<-chan DockerEvent, <-chan erro
                     evt.ContainerID = msg.Actor.Attributes["container"]
                     evt.Project = msg.Actor.Attributes["com.docker.compose.project"]
                     evt.Service = msg.Actor.Attributes["com.docker.compose.service"]
+                case events.VolumeEventType:
+                    evt.ContainerID = msg.Actor.Attributes["container"]
                 }
 
                 select {
