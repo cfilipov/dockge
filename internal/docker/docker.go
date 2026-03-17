@@ -2,6 +2,7 @@ package docker
 
 import (
     "context"
+    "encoding/json"
     "io"
     "time"
 )
@@ -24,7 +25,7 @@ type Client interface {
     ContainerListDetailedByID(ctx context.Context, containerID string) ([]ContainerBroadcast, error)
 
     // ContainerInspect returns the raw JSON inspect output for a container.
-    ContainerInspect(ctx context.Context, id string) (string, error)
+    ContainerInspect(ctx context.Context, id string) (json.RawMessage, error)
 
     // ContainerStatStream opens a streaming stats connection for a single container.
     // Returns a channel that receives one ContainerStat per Docker stats frame.

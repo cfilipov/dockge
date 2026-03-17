@@ -693,7 +693,7 @@ onMounted(() => {
     if (containerName.value) {
         emit("containerInspect", containerName.value, (res: any) => {
             if (res.ok) {
-                const data = JSON.parse(res.inspectData);
+                const data = res.inspectData;
                 if (Array.isArray(data) && data.length > 0) {
                     inspectObj.value = data[0];
                 } else if (data) {

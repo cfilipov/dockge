@@ -189,17 +189,17 @@ func (s *SDKClient) containerListDetailedWithOpts(ctx context.Context, opts cont
     return result, nil
 }
 
-func (s *SDKClient) ContainerInspect(ctx context.Context, id string) (string, error) {
+func (s *SDKClient) ContainerInspect(ctx context.Context, id string) (json.RawMessage, error) {
     raw, err := s.cli.ContainerInspect(ctx, id)
     if err != nil {
-        return "", fmt.Errorf("container inspect: %w", err)
+        return nil, fmt.Errorf("container inspect: %w", err)
     }
     // Return as JSON array (matching `docker inspect` CLI output)
     data, err := json.MarshalIndent([]interface{}{raw}, "", "  ")
     if err != nil {
-        return "", fmt.Errorf("marshal inspect: %w", err)
+        return nil, fmt.Errorf("marshal inspect: %w", err)
     }
-    return string(data), nil
+    return json.RawMessage(data), nil
 }
 
 // ContainerStatStream opens a streaming stats connection for a single container.

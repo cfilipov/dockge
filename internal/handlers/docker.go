@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"strings"
 	"time"
@@ -191,7 +192,7 @@ func (app *App) handleContainerInspect(c *ws.Conn, msg *ws.ClientMessage) {
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, struct {
 			OK          bool   `json:"ok"`
-			InspectData string `json:"inspectData"`
+			InspectData json.RawMessage `json:"inspectData"`
 		}{
 			OK:          true,
 			InspectData: inspectData,
