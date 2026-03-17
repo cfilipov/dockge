@@ -67,12 +67,7 @@ func (app *App) handleServiceStatusList(c *ws.Conn, msg *ws.ClientMessage) {
 	if err != nil {
 		slog.Warn("serviceStatusList", "err", err, "stack", stackName)
 		if msg.ID != nil {
-			ws.SendAck(c, *msg.ID, serviceStatusResponse{
-				OK:                    true,
-				ServiceStatusList:     map[string][]ServiceEntry{},
-				ServiceUpdateStatus:   map[string]bool{},
-				ServiceRecreateStatus: map[string]bool{},
-			})
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to list containers: " + err.Error()})
 		}
 		return
 	}
@@ -216,7 +211,10 @@ func (app *App) handleGetDockerNetworkList(c *ws.Conn, msg *ws.ClientMessage) {
 	networks, err := app.Docker.NetworkList(ctx)
 	if err != nil {
 		slog.Warn("getDockerNetworkList", "err", err)
-		networks = []docker.NetworkSummary{}
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to list networks: " + err.Error()})
+		}
+		return
 	}
 
 	if msg.ID != nil {
@@ -280,7 +278,10 @@ func (app *App) handleGetDockerImageList(c *ws.Conn, msg *ws.ClientMessage) {
 	images, err := app.Docker.ImageList(ctx)
 	if err != nil {
 		slog.Warn("getDockerImageList", "err", err)
-		images = []docker.ImageSummary{}
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to list images: " + err.Error()})
+		}
+		return
 	}
 
 	if msg.ID != nil {
@@ -379,6 +380,8 @@ func (app *App) streamStats(ctx context.Context, c *ws.Conn, containerName strin
 	statsCh, err := app.Docker.ContainerStatStream(ctx, containerName)
 	if err != nil {
 		slog.Debug("streamStats open", "err", err, "container", containerName)
+		// Notify client that stats stream failed
+		ws.SendEvent(c, "dockerStatsError", ws.ErrorResponse{OK: false, Msg: "Stats unavailable for " + containerName})
 		return
 	}
 
@@ -567,7 +570,10 @@ func (app *App) handleGetDockerVolumeList(c *ws.Conn, msg *ws.ClientMessage) {
 	volumes, err := app.Docker.VolumeList(ctx)
 	if err != nil {
 		slog.Warn("getDockerVolumeList", "err", err)
-		volumes = []docker.VolumeSummary{}
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to list volumes: " + err.Error()})
+		}
+		return
 	}
 
 	if msg.ID != nil {

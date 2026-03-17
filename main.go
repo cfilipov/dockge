@@ -28,6 +28,7 @@ import (
 	"github.com/cfilipov/dockge/internal/docker"
 	"github.com/cfilipov/dockge/internal/handlers"
 	"github.com/cfilipov/dockge/internal/models"
+	"github.com/cfilipov/dockge/internal/stack"
 	"github.com/cfilipov/dockge/internal/terminal"
 	"github.com/cfilipov/dockge/internal/ws"
 )
@@ -84,7 +85,7 @@ func main() {
 	defer database.Close()
 
 	// WebSocket server
-	wss := ws.NewServer()
+	wss := ws.NewServer(cfg.Dev)
 
 	// HTTP mux
 	mux := http.NewServeMux()
@@ -189,6 +190,8 @@ func main() {
 		WS:           wss,
 		Docker:       dockerClient,
 		Terms:        terms,
+		StackLocks:   stack.NewNamedMutex(),
+		LoginLimiter: handlers.NewLoginRateLimiter(5, 15*time.Minute),
 		JWTSecret:    jwtSecret,
 		NeedSetup:    userCount == 0,
 		Version:      version,
@@ -286,6 +289,9 @@ func main() {
 
 	// Initialize broadcast infrastructure (debouncer, event bus, hash state)
 	app.InitBroadcast()
+
+	// Start periodic terminal cleanup (removes completed terminals with no writers)
+	terms.StartCleanupLoop(ctx)
 
 	// Start compose file watcher (fsnotify) — triggers broadcast on file changes
 	if err := compose.StartWatcher(ctx, cfg.StacksDir, func(stackName string) {
@@ -535,7 +541,7 @@ func seedImageUpdatesFromMockYAML(stacksDir string, store *models.ImageUpdateSto
 				if sd, ok := serviceData[currentService]; ok {
 					imageRef = sd.Image
 				}
-				if err := store.Upsert(stackName, currentService, imageRef, "sha256:local", "sha256:remote", true); err != nil {
+				if err := store.Upsert(stackName, currentService, imageRef, "sha256:local", "sha256:remote", true, models.CheckStatusOK); err != nil {
 					slog.Error("seed image update", "err", err, "stack", stackName, "service", currentService)
 				} else {
 					seeded++

@@ -331,6 +331,69 @@ func TestParseFileNonexistent(t *testing.T) {
     }
 }
 
+func TestParseYAMLInlineComments(t *testing.T) {
+    t.Parallel()
+
+    yaml := `services:
+  web:
+    image: nginx:latest # my web server
+    labels:
+      dockge.status.ignore: "true" # ignore this one
+  db:
+    image: postgres:16 # database
+`
+    data := ParseYAML(yaml)
+
+    if data["web"].Image != "nginx:latest" {
+        t.Errorf("web.Image = %q, want nginx:latest", data["web"].Image)
+    }
+    if !data["web"].StatusIgnore {
+        t.Error("web.StatusIgnore should be true")
+    }
+    if data["db"].Image != "postgres:16" {
+        t.Errorf("db.Image = %q, want postgres:16", data["db"].Image)
+    }
+}
+
+func TestParseYAMLImageWithHash(t *testing.T) {
+    t.Parallel()
+
+    // Bare # without preceding space is NOT a comment — it's part of the value
+    yaml := `services:
+  app:
+    image: myregistry.io/app@sha256:abc123
+`
+    data := ParseYAML(yaml)
+    if data["app"].Image != "myregistry.io/app@sha256:abc123" {
+        t.Errorf("app.Image = %q, want myregistry.io/app@sha256:abc123", data["app"].Image)
+    }
+}
+
+func TestStripInlineComment(t *testing.T) {
+    t.Parallel()
+
+    tests := []struct {
+        input string
+        want  string
+    }{
+        {"nginx:latest", "nginx:latest"},
+        {"nginx:latest # comment", "nginx:latest"},
+        {"nginx:latest  # double space", "nginx:latest"},
+        {"value#nospace", "value#nospace"},                     // bare # is not a comment
+        {`"quoted # value"`, `"quoted # value"`},              // quoted — preserved
+        {`'single # quoted'`, `'single # quoted'`},            // single-quoted — preserved
+        {"", ""},
+        {"value # comment # more", "value"},                   // first " #" wins
+    }
+
+    for _, tt := range tests {
+        got := stripInlineComment(tt.input)
+        if got != tt.want {
+            t.Errorf("stripInlineComment(%q) = %q, want %q", tt.input, got, tt.want)
+        }
+    }
+}
+
 func FuzzParseYAML(f *testing.F) {
     // Seed corpus with valid and edge-case inputs
     f.Add("services:\n  web:\n    image: nginx:latest\n")

@@ -18,6 +18,7 @@ import (
     "github.com/cfilipov/dockge/internal/docker"
     "github.com/cfilipov/dockge/internal/handlers"
     "github.com/cfilipov/dockge/internal/models"
+    "github.com/cfilipov/dockge/internal/stack"
     "github.com/cfilipov/dockge/internal/terminal"
     "github.com/cfilipov/dockge/internal/ws"
 
@@ -194,7 +195,7 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     terms := terminal.NewManager()
 
     // WebSocket server
-    wss := ws.NewServer()
+    wss := ws.NewServer(true) // dev mode for tests — accept all origins
 
     // Assemble App
     app := &handlers.App{
@@ -204,6 +205,7 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
         WS:           wss,
         Docker:       dockerClient,
         Terms:        terms,
+        StackLocks:   stack.NewNamedMutex(),
         JWTSecret:    jwtSecret,
         NeedSetup:    userCount == 0,
         Version:      "test",
@@ -237,6 +239,7 @@ func setupWithStacks(t testing.TB, stackNames ...string) *TestEnv {
     // Start background tasks
     ctx, cancel := context.WithCancel(context.Background())
     app.InitBroadcast()
+    terms.StartCleanupLoop(ctx)
     app.StartBroadcastWatcher(ctx)
 
     // Start test server

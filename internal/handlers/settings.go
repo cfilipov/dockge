@@ -77,6 +77,10 @@ func (app *App) handleSetSettings(c *ws.Conn, msg *ws.ClientMessage) {
         if content != "" && content != defaultContent {
             if err := os.WriteFile(globalEnvPath, []byte(content), 0644); err != nil {
                 slog.Error("write global.env", "err", err)
+                if msg.ID != nil {
+                    ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Failed to write global.env: " + err.Error()})
+                }
+                return
             }
         } else {
             os.Remove(globalEnvPath)
@@ -106,6 +110,10 @@ func (app *App) handleSetSettings(c *ws.Conn, msg *ws.ClientMessage) {
         }
         if err := app.Settings.Set(key, strVal); err != nil {
             slog.Error("set setting", "key", key, "err", err)
+            if msg.ID != nil {
+                ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: fmt.Sprintf("Failed to save setting %q: %s", key, err)})
+            }
+            return
         }
     }
 

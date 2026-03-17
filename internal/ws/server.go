@@ -14,6 +14,12 @@ import (
 // spawned in a goroutine.
 type HandlerFunc func(c *Conn, msg *ClientMessage)
 
+// maxConcurrentDispatch limits how many handler goroutines can run
+// simultaneously across all connections. This prevents memory exhaustion
+// under load while still allowing plenty of parallelism for a typical
+// Dockge deployment.
+const maxConcurrentDispatch = 64
+
 // Server manages WebSocket connections and message dispatch.
 type Server struct {
     mu    sync.RWMutex
@@ -22,12 +28,26 @@ type Server struct {
     handlers      map[string]HandlerFunc
     disconnectFn  func(c *Conn)                                  // called when a connection is removed
     binaryHandler func(c *Conn, session *TermSession, data []byte) // handles binary terminal frames
+
+    // dispatchSem bounds concurrent handler goroutines. The read pump
+    // blocks on acquire, applying natural backpressure to the client.
+    dispatchSem chan struct{}
+
+    // dev controls WebSocket origin checking. When true, all origins are
+    // accepted (InsecureSkipVerify). When false, the coder/websocket
+    // library enforces same-origin by checking Origin == Host.
+    dev bool
 }
 
-func NewServer() *Server {
+// NewServer creates a new WebSocket server. The dev parameter controls
+// origin checking: true accepts all origins (for development with Vite
+// on a different port), false enforces same-origin (production).
+func NewServer(dev bool) *Server {
     return &Server{
-        conns:    make(map[*Conn]struct{}),
-        handlers: make(map[string]HandlerFunc),
+        conns:       make(map[*Conn]struct{}),
+        handlers:    make(map[string]HandlerFunc),
+        dispatchSem: make(chan struct{}, maxConcurrentDispatch),
+        dev:         dev,
     }
 }
 
@@ -46,9 +66,10 @@ func (s *Server) OnBinary(fn func(c *Conn, session *TermSession, data []byte)) {
 // ServeHTTP upgrades the HTTP request to a WebSocket connection.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-        // Allow all origins in dev; in production the binary serves the
-        // frontend from the same origin so this is fine.
-        InsecureSkipVerify: true,
+        // In dev mode, accept all origins (Vite runs on a different port).
+        // In production, enforce same-origin: the coder/websocket library
+        // checks that the Origin header matches the Host header.
+        InsecureSkipVerify: s.dev,
     })
     if err != nil {
         slog.Error("ws accept", "err", err)
@@ -186,9 +207,14 @@ func (s *Server) OnDisconnect(fn func(c *Conn)) {
 }
 
 func (s *Server) dispatch(c *Conn, msg *ClientMessage) {
-    // Run each handler in its own goroutine so slow handlers (docker compose ps,
-    // docker stats) don't block the read pump and delay other messages.
-    go s.Dispatch(c, msg)
+    // Acquire a slot from the bounded pool. This blocks the read pump if
+    // all slots are in use, applying backpressure to the client rather
+    // than spawning unbounded goroutines.
+    s.dispatchSem <- struct{}{}
+    go func() {
+        defer func() { <-s.dispatchSem }()
+        s.Dispatch(c, msg)
+    }()
 }
 
 // Dispatch looks up and invokes the handler for the given message event.

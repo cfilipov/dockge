@@ -28,12 +28,25 @@ func ParseYAML(yaml string) map[string]ServiceData {
     return parseScanner(bufio.NewScanner(strings.NewReader(yaml)))
 }
 
-// parseScanner is the shared line-by-line parser that extracts service data.
-// It recognizes:
+// parseScanner is a fast, line-by-line YAML parser that extracts service data
+// without a full YAML parse. It recognizes:
 //   - Service names (2-space indent under "services:", ends with ":")
 //   - image: values (4+ space indent under a service)
 //   - labels: block (4-space indent under a service)
 //   - dockge.* label key-value pairs (6+ space indent under labels)
+//
+// Assumptions and limitations:
+//   - Indentation uses spaces only (no tabs). Standard for Docker Compose.
+//   - Service names are at exactly 2-space indent under "services:".
+//   - Service-level keys (image, labels) are at 4-space indent.
+//   - Label entries are at 6+ space indent.
+//   - Inline YAML comments (# after whitespace) are stripped from values.
+//   - Only the first "services:" block is parsed; subsequent ones are ignored.
+//   - Anchors, aliases, and flow mappings ({}) are not supported.
+//
+// These trade-offs are intentional: full YAML parsing (via gopkg.in/yaml.v3)
+// is ~100x slower and allocates heavily. Since compose files follow a strict
+// subset of YAML, this line scanner handles real-world files correctly.
 func parseScanner(scanner *bufio.Scanner) map[string]ServiceData {
     result := make(map[string]ServiceData)
 
@@ -98,7 +111,7 @@ func parseScanner(scanner *bufio.Scanner) map[string]ServiceData {
 
             // image: field
             if strings.HasPrefix(stripped, "image:") {
-                img := strings.TrimSpace(strings.TrimPrefix(stripped, "image:"))
+                img := stripInlineComment(strings.TrimSpace(strings.TrimPrefix(stripped, "image:")))
                 if img != "" {
                     sd := result[currentService]
                     sd.Image = img
@@ -134,7 +147,7 @@ func parseScanner(scanner *bufio.Scanner) map[string]ServiceData {
                 continue
             }
             key := stripped[:colonIdx]
-            val := strings.TrimSpace(stripped[colonIdx+1:])
+            val := stripInlineComment(strings.TrimSpace(stripped[colonIdx+1:]))
             // Remove surrounding quotes
             val = strings.Trim(val, "\"'")
 
@@ -150,4 +163,23 @@ func parseScanner(scanner *bufio.Scanner) map[string]ServiceData {
     }
 
     return result
+}
+
+// stripInlineComment removes a YAML inline comment from a value.
+// In YAML, a comment starts with " #" (space + hash). A bare "#" without
+// a preceding space is NOT a comment — it's common in image tags like
+// "myregistry.io/image#sha256:abc". Quoted values are returned as-is
+// since the comment would be inside the quotes.
+func stripInlineComment(s string) string {
+    if s == "" {
+        return s
+    }
+    // If the value is quoted, don't strip — the # is part of the value
+    if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
+        return s
+    }
+    if idx := strings.Index(s, " #"); idx >= 0 {
+        return strings.TrimRight(s[:idx], " \t")
+    }
+    return s
 }

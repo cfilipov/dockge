@@ -2,6 +2,7 @@ package terminal
 
 import (
     "bytes"
+    "context"
     "log/slog"
     "os"
     "os/exec"
@@ -52,6 +53,51 @@ func NewManager() *Manager {
     return &Manager{
         terminals: make(map[string]*Terminal),
     }
+}
+
+// StartCleanupLoop runs a background goroutine that periodically removes
+// completed terminals with no writers. This catches terminals that finished
+// but were never explicitly cleaned up (e.g., client disconnected before
+// RemoveAfter fired, or a code path missed cleanup).
+func (m *Manager) StartCleanupLoop(ctx context.Context) {
+    go func() {
+        ticker := time.NewTicker(60 * time.Second)
+        defer ticker.Stop()
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            case <-ticker.C:
+                m.cleanupCompleted()
+            }
+        }
+    }()
+}
+
+// cleanupCompleted removes terminals that are closed and have no writers.
+func (m *Manager) cleanupCompleted() {
+    m.mu.Lock()
+    var removed int
+    for name, t := range m.terminals {
+        t.mu.Lock()
+        dead := t.closed && len(t.writers) == 0
+        t.mu.Unlock()
+        if dead {
+            delete(m.terminals, name)
+            removed++
+        }
+    }
+    m.mu.Unlock()
+    if removed > 0 {
+        slog.Debug("terminal cleanup", "removed", removed)
+    }
+}
+
+// Count returns the number of terminals in the manager.
+func (m *Manager) Count() int {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+    return len(m.terminals)
 }
 
 // Get returns a terminal by name, or nil if not found.

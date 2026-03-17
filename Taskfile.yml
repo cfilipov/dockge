@@ -226,6 +226,30 @@ tasks:
     dir: e2e
     cmd: E2E_PORT=5052 npx playwright test {{.CLI_ARGS}} --trace on
 
+  test-bun:
+    desc: Run Bun backend tests
+    dir: backend-bun
+    cmd: bun test
+
+  dev-bun:
+    desc: Run mock daemon + Bun backend on :5002
+    deps: [build-mock-daemon, build-mock-docker]
+    cmds:
+      - cmd: |
+          trap 'kill 0' EXIT
+          rm -rf .run/dev-5002 && mkdir -p .run/dev-5002/data
+          MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
+          mkdir -p "$(dirname "$MOCK_SOCK")"
+          node mock-docker/dist/src/main.js \
+            --socket "$MOCK_SOCK" \
+            --stacks-source test-data/stacks \
+            --stacks-dir .run/dev-5002/stacks \
+            --images-json mock-docker/scripts/images.json &
+          for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
+          export DOCKER_HOST="unix://$MOCK_SOCK"
+          export PATH="$(pwd)/bin:$PATH"
+          cd backend-bun && bun run src/main.ts -- --dev --port 5002 --data-dir ../.run/dev-5002/data --stacks-dir ../.run/dev-5002/stacks
+
   docker:
     desc: Build Docker image
     cmd: docker buildx build -f docker/Dockerfile -t cfilipov/dockge:latest --target release .

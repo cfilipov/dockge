@@ -423,3 +423,62 @@ func TestTerminalResizeNoOp(t *testing.T) {
         t.Errorf("Resize on pipe terminal should return nil, got %v", err)
     }
 }
+
+func TestManagerCount(t *testing.T) {
+    t.Parallel()
+
+    m := NewManager()
+    if m.Count() != 0 {
+        t.Errorf("expected 0 terminals, got %d", m.Count())
+    }
+
+    m.Create("a", TypePipe)
+    m.Create("b", TypePTY)
+    if m.Count() != 2 {
+        t.Errorf("expected 2 terminals, got %d", m.Count())
+    }
+
+    m.Remove("a")
+    if m.Count() != 1 {
+        t.Errorf("expected 1 terminal, got %d", m.Count())
+    }
+}
+
+func TestCleanupCompleted(t *testing.T) {
+    t.Parallel()
+
+    m := NewManager()
+
+    // Create a terminal that's still alive
+    alive := m.Create("alive", TypePipe)
+    alive.AddWriter("client1", func(string) {})
+
+    // Create a terminal that's closed with no writers (should be cleaned up)
+    dead := m.Create("dead", TypePipe)
+    dead.Close()
+
+    // Create a terminal that's not closed and has no writers (should NOT be cleaned up —
+    // it may still receive a command start)
+    idle := m.Create("idle", TypePipe)
+    _ = idle
+
+    if m.Count() != 3 {
+        t.Fatalf("expected 3 terminals before cleanup, got %d", m.Count())
+    }
+
+    m.cleanupCompleted()
+
+    // Only "dead" (closed + no writers) should be removed
+    if m.Count() != 2 {
+        t.Errorf("expected 2 terminals after cleanup, got %d", m.Count())
+    }
+    if m.Get("alive") == nil {
+        t.Error("alive terminal should not be cleaned up")
+    }
+    if m.Get("dead") != nil {
+        t.Error("dead terminal should be cleaned up")
+    }
+    if m.Get("idle") == nil {
+        t.Error("idle (not closed) terminal should not be cleaned up")
+    }
+}

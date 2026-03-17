@@ -120,6 +120,12 @@ func (app *App) handleGetStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -184,6 +190,15 @@ func (app *App) handleSaveStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
+
+	app.StackLocks.Lock(stackName)
+	defer app.StackLocks.Unlock(stackName)
 
 	s := &stack.Stack{
 		Name:                stackName,
@@ -226,6 +241,14 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
+
+	app.StackLocks.Lock(stackName)
 
 	s := &stack.Stack{
 		Name:                stackName,
@@ -235,6 +258,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if err := s.SaveToDisk(app.StacksDir); err != nil {
+		app.StackLocks.Unlock(stackName)
 		slog.Error("deploy stack save", "err", err, "stack", stackName)
 		if msg.ID != nil {
 			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
@@ -248,6 +272,7 @@ func (app *App) handleDeployStack(c *ws.Conn, msg *ws.ClientMessage) {
 	// Validate then deploy in background; ack after completion so the
 	// frontend stays on the current page showing progress output.
 	go func() {
+		defer app.StackLocks.Unlock(stackName)
 		app.runDeployWithValidation(stackName)
 		if msg.ID != nil {
 			ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Deployed"})
@@ -267,16 +292,22 @@ func (app *App) handleStartStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
 	if app.isStackManaged(stackName) {
-		go app.runComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
+		go app.lockedRunComposeAction(stackName, "up", "up", "-d", "--remove-orphans")
 	} else {
 		// Unmanaged: use docker compose -p to start existing containers
-		go app.runUnmanagedStackAction(stackName, "start", "start")
+		go app.lockedRunUnmanagedStackAction(stackName, "start", "start")
 	}
 }
 
@@ -292,15 +323,21 @@ func (app *App) handleStopStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
 	}
 
 	if app.isStackManaged(stackName) {
-		go app.runComposeAction(stackName, "stop", "stop")
+		go app.lockedRunComposeAction(stackName, "stop", "stop")
 	} else {
-		go app.runUnmanagedStackAction(stackName, "stop", "stop")
+		go app.lockedRunUnmanagedStackAction(stackName, "stop", "stop")
 	}
 }
 
@@ -316,15 +353,21 @@ func (app *App) handleRestartStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
 	}
 
 	if app.isStackManaged(stackName) {
-		go app.runComposeAction(stackName, "restart", "restart")
+		go app.lockedRunComposeAction(stackName, "restart", "restart")
 	} else {
-		go app.runUnmanagedStackAction(stackName, "restart", "restart")
+		go app.lockedRunUnmanagedStackAction(stackName, "restart", "restart")
 	}
 }
 
@@ -340,15 +383,21 @@ func (app *App) handleDownStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
 	}
 
 	if app.isStackManaged(stackName) {
-		go app.runComposeAction(stackName, "down", "down")
+		go app.lockedRunComposeAction(stackName, "down", "down")
 	} else {
-		go app.runUnmanagedStackAction(stackName, "down", "down")
+		go app.lockedRunUnmanagedStackAction(stackName, "down", "down")
 	}
 }
 
@@ -364,12 +413,21 @@ func (app *App) handleUpdateStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
 	}
 
 	go func() {
+		app.StackLocks.Lock(stackName)
+		defer app.StackLocks.Unlock(stackName)
+
 		app.runDockerCommands(stackName, "update", [][]string{
 			{"compose", "pull"},
 			{"compose", "up", "-d", "--remove-orphans"},
@@ -407,24 +465,23 @@ func (app *App) handleDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
 	}
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
+		app.StackLocks.Lock(stackName)
+		defer app.StackLocks.Unlock(stackName)
 
-		// Down first (with --remove-orphans, matching Node.js)
-		dir := filepath.Join(app.StacksDir, stackName)
-		envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
-		downArgs := []string{"compose"}
-		downArgs = append(downArgs, envArgs...)
-		downArgs = append(downArgs, "down", "--remove-orphans")
-		downCmd := exec.CommandContext(ctx, "docker", downArgs...)
-		downCmd.Dir = dir
-		downCmd.Run() // best-effort, ignore errors
+		// Down via terminal manager so users see progress output
+		app.runComposeAction(stackName, "down", "down", "--remove-orphans")
 
 		// Delete files if requested
 		if opts.DeleteStackFiles {
@@ -450,23 +507,25 @@ func (app *App) handleForceDeleteStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Deleted"})
 	}
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
+		app.StackLocks.Lock(stackName)
+		defer app.StackLocks.Unlock(stackName)
+
+		// Down via terminal manager so users see progress output
+		app.runComposeAction(stackName, "down", "down", "-v", "--remove-orphans")
 
 		dir := filepath.Join(app.StacksDir, stackName)
-		envArgs := compose.GlobalEnvArgs(app.StacksDir, stackName)
-		downArgs := []string{"compose"}
-		downArgs = append(downArgs, envArgs...)
-		downArgs = append(downArgs, "down", "-v", "--remove-orphans")
-		downCmd := exec.CommandContext(ctx, "docker", downArgs...)
-		downCmd.Dir = dir
-		downCmd.Run() // best-effort, ignore errors
 		if err := os.RemoveAll(dir); err != nil {
 			slog.Error("force delete stack", "err", err, "stack", stackName)
 		}
@@ -487,12 +546,18 @@ func (app *App) handlePauseStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
-	go app.runComposeAction(stackName, "pause", "pause")
+	go app.lockedRunComposeAction(stackName, "pause", "pause")
 }
 
 func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
@@ -507,12 +572,32 @@ func (app *App) handleResumeStack(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
 	}
 
-	go app.runComposeAction(stackName, "unpause", "unpause")
+	go app.lockedRunComposeAction(stackName, "unpause", "unpause")
+}
+
+// lockedRunComposeAction acquires the per-stack lock and runs runComposeAction.
+func (app *App) lockedRunComposeAction(stackName, action string, composeArgs ...string) {
+	app.StackLocks.Lock(stackName)
+	defer app.StackLocks.Unlock(stackName)
+	app.runComposeAction(stackName, action, composeArgs...)
+}
+
+// lockedRunUnmanagedStackAction acquires the per-stack lock and runs runUnmanagedStackAction.
+func (app *App) lockedRunUnmanagedStackAction(stackName, action string, composeArgs ...string) {
+	app.StackLocks.Lock(stackName)
+	defer app.StackLocks.Unlock(stackName)
+	app.runUnmanagedStackAction(stackName, action, composeArgs...)
 }
 
 // runComposeAction runs a compose command in the background, streaming output

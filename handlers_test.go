@@ -864,3 +864,78 @@ func TestGlobalENVDefaultOnMissing(t *testing.T) {
         t.Errorf("expected default globalENV placeholder, got %q", globalENV)
     }
 }
+
+// --- Stack name validation ---
+
+func TestSaveStackInvalidName(t *testing.T) {
+    env := testutil.Setup(t)
+    env.SeedAdmin(t)
+
+    conn := env.DialWS(t)
+    env.Login(t, conn)
+
+    yaml := "services:\n  app:\n    image: alpine:3.19\n"
+
+    tests := []struct {
+        name      string
+        stackName string
+    }{
+        {"path traversal", "../traversal"},
+        {"shell injection", "; rm -rf /"},
+        {"uppercase", "UPPERCASE"},
+        {"dot prefix", ".hidden"},
+        {"space", "has space"},
+        {"leading hyphen", "-leading"},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            resp := env.SendAndReceive(t, conn, "saveStack", tt.stackName, yaml, "", "", false)
+            ok, _ := resp["ok"].(bool)
+            if ok {
+                t.Errorf("expected saveStack to reject invalid name %q", tt.stackName)
+            }
+        })
+    }
+}
+
+func TestDeleteStackInvalidName(t *testing.T) {
+    env := testutil.Setup(t)
+    env.SeedAdmin(t)
+
+    conn := env.DialWS(t)
+    env.Login(t, conn)
+
+    tests := []struct {
+        name      string
+        stackName string
+    }{
+        {"path traversal", "../traversal"},
+        {"shell injection", "; rm -rf /"},
+        {"null byte", "stack\x00evil"},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            resp := env.SendAndReceive(t, conn, "deleteStack", tt.stackName, map[string]bool{"deleteStackFiles": true})
+            ok, _ := resp["ok"].(bool)
+            if ok {
+                t.Errorf("expected deleteStack to reject invalid name %q", tt.stackName)
+            }
+        })
+    }
+}
+
+func TestGetStackInvalidName(t *testing.T) {
+    env := testutil.Setup(t)
+    env.SeedAdmin(t)
+
+    conn := env.DialWS(t)
+    env.Login(t, conn)
+
+    resp := env.SendAndReceive(t, conn, "getStack", "../etc/passwd")
+    ok, _ := resp["ok"].(bool)
+    if ok {
+        t.Error("expected getStack to reject path traversal name")
+    }
+}

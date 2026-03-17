@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/cfilipov/dockge/internal/compose"
+	"github.com/cfilipov/dockge/internal/models"
+	"github.com/cfilipov/dockge/internal/stack"
 	"github.com/cfilipov/dockge/internal/terminal"
 	"github.com/cfilipov/dockge/internal/ws"
 )
@@ -49,6 +51,12 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
@@ -73,6 +81,12 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
 	if stackName == "" || serviceName == "" {
 		if msg.ID != nil {
 			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+		}
+		return
+	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
@@ -103,6 +117,12 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
@@ -127,6 +147,12 @@ func (app *App) handleRecreateService(c *ws.Conn, msg *ws.ClientMessage) {
 	if stackName == "" || serviceName == "" {
 		if msg.ID != nil {
 			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+		}
+		return
+	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
@@ -155,6 +181,12 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 	if stackName == "" || serviceName == "" {
 		if msg.ID != nil {
 			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Stack and service name required"})
+		}
+		return
+	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
 		}
 		return
 	}
@@ -351,6 +383,12 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
 		}
 		return
 	}
+	if err := stack.ValidateStackName(stackName); err != nil {
+		if msg.ID != nil {
+			ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: err.Error()})
+		}
+		return
+	}
 
 	go func() {
 		app.checkImageUpdatesForStack(stackName)
@@ -366,12 +404,14 @@ func (app *App) handleCheckImageUpdates(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 }
 
+// Per-image timeout for digest lookups. Each image gets its own timeout
+// so a slow/unreachable registry doesn't block checks for other images.
+const perImageCheckTimeout = 30 * time.Second
+
 // checkImageUpdatesForStack checks all services in a single stack for image updates.
 // Reads compose data from disk (no cache). Respects dockge.imageupdates.check labels.
+// Each image gets its own timeout so a slow registry doesn't block others.
 func (app *App) checkImageUpdatesForStack(stackName string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
 	// Parse compose file from disk
 	path := compose.FindComposeFile(app.StacksDir, stackName)
 	if path == "" {
@@ -383,6 +423,7 @@ func (app *App) checkImageUpdatesForStack(stackName string) {
 	}
 
 	anyUpdate := false
+	var failed int
 	for svc, sd := range serviceData {
 		if sd.Image == "" {
 			continue
@@ -398,20 +439,34 @@ func (app *App) checkImageUpdatesForStack(stackName string) {
 		}
 
 		imageRef := sd.Image
-		localDigest := imageDigest(ctx, app, imageRef)
-		remoteDigest := manifestDigest(ctx, app, imageRef)
 
-		hasUpdate := localDigest != "" && remoteDigest != "" && localDigest != remoteDigest
+		// Per-image timeout — each image gets its own deadline
+		imgCtx, imgCancel := context.WithTimeout(context.Background(), perImageCheckTimeout)
+		localDigest := imageDigest(imgCtx, app, imageRef)
+		remoteDigest := manifestDigest(imgCtx, app, imageRef)
+		imgCancel()
+
+		// Determine check status
+		checkStatus := models.CheckStatusOK
+		if localDigest == "" || remoteDigest == "" {
+			checkStatus = models.CheckStatusFailed
+			failed++
+			slog.Debug("image update check failed",
+				"stack", stackName, "svc", svc, "image", imageRef,
+				"localDigest", localDigest != "", "remoteDigest", remoteDigest != "")
+		}
+
+		hasUpdate := checkStatus == models.CheckStatusOK && localDigest != remoteDigest
 		if hasUpdate {
 			anyUpdate = true
 		}
 
-		if err := app.ImageUpdates.Upsert(stackName, svc, imageRef, localDigest, remoteDigest, hasUpdate); err != nil {
+		if err := app.ImageUpdates.Upsert(stackName, svc, imageRef, localDigest, remoteDigest, hasUpdate, checkStatus); err != nil {
 			slog.Error("checkImageUpdates upsert", "err", err, "stack", stackName, "svc", svc)
 		}
 	}
 
-	slog.Debug("image update check complete", "stack", stackName, "anyUpdate", anyUpdate)
+	slog.Debug("image update check complete", "stack", stackName, "anyUpdate", anyUpdate, "failed", failed)
 }
 
 // imageDigest returns the local digest for an image using the Docker client.

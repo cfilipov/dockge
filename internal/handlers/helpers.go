@@ -8,6 +8,7 @@ import (
 
 	"github.com/cfilipov/dockge/internal/docker"
 	"github.com/cfilipov/dockge/internal/models"
+	"github.com/cfilipov/dockge/internal/stack"
 	"github.com/cfilipov/dockge/internal/terminal"
 	"github.com/cfilipov/dockge/internal/ws"
 )
@@ -20,8 +21,9 @@ type App struct {
 	WS           *ws.Server
 	Docker       docker.Client
 	Terms        *terminal.Manager
-	NoAuth       bool // Skip authentication checks (all endpoints open)
-	Dev          bool // Development mode (enables mock reset proxy, etc.)
+	StackLocks   *stack.NamedMutex // per-stack mutex for write serialization
+	NoAuth       bool             // Skip authentication checks (all endpoints open)
+	Dev          bool             // Development mode (enables mock reset proxy, etc.)
 
 	JWTSecret        string
 	NeedSetup        bool
@@ -36,6 +38,9 @@ type App struct {
 	// EventBus fans out Docker events from the single broadcast watcher
 	// to per-terminal subscribers, replacing per-terminal Events() calls.
 	EventBus *EventBus
+
+	// Login rate limiter: prevents brute-force password guessing
+	LoginLimiter *LoginRateLimiter
 
 	// Stats streaming subscriptions: connID → active subscription
 	statsSubs   map[string]*statsSubscription

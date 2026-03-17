@@ -78,6 +78,15 @@ func (app *App) handleLogin(c *ws.Conn, msg *ws.ClientMessage) {
         return
     }
 
+    // Rate limit login attempts per username
+    if app.LoginLimiter != nil && !app.LoginLimiter.Allow(username) {
+        slog.Warn("login rate limited", "username", username)
+        if msg.ID != nil {
+            ws.SendAck(c, *msg.ID, ws.ErrorResponse{OK: false, Msg: "Too many login attempts. Please try again later."})
+        }
+        return
+    }
+
     user, err := app.Users.FindByUsername(username)
     if err != nil {
         slog.Error("login lookup", "err", err)
@@ -105,6 +114,11 @@ func (app *App) handleLogin(c *ws.Conn, msg *ws.ClientMessage) {
 
     c.SetUser(user.ID)
     app.AfterLogin(c)
+
+    // Clear rate limit on successful login
+    if app.LoginLimiter != nil {
+        app.LoginLimiter.Reset(username)
+    }
 
     if msg.ID != nil {
         ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Token: token})

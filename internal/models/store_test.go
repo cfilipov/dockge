@@ -256,13 +256,13 @@ func TestImageUpdateStoreUpsertAndQuery(t *testing.T) {
     store := openTestImageUpdateStore(t)
 
     // Upsert entries
-    if err := store.Upsert("stack-a", "web", "nginx:latest", "sha256:aaa", "sha256:bbb", true); err != nil {
+    if err := store.Upsert("stack-a", "web", "nginx:latest", "sha256:aaa", "sha256:bbb", true, CheckStatusOK); err != nil {
         t.Fatal(err)
     }
-    if err := store.Upsert("stack-a", "redis", "redis:7", "sha256:ccc", "sha256:ccc", false); err != nil {
+    if err := store.Upsert("stack-a", "redis", "redis:7", "sha256:ccc", "sha256:ccc", false, CheckStatusOK); err != nil {
         t.Fatal(err)
     }
-    if err := store.Upsert("stack-b", "api", "node:20", "sha256:ddd", "sha256:eee", true); err != nil {
+    if err := store.Upsert("stack-b", "api", "node:20", "sha256:ddd", "sha256:eee", true, CheckStatusOK); err != nil {
         t.Fatal(err)
     }
 
@@ -304,9 +304,9 @@ func TestImageUpdateStoreDeleteForStack(t *testing.T) {
     t.Parallel()
     store := openTestImageUpdateStore(t)
 
-    store.Upsert("stack-a", "web", "nginx", "", "", true)
-    store.Upsert("stack-a", "redis", "redis", "", "", false)
-    store.Upsert("stack-b", "api", "node", "", "", true)
+    store.Upsert("stack-a", "web", "nginx", "", "", true, CheckStatusOK)
+    store.Upsert("stack-a", "redis", "redis", "", "", false, CheckStatusOK)
+    store.Upsert("stack-b", "api", "node", "", "", true, CheckStatusOK)
 
     if err := store.DeleteForStack("stack-a"); err != nil {
         t.Fatal(err)
@@ -325,8 +325,8 @@ func TestImageUpdateStoreDeleteService(t *testing.T) {
     t.Parallel()
     store := openTestImageUpdateStore(t)
 
-    store.Upsert("stack-a", "web", "nginx", "", "", true)
-    store.Upsert("stack-a", "redis", "redis", "", "", false)
+    store.Upsert("stack-a", "web", "nginx", "", "", true, CheckStatusOK)
+    store.Upsert("stack-a", "redis", "redis", "", "", false, CheckStatusOK)
 
     if err := store.DeleteService("stack-a", "web"); err != nil {
         t.Fatal(err)
@@ -345,8 +345,8 @@ func TestImageUpdateStoreUpsertOverwrite(t *testing.T) {
     t.Parallel()
     store := openTestImageUpdateStore(t)
 
-    store.Upsert("stack", "svc", "img", "old", "old", false)
-    store.Upsert("stack", "svc", "img", "old", "new", true)
+    store.Upsert("stack", "svc", "img", "old", "old", false, CheckStatusOK)
+    store.Upsert("stack", "svc", "img", "old", "new", true, CheckStatusOK)
 
     svcUpdates, _ := store.ServiceUpdatesForStack("stack")
     if !svcUpdates["svc"] {

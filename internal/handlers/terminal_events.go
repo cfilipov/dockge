@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cfilipov/dockge/internal/compose"
+	"github.com/cfilipov/dockge/internal/stack"
 	"github.com/cfilipov/dockge/internal/terminal"
 	"github.com/cfilipov/dockge/internal/ws"
 )
@@ -108,6 +109,14 @@ func sessionBinaryWriter(c *ws.Conn, sessionID uint16) terminal.WriteFunc {
 
 // handleTerminalJoin dispatches to type-specific terminal setup.
 func (app *App) handleTerminalJoin(c *ws.Conn, msg *ws.ClientMessage, args *ws.TerminalJoinArgs) {
+	// Validate stack name for terminal types that use it
+	if args.Stack != "" {
+		if err := stack.ValidateStackName(args.Stack); err != nil {
+			sendJoinError(c, msg, err.Error())
+			return
+		}
+	}
+
 	switch args.Type {
 	case "combined":
 		if args.Stack == "" {

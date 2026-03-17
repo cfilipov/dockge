@@ -29,6 +29,12 @@ type ImageUpdateEntry struct {
 	HasUpdate   bool   `json:"hasUpdate"`
 }
 
+// CheckStatus indicates whether an image update check succeeded.
+const (
+	CheckStatusOK     = "ok"     // Both digests retrieved successfully
+	CheckStatusFailed = "failed" // One or both digest lookups failed
+)
+
 // imageUpdateRecord is the full stored record (superset of ImageUpdateEntry).
 type imageUpdateRecord struct {
 	StackName    string `json:"stackName"`
@@ -37,6 +43,7 @@ type imageUpdateRecord struct {
 	LocalDigest  string `json:"localDigest,omitempty"`
 	RemoteDigest string `json:"remoteDigest,omitempty"`
 	HasUpdate    bool   `json:"hasUpdate"`
+	CheckStatus  string `json:"checkStatus,omitempty"` // "ok" or "failed"
 	LastChecked  int64  `json:"lastChecked,omitempty"`
 }
 
@@ -131,7 +138,7 @@ func (s *ImageUpdateStore) AllServiceUpdates() (map[string]bool, error) {
 }
 
 // Upsert inserts or updates a single cache entry.
-func (s *ImageUpdateStore) Upsert(stackName, serviceName, imageRef, localDigest, remoteDigest string, hasUpdate bool) error {
+func (s *ImageUpdateStore) Upsert(stackName, serviceName, imageRef, localDigest, remoteDigest string, hasUpdate bool, checkStatus string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		rec := imageUpdateRecord{
 			StackName:    stackName,
@@ -140,6 +147,8 @@ func (s *ImageUpdateStore) Upsert(stackName, serviceName, imageRef, localDigest,
 			LocalDigest:  localDigest,
 			RemoteDigest: remoteDigest,
 			HasUpdate:    hasUpdate,
+			CheckStatus:  checkStatus,
+			LastChecked:  time.Now().Unix(),
 		}
 		data, err := json.Marshal(&rec)
 		if err != nil {

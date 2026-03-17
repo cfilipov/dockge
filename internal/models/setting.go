@@ -33,16 +33,20 @@ func NewSettingStore(database *bolt.DB) *SettingStore {
 }
 
 // Get retrieves a setting value by key. Returns "" if not found.
+// The cache check and fill are atomic under a single lock to prevent
+// concurrent misses from racing on the same key.
 func (s *SettingStore) Get(key string) (string, error) {
-    // Check cache
-    s.mu.RLock()
+    s.mu.Lock()
+
+    // Check cache under the write lock
     if entry, ok := s.cache[key]; ok && time.Now().Before(entry.expires) {
-        s.mu.RUnlock()
+        s.mu.Unlock()
         return entry.value, nil
     }
-    s.mu.RUnlock()
 
-    // Read from DB
+    // Cache miss — read from DB while holding the lock.
+    // BoltDB read transactions are fast (no disk I/O for cached pages),
+    // so holding the mutex here is acceptable for the settings store.
     var val string
     err := s.db.View(func(tx *bolt.Tx) error {
         b := tx.Bucket(db.BucketSettings)
@@ -53,11 +57,10 @@ func (s *SettingStore) Get(key string) (string, error) {
         return nil
     })
     if err != nil {
+        s.mu.Unlock()
         return "", fmt.Errorf("get setting %q: %w", key, err)
     }
 
-    // Update cache
-    s.mu.Lock()
     s.cache[key] = settingEntry{value: val, expires: time.Now().Add(settingCacheTTL)}
     s.mu.Unlock()
 

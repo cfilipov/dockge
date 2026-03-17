@@ -206,8 +206,10 @@ func (c *Conn) readPump(ctx context.Context) {
             if session == nil {
                 continue
             }
+            // Binary handlers (terminal input/resize) are fast PTY fd
+            // writes — run inline to avoid unbounded goroutine spawning.
             if h := c.server.binaryHandler; h != nil {
-                go h(c, session, data[2:])
+                h(c, session, data[2:])
             }
             continue
         }
