@@ -674,7 +674,7 @@ async fn handle_container_action_terminal(
 
 /// Stream combined logs directly to a WebSocket connection as binary frames.
 async fn stream_combined_logs_direct(
-    docker: &bollard::Docker,
+    docker: &crate::docker::DockerClient,
     stack: &str,
     session_id: u16,
     conn: &Conn,
@@ -737,7 +737,7 @@ async fn stream_combined_logs_direct(
 
 /// Stream logs from a single container into a terminal buffer via the actor.
 async fn stream_single_container_to_terminal(
-    docker: &bollard::Docker,
+    docker: &crate::docker::DockerClient,
     container_name: &str,
     handle: &TerminalHandle,
     term_name: &str,

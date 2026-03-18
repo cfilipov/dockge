@@ -332,7 +332,7 @@ fn trigger_updates_broadcast(state: &AppState) {
 }
 
 fn get_check_interval(state: &AppState) -> Duration {
-    let settings = state.get_all_settings();
+    let settings = state.get_all_settings().unwrap_or_default();
     settings
         .get("imageUpdateCheckInterval")
         .and_then(|v| v.parse::<f64>().ok())
@@ -342,7 +342,7 @@ fn get_check_interval(state: &AppState) -> Duration {
 }
 
 fn is_check_enabled(state: &AppState) -> bool {
-    let settings = state.get_all_settings();
+    let settings = state.get_all_settings().unwrap_or_default();
     settings
         .get("imageUpdateCheckEnabled")
         .map(|v| v != "0" && v != "false")
@@ -350,7 +350,7 @@ fn is_check_enabled(state: &AppState) -> bool {
 }
 
 fn get_last_check_time(state: &AppState) -> std::time::SystemTime {
-    let settings = state.get_all_settings();
+    let settings = state.get_all_settings().unwrap_or_default();
     settings
         .get("imageUpdateLastCheck")
         .and_then(|v| v.parse::<u64>().ok())
@@ -363,5 +363,7 @@ fn set_last_check_time(state: &AppState) {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    state.set_setting("imageUpdateLastCheck", &now.to_string());
+    if let Err(e) = state.set_setting("imageUpdateLastCheck", &now.to_string()) {
+        tracing::warn!("failed to save imageUpdateLastCheck: {e}");
+    }
 }

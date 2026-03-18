@@ -9,8 +9,155 @@ use types::*;
 
 const DOCKER_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Wrap a Docker API call with a 10s timeout.
-pub async fn with_timeout<T>(
+/// Docker client with automatic timeouts on all one-shot operations.
+///
+/// Streaming calls (`logs`, `events`, `stats`) pass through without timeout.
+/// Callers cannot bypass the timeout by accident — the inner client is private.
+#[derive(Clone)]
+pub struct DockerClient {
+    inner: Docker,
+}
+
+impl DockerClient {
+    pub fn new(inner: Docker) -> Self {
+        Self { inner }
+    }
+
+    /// Escape hatch for APIs not yet exposed as methods.
+    #[allow(dead_code)]
+    pub(crate) fn raw(&self) -> &Docker {
+        &self.inner
+    }
+
+    // ── One-shot operations (all wrapped with timeout) ──────────────────
+
+    pub async fn list_containers(
+        &self,
+        opts: Option<bollard::query_parameters::ListContainersOptions>,
+    ) -> Result<Vec<bollard::models::ContainerSummary>, bollard::errors::Error> {
+        with_timeout(self.inner.list_containers(opts)).await
+    }
+
+    pub async fn start_container(
+        &self,
+        name: &str,
+        opts: Option<bollard::query_parameters::StartContainerOptions>,
+    ) -> Result<(), bollard::errors::Error> {
+        with_timeout(self.inner.start_container(name, opts)).await
+    }
+
+    pub async fn stop_container(
+        &self,
+        name: &str,
+        opts: Option<bollard::query_parameters::StopContainerOptions>,
+    ) -> Result<(), bollard::errors::Error> {
+        with_timeout(self.inner.stop_container(name, opts)).await
+    }
+
+    pub async fn restart_container(
+        &self,
+        name: &str,
+        opts: Option<bollard::query_parameters::RestartContainerOptions>,
+    ) -> Result<(), bollard::errors::Error> {
+        with_timeout(self.inner.restart_container(name, opts)).await
+    }
+
+    pub async fn inspect_container(
+        &self,
+        name: &str,
+        opts: Option<bollard::query_parameters::InspectContainerOptions>,
+    ) -> Result<bollard::models::ContainerInspectResponse, bollard::errors::Error> {
+        with_timeout(self.inner.inspect_container(name, opts)).await
+    }
+
+    pub async fn inspect_network(
+        &self,
+        name: &str,
+        opts: Option<bollard::query_parameters::InspectNetworkOptions>,
+    ) -> Result<bollard::models::Network, bollard::errors::Error> {
+        with_timeout(self.inner.inspect_network(name, opts)).await
+    }
+
+    pub async fn inspect_image(
+        &self,
+        name: &str,
+    ) -> Result<bollard::models::ImageInspect, bollard::errors::Error> {
+        with_timeout(self.inner.inspect_image(name)).await
+    }
+
+    pub async fn inspect_volume(
+        &self,
+        name: &str,
+    ) -> Result<bollard::models::Volume, bollard::errors::Error> {
+        with_timeout(self.inner.inspect_volume(name)).await
+    }
+
+    pub async fn list_networks(
+        &self,
+        opts: Option<bollard::query_parameters::ListNetworksOptions>,
+    ) -> Result<Vec<bollard::models::Network>, bollard::errors::Error> {
+        with_timeout(self.inner.list_networks(opts)).await
+    }
+
+    pub async fn list_images(
+        &self,
+        opts: Option<bollard::query_parameters::ListImagesOptions>,
+    ) -> Result<Vec<bollard::models::ImageSummary>, bollard::errors::Error> {
+        with_timeout(self.inner.list_images(opts)).await
+    }
+
+    pub async fn list_volumes(
+        &self,
+        opts: Option<bollard::query_parameters::ListVolumesOptions>,
+    ) -> Result<bollard::models::VolumeListResponse, bollard::errors::Error> {
+        with_timeout(self.inner.list_volumes(opts)).await
+    }
+
+    pub async fn inspect_registry_image(
+        &self,
+        image: &str,
+        credentials: Option<bollard::auth::DockerCredentials>,
+    ) -> Result<bollard::models::DistributionInspect, bollard::errors::Error> {
+        with_timeout(self.inner.inspect_registry_image(image, credentials)).await
+    }
+
+    pub async fn top_processes(
+        &self,
+        container: &str,
+        opts: Option<bollard::query_parameters::TopOptions>,
+    ) -> Result<bollard::models::ContainerTopResponse, bollard::errors::Error> {
+        with_timeout(self.inner.top_processes(container, opts)).await
+    }
+
+    // ── Streaming operations (no timeout) ───────────────────────────────
+
+    pub fn logs(
+        &self,
+        container_name: &str,
+        opts: Option<bollard::query_parameters::LogsOptions>,
+    ) -> impl Stream<Item = Result<LogOutput, bollard::errors::Error>> {
+        self.inner.logs(container_name, opts)
+    }
+
+    pub fn events(
+        &self,
+        opts: Option<bollard::query_parameters::EventsOptions>,
+    ) -> impl Stream<Item = Result<bollard::models::EventMessage, bollard::errors::Error>> {
+        self.inner.events(opts)
+    }
+
+    pub fn stats(
+        &self,
+        container: &str,
+        opts: Option<bollard::query_parameters::StatsOptions>,
+    ) -> impl Stream<Item = Result<bollard::models::ContainerStatsResponse, bollard::errors::Error>>
+    {
+        self.inner.stats(container, opts)
+    }
+}
+
+/// Apply a 10s timeout to a Docker API future.
+async fn with_timeout<T>(
     fut: impl std::future::Future<Output = Result<T, bollard::errors::Error>>,
 ) -> Result<T, bollard::errors::Error> {
     match tokio::time::timeout(DOCKER_TIMEOUT, fut).await {
@@ -21,10 +168,10 @@ pub async fn with_timeout<T>(
 
 /// Create a Docker client from DOCKER_HOST or the default socket.
 /// Uses API version 1.47 to match the mock daemon's target version.
-pub fn connect() -> Result<Docker, bollard::errors::Error> {
+pub fn connect() -> Result<DockerClient, bollard::errors::Error> {
     let host = std::env::var("DOCKER_HOST")
         .unwrap_or_else(|_| "unix:///var/run/docker.sock".to_string());
-    if host.starts_with("unix://") {
+    let inner = if host.starts_with("unix://") {
         Docker::connect_with_unix(
             &host,
             120,
@@ -32,15 +179,16 @@ pub fn connect() -> Result<Docker, bollard::errors::Error> {
                 major_version: 1,
                 minor_version: 47,
             },
-        )
+        )?
     } else {
-        Docker::connect_with_defaults()
-    }
+        Docker::connect_with_defaults()?
+    };
+    Ok(DockerClient::new(inner))
 }
 
 /// List all containers (optionally filtered by compose project/stack name).
 pub async fn container_list(
-    docker: &Docker,
+    docker: &DockerClient,
     stack_filter: Option<&str>,
 ) -> Result<Vec<ContainerBroadcast>, bollard::errors::Error> {
     let opts = if let Some(stack) = stack_filter {
@@ -59,7 +207,7 @@ pub async fn container_list(
             .build()
     };
 
-    let containers = with_timeout(docker.list_containers(Some(opts))).await?;
+    let containers = docker.list_containers(Some(opts)).await?;
 
     Ok(containers.into_iter().map(container_from_bollard).collect())
 }
@@ -105,7 +253,7 @@ fn container_from_bollard(c: bollard::models::ContainerSummary) -> ContainerBroa
 
 /// List containers filtered by a set of container IDs.
 pub async fn container_list_by_ids(
-    docker: &Docker,
+    docker: &DockerClient,
     ids: &std::collections::HashSet<String>,
 ) -> Result<Vec<ContainerBroadcast>, bollard::errors::Error> {
     if ids.is_empty() {
@@ -122,19 +270,18 @@ pub async fn container_list_by_ids(
         .filters(&filters)
         .build();
 
-    let containers = with_timeout(docker.list_containers(Some(opts))).await?;
+    let containers = docker.list_containers(Some(opts)).await?;
 
     Ok(containers.into_iter().map(container_from_bollard).collect())
 }
 
 /// List all networks.
 pub async fn network_list(
-    docker: &Docker,
+    docker: &DockerClient,
 ) -> Result<Vec<NetworkSummary>, bollard::errors::Error> {
-    let networks = with_timeout(
-        docker.list_networks(None::<bollard::query_parameters::ListNetworksOptions>),
-    )
-    .await?;
+    let networks = docker
+        .list_networks(None::<bollard::query_parameters::ListNetworksOptions>)
+        .await?;
     Ok(networks
         .into_iter()
         .map(|n| NetworkSummary {
@@ -148,12 +295,11 @@ pub async fn network_list(
 
 /// List all images.
 pub async fn image_list(
-    docker: &Docker,
+    docker: &DockerClient,
 ) -> Result<Vec<ImageSummary>, bollard::errors::Error> {
-    let images = with_timeout(
-        docker.list_images(None::<bollard::query_parameters::ListImagesOptions>),
-    )
-    .await?;
+    let images = docker
+        .list_images(None::<bollard::query_parameters::ListImagesOptions>)
+        .await?;
     Ok(images
         .into_iter()
         .map(|i| ImageSummary {
@@ -177,7 +323,7 @@ pub struct ContainerLogsOpts {
 
 /// Stream container logs via the Docker SDK.
 pub fn container_logs(
-    docker: &Docker,
+    docker: &DockerClient,
     container_name: &str,
     opts: ContainerLogsOpts,
 ) -> impl Stream<Item = Result<LogOutput, bollard::errors::Error>> {
@@ -193,12 +339,11 @@ pub fn container_logs(
 
 /// List all volumes.
 pub async fn volume_list(
-    docker: &Docker,
+    docker: &DockerClient,
 ) -> Result<Vec<VolumeSummary>, bollard::errors::Error> {
-    let resp = with_timeout(
-        docker.list_volumes(None::<bollard::query_parameters::ListVolumesOptions>),
-    )
-    .await?;
+    let resp = docker
+        .list_volumes(None::<bollard::query_parameters::ListVolumesOptions>)
+        .await?;
     Ok(resp
         .volumes
         .unwrap_or_default()

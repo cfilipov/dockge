@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use tracing::warn;
 
-use crate::docker;
 use crate::ws::conn::Conn;
 use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
@@ -50,27 +49,27 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
                 }
 
-                // Execute Docker action with timeout
+                // Execute Docker action (timeout applied by DockerClient)
                 let result = match action {
                     DockerAction::Start => {
-                        docker::with_timeout(state.docker.start_container(
+                        state.docker.start_container(
                             &container_name,
                             None::<bollard::query_parameters::StartContainerOptions>,
-                        ))
+                        )
                         .await
                     }
                     DockerAction::Stop => {
-                        docker::with_timeout(state.docker.stop_container(
+                        state.docker.stop_container(
                             &container_name,
                             None::<bollard::query_parameters::StopContainerOptions>,
-                        ))
+                        )
                         .await
                     }
                     DockerAction::Restart => {
-                        docker::with_timeout(state.docker.restart_container(
+                        state.docker.restart_container(
                             &container_name,
                             None::<bollard::query_parameters::RestartContainerOptions>,
-                        ))
+                        )
                         .await
                     }
                 };
@@ -114,24 +113,24 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
                 let result = match action {
                     DockerAction::Start => {
-                        docker::with_timeout(state.docker.start_container(
+                        state.docker.start_container(
                             &container_name,
                             None::<bollard::query_parameters::StartContainerOptions>,
-                        ))
+                        )
                         .await
                     }
                     DockerAction::Stop => {
-                        docker::with_timeout(state.docker.stop_container(
+                        state.docker.stop_container(
                             &container_name,
                             None::<bollard::query_parameters::StopContainerOptions>,
-                        ))
+                        )
                         .await
                     }
                     DockerAction::Restart => {
-                        docker::with_timeout(state.docker.restart_container(
+                        state.docker.restart_container(
                             &container_name,
                             None::<bollard::query_parameters::RestartContainerOptions>,
-                        ))
+                        )
                         .await
                     }
                 };

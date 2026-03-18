@@ -13,8 +13,6 @@ use std::collections::HashMap;
 use redb::Database;
 use serde_json::value::RawValue;
 use tokio::sync::mpsc;
-use tracing::warn;
-
 use crate::auth::LoginRateLimiter;
 use crate::broadcast::{Broadcaster, DispatchMsg, WsControlMsg};
 use crate::config::Config;
@@ -40,7 +38,7 @@ pub struct AppState {
     pub broadcaster: Broadcaster,
     pub dispatch_tx: mpsc::Sender<DispatchMsg>,
     pub ws_control_tx: mpsc::Sender<WsControlMsg>,
-    pub docker: bollard::Docker,
+    pub docker: crate::docker::DockerClient,
     pub stack_locks: stack::NamedMutex,
     pub has_authenticated: AtomicBool,
     pub terminal_manager: TerminalHandle,
@@ -59,63 +57,27 @@ impl AppState {
     }
 
     /// Get all settings from the database.
-    pub fn get_all_settings(&self) -> HashMap<String, String> {
-        let read_txn = match self.db.begin_read() {
-            Ok(t) => t,
-            Err(e) => {
-                warn!("settings: begin_read failed: {e}");
-                return HashMap::new();
-            }
-        };
-        let table = match read_txn.open_table(db::SETTINGS_TABLE) {
-            Ok(t) => t,
-            Err(e) => {
-                warn!("settings: open_table failed: {e}");
-                return HashMap::new();
-            }
-        };
+    pub fn get_all_settings(&self) -> Result<HashMap<String, String>, redb::Error> {
         use redb::ReadableTable;
+        let read_txn = self.db.begin_read()?;
+        let table = read_txn.open_table(db::SETTINGS_TABLE)?;
         let mut result = HashMap::new();
-        match table.iter() {
-            Ok(iter) => {
-                for entry in iter {
-                    match entry {
-                        Ok((k, v)) => {
-                            result.insert(k.value().to_string(), v.value().to_string());
-                        }
-                        Err(e) => warn!("settings: iter error: {e}"),
-                    }
-                }
-            }
-            Err(e) => warn!("settings: iter failed: {e}"),
+        for entry in table.iter()? {
+            let (k, v) = entry?;
+            result.insert(k.value().to_string(), v.value().to_string());
         }
-        result
+        Ok(result)
     }
 
     /// Set a setting in the database.
-    pub fn set_setting(&self, key: &str, value: &str) {
-        let write_txn = match self.db.begin_write() {
-            Ok(t) => t,
-            Err(e) => {
-                warn!("settings: begin_write failed: {e}");
-                return;
-            }
-        };
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<(), redb::Error> {
+        let write_txn = self.db.begin_write()?;
         {
-            let mut table = match write_txn.open_table(db::SETTINGS_TABLE) {
-                Ok(t) => t,
-                Err(e) => {
-                    warn!("settings: open_table failed: {e}");
-                    return;
-                }
-            };
-            if let Err(e) = table.insert(key, value) {
-                warn!("settings: insert failed: {e}");
-            }
+            let mut table = write_txn.open_table(db::SETTINGS_TABLE)?;
+            table.insert(key, value)?;
         }
-        if let Err(e) = write_txn.commit() {
-            warn!("settings: commit failed: {e}");
-        }
+        write_txn.commit()?;
+        Ok(())
     }
 }
 

@@ -226,7 +226,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 async move {
                     let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Container name").await else { return };
-                    let result = docker::with_timeout(state.docker.inspect_container(&name, None::<bollard::query_parameters::InspectContainerOptions>)).await;
+                    let result = state.docker.inspect_container(&name, None::<bollard::query_parameters::InspectContainerOptions>).await;
                     inspect_respond(&conn, &msg, "inspectData", result).await;
                 }
             },
@@ -242,7 +242,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 async move {
                     let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Network name").await else { return };
-                    let result = docker::with_timeout(state.docker.inspect_network(&name, None::<bollard::query_parameters::InspectNetworkOptions>)).await;
+                    let result = state.docker.inspect_network(&name, None::<bollard::query_parameters::InspectNetworkOptions>).await;
                     inspect_respond(&conn, &msg, "networkDetail", result).await;
                 }
             },
@@ -258,7 +258,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 async move {
                     let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Image reference").await else { return };
-                    let result = docker::with_timeout(state.docker.inspect_image(&name)).await;
+                    let result = state.docker.inspect_image(&name).await;
                     inspect_respond(&conn, &msg, "imageDetail", result).await;
                 }
             },
@@ -274,7 +274,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 async move {
                     let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Volume name").await else { return };
-                    let result = docker::with_timeout(state.docker.inspect_volume(&name)).await;
+                    let result = state.docker.inspect_volume(&name).await;
                     inspect_respond(&conn, &msg, "volumeDetail", result).await;
                 }
             },
@@ -500,14 +500,12 @@ fn calculate_cpu_percent(stats: &bollard::models::ContainerStatsResponse) -> f64
 }
 
 /// Push a single top-processes snapshot. Returns false if the connection is dead or the container is gone.
-async fn push_top(docker: &bollard::Docker, container: &str, conn: &Conn) -> bool {
-    match tokio::time::timeout(
-        Duration::from_secs(10),
-        docker.top_processes(container, None::<bollard::query_parameters::TopOptions>),
-    )
-    .await
+async fn push_top(docker: &crate::docker::DockerClient, container: &str, conn: &Conn) -> bool {
+    match docker
+        .top_processes(container, None::<bollard::query_parameters::TopOptions>)
+        .await
     {
-        Ok(Ok(top)) => conn
+        Ok(top) => conn
             .send_event(
                 "containerTop",
                 serde_json::json!({
@@ -517,7 +515,7 @@ async fn push_top(docker: &bollard::Docker, container: &str, conn: &Conn) -> boo
                 }),
             )
             .await,
-        Ok(Err(e)) => {
+        Err(e) => {
             warn!("subscribeTop poll error: {e}");
             let _ = conn
                 .send_event(
@@ -529,10 +527,6 @@ async fn push_top(docker: &bollard::Docker, container: &str, conn: &Conn) -> boo
                     }),
                 )
                 .await;
-            false
-        }
-        Err(_) => {
-            warn!("subscribeTop poll timed out");
             false
         }
     }

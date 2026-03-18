@@ -19,7 +19,15 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let uid = state.check_login(&conn, &msg).await;
                 if uid == 0 { return; }
 
-                let mut settings = state.get_all_settings();
+                let mut settings = match state.get_all_settings() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        if let Some(id) = msg.id {
+                            conn.send_ack(id, ErrorResponse::new(format!("Database error: {e}"))).await;
+                        }
+                        return;
+                    }
+                };
 
                 // Filter out jwtSecret
                 settings.remove("jwtSecret");
@@ -76,7 +84,12 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         _ => value.to_string(),
                     };
 
-                    state.set_setting(key, &str_val);
+                    if let Err(e) = state.set_setting(key, &str_val) {
+                        if let Some(id) = msg.id {
+                            conn.send_ack(id, ErrorResponse::new(format!("Failed to save setting: {e}"))).await;
+                        }
+                        return;
+                    }
                 }
 
                 if let Some(id) = msg.id {

@@ -90,7 +90,7 @@ async fn main() {
 
     let need_setup_after_seed = users.count().unwrap_or(0) == 0;
 
-    // Connect to Docker
+    // Connect to Docker (returns DockerClient with automatic timeouts)
     let docker_client = docker::connect().expect("failed to connect to Docker");
 
     // Create channels
