@@ -45,7 +45,7 @@ export function useServiceActions(
                 }
                 break;
             case "stop":
-                if (evt.action === "die" || evt.action === "stop") {
+                if (evt.action === "die") {
                     toastSuccess("Stopped");
                     stopComposeAction();
                 }

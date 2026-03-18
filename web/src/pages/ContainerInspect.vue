@@ -505,7 +505,7 @@ watch(() => containerStore.lastEvent, (evt) => {
             }
             break;
         case "stop":
-            if (evt.action === "die" || evt.action === "stop") {
+            if (evt.action === "die") {
                 toastSuccess("Stopped");
                 standaloneProcessing.value = false;
                 standalonePendingAction = null;
