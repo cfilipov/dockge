@@ -420,9 +420,11 @@ async fn after_login(state: &AppState, conn: &Conn) {
     }
 
     // Updates broadcast (empty for now — image update checks are M8)
+    // Sent as raw array, NOT wrapped in {"items": ...} — the frontend
+    // expects a plain string[] for the updates channel.
     {
         let updates: Vec<String> = Vec::new();
-        conn.send_event("updates", serde_json::json!({"items": updates})).await;
+        conn.send_event("updates", updates).await;
     }
 }
 

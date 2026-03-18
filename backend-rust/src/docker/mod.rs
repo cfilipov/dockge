@@ -212,6 +212,24 @@ pub async fn container_list(
     Ok(containers.into_iter().map(container_from_bollard).collect())
 }
 
+/// Parse health status from Docker's human-readable Status string.
+/// Returns "healthy", "unhealthy", "starting", or "" if no healthcheck.
+fn parse_health_from_status(state: &str, status: &str) -> String {
+    if state != "running" || status.is_empty() {
+        return String::new();
+    }
+    let lower = status.to_lowercase();
+    if lower.ends_with("(unhealthy)") {
+        "unhealthy".to_string()
+    } else if lower.ends_with("(healthy)") {
+        "healthy".to_string()
+    } else if lower.ends_with("(health: starting)") {
+        "starting".to_string()
+    } else {
+        String::new()
+    }
+}
+
 /// Map a bollard ContainerSummary to our ContainerBroadcast type.
 fn container_from_bollard(c: bollard::models::ContainerSummary) -> ContainerBroadcast {
     let labels = c.labels.unwrap_or_default();
@@ -239,15 +257,62 @@ fn container_from_bollard(c: bollard::models::ContainerSummary) -> ContainerBroa
         .map(|s| s.as_ref().to_string())
         .unwrap_or_default();
 
+    let status = c.status.as_deref().unwrap_or_default();
+    let health = parse_health_from_status(&state, status);
+
+    // Extract network endpoints
+    let networks = c
+        .network_settings
+        .and_then(|ns| ns.networks)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(net_name, ep)| {
+            (
+                net_name,
+                ContainerNetwork {
+                    ipv4: ep.ip_address.unwrap_or_default(),
+                    ipv6: ep.global_ipv6_address.unwrap_or_default(),
+                    mac: ep.mac_address.unwrap_or_default(),
+                },
+            )
+        })
+        .collect();
+
+    // Extract mounts
+    let mounts = c
+        .mounts
+        .unwrap_or_default()
+        .into_iter()
+        .map(|m| ContainerMount {
+            name: m.name.unwrap_or_default(),
+            mount_type: m.typ.map(|t| t.to_string()).unwrap_or_default(),
+        })
+        .collect();
+
+    // Extract ports
+    let ports = c
+        .ports
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| ContainerPort {
+            host_port: p.public_port.unwrap_or(0),
+            container_port: p.private_port,
+            protocol: p.typ.map(|t| t.to_string()).unwrap_or_default(),
+        })
+        .collect();
+
     ContainerBroadcast {
-        id: c.id.unwrap_or_default(),
         name,
-        image: c.image.unwrap_or_default(),
-        state,
-        status: c.status.unwrap_or_default(),
-        stack_name,
+        container_id: c.id.unwrap_or_default(),
         service_name,
-        labels,
+        stack_name,
+        state,
+        health,
+        image: c.image.unwrap_or_default(),
+        image_id: c.image_id.unwrap_or_default(),
+        networks,
+        mounts,
+        ports,
     }
 }
 

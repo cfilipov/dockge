@@ -318,7 +318,7 @@ fn trigger_updates_broadcast(state: &AppState) {
 
     state.broadcaster.send_event(
         "updates",
-        &serde_json::json!({"items": updates}),
+        &serde_json::json!(updates),
     );
 }
 
