@@ -211,8 +211,12 @@ describe("broadcast-advanced", () => {
             // Drain AfterLogin on client1
             await client1.waitForEvent("containers");
 
-            // Fire a restart (don't await) to create concurrent events
-            const restartPromise = client1.sendAndReceive("restartService", "test-stack", "web");
+            // Fire multiple operations (don't await) to create a sustained burst of events.
+            // A single restart may complete before client2 connects; multiple operations
+            // affecting multiple containers across both stacks widen the broadcast window.
+            const p1 = client1.sendAndReceive("restartService", "test-stack", "web");
+            const p2 = client1.sendAndReceive("restartService", "test-stack", "redis");
+            const p3 = client1.sendAndReceive("stopStack", "other-stack");
 
             // Immediately connect and login client2
             const client2 = await connectClient();
@@ -235,7 +239,7 @@ describe("broadcast-advanced", () => {
                 client2.close();
             }
 
-            await restartPromise;
+            await Promise.all([p1, p2, p3]);
         } finally {
             client1.close();
         }

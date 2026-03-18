@@ -40,3 +40,33 @@ export async function withAuthClient<T>(fn: (client: TestClient) => Promise<T>):
 export function connectClient(): Promise<TestClient> {
     return TestClient.connect(BASE_URL);
 }
+
+/**
+ * Wait for a containers broadcast where a specific container reaches an expected state.
+ * For expectedState === null, checks that the container key is explicitly null (destroyed).
+ * For string states ("running", "exited", "paused"), checks container.State matches.
+ * Returns the matching broadcast data.
+ */
+export async function waitForContainerState(
+    client: TestClient,
+    containerName: string,
+    expectedState: string | null,
+    maxAttempts = 15,
+): Promise<Record<string, unknown>> {
+    for (let i = 0; i < maxAttempts; i++) {
+        const broadcast = await client.waitForEvent("containers");
+        if (expectedState === null) {
+            if (containerName in broadcast && broadcast[containerName] === null) {
+                return broadcast;
+            }
+        } else {
+            const entry = broadcast[containerName] as Record<string, unknown> | undefined;
+            if (entry && entry.state === expectedState) {
+                return broadcast;
+            }
+        }
+    }
+    throw new Error(
+        `Container "${containerName}" did not reach state "${expectedState}" after ${maxAttempts} broadcasts`,
+    );
+}

@@ -1,83 +1,226 @@
-import { describe, test, expect, beforeAll } from "vitest";
-import { resetMockState, withAuthClient } from "../src/helpers.js";
+import { describe, test, expect } from "vitest";
+import { resetMockState, connectClient, waitForContainerState } from "../src/helpers.js";
 
 describe("services", () => {
-    beforeAll(async () => {
+    test("stopService — container reaches exited state", async () => {
         await resetMockState();
+
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            const resp = await cmd.sendAndReceive("stopService", "test-stack", "web");
+            expect(resp.ok).toBe(true);
+
+            await waitForContainerState(obs, "test-stack-web-1", "exited");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 
-    test("startService", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("startService", "test-stack", "web");
+    test("startService — container reaches running state", async () => {
+        await resetMockState();
+
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            // Stop first so we can test start
+            await cmd.sendAndReceive("stopService", "test-stack", "web");
+            await waitForContainerState(obs, "test-stack-web-1", "exited");
+
+            const resp = await cmd.sendAndReceive("startService", "test-stack", "web");
             expect(resp.ok).toBe(true);
-        });
+
+            await waitForContainerState(obs, "test-stack-web-1", "running");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 
-    test("stopService", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("stopService", "test-stack", "web");
+    test("restartService — container ends up running", async () => {
+        await resetMockState();
+
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            const resp = await cmd.sendAndReceive("restartService", "test-stack", "web");
             expect(resp.ok).toBe(true);
-        });
+
+            await waitForContainerState(obs, "test-stack-web-1", "running");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 
-    test("restartService", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("restartService", "test-stack", "web");
+    test("recreateService — container ends up running", async () => {
+        await resetMockState();
+
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            const resp = await cmd.sendAndReceive("recreateService", "test-stack", "web");
             expect(resp.ok).toBe(true);
-        });
+
+            await waitForContainerState(obs, "test-stack-web-1", "running");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 
-    test("recreateService", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("recreateService", "test-stack", "web");
-            expect(resp.ok).toBe(true);
-        });
-    });
+    test("updateService — container ends up running after pull+recreate", async () => {
+        await resetMockState();
 
-    test("updateService", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("updateService", "test-stack", "web");
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            const resp = await cmd.sendAndReceive("updateService", "test-stack", "web");
             expect(resp.ok).toBe(true);
-        });
+
+            await waitForContainerState(obs, "test-stack-web-1", "running");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 
     test("checkImageUpdates", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("checkImageUpdates", "test-stack");
+        await resetMockState();
+
+        const cmd = await connectClient();
+        try {
+            await cmd.login();
+            const resp = await cmd.sendAndReceive("checkImageUpdates", "test-stack");
             expect(resp.ok).toBe(true);
-        });
+        } finally {
+            cmd.close();
+        }
     });
 
-    test("stopContainer", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("stopContainer", "test-stack-web-1");
+    test("stopContainer — container reaches exited state", async () => {
+        await resetMockState();
+
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            const resp = await cmd.sendAndReceive("stopContainer", "test-stack-web-1");
             expect(resp.ok).toBe(true);
-        });
+
+            await waitForContainerState(obs, "test-stack-web-1", "exited");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 
-    test("restartContainer", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("restartContainer", "test-stack-web-1");
+    test("restartContainer — container ends up running", async () => {
+        await resetMockState();
+
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            const resp = await cmd.sendAndReceive("restartContainer", "test-stack-web-1");
             expect(resp.ok).toBe(true);
-        });
+
+            await waitForContainerState(obs, "test-stack-web-1", "running");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 
-    test("startContainer", async () => {
-        await withAuthClient(async (client) => {
-            const resp = await client.sendAndReceive("startContainer", "test-stack-web-1");
+    test("startContainer — container reaches running state", async () => {
+        await resetMockState();
+
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            // Stop first
+            await cmd.sendAndReceive("stopContainer", "test-stack-web-1");
+            await waitForContainerState(obs, "test-stack-web-1", "exited");
+
+            const resp = await cmd.sendAndReceive("startContainer", "test-stack-web-1");
             expect(resp.ok).toBe(true);
-        });
+
+            await waitForContainerState(obs, "test-stack-web-1", "running");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 
     test("serviceMissingArgs — empty service/stack name fails", async () => {
-        await withAuthClient(async (client) => {
+        await resetMockState();
+
+        const cmd = await connectClient();
+        try {
+            await cmd.login();
+
             // Missing service name
-            const resp1 = await client.sendAndReceive("startService", "test-stack", "");
+            const resp1 = await cmd.sendAndReceive("startService", "test-stack", "");
             expect(resp1.ok).toBe(false);
 
             // Missing stack name
-            const resp2 = await client.sendAndReceive("stopService", "", "web");
+            const resp2 = await cmd.sendAndReceive("stopService", "", "web");
             expect(resp2.ok).toBe(false);
-        });
+        } finally {
+            cmd.close();
+        }
+    });
+
+    test("stopService nonexistent service — acks but no crash", async () => {
+        await resetMockState();
+
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
+
+            const resp = await cmd.sendAndReceive("stopService", "test-stack", "no-such-service");
+            expect(resp.ok).toBe(true);
+
+            // Background goroutine fails silently; no containers broadcast for nonexistent service
+            const evt = await obs.tryWaitForEvent("containers", 2000);
+            expect(evt).toBeNull();
+        } finally {
+            cmd.close();
+            obs.close();
+        }
     });
 });
