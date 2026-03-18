@@ -85,7 +85,8 @@ fn container_from_bollard(c: bollard::models::ContainerSummary) -> ContainerBroa
 
     let state = c
         .state
-        .map(|s| format!("{:?}", s).to_lowercase())
+        .as_ref()
+        .map(|s| s.as_ref().to_string())
         .unwrap_or_default();
 
     ContainerBroadcast {

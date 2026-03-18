@@ -25,8 +25,8 @@ pub enum TerminalType {
 }
 
 /// A single terminal (pipe or PTY) with buffer and fan-out.
-#[allow(dead_code)]
 pub struct Terminal {
+    #[allow(dead_code)] // Used for debug logging when handlers are wired up
     pub name: String,
     pub terminal_type: TerminalType,
     buffer: Vec<u8>,
@@ -42,7 +42,6 @@ enum PtyCommand {
     Resize { rows: u16, cols: u16 },
 }
 
-#[allow(dead_code)]
 impl Terminal {
     fn new(name: String, terminal_type: TerminalType) -> Self {
         Self {
@@ -84,19 +83,10 @@ impl Terminal {
         }
     }
 
-    /// Get the current buffer contents.
-    pub fn buffer(&self) -> &[u8] {
-        &self.buffer
-    }
-
     /// Atomically add a writer and return the current buffer.
     pub fn join_and_get_buffer(&mut self, key: String, writer: WriterFn) -> Vec<u8> {
         self.writers.insert(key, writer);
         self.buffer.clone()
-    }
-
-    pub fn add_writer(&mut self, key: String, writer: WriterFn) {
-        self.writers.insert(key, writer);
     }
 
     pub fn remove_writer(&mut self, key: &str) {
@@ -153,12 +143,13 @@ fn normalize_newlines(data: &[u8]) -> Vec<u8> {
 }
 
 /// Terminal manager: tracks all active terminals.
-#[allow(dead_code)]
+///
+/// Lock ordering: always acquire outer `terminals` mutex first, then inner
+/// per-terminal mutex. Never hold an inner lock while acquiring the outer one.
 pub struct Manager {
     pub terminals: Mutex<HashMap<String, Arc<Mutex<Terminal>>>>,
 }
 
-#[allow(dead_code)]
 impl Manager {
     pub fn new() -> Self {
         Self {
@@ -213,6 +204,7 @@ impl Manager {
     }
 
     /// Remove a terminal immediately.
+    #[allow(dead_code)] // Handler wiring pending
     pub fn remove(&self, name: &str) {
         let mut terminals = self.terminals.lock().unwrap();
         if let Some(term) = terminals.remove(name) {
@@ -220,34 +212,8 @@ impl Manager {
         }
     }
 
-    /// Schedule terminal removal after a delay. Cancels if terminal was recreated.
-    pub fn remove_after(&self, name: &str, delay: std::time::Duration) {
-        let name = name.to_string();
-        let term_ptr = {
-            let terminals = self.terminals.lock().unwrap();
-            match terminals.get(&name) {
-                Some(t) => Arc::as_ptr(t) as usize,
-                None => return,
-            }
-        };
-        let manager = self as *const Manager as usize;
-        tokio::spawn(async move {
-            tokio::time::sleep(delay).await;
-            // Safety: we only read, and the Manager outlives this task in practice
-            let mgr = unsafe { &*(manager as *const Manager) };
-            let mut terminals = mgr.terminals.lock().unwrap();
-            if let Some(existing) = terminals.get(&name) {
-                // Only remove if it's the same terminal instance (not recreated)
-                if Arc::as_ptr(existing) as usize == term_ptr
-                    && let Some(term) = terminals.remove(&name)
-                {
-                    term.lock().unwrap().close();
-                }
-            }
-        });
-    }
-
     /// Remove writer from a specific terminal and clean up if orphaned.
+    #[allow(dead_code)] // Handler wiring pending
     pub fn remove_writer_and_cleanup(&self, term_name: &str, writer_key: &str) {
         let terminals = self.terminals.lock().unwrap();
         if let Some(term) = terminals.get(term_name) {
@@ -282,29 +248,12 @@ impl Manager {
         cmd_args: &[&str],
         working_dir: Option<&str>,
     ) -> Result<tokio_util::sync::CancellationToken, Box<dyn std::error::Error + Send + Sync>> {
-        use portable_pty::{CommandBuilder, native_pty_system, PtySize};
+        use portable_pty::PtySize;
 
-        let pty_system = native_pty_system();
-        let pair = pty_system.openpty(PtySize {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
-        })?;
-
-        let mut cmd = CommandBuilder::new(cmd_name);
-        cmd.args(cmd_args);
-        if let Some(dir) = working_dir {
-            cmd.cwd(dir);
-        }
-
-        let child = pair.slave.spawn_command(cmd)?;
-        drop(pair.slave); // Close slave side — child has it
-
-        // Get reader and writer from master before moving it
-        let mut pty_reader = pair.master.try_clone_reader()?;
-        let mut master_writer = pair.master.take_writer()?;
-        let master_for_resize = pair.master;
+        let setup = open_pty(cmd_name, cmd_args, working_dir)?;
+        let mut pty_reader = setup.reader;
+        let mut master_writer = setup.writer;
+        let master_for_resize = setup.master;
 
         let cancel = tokio_util::sync::CancellationToken::new();
 
@@ -341,6 +290,7 @@ impl Manager {
             }
         });
         let cancel_input = cancel.clone();
+        let child = setup.child;
         tokio::spawn(async move {
             let _child = child; // Keep child alive until this task ends
             loop {
@@ -371,6 +321,7 @@ impl Manager {
 
     /// Run a PTY command synchronously (blocks until completion).
     /// Used for compose actions that need to stream output.
+    #[allow(dead_code)] // Handler wiring pending
     pub async fn run_pty(
         &self,
         term: &Arc<Mutex<Terminal>>,
@@ -378,27 +329,12 @@ impl Manager {
         cmd_args: &[&str],
         working_dir: Option<&str>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        use portable_pty::{CommandBuilder, native_pty_system, PtySize};
-
-        let pty_system = native_pty_system();
-        let pair = pty_system.openpty(PtySize {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
-        })?;
-
-        let mut cmd = CommandBuilder::new(cmd_name);
-        cmd.args(cmd_args);
-        if let Some(dir) = working_dir {
-            cmd.cwd(dir);
-        }
-
-        let mut child = pair.slave.spawn_command(cmd)?;
-        drop(pair.slave);
-
-        let mut pty_reader = pair.master.try_clone_reader()?;
-        drop(pair.master);
+        let setup = open_pty(cmd_name, cmd_args, working_dir)?;
+        let mut pty_reader = setup.reader;
+        let mut child = setup.child;
+        // Drop master + writer to signal EOF to the child's stdin
+        drop(setup.writer);
+        drop(setup.master);
 
         // Read PTY output in a background thread
         let term_clone = term.clone();
@@ -431,28 +367,48 @@ impl Manager {
             Err(format!("command exited with status: {:?}", status).into())
         }
     }
+}
 
-    /// Periodic cleanup: remove closed terminals with no writers.
-    pub fn cleanup_completed(&self) {
-        let mut terminals = self.terminals.lock().unwrap();
-        terminals.retain(|_, term| {
-            let t = term.lock().unwrap();
-            !(t.is_closed() && t.writer_count() == 0)
-        });
+/// Opened PTY with child process, reader, writer, and master handle.
+struct PtySetup {
+    child: Box<dyn portable_pty::Child + Send + Sync>,
+    reader: Box<dyn std::io::Read + Send>,
+    writer: Box<dyn std::io::Write + Send>,
+    master: Box<dyn portable_pty::MasterPty + Send>,
+}
+
+/// Open a PTY, spawn a command, and return all handles.
+fn open_pty(
+    cmd_name: &str,
+    cmd_args: &[&str],
+    working_dir: Option<&str>,
+) -> Result<PtySetup, Box<dyn std::error::Error + Send + Sync>> {
+    use portable_pty::{CommandBuilder, native_pty_system, PtySize};
+
+    let pty_system = native_pty_system();
+    let pair = pty_system.openpty(PtySize {
+        rows: 24,
+        cols: 80,
+        pixel_width: 0,
+        pixel_height: 0,
+    })?;
+
+    let mut cmd = CommandBuilder::new(cmd_name);
+    cmd.args(cmd_args);
+    if let Some(dir) = working_dir {
+        cmd.cwd(dir);
     }
 
-    /// Spawn a background cleanup loop.
-    pub fn spawn_cleanup_loop(&'static self, cancel: tokio_util::sync::CancellationToken) {
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
-            loop {
-                tokio::select! {
-                    () = cancel.cancelled() => return,
-                    _ = interval.tick() => {
-                        self.cleanup_completed();
-                    }
-                }
-            }
-        });
-    }
+    let child = pair.slave.spawn_command(cmd)?;
+    drop(pair.slave);
+
+    let reader = pair.master.try_clone_reader()?;
+    let writer = pair.master.take_writer()?;
+
+    Ok(PtySetup {
+        child,
+        reader,
+        writer,
+        master: pair.master,
+    })
 }

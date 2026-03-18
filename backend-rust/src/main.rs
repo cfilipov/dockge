@@ -285,12 +285,14 @@ fn get_or_create_setting(db: &redb::Database, key: &str) -> Option<String> {
 }
 
 fn set_setting(db: &redb::Database, key: &str, value: &str) {
-    let write_txn = db.begin_write().unwrap();
+    let write_txn = db.begin_write().expect("failed to begin write txn for setting");
     {
-        let mut table = write_txn.open_table(db::SETTINGS_TABLE).unwrap();
-        table.insert(key, value).unwrap();
+        let mut table = write_txn
+            .open_table(db::SETTINGS_TABLE)
+            .expect("failed to open settings table");
+        table.insert(key, value).expect("failed to insert setting");
     }
-    write_txn.commit().unwrap();
+    write_txn.commit().expect("failed to commit setting");
 }
 
 async fn shutdown_signal() {
