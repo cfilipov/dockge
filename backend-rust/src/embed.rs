@@ -49,10 +49,11 @@ fn serve_asset(path: &str) -> Option<Response> {
 
 fn cache_control(path: &str) -> &'static str {
     // Hashed assets get long-term caching
-    if let Some(ext) = Path::new(path).extension().and_then(|e| e.to_str()) {
-        if path.starts_with("assets/") && matches!(ext, "js" | "css" | "woff2" | "woff" | "ttf") {
-            return "public, max-age=31536000, immutable";
-        }
+    if let Some(ext) = Path::new(path).extension().and_then(|e| e.to_str())
+        && path.starts_with("assets/")
+        && matches!(ext, "js" | "css" | "woff2" | "woff" | "ttf")
+    {
+        return "public, max-age=31536000, immutable";
     }
     "public, max-age=0, must-revalidate"
 }

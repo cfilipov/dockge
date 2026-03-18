@@ -1,3 +1,7 @@
+// redb uses separate error types (TransactionError, TableError, etc.) with no unified enum;
+// individual variants are unavoidably large, so boxing each would add noise for no benefit.
+#![allow(clippy::result_large_err)]
+
 mod auth;
 mod broadcast;
 mod config;
@@ -130,6 +134,11 @@ async fn main() {
             )
             .await;
         });
+    });
+
+    // Register disconnect handler for subscription cleanup
+    ws_builder.handle_disconnect(|conn| {
+        conn.cancel_all_subscriptions();
     });
 
     // Register handlers
@@ -272,7 +281,6 @@ async fn reset_via_daemon() -> Result<(), Box<dyn std::error::Error>> {
 fn get_or_create_setting(db: &redb::Database, key: &str) -> Option<String> {
     let read_txn = db.begin_read().ok()?;
     let table = read_txn.open_table(db::SETTINGS_TABLE).ok()?;
-    use redb::ReadableTable;
     table.get(key).ok()?.map(|v| v.value().to_string())
 }
 

@@ -48,43 +48,43 @@ pub async fn container_list(
 
     let containers = docker.list_containers(Some(opts)).await?;
 
-    Ok(containers
-        .into_iter()
-        .map(|c| {
-            let labels = c.labels.clone().unwrap_or_default();
-            let stack_name = labels
-                .get("com.docker.compose.project")
-                .cloned()
-                .unwrap_or_default();
-            let service_name = labels
-                .get("com.docker.compose.service")
-                .cloned()
-                .unwrap_or_default();
+    Ok(containers.into_iter().map(container_from_bollard).collect())
+}
 
-            let name = c
-                .names
-                .as_ref()
-                .and_then(|n| n.first())
-                .map(|n| n.trim_start_matches('/').to_string())
-                .unwrap_or_default();
+/// Map a bollard ContainerSummary to our ContainerBroadcast type.
+fn container_from_bollard(c: bollard::models::ContainerSummary) -> ContainerBroadcast {
+    let labels = c.labels.clone().unwrap_or_default();
+    let stack_name = labels
+        .get("com.docker.compose.project")
+        .cloned()
+        .unwrap_or_default();
+    let service_name = labels
+        .get("com.docker.compose.service")
+        .cloned()
+        .unwrap_or_default();
 
-            let state = c
-                .state
-                .map(|s| format!("{:?}", s).to_lowercase())
-                .unwrap_or_default();
+    let name = c
+        .names
+        .as_ref()
+        .and_then(|n| n.first())
+        .map(|n| n.trim_start_matches('/').to_string())
+        .unwrap_or_default();
 
-            ContainerBroadcast {
-                id: c.id.clone().unwrap_or_default(),
-                name,
-                image: c.image.clone().unwrap_or_default(),
-                state,
-                status: c.status.clone().unwrap_or_default(),
-                stack_name,
-                service_name,
-                labels,
-            }
-        })
-        .collect())
+    let state = c
+        .state
+        .map(|s| format!("{:?}", s).to_lowercase())
+        .unwrap_or_default();
+
+    ContainerBroadcast {
+        id: c.id.clone().unwrap_or_default(),
+        name,
+        image: c.image.clone().unwrap_or_default(),
+        state,
+        status: c.status.clone().unwrap_or_default(),
+        stack_name,
+        service_name,
+        labels,
+    }
 }
 
 /// List containers filtered by a set of container IDs.
@@ -108,43 +108,7 @@ pub async fn container_list_by_ids(
 
     let containers = docker.list_containers(Some(opts)).await?;
 
-    Ok(containers
-        .into_iter()
-        .map(|c| {
-            let labels = c.labels.clone().unwrap_or_default();
-            let stack_name = labels
-                .get("com.docker.compose.project")
-                .cloned()
-                .unwrap_or_default();
-            let service_name = labels
-                .get("com.docker.compose.service")
-                .cloned()
-                .unwrap_or_default();
-
-            let name = c
-                .names
-                .as_ref()
-                .and_then(|n| n.first())
-                .map(|n| n.trim_start_matches('/').to_string())
-                .unwrap_or_default();
-
-            let state = c
-                .state
-                .map(|s| format!("{:?}", s).to_lowercase())
-                .unwrap_or_default();
-
-            ContainerBroadcast {
-                id: c.id.clone().unwrap_or_default(),
-                name,
-                image: c.image.clone().unwrap_or_default(),
-                state,
-                status: c.status.clone().unwrap_or_default(),
-                stack_name,
-                service_name,
-                labels,
-            }
-        })
-        .collect())
+    Ok(containers.into_iter().map(container_from_bollard).collect())
 }
 
 /// List all networks.

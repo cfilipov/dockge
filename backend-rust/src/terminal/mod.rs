@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
 
-use parking_lot::Mutex;
+use std::sync::Mutex;
 use tokio::sync::mpsc;
 use tracing::debug;
 
@@ -168,12 +168,12 @@ impl Manager {
 
     /// Get an existing terminal by name.
     pub fn get(&self, name: &str) -> Option<Arc<Mutex<Terminal>>> {
-        self.terminals.lock().get(name).cloned()
+        self.terminals.lock().unwrap().get(name).cloned()
     }
 
     /// Get or create a pipe terminal.
     pub fn get_or_create(&self, name: &str) -> Arc<Mutex<Terminal>> {
-        let mut terminals = self.terminals.lock();
+        let mut terminals = self.terminals.lock().unwrap();
         terminals
             .entry(name.to_string())
             .or_insert_with(|| Arc::new(Mutex::new(Terminal::new(name.to_string(), TerminalType::Pipe))))
@@ -182,12 +182,12 @@ impl Manager {
 
     /// Create a fresh terminal, closing the old one asynchronously if it exists.
     pub fn create(&self, name: &str, typ: TerminalType) -> Arc<Mutex<Terminal>> {
-        let mut terminals = self.terminals.lock();
+        let mut terminals = self.terminals.lock().unwrap();
         if let Some(old) = terminals.remove(name) {
             // Close old terminal asynchronously
             let old = old.clone();
             tokio::spawn(async move {
-                old.lock().close();
+                old.lock().unwrap().close();
             });
         }
         let term = Arc::new(Mutex::new(Terminal::new(name.to_string(), typ)));
@@ -197,11 +197,11 @@ impl Manager {
 
     /// Create a fresh terminal, carrying over writers from the old one.
     pub fn recreate(&self, name: &str, typ: TerminalType) -> Arc<Mutex<Terminal>> {
-        let mut terminals = self.terminals.lock();
+        let mut terminals = self.terminals.lock().unwrap();
         let mut new_term = Terminal::new(name.to_string(), typ);
 
         if let Some(old) = terminals.remove(name) {
-            let mut old_guard = old.lock();
+            let mut old_guard = old.lock().unwrap();
             // Carry over writers
             std::mem::swap(&mut new_term.writers, &mut old_guard.writers);
             old_guard.close();
@@ -214,9 +214,9 @@ impl Manager {
 
     /// Remove a terminal immediately.
     pub fn remove(&self, name: &str) {
-        let mut terminals = self.terminals.lock();
+        let mut terminals = self.terminals.lock().unwrap();
         if let Some(term) = terminals.remove(name) {
-            term.lock().close();
+            term.lock().unwrap().close();
         }
     }
 
@@ -224,7 +224,7 @@ impl Manager {
     pub fn remove_after(&self, name: &str, delay: std::time::Duration) {
         let name = name.to_string();
         let term_ptr = {
-            let terminals = self.terminals.lock();
+            let terminals = self.terminals.lock().unwrap();
             match terminals.get(&name) {
                 Some(t) => Arc::as_ptr(t) as usize,
                 None => return,
@@ -235,13 +235,13 @@ impl Manager {
             tokio::time::sleep(delay).await;
             // Safety: we only read, and the Manager outlives this task in practice
             let mgr = unsafe { &*(manager as *const Manager) };
-            let mut terminals = mgr.terminals.lock();
+            let mut terminals = mgr.terminals.lock().unwrap();
             if let Some(existing) = terminals.get(&name) {
                 // Only remove if it's the same terminal instance (not recreated)
-                if Arc::as_ptr(existing) as usize == term_ptr {
-                    if let Some(term) = terminals.remove(&name) {
-                        term.lock().close();
-                    }
+                if Arc::as_ptr(existing) as usize == term_ptr
+                    && let Some(term) = terminals.remove(&name)
+                {
+                    term.lock().unwrap().close();
                 }
             }
         });
@@ -249,9 +249,9 @@ impl Manager {
 
     /// Remove writer from a specific terminal and clean up if orphaned.
     pub fn remove_writer_and_cleanup(&self, term_name: &str, writer_key: &str) {
-        let terminals = self.terminals.lock();
+        let terminals = self.terminals.lock().unwrap();
         if let Some(term) = terminals.get(term_name) {
-            let mut t = term.lock();
+            let mut t = term.lock().unwrap();
             t.remove_writer(writer_key);
             // For pipe terminals with cancel and no writers, cancel immediately
             if t.writer_count() == 0 && t.terminal_type == TerminalType::Pipe && t.has_cancel() {
@@ -262,9 +262,9 @@ impl Manager {
 
     /// Remove writer from all terminals (on connection disconnect).
     pub fn remove_writer_from_all(&self, writer_key: &str) {
-        let terminals = self.terminals.lock();
+        let terminals = self.terminals.lock().unwrap();
         for term in terminals.values() {
-            let mut t = term.lock();
+            let mut t = term.lock().unwrap();
             t.remove_writer(writer_key);
             // Immediately close orphaned pipe terminals with cancel
             if t.writer_count() == 0 && t.terminal_type == TerminalType::Pipe && t.has_cancel() {
@@ -312,7 +312,7 @@ impl Manager {
         let (input_tx, mut input_rx) = mpsc::unbounded_channel::<PtyCommand>();
 
         {
-            let mut t = term.lock();
+            let mut t = term.lock().unwrap();
             t.cancel = Some(cancel.clone());
             t.pty_input_tx = Some(input_tx);
         }
@@ -329,7 +329,7 @@ impl Manager {
                 match pty_reader.read(&mut buf) {
                     Ok(0) => break,
                     Ok(n) => {
-                        term_reader.lock().write_data(&buf[..n]);
+                        term_reader.lock().unwrap().write_data(&buf[..n]);
                     }
                     Err(e) => {
                         if e.kind() != std::io::ErrorKind::Interrupted {
@@ -408,7 +408,7 @@ impl Manager {
                 match pty_reader.read(&mut buf) {
                     Ok(0) => break,
                     Ok(n) => {
-                        term_clone.lock().write_data(&buf[..n]);
+                        term_clone.lock().unwrap().write_data(&buf[..n]);
                     }
                     Err(e) => {
                         if e.kind() != std::io::ErrorKind::Interrupted {
@@ -434,9 +434,9 @@ impl Manager {
 
     /// Periodic cleanup: remove closed terminals with no writers.
     pub fn cleanup_completed(&self) {
-        let mut terminals = self.terminals.lock();
+        let mut terminals = self.terminals.lock().unwrap();
         terminals.retain(|_, term| {
-            let t = term.lock();
+            let t = term.lock().unwrap();
             !(t.is_closed() && t.writer_count() == 0)
         });
     }

@@ -276,16 +276,17 @@ describe("broadcast-advanced", () => {
         }
     });
 
-    test.skip("fullSyncAfterDeploy — deployStack is a stub, needs real compose up", async () => {
+    test("fullSyncAfterDeploy — deployStack triggers container broadcasts", async () => {
         await resetMockState();
+
+        const composeYAML = `services:\n  web:\n    image: nginx:latest\n  redis:\n    image: redis:7\n`;
 
         const client = await connectClient();
         try {
             await client.login();
             await client.waitForEvent("containers");
 
-            // Deploy would need real compose up to produce containers
-            const resp = await client.sendAndReceive("deployStack", "test-stack", {});
+            const resp = await client.sendAndReceive("deployStack", "test-stack", composeYAML, "");
             expect(resp.ok).toBe(true);
 
             const containers = await client.waitForEvent("containers");

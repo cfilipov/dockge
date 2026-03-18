@@ -39,7 +39,9 @@ pub struct Config {
     pub data_dir: String,
     pub dev: bool,
     pub log_level: String,
+    #[allow(dead_code)]
     pub no_auth: bool,
+    #[allow(dead_code)]
     pub max_procs: usize,
 }
 

@@ -4,12 +4,16 @@ pub mod protocol;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use std::sync::RwLock;
+
 use axum::extract::ws::WebSocket;
-use parking_lot::RwLock;
 use tracing::{debug, warn};
 
 use conn::{BinaryFn, Conn, ConnectFn};
 use protocol::ErrorResponse;
+
+/// Handler function type for disconnect events.
+pub type DisconnectFn = Box<dyn Fn(&Conn) + Send + Sync + 'static>;
 
 type AsyncHandlerFn = Box<
     dyn Fn(Arc<Conn>, protocol::ClientMessage) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
@@ -23,6 +27,7 @@ pub struct WsServer {
     conns: RwLock<HashMap<String, Arc<Conn>>>,
     handlers: HashMap<String, AsyncHandlerFn>,
     connect_handler: Option<ConnectFn>,
+    disconnect_handler: Option<DisconnectFn>,
     pub(crate) binary_handler: Option<BinaryFn>,
     /// Global dispatch semaphore shared across all connections for backpressure.
     pub(crate) dispatch_semaphore: Arc<tokio::sync::Semaphore>,
@@ -36,6 +41,7 @@ impl WsServer {
             conns: RwLock::new(HashMap::new()),
             handlers: HashMap::new(),
             connect_handler: None,
+            disconnect_handler: None,
             binary_handler: None,
             dispatch_semaphore: Arc::new(tokio::sync::Semaphore::new(64)),
             broadcaster,
@@ -68,6 +74,14 @@ impl WsServer {
         self.connect_handler = Some(Box::new(handler));
     }
 
+    /// Register a handler called when a connection is closed.
+    pub fn handle_disconnect<F>(&mut self, handler: F)
+    where
+        F: Fn(&Conn) + Send + Sync + 'static,
+    {
+        self.disconnect_handler = Some(Box::new(handler));
+    }
+
     /// Accept a new WebSocket connection.
     pub fn accept(self: &Arc<Self>, socket: WebSocket) {
         let broadcast_rx = self.broadcaster.subscribe();
@@ -75,7 +89,7 @@ impl WsServer {
 
         // Register connection
         {
-            let mut conns = self.conns.write();
+            let mut conns = self.conns.write().unwrap();
             conns.insert(conn.id.clone(), conn.clone());
         }
 
@@ -88,7 +102,13 @@ impl WsServer {
     /// Remove a connection from the registry.
     pub fn remove(&self, conn: &Conn) {
         debug!(conn = %conn.id, "connection removed");
-        self.conns.write().remove(&conn.id);
+
+        // Fire disconnect handler before removing
+        if let Some(ref handler) = self.disconnect_handler {
+            handler(conn);
+        }
+
+        self.conns.write().unwrap().remove(&conn.id);
     }
 
     /// Dispatch a message to the appropriate handler.
@@ -106,7 +126,7 @@ impl WsServer {
 
     /// Disconnect all connections except the given one.
     fn disconnect_others(&self, keep_conn_id: &str) {
-        let conns = self.conns.read();
+        let conns = self.conns.read().unwrap();
         for conn in conns.values() {
             if conn.id != keep_conn_id {
                 conn.close();

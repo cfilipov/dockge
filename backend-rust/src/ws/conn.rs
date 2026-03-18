@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use axum::extract::ws::{Message, WebSocket};
@@ -5,6 +6,7 @@ use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 use super::protocol::{AckMessage, ClientMessage, ServerMessage};
@@ -18,6 +20,7 @@ pub struct Conn {
     pub id: String,
     user_id: std::sync::atomic::AtomicI32,
     tx: mpsc::Sender<Message>,
+    subscriptions: std::sync::Mutex<HashMap<&'static str, CancellationToken>>,
 }
 
 impl Conn {
@@ -49,17 +52,42 @@ impl Conn {
         }
     }
 
-    /// Send a push event.
-    pub async fn send_event<T: Serialize>(&self, event: &str, data: T) {
+    /// Send a push event. Returns true if sent successfully.
+    pub async fn send_event<T: Serialize>(&self, event: &str, data: T) -> bool {
         let msg = ServerMessage {
             event: event.to_string(),
             data,
         };
         match serde_json::to_string(&msg) {
-            Ok(json) => {
-                let _ = self.send(Message::Text(json.into())).await;
+            Ok(json) => self.send(Message::Text(json.into())).await,
+            Err(e) => {
+                warn!(conn = %self.id, "failed to serialize event: {e}");
+                false
             }
-            Err(e) => warn!(conn = %self.id, "failed to serialize event: {e}"),
+        }
+    }
+
+    /// Cancel an existing subscription by key, then store a new token.
+    pub fn set_subscription(&self, key: &'static str, token: CancellationToken) {
+        let mut subs = self.subscriptions.lock().unwrap();
+        if let Some(old) = subs.insert(key, token) {
+            old.cancel();
+        }
+    }
+
+    /// Cancel and remove a subscription by key.
+    pub fn cancel_subscription(&self, key: &'static str) {
+        let mut subs = self.subscriptions.lock().unwrap();
+        if let Some(token) = subs.remove(key) {
+            token.cancel();
+        }
+    }
+
+    /// Cancel all subscriptions (called on disconnect).
+    pub fn cancel_all_subscriptions(&self) {
+        let mut subs = self.subscriptions.lock().unwrap();
+        for (_, token) in subs.drain() {
+            token.cancel();
         }
     }
 
@@ -96,6 +124,7 @@ pub fn spawn_conn(
         id: conn_id,
         user_id: std::sync::atomic::AtomicI32::new(0),
         tx,
+        subscriptions: std::sync::Mutex::new(HashMap::new()),
     });
 
     let (ws_write, ws_read) = socket.split();

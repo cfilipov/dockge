@@ -502,7 +502,6 @@ dependencies = [
  "jsonwebtoken",
  "mime_guess",
  "notify",
- "parking_lot",
  "portable-pty",
  "rand",
  "redb",

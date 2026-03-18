@@ -49,10 +49,10 @@ impl AppState {
     /// Check that the connection is authenticated.
     pub async fn check_login(&self, conn: &Conn, msg: &ClientMessage) -> i32 {
         let uid = conn.user_id();
-        if uid == 0 {
-            if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new("Not logged in")).await;
-            }
+        if uid == 0
+            && let Some(id) = msg.id
+        {
+            conn.send_ack(id, ErrorResponse::new("Not logged in")).await;
         }
         uid
     }
@@ -70,10 +70,8 @@ impl AppState {
         use redb::ReadableTable;
         let mut result = HashMap::new();
         if let Ok(iter) = table.iter() {
-            for entry in iter {
-                if let Ok((k, v)) = entry {
-                    result.insert(k.value().to_string(), v.value().to_string());
-                }
+            for (k, v) in iter.flatten() {
+                result.insert(k.value().to_string(), v.value().to_string());
             }
         }
         result

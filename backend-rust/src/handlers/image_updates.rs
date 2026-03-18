@@ -312,14 +312,14 @@ fn parse_service_images(yaml: &str) -> Vec<(String, String)> {
 fn trigger_updates_broadcast(state: &AppState) {
     let mut updates = Vec::new();
 
-    if let Ok(read_txn) = state.db.begin_read() {
-        if let Ok(table) = read_txn.open_table(db::IMAGE_UPDATES_TABLE) {
-            use redb::ReadableTable;
-            if let Ok(iter) = table.iter() {
-                for entry in iter.flatten() {
-                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(entry.1.value()) {
-                        updates.push(value);
-                    }
+    if let Ok(read_txn) = state.db.begin_read()
+        && let Ok(table) = read_txn.open_table(db::IMAGE_UPDATES_TABLE)
+    {
+        use redb::ReadableTable;
+        if let Ok(iter) = table.iter() {
+            for entry in iter.flatten() {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(entry.1.value()) {
+                    updates.push(value);
                 }
             }
         }

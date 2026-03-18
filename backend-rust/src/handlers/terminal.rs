@@ -20,7 +20,7 @@ static NEXT_SESSION_ID: AtomicU16 = AtomicU16::new(1);
 /// Allocate a session, register writer, replay buffer, return session ID.
 fn alloc_join_and_replay(
     conn: &Arc<Conn>,
-    term: &Arc<parking_lot::Mutex<crate::terminal::Terminal>>,
+    term: &Arc<std::sync::Mutex<crate::terminal::Terminal>>,
 ) -> u16 {
     let session_id = NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed);
     let session_bytes = session_id.to_be_bytes();
@@ -30,7 +30,7 @@ fn alloc_join_and_replay(
     let writer_key = format!("{}-{}", conn.id, session_id);
 
     let buffer = {
-        let mut t = term.lock();
+        let mut t = term.lock().unwrap();
         t.join_and_get_buffer(
             writer_key,
             Box::new(move |data: &[u8]| {
@@ -107,6 +107,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
                     match join_args.terminal_type.as_str() {
                         "combined" => {
+                            if join_args.stack.is_empty() {
+                                send_join_error(&conn, &msg, "stack parameter required").await;
+                                return;
+                            }
                             handle_combined(
                                 &state,
                                 &conn,
@@ -116,6 +120,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             .await;
                         }
                         "container-log" => {
+                            if join_args.stack.is_empty() || join_args.service.is_empty() {
+                                send_join_error(&conn, &msg, "stack and service parameters required").await;
+                                return;
+                            }
                             handle_container_log(
                                 &state,
                                 &conn,
@@ -127,6 +135,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             .await;
                         }
                         "container-log-by-name" => {
+                            if join_args.container.is_empty() {
+                                send_join_error(&conn, &msg, "container parameter required").await;
+                                return;
+                            }
                             handle_container_log_by_name(
                                 &state,
                                 &conn,
@@ -136,6 +148,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             .await;
                         }
                         "exec" => {
+                            if join_args.stack.is_empty() || join_args.service.is_empty() {
+                                send_join_error(&conn, &msg, "stack and service parameters required").await;
+                                return;
+                            }
                             handle_exec(
                                 &state,
                                 &conn,
@@ -147,6 +163,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             .await;
                         }
                         "exec-by-name" => {
+                            if join_args.container.is_empty() {
+                                send_join_error(&conn, &msg, "container parameter required").await;
+                                return;
+                            }
                             handle_exec_by_name(
                                 &state,
                                 &conn,
@@ -160,6 +180,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             handle_console(&state, &conn, &msg, &shell).await;
                         }
                         "compose" => {
+                            if join_args.stack.is_empty() {
+                                send_join_error(&conn, &msg, "stack parameter required").await;
+                                return;
+                            }
                             handle_compose_terminal(
                                 &state,
                                 &conn,
@@ -169,6 +193,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             .await;
                         }
                         "container-action" => {
+                            if join_args.container.is_empty() {
+                                send_join_error(&conn, &msg, "container parameter required").await;
+                                return;
+                            }
                             handle_container_action_terminal(
                                 &state,
                                 &conn,
@@ -178,12 +206,12 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             .await;
                         }
                         other => {
-                            warn!("unsupported terminal type: {other}");
+                            warn!("unknown terminal type: {other}");
                             if let Some(id) = msg.id {
                                 conn.send_ack(
                                     id,
-                                    ErrorResponse::new(&format!(
-                                        "Unsupported terminal type: {other}"
+                                    ErrorResponse::new(format!(
+                                        "unknown terminal type: {other}"
                                     )),
                                 )
                                 .await;
@@ -215,12 +243,20 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         #[serde(default)]
                         session_id: u16,
                     }
-                    if let Some(leave_args) = arg_object::<LeaveArgs>(&args, 0) {
-                        let writer_key =
-                            format!("{}-{}", conn.id, leave_args.session_id);
-                        // Remove from all terminals with this writer key
-                        state.terminal_manager.remove_writer_from_all(&writer_key);
-                    }
+                    let leave_args = match arg_object::<LeaveArgs>(&args, 0) {
+                        Some(a) => a,
+                        None => {
+                            if let Some(id) = msg.id {
+                                conn.send_ack(id, ErrorResponse::new("invalid args")).await;
+                            }
+                            return;
+                        }
+                    };
+
+                    let writer_key =
+                        format!("{}-{}", conn.id, leave_args.session_id);
+                    // Remove from all terminals with this writer key
+                    state.terminal_manager.remove_writer_from_all(&writer_key);
 
                     if let Some(id) = msg.id {
                         conn.send_ack(
@@ -239,6 +275,20 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     }
 }
 
+/// Send a terminalJoin error ack.
+async fn send_join_error(conn: &Conn, msg: &ClientMessage, err_msg: &str) {
+    if let Some(id) = msg.id {
+        conn.send_ack(
+            id,
+            serde_json::json!({
+                "ok": false,
+                "msg": err_msg,
+            }),
+        )
+        .await;
+    }
+}
+
 /// Register the binary frame handler for terminal input/resize.
 pub fn register_binary_handler(ws: &mut WsServer, state: Arc<AppState>) {
     ws.binary_handler = Some(Box::new(move |conn, session_id, payload| {
@@ -253,9 +303,9 @@ pub fn register_binary_handler(ws: &mut WsServer, state: Arc<AppState>) {
 
         // We need to find which terminal has this writer
         // For simplicity, iterate all terminals
-        let terminals = state.terminal_manager.terminals.lock();
+        let terminals = state.terminal_manager.terminals.lock().unwrap();
         for term in terminals.values() {
-            let t = term.lock();
+            let t = term.lock().unwrap();
             if t.writers.contains_key(&writer_key) {
                 match op {
                     0x00 => {
@@ -295,7 +345,7 @@ async fn handle_combined(
         .terminal_manager
         .create(&term_name, TerminalType::Pipe);
     {
-        let mut t = term.lock();
+        let mut t = term.lock().unwrap();
         t.cancel = Some(cancel.clone());
     }
 
@@ -339,7 +389,7 @@ async fn handle_container_log(
         .recreate(&term_name, TerminalType::Pipe);
     let cancel = CancellationToken::new();
     {
-        let mut t = term.lock();
+        let mut t = term.lock().unwrap();
         t.cancel = Some(cancel.clone());
     }
 
@@ -377,7 +427,7 @@ async fn handle_container_log_by_name(
         .recreate(&term_name, TerminalType::Pipe);
     let cancel = CancellationToken::new();
     {
-        let mut t = term.lock();
+        let mut t = term.lock().unwrap();
         t.cancel = Some(cancel.clone());
     }
 
@@ -414,7 +464,7 @@ async fn handle_exec(
 
     // Check if already running
     if let Some(existing) = state.terminal_manager.get(&term_name) {
-        let is_running = !existing.lock().is_closed();
+        let is_running = !existing.lock().unwrap().is_closed();
         if is_running {
             let session_id = alloc_join_and_replay(conn, &existing);
             if let Some(id) = msg.id {
@@ -454,7 +504,7 @@ async fn handle_exec(
         Err(e) => {
             warn!("failed to start exec terminal: {e}");
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(&format!("Failed to start exec: {e}")))
+                conn.send_ack(id, ErrorResponse::new(format!("Failed to start exec: {e}")))
                     .await;
             }
         }
@@ -472,7 +522,7 @@ async fn handle_exec_by_name(
 
     // Check if already running
     if let Some(existing) = state.terminal_manager.get(&term_name) {
-        let is_running = !existing.lock().is_closed();
+        let is_running = !existing.lock().unwrap().is_closed();
         if is_running {
             let session_id = alloc_join_and_replay(conn, &existing);
             if let Some(id) = msg.id {
@@ -512,7 +562,7 @@ async fn handle_exec_by_name(
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
-                    ErrorResponse::new(&format!("Failed to start exec: {e}")),
+                    ErrorResponse::new(format!("Failed to start exec: {e}")),
                 )
                 .await;
             }
@@ -530,7 +580,7 @@ async fn handle_console(
 
     // Check if already running
     if let Some(existing) = state.terminal_manager.get(term_name) {
-        let is_running = !existing.lock().is_closed();
+        let is_running = !existing.lock().unwrap().is_closed();
         if is_running {
             let session_id = alloc_join_and_replay(conn, &existing);
             if let Some(id) = msg.id {
@@ -584,7 +634,7 @@ async fn handle_console(
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
-                    ErrorResponse::new(&format!("Failed to start console: {e}")),
+                    ErrorResponse::new(format!("Failed to start console: {e}")),
                 )
                 .await;
             }
@@ -695,66 +745,11 @@ async fn stream_combined_logs_direct(
     }
 }
 
-/// Stream combined logs from all containers in a stack into a terminal buffer.
-async fn stream_combined_to_terminal(
-    docker: &bollard::Docker,
-    stack: &str,
-    term: &Arc<parking_lot::Mutex<crate::terminal::Terminal>>,
-    cancel: CancellationToken,
-) {
-    let containers = docker::container_list(docker, Some(stack))
-        .await
-        .unwrap_or_default();
-
-    if containers.is_empty() {
-        warn!(stack = %stack, "no containers found for combined logs");
-        return;
-    }
-
-    // Stream historical logs from each container
-    for container in &containers {
-        if cancel.is_cancelled() {
-            return;
-        }
-
-        let opts = docker::ContainerLogsOpts {
-            follow: false,
-            stdout: true,
-            stderr: true,
-            tail: "100".to_string(),
-            ..Default::default()
-        };
-
-        let mut stream = std::pin::pin!(docker::container_logs(docker, &container.name, opts));
-
-        loop {
-            tokio::select! {
-                () = cancel.cancelled() => return,
-                item = stream.next() => {
-                    match item {
-                        Some(Ok(output)) => {
-                            let data = output.into_bytes();
-                            if !data.is_empty() {
-                                term.lock().write_data(&data);
-                            }
-                        }
-                        Some(Err(e)) => {
-                            debug!(container = %container.name, "log stream error: {e}");
-                            break;
-                        }
-                        None => break,
-                    }
-                }
-            }
-        }
-    }
-}
-
 /// Stream logs from a single container into a terminal buffer.
 async fn stream_single_container_to_terminal(
     docker: &bollard::Docker,
     container_name: &str,
-    term: &Arc<parking_lot::Mutex<crate::terminal::Terminal>>,
+    term: &Arc<std::sync::Mutex<crate::terminal::Terminal>>,
     cancel: CancellationToken,
 ) {
     let opts = docker::ContainerLogsOpts {
@@ -775,7 +770,7 @@ async fn stream_single_container_to_terminal(
                     Some(Ok(output)) => {
                         let data = output.into_bytes();
                         if !data.is_empty() {
-                            term.lock().write_data(&data);
+                            term.lock().unwrap().write_data(&data);
                         }
                     }
                     Some(Err(e)) => {

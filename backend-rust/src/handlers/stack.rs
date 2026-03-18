@@ -50,18 +50,18 @@ fn validate_stack_name(name: &str) -> Result<(), &'static str> {
 
 /// Per-stack named mutex for write serialization.
 pub struct NamedMutex {
-    locks: parking_lot::Mutex<std::collections::HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+    locks: std::sync::Mutex<std::collections::HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
 }
 
 impl NamedMutex {
     pub fn new() -> Self {
         Self {
-            locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
+            locks: std::sync::Mutex::new(std::collections::HashMap::new()),
         }
     }
 
     pub fn get(&self, name: &str) -> Arc<tokio::sync::Mutex<()>> {
-        let mut locks = self.locks.lock();
+        let mut locks = self.locks.lock().unwrap();
         locks
             .entry(name.to_string())
             .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
@@ -262,7 +262,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         if let Some(id) = msg.id {
                             conn.send_ack(
                                 id,
-                                ErrorResponse::new(&e.to_string()),
+                                ErrorResponse::new(e.to_string()),
                             )
                             .await;
                         }
@@ -339,7 +339,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         if let Some(id) = msg.id {
                             conn.send_ack(
                                 id,
-                                ErrorResponse::new(&e.to_string()),
+                                ErrorResponse::new(e.to_string()),
                             )
                             .await;
                         }
@@ -432,12 +432,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     )
                     .await;
 
-                    if opts.delete_stack_files {
-                        if let Err(e) =
-                            std::fs::remove_dir_all(&stack_dir)
-                        {
-                            error!(stack = %stack_name, "delete stack files: {e}");
-                        }
+                    if opts.delete_stack_files
+                        && let Err(e) = std::fs::remove_dir_all(&stack_dir)
+                    {
+                        error!(stack = %stack_name, "delete stack files: {e}");
                     }
                     info!(stack = %stack_name, "stack deleted");
                 }
