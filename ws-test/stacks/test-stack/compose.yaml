@@ -1,0 +1,5 @@
+services:
+  web:
+    image: nginx:latest
+  redis:
+    image: redis:7

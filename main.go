@@ -247,6 +247,32 @@ func main() {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("ok"))
 		})
+
+		// Dev mode: reset DB state (users, rate limiter) to pristine dev defaults.
+		// Separate from mock/reset which only resets Docker state.
+		mux.HandleFunc("POST /api/dev/reset-db", func(w http.ResponseWriter, _ *http.Request) {
+			// Wipe all users and re-create admin with default password
+			if err := users.DeleteAll(); err != nil {
+				slog.Error("dev reset-db: delete users", "err", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if _, err := users.Create("admin", "testpass123"); err != nil {
+				slog.Error("dev reset-db: create admin", "err", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			app.NeedSetup = false
+
+			// Clear rate limiter state
+			if app.LoginLimiter != nil {
+				app.LoginLimiter.ResetAll()
+			}
+
+			slog.Info("dev DB state reset")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		})
 	}
 
 	// No-auth mode: auto-authenticate every connection as user 1

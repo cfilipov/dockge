@@ -17,6 +17,7 @@ tasks:
       - cd e2e && pnpm install
       - cd e2e && npx playwright install chromium
       - cd mock-docker && npm install
+      - cd ws-test && pnpm install
 
   build:
     desc: Build everything
@@ -188,7 +189,7 @@ tasks:
 
   test:
     desc: Run all tests
-    deps: [test-go, test-e2e]
+    deps: [test-go, test-ws, test-e2e]
 
   test-go:
     desc: Run Go tests with race detector
@@ -196,6 +197,17 @@ tasks:
     cmds:
       - go test -race -count=1 . -args -mock-daemon=./bin/mock-daemon -mock-docker=./bin/docker
       - go test -race -count=1 ./internal/...
+
+  setup-ws-test:
+    desc: Install ws-test dependencies
+    dir: ws-test
+    cmd: pnpm install
+
+  test-ws:
+    desc: Run WebSocket protocol tests
+    deps: [build-go, build-mock-daemon, build-mock-docker]
+    dir: ws-test
+    cmd: pnpm test
 
   test-e2e:
     desc: Run Playwright E2E tests

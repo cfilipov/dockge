@@ -152,6 +152,26 @@ func (s *UserStore) Create(username, password string) (*User, error) {
     return u, nil
 }
 
+// DeleteAll removes all users and resets the ID sequence.
+// Used by dev-mode reset endpoints; not available in production.
+func (s *UserStore) DeleteAll() error {
+    return s.db.Update(func(tx *bolt.Tx) error {
+        if err := tx.DeleteBucket(db.BucketUsers); err != nil {
+            return err
+        }
+        if err := tx.DeleteBucket(db.BucketUsersByID); err != nil {
+            return err
+        }
+        if _, err := tx.CreateBucket(db.BucketUsers); err != nil {
+            return err
+        }
+        if _, err := tx.CreateBucket(db.BucketUsersByID); err != nil {
+            return err
+        }
+        return nil
+    })
+}
+
 // ChangePassword updates the user's password.
 func (s *UserStore) ChangePassword(userID int, newPassword string) error {
     hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcryptCost)

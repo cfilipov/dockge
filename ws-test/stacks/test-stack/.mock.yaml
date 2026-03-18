@@ -1,0 +1,6 @@
+deployed: true
+services:
+  web:
+    state: running
+  redis:
+    state: running

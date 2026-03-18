@@ -60,6 +60,13 @@ func (rl *LoginRateLimiter) Reset(key string) {
 	rl.mu.Unlock()
 }
 
+// ResetAll clears all rate limit state. Used by dev-mode reset endpoints.
+func (rl *LoginRateLimiter) ResetAll() {
+	rl.mu.Lock()
+	rl.attempts = make(map[string][]time.Time)
+	rl.mu.Unlock()
+}
+
 // cleanup removes stale entries. Called periodically to prevent memory growth.
 func (rl *LoginRateLimiter) cleanup() {
 	rl.mu.Lock()

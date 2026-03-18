@@ -1,0 +1,4 @@
+deployed: true
+services:
+  app:
+    state: running
