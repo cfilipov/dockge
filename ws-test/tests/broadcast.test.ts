@@ -60,15 +60,11 @@ describe("broadcast", () => {
             const downResp = await client1.sendAndReceive("downStack", "test-stack");
             expect(downResp.ok).toBe(true);
 
-            // Wait for post-down broadcast where container is null or absent
+            // Wait for post-down broadcast where container is explicitly null
             for (let i = 0; i < 10; i++) {
                 const postDown = await client2.waitForEvent("containers");
-                if (!(foundKey in postDown)) {
-                    // Container absent — acceptable
-                    return;
-                }
                 if (postDown[foundKey] === null) {
-                    // Container explicitly null — expected
+                    // Container explicitly null — required
                     return;
                 }
                 // Container still present (e.g. state transitioning), keep reading

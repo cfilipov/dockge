@@ -237,6 +237,27 @@ export class TestClient {
         });
     }
 
+    async tryWaitForEvent(eventName: string, timeout: number): Promise<Record<string, unknown> | null> {
+        try {
+            return await this.waitForEvent(eventName, timeout);
+        } catch {
+            return null;
+        }
+    }
+
+    async collectEvents(eventName: string, durationMs: number): Promise<Record<string, unknown>[]> {
+        const results: Record<string, unknown>[] = [];
+        const deadline = Date.now() + durationMs;
+        while (Date.now() < deadline) {
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) break;
+            const evt = await this.tryWaitForEvent(eventName, remaining);
+            if (evt === null) break;
+            results.push(evt);
+        }
+        return results;
+    }
+
     close(): void {
         if (!this.closed) {
             this.ws.close();
