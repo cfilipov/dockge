@@ -92,7 +92,7 @@ fn is_stack_managed(stacks_dir: &str, stack_name: &str) -> bool {
 }
 
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
-    // Register stack lifecycle handlers
+    // Register stack lifecycle handlers (loop — keep on ws.handle)
     for (event, action) in &[
         ("startStack", "start"),
         ("stopStack", "stop"),
@@ -159,403 +159,349 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     }
 
     // getStack
-    {
-        let state = state.clone();
-        ws.handle(
-            "getStack",
-            move |conn: Arc<Conn>, msg: ClientMessage| {
-                let state = state.clone();
-                async move {
-                    let uid = state.check_login(&conn, &msg).await;
-                    if uid == 0 {
-                        return;
+    ws.handle_with_state("getStack", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
+
+        let args = parse_args(&msg);
+        let stack_name = arg_string(&args, 0);
+
+        if let Err(e) = validate_stack_name(&stack_name) {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new(e)).await;
+            }
+            return;
+        }
+
+        let stacks_dir = &state.config.stacks_dir;
+        let compose_path =
+            format!("{}/{}/compose.yaml", stacks_dir, stack_name);
+        let compose_yaml =
+            std::fs::read_to_string(&compose_path).unwrap_or_default();
+        let env_path = format!("{}/{}/.env", stacks_dir, stack_name);
+        let compose_env =
+            std::fs::read_to_string(&env_path).unwrap_or_default();
+
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                serde_json::json!({
+                    "ok": true,
+                    "stack": {
+                        "name": stack_name,
+                        "composeYAML": compose_yaml,
+                        "composeENV": compose_env,
+                        "isManagedByDockge": true,
                     }
-
-                    let args = parse_args(&msg);
-                    let stack_name = arg_string(&args, 0);
-
-                    if let Err(e) = validate_stack_name(&stack_name) {
-                        if let Some(id) = msg.id {
-                            conn.send_ack(id, ErrorResponse::new(e)).await;
-                        }
-                        return;
-                    }
-
-                    let stacks_dir = &state.config.stacks_dir;
-                    let compose_path =
-                        format!("{}/{}/compose.yaml", stacks_dir, stack_name);
-                    let compose_yaml =
-                        std::fs::read_to_string(&compose_path).unwrap_or_default();
-                    let env_path = format!("{}/{}/.env", stacks_dir, stack_name);
-                    let compose_env =
-                        std::fs::read_to_string(&env_path).unwrap_or_default();
-
-                    if let Some(id) = msg.id {
-                        conn.send_ack(
-                            id,
-                            serde_json::json!({
-                                "ok": true,
-                                "stack": {
-                                    "name": stack_name,
-                                    "composeYAML": compose_yaml,
-                                    "composeENV": compose_env,
-                                    "isManagedByDockge": true,
-                                }
-                            }),
-                        )
-                        .await;
-                    }
-                }
-            },
-        );
-    }
+                }),
+            )
+            .await;
+        }
+    });
 
     // saveStack
-    {
-        let state = state.clone();
-        ws.handle(
-            "saveStack",
-            move |conn: Arc<Conn>, msg: ClientMessage| {
-                let state = state.clone();
-                async move {
-                    let uid = state.check_login(&conn, &msg).await;
-                    if uid == 0 {
-                        return;
-                    }
-                    let args = parse_args(&msg);
-                    let stack_name = arg_string(&args, 0);
-                    let compose_yaml = arg_string(&args, 1);
-                    let compose_env = arg_string(&args, 2);
+    ws.handle_with_state("saveStack", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
+        let args = parse_args(&msg);
+        let stack_name = arg_string(&args, 0);
+        let compose_yaml = arg_string(&args, 1);
+        let compose_env = arg_string(&args, 2);
 
-                    if stack_name.is_empty() || compose_yaml.is_empty() {
-                        if let Some(id) = msg.id {
-                            conn.send_ack(
-                                id,
-                                ErrorResponse::new(
-                                    "Stack name and compose YAML required",
-                                ),
-                            )
-                            .await;
-                        }
-                        return;
-                    }
-                    if let Err(e) = validate_stack_name(&stack_name) {
-                        if let Some(id) = msg.id {
-                            conn.send_ack(id, ErrorResponse::new(e)).await;
-                        }
-                        return;
-                    }
+        if stack_name.is_empty() || compose_yaml.is_empty() {
+            if let Some(id) = msg.id {
+                conn.send_ack(
+                    id,
+                    ErrorResponse::new(
+                        "Stack name and compose YAML required",
+                    ),
+                )
+                .await;
+            }
+            return;
+        }
+        if let Err(e) = validate_stack_name(&stack_name) {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new(e)).await;
+            }
+            return;
+        }
 
-                    let lock = state.stack_locks.get(&stack_name);
-                    let _guard = lock.lock().await;
+        let lock = state.stack_locks.get(&stack_name);
+        let _guard = lock.lock().await;
 
-                    let stack_dir = format!(
-                        "{}/{}",
-                        state.config.stacks_dir, stack_name
-                    );
-                    if let Err(e) = save_stack_to_disk(
-                        &stack_dir,
-                        &compose_yaml,
-                        &compose_env,
-                    ) {
-                        error!(stack = %stack_name, "save stack: {e}");
-                        if let Some(id) = msg.id {
-                            conn.send_ack(
-                                id,
-                                ErrorResponse::new(e.to_string()),
-                            )
-                            .await;
-                        }
-                        return;
-                    }
-
-                    if let Some(id) = msg.id {
-                        conn.send_ack(
-                            id,
-                            OkResponse {
-                                ok: true,
-                                msg: Some("Saved".into()),
-                                token: None,
-                            },
-                        )
-                        .await;
-                    }
-                    info!(stack = %stack_name, "stack saved");
-                }
-            },
+        let stack_dir = format!(
+            "{}/{}",
+            state.config.stacks_dir, stack_name
         );
-    }
+        if let Err(e) = save_stack_to_disk(
+            &stack_dir,
+            &compose_yaml,
+            &compose_env,
+        ) {
+            error!(stack = %stack_name, "save stack: {e}");
+            if let Some(id) = msg.id {
+                conn.send_ack(
+                    id,
+                    ErrorResponse::new(e.to_string()),
+                )
+                .await;
+            }
+            return;
+        }
+
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                OkResponse {
+                    ok: true,
+                    msg: Some("Saved".into()),
+                    token: None,
+                },
+            )
+            .await;
+        }
+        info!(stack = %stack_name, "stack saved");
+    });
 
     // deployStack
-    {
-        let state = state.clone();
-        ws.handle(
-            "deployStack",
-            move |conn: Arc<Conn>, msg: ClientMessage| {
-                let state = state.clone();
-                async move {
-                    let uid = state.check_login(&conn, &msg).await;
-                    if uid == 0 {
-                        return;
-                    }
-                    let args = parse_args(&msg);
-                    let stack_name = arg_string(&args, 0);
-                    let compose_yaml = arg_string(&args, 1);
-                    let compose_env = arg_string(&args, 2);
+    ws.handle_with_state("deployStack", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
+        let args = parse_args(&msg);
+        let stack_name = arg_string(&args, 0);
+        let compose_yaml = arg_string(&args, 1);
+        let compose_env = arg_string(&args, 2);
 
-                    if stack_name.is_empty() || compose_yaml.is_empty() {
-                        if let Some(id) = msg.id {
-                            conn.send_ack(
-                                id,
-                                ErrorResponse::new(
-                                    "Stack name and compose YAML required",
-                                ),
-                            )
-                            .await;
-                        }
-                        return;
-                    }
-                    if let Err(e) = validate_stack_name(&stack_name) {
-                        if let Some(id) = msg.id {
-                            conn.send_ack(id, ErrorResponse::new(e)).await;
-                        }
-                        return;
-                    }
+        if stack_name.is_empty() || compose_yaml.is_empty() {
+            if let Some(id) = msg.id {
+                conn.send_ack(
+                    id,
+                    ErrorResponse::new(
+                        "Stack name and compose YAML required",
+                    ),
+                )
+                .await;
+            }
+            return;
+        }
+        if let Err(e) = validate_stack_name(&stack_name) {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new(e)).await;
+            }
+            return;
+        }
 
-                    let lock = state.stack_locks.get(&stack_name);
-                    let _guard = lock.lock().await;
+        let lock = state.stack_locks.get(&stack_name);
+        let _guard = lock.lock().await;
 
-                    let stacks_dir = state.config.stacks_dir.clone();
-                    let stack_dir =
-                        format!("{}/{}", stacks_dir, stack_name);
+        let stacks_dir = state.config.stacks_dir.clone();
+        let stack_dir =
+            format!("{}/{}", stacks_dir, stack_name);
 
-                    // Save compose files to disk
-                    if let Err(e) = save_stack_to_disk(
-                        &stack_dir,
-                        &compose_yaml,
-                        &compose_env,
-                    ) {
-                        error!(stack = %stack_name, "deploy save: {e}");
-                        if let Some(id) = msg.id {
-                            conn.send_ack(
-                                id,
-                                ErrorResponse::new(e.to_string()),
-                            )
-                            .await;
-                        }
-                        return;
-                    }
+        // Save compose files to disk
+        if let Err(e) = save_stack_to_disk(
+            &stack_dir,
+            &compose_yaml,
+            &compose_env,
+        ) {
+            error!(stack = %stack_name, "deploy save: {e}");
+            if let Some(id) = msg.id {
+                conn.send_ack(
+                    id,
+                    ErrorResponse::new(e.to_string()),
+                )
+                .await;
+            }
+            return;
+        }
 
-                    // Deploy: docker compose up -d --remove-orphans
-                    let result = run_compose_action_with_args(
-                        &stack_dir,
-                        &["up", "-d", "--remove-orphans"],
-                    )
-                    .await;
-                    match &result {
-                        Ok(_) => info!(stack = %stack_name, "deploy completed"),
-                        Err(e) => {
-                            warn!(stack = %stack_name, "deploy failed: {e}")
-                        }
-                    }
+        // Deploy: docker compose up -d --remove-orphans
+        let result = run_compose_action_with_args(
+            &stack_dir,
+            &["up", "-d", "--remove-orphans"],
+        )
+        .await;
+        match &result {
+            Ok(_) => info!(stack = %stack_name, "deploy completed"),
+            Err(e) => {
+                warn!(stack = %stack_name, "deploy failed: {e}")
+            }
+        }
 
-                    if let Some(id) = msg.id {
-                        conn.send_ack(
-                            id,
-                            OkResponse {
-                                ok: true,
-                                msg: Some("Deployed".into()),
-                                token: None,
-                            },
-                        )
-                        .await;
-                    }
-                }
-            },
-        );
-    }
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                OkResponse {
+                    ok: true,
+                    msg: Some("Deployed".into()),
+                    token: None,
+                },
+            )
+            .await;
+        }
+    });
 
     // deleteStack
-    {
-        let state = state.clone();
-        ws.handle(
-            "deleteStack",
-            move |conn: Arc<Conn>, msg: ClientMessage| {
-                let state = state.clone();
-                async move {
-                    let uid = state.check_login(&conn, &msg).await;
-                    if uid == 0 {
-                        return;
-                    }
-                    let args = parse_args(&msg);
-                    let stack_name = arg_string(&args, 0);
+    ws.handle_with_state("deleteStack", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
+        let args = parse_args(&msg);
+        let stack_name = arg_string(&args, 0);
 
-                    #[derive(Deserialize, Default)]
-                    #[serde(rename_all = "camelCase")]
-                    struct DeleteOpts {
-                        #[serde(default)]
-                        delete_stack_files: bool,
-                    }
-                    let opts: DeleteOpts =
-                        arg_object(&args, 1).unwrap_or_default();
+        #[derive(Deserialize, Default)]
+        #[serde(rename_all = "camelCase")]
+        struct DeleteOpts {
+            #[serde(default)]
+            delete_stack_files: bool,
+        }
+        let opts: DeleteOpts =
+            arg_object(&args, 1).unwrap_or_default();
 
-                    if let Err(e) = validate_stack_name(&stack_name) {
-                        if let Some(id) = msg.id {
-                            conn.send_ack(id, ErrorResponse::new(e)).await;
-                        }
-                        return;
-                    }
+        if let Err(e) = validate_stack_name(&stack_name) {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new(e)).await;
+            }
+            return;
+        }
 
-                    // Ack immediately
-                    if let Some(id) = msg.id {
-                        conn.send_ack(
-                            id,
-                            OkResponse {
-                                ok: true,
-                                msg: None,
-                                token: None,
-                            },
-                        )
-                        .await;
-                    }
+        // Ack immediately
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                OkResponse {
+                    ok: true,
+                    msg: None,
+                    token: None,
+                },
+            )
+            .await;
+        }
 
-                    // Background: down + optionally delete files
-                    let stacks_dir = state.config.stacks_dir.clone();
-                    let stack_dir =
-                        format!("{}/{}", stacks_dir, stack_name);
-                    let lock = state.stack_locks.get(&stack_name);
-                    let _guard = lock.lock().await;
+        // Background: down + optionally delete files
+        let stacks_dir = state.config.stacks_dir.clone();
+        let stack_dir =
+            format!("{}/{}", stacks_dir, stack_name);
+        let lock = state.stack_locks.get(&stack_name);
+        let _guard = lock.lock().await;
 
-                    let _ = run_compose_action_with_args(
-                        &stack_dir,
-                        &["down", "--remove-orphans"],
-                    )
-                    .await;
+        let _ = run_compose_action_with_args(
+            &stack_dir,
+            &["down", "--remove-orphans"],
+        )
+        .await;
 
-                    if opts.delete_stack_files
-                        && let Err(e) = std::fs::remove_dir_all(&stack_dir)
-                    {
-                        error!(stack = %stack_name, "delete stack files: {e}");
-                    }
-                    info!(stack = %stack_name, "stack deleted");
-                }
-            },
-        );
-    }
+        if opts.delete_stack_files
+            && let Err(e) = std::fs::remove_dir_all(&stack_dir)
+        {
+            error!(stack = %stack_name, "delete stack files: {e}");
+        }
+        info!(stack = %stack_name, "stack deleted");
+    });
 
     // forceDeleteStack
-    {
-        let state = state.clone();
-        ws.handle(
-            "forceDeleteStack",
-            move |conn: Arc<Conn>, msg: ClientMessage| {
-                let state = state.clone();
-                async move {
-                    let uid = state.check_login(&conn, &msg).await;
-                    if uid == 0 {
-                        return;
-                    }
-                    let args = parse_args(&msg);
-                    let stack_name = arg_string(&args, 0);
-                    if let Err(e) = validate_stack_name(&stack_name) {
-                        if let Some(id) = msg.id {
-                            conn.send_ack(id, ErrorResponse::new(e)).await;
-                        }
-                        return;
-                    }
+    ws.handle_with_state("forceDeleteStack", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
+        let args = parse_args(&msg);
+        let stack_name = arg_string(&args, 0);
+        if let Err(e) = validate_stack_name(&stack_name) {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new(e)).await;
+            }
+            return;
+        }
 
-                    // Ack immediately
-                    if let Some(id) = msg.id {
-                        conn.send_ack(
-                            id,
-                            OkResponse {
-                                ok: true,
-                                msg: None,
-                                token: None,
-                            },
-                        )
-                        .await;
-                    }
+        // Ack immediately
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                OkResponse {
+                    ok: true,
+                    msg: None,
+                    token: None,
+                },
+            )
+            .await;
+        }
 
-                    // Background: down -v + delete files
-                    let stacks_dir = state.config.stacks_dir.clone();
-                    let stack_dir =
-                        format!("{}/{}", stacks_dir, stack_name);
-                    let lock = state.stack_locks.get(&stack_name);
-                    let _guard = lock.lock().await;
+        // Background: down -v + delete files
+        let stacks_dir = state.config.stacks_dir.clone();
+        let stack_dir =
+            format!("{}/{}", stacks_dir, stack_name);
+        let lock = state.stack_locks.get(&stack_name);
+        let _guard = lock.lock().await;
 
-                    let _ = run_compose_action_with_args(
-                        &stack_dir,
-                        &["down", "-v", "--remove-orphans"],
-                    )
-                    .await;
+        let _ = run_compose_action_with_args(
+            &stack_dir,
+            &["down", "-v", "--remove-orphans"],
+        )
+        .await;
 
-                    if let Err(e) = std::fs::remove_dir_all(&stack_dir) {
-                        error!(stack = %stack_name, "force delete stack: {e}");
-                    }
-                    info!(stack = %stack_name, "stack force deleted");
-                }
-            },
-        );
-    }
+        if let Err(e) = std::fs::remove_dir_all(&stack_dir) {
+            error!(stack = %stack_name, "force delete stack: {e}");
+        }
+        info!(stack = %stack_name, "stack force deleted");
+    });
 
     // updateStack
-    {
-        let state = state.clone();
-        ws.handle(
-            "updateStack",
-            move |conn: Arc<Conn>, msg: ClientMessage| {
-                let state = state.clone();
-                async move {
-                    let uid = state.check_login(&conn, &msg).await;
-                    if uid == 0 {
-                        return;
-                    }
-                    let args = parse_args(&msg);
-                    let stack_name = arg_string(&args, 0);
-                    if let Err(e) = validate_stack_name(&stack_name) {
-                        if let Some(id) = msg.id {
-                            conn.send_ack(id, ErrorResponse::new(e)).await;
-                        }
-                        return;
-                    }
+    ws.handle_with_state("updateStack", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
+        let args = parse_args(&msg);
+        let stack_name = arg_string(&args, 0);
+        if let Err(e) = validate_stack_name(&stack_name) {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new(e)).await;
+            }
+            return;
+        }
 
-                    // Ack immediately
-                    if let Some(id) = msg.id {
-                        conn.send_ack(
-                            id,
-                            OkResponse {
-                                ok: true,
-                                msg: None,
-                                token: None,
-                            },
-                        )
-                        .await;
-                    }
+        // Ack immediately
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                OkResponse {
+                    ok: true,
+                    msg: None,
+                    token: None,
+                },
+            )
+            .await;
+        }
 
-                    // Background: pull + up
-                    let stacks_dir = state.config.stacks_dir.clone();
-                    let stack_dir =
-                        format!("{}/{}", stacks_dir, stack_name);
-                    let lock = state.stack_locks.get(&stack_name);
-                    let _guard = lock.lock().await;
+        // Background: pull + up
+        let stacks_dir = state.config.stacks_dir.clone();
+        let stack_dir =
+            format!("{}/{}", stacks_dir, stack_name);
+        let lock = state.stack_locks.get(&stack_name);
+        let _guard = lock.lock().await;
 
-                    let _ = run_compose_action_with_args(
-                        &stack_dir,
-                        &["pull"],
-                    )
-                    .await;
-                    let _ = run_compose_action_with_args(
-                        &stack_dir,
-                        &["up", "-d", "--remove-orphans"],
-                    )
-                    .await;
+        let _ = run_compose_action_with_args(
+            &stack_dir,
+            &["pull"],
+        )
+        .await;
+        let _ = run_compose_action_with_args(
+            &stack_dir,
+            &["up", "-d", "--remove-orphans"],
+        )
+        .await;
 
-                    info!(stack = %stack_name, "stack updated");
-                }
-            },
-        );
-    }
+        info!(stack = %stack_name, "stack updated");
+    });
 }
 
 /// Save compose YAML and .env to disk.

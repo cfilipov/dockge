@@ -66,6 +66,32 @@ impl WsServer {
         );
     }
 
+    /// Register a handler that receives shared state, connection, and message.
+    ///
+    /// Eliminates the double-clone boilerplate of `handle()` for stateful handlers:
+    /// ```ignore
+    /// // Before:
+    /// { let state = state.clone(); ws.handle("ev", move |conn, msg| { let state = state.clone(); async move { ... } }); }
+    /// // After:
+    /// ws.handle_with_state("ev", state.clone(), |state, conn, msg| async move { ... });
+    /// ```
+    pub fn handle_with_state<S, F, Fut>(
+        &mut self,
+        event: &str,
+        state: Arc<S>,
+        handler: F,
+    )
+    where
+        S: Send + Sync + 'static,
+        F: Fn(Arc<S>, Arc<Conn>, protocol::ClientMessage) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
+        self.handle(event, move |conn, msg| {
+            let state = state.clone();
+            handler(state, conn, msg)
+        });
+    }
+
     /// Register a handler called when a new connection is established.
     pub fn handle_connect<F>(&mut self, handler: F)
     where

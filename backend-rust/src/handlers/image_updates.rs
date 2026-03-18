@@ -10,8 +10,6 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
 use crate::db;
-use crate::ws::conn::Conn;
-use crate::ws::protocol::ClientMessage;
 use crate::ws::WsServer;
 
 use super::{arg_string, parse_args, AppState};
@@ -21,39 +19,32 @@ const IMAGE_CHECK_CONCURRENCY: usize = 3;
 const PER_IMAGE_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
-    let state_clone = state.clone();
-    ws.handle(
-        "checkImageUpdates",
-        move |conn: Arc<Conn>, msg: ClientMessage| {
-            let state = state_clone.clone();
-            async move {
-                let uid = state.check_login(&conn, &msg).await;
-                if uid == 0 {
-                    return;
-                }
+    ws.handle_with_state("checkImageUpdates", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
 
-                let args = parse_args(&msg);
-                let stack_name = arg_string(&args, 0);
+        let args = parse_args(&msg);
+        let stack_name = arg_string(&args, 0);
 
-                // Ack immediately
-                if let Some(id) = msg.id {
-                    conn.send_ack(
-                        id,
-                        serde_json::json!({"ok": true, "updated": true}),
-                    )
-                    .await;
-                }
+        // Ack immediately
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                serde_json::json!({"ok": true, "updated": true}),
+            )
+            .await;
+        }
 
-                if !stack_name.is_empty() {
-                    let state = state.clone();
-                    tokio::spawn(async move {
-                        check_image_updates_for_stack(&state, &stack_name).await;
-                        trigger_updates_broadcast(&state);
-                    });
-                }
-            }
-        },
-    );
+        if !stack_name.is_empty() {
+            let state = state.clone();
+            tokio::spawn(async move {
+                check_image_updates_for_stack(&state, &stack_name).await;
+                trigger_updates_broadcast(&state);
+            });
+        }
+    });
 }
 
 /// Spawn the background image update checker.

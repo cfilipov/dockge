@@ -16,101 +16,65 @@ use super::{parse_args, arg_string, arg_object, AppState};
 
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // login
-    {
-        let state = state.clone();
-        ws.handle("login", move |conn: Arc<Conn>, msg: ClientMessage| {
-            let state = state.clone();
-            async move {
-                handle_login(&state, &conn, &msg).await;
-            }
-        });
-    }
+    ws.handle_with_state("login", state.clone(), |state, conn, msg| async move {
+        handle_login(&state, &conn, &msg).await;
+    });
 
     // loginByToken
-    {
-        let state = state.clone();
-        ws.handle("loginByToken", move |conn: Arc<Conn>, msg: ClientMessage| {
-            let state = state.clone();
-            async move {
-                handle_login_by_token(&state, &conn, &msg).await;
-            }
-        });
-    }
+    ws.handle_with_state("loginByToken", state.clone(), |state, conn, msg| async move {
+        handle_login_by_token(&state, &conn, &msg).await;
+    });
 
-    // logout
-    {
-        ws.handle("logout", move |conn: Arc<Conn>, msg: ClientMessage| {
-            async move {
-                conn.set_user(0);
-                if let Some(id) = msg.id {
-                    conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
-                }
+    // logout (stateless — no state needed)
+    ws.handle("logout", move |conn: Arc<Conn>, msg: ClientMessage| {
+        async move {
+            conn.set_user(0);
+            if let Some(id) = msg.id {
+                conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
             }
-        });
-    }
+        }
+    });
 
     // setup
-    {
-        let state = state.clone();
-        ws.handle("setup", move |conn: Arc<Conn>, msg: ClientMessage| {
-            let state = state.clone();
-            async move {
-                handle_setup(&state, &conn, &msg).await;
-            }
-        });
-    }
+    ws.handle_with_state("setup", state.clone(), |state, conn, msg| async move {
+        handle_setup(&state, &conn, &msg).await;
+    });
 
     // changePassword
-    {
-        let state = state.clone();
-        ws.handle("changePassword", move |conn: Arc<Conn>, msg: ClientMessage| {
-            let state = state.clone();
-            async move {
-                handle_change_password(&state, &conn, &msg).await;
-            }
-        });
-    }
+    ws.handle_with_state("changePassword", state.clone(), |state, conn, msg| async move {
+        handle_change_password(&state, &conn, &msg).await;
+    });
 
     // needSetup
-    {
-        let state = state.clone();
-        ws.handle("needSetup", move |conn: Arc<Conn>, msg: ClientMessage| {
-            let state = state.clone();
-            async move {
-                if let Some(id) = msg.id {
-                    conn.send_ack(id, serde_json::json!({
-                        "ok": true,
-                        "needSetup": state.need_setup.load(Ordering::Relaxed),
-                    })).await;
-                }
-            }
-        });
-    }
+    ws.handle_with_state("needSetup", state.clone(), |state, conn, msg| async move {
+        if let Some(id) = msg.id {
+            conn.send_ack(id, serde_json::json!({
+                "ok": true,
+                "needSetup": state.need_setup.load(Ordering::Relaxed),
+            })).await;
+        }
+    });
 
-    // getTurnstileSiteKey
-    {
-        ws.handle("getTurnstileSiteKey", move |conn: Arc<Conn>, msg: ClientMessage| {
-            async move {
-                if let Some(id) = msg.id {
-                    conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
-                }
+    // getTurnstileSiteKey (stateless stub)
+    ws.handle("getTurnstileSiteKey", move |conn: Arc<Conn>, msg: ClientMessage| {
+        async move {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
             }
-        });
-    }
+        }
+    });
 
-    // twoFAStatus
-    {
-        ws.handle("twoFAStatus", move |conn: Arc<Conn>, msg: ClientMessage| {
-            async move {
-                if let Some(id) = msg.id {
-                    conn.send_ack(id, serde_json::json!({
-                        "ok": true,
-                        "status": false,
-                    })).await;
-                }
+    // twoFAStatus (stateless stub)
+    ws.handle("twoFAStatus", move |conn: Arc<Conn>, msg: ClientMessage| {
+        async move {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, serde_json::json!({
+                    "ok": true,
+                    "status": false,
+                })).await;
             }
-        });
-    }
+        }
+    });
 
     // 2FA stubs
     for event in &["prepare2FA", "save2FA", "disable2FA", "verifyToken"] {

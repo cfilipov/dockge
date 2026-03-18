@@ -234,15 +234,11 @@ fn register_stub_handlers(ws: &mut WsServer, state: Arc<AppState>) {
     for event in &[
         "monitorImportantHeartbeatListCount", "monitorImportantHeartbeatListPaged",
     ] {
-        let state = state.clone();
-        ws.handle(event, move |conn: Arc<ws::conn::Conn>, msg: ws::protocol::ClientMessage| {
-            let state = state.clone();
-            async move {
-                let uid = state.check_login(&conn, &msg).await;
-                if uid == 0 { return; }
-                if let Some(id) = msg.id {
-                    conn.send_ack(id, serde_json::json!({"ok": true})).await;
-                }
+        ws.handle_with_state(event, state.clone(), |state, conn, msg| async move {
+            let uid = state.check_login(&conn, &msg).await;
+            if uid == 0 { return; }
+            if let Some(id) = msg.id {
+                conn.send_ack(id, serde_json::json!({"ok": true})).await;
             }
         });
     }

@@ -62,218 +62,200 @@ async fn alloc_join_and_replay(
 
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // terminalJoin
-    {
-        let state = state.clone();
-        ws.handle(
-            "terminalJoin",
-            move |conn: Arc<Conn>, msg: ClientMessage| {
-                let state = state.clone();
-                async move {
-                    let uid = state.check_login(&conn, &msg).await;
-                    if uid == 0 {
-                        return;
-                    }
+    ws.handle_with_state("terminalJoin", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
 
-                    let args = parse_args(&msg);
-                    #[derive(Deserialize)]
-                    struct JoinArgs {
-                        #[serde(rename = "type")]
-                        terminal_type: String,
-                        #[serde(default)]
-                        stack: String,
-                        #[serde(default)]
-                        service: String,
-                        #[serde(default)]
-                        container: String,
-                        #[serde(default)]
-                        shell: String,
-                    }
+        let args = parse_args(&msg);
+        #[derive(Deserialize)]
+        struct JoinArgs {
+            #[serde(rename = "type")]
+            terminal_type: String,
+            #[serde(default)]
+            stack: String,
+            #[serde(default)]
+            service: String,
+            #[serde(default)]
+            container: String,
+            #[serde(default)]
+            shell: String,
+        }
 
-                    let join_args: JoinArgs = match arg_object(&args, 0) {
-                        Some(a) => a,
-                        None => {
-                            if let Some(id) = msg.id {
-                                conn.send_ack(id, ErrorResponse::new("Invalid arguments"))
-                                    .await;
-                            }
-                            return;
-                        }
-                    };
-
-                    let shell = if join_args.shell.is_empty() {
-                        "bash".to_string()
-                    } else {
-                        join_args.shell.clone()
-                    };
-
-                    match join_args.terminal_type.as_str() {
-                        "combined" => {
-                            if join_args.stack.is_empty() {
-                                send_join_error(&conn, &msg, "stack parameter required").await;
-                                return;
-                            }
-                            handle_combined(
-                                &state,
-                                &conn,
-                                &msg,
-                                &join_args.stack,
-                            )
-                            .await;
-                        }
-                        "container-log" => {
-                            if join_args.stack.is_empty() || join_args.service.is_empty() {
-                                send_join_error(&conn, &msg, "stack and service parameters required").await;
-                                return;
-                            }
-                            handle_container_log(
-                                &state,
-                                &conn,
-                                &msg,
-                                &join_args.stack,
-                                &join_args.service,
-                                &join_args.container,
-                            )
-                            .await;
-                        }
-                        "container-log-by-name" => {
-                            if join_args.container.is_empty() {
-                                send_join_error(&conn, &msg, "container parameter required").await;
-                                return;
-                            }
-                            handle_container_log_by_name(
-                                &state,
-                                &conn,
-                                &msg,
-                                &join_args.container,
-                            )
-                            .await;
-                        }
-                        "exec" => {
-                            if join_args.stack.is_empty() || join_args.service.is_empty() {
-                                send_join_error(&conn, &msg, "stack and service parameters required").await;
-                                return;
-                            }
-                            handle_exec(
-                                &state,
-                                &conn,
-                                &msg,
-                                &join_args.stack,
-                                &join_args.service,
-                                &shell,
-                            )
-                            .await;
-                        }
-                        "exec-by-name" => {
-                            if join_args.container.is_empty() {
-                                send_join_error(&conn, &msg, "container parameter required").await;
-                                return;
-                            }
-                            handle_exec_by_name(
-                                &state,
-                                &conn,
-                                &msg,
-                                &join_args.container,
-                                &shell,
-                            )
-                            .await;
-                        }
-                        "console" => {
-                            handle_console(&state, &conn, &msg, &shell).await;
-                        }
-                        "compose" => {
-                            if join_args.stack.is_empty() {
-                                send_join_error(&conn, &msg, "stack parameter required").await;
-                                return;
-                            }
-                            handle_compose_terminal(
-                                &state,
-                                &conn,
-                                &msg,
-                                &join_args.stack,
-                            )
-                            .await;
-                        }
-                        "container-action" => {
-                            if join_args.container.is_empty() {
-                                send_join_error(&conn, &msg, "container parameter required").await;
-                                return;
-                            }
-                            handle_container_action_terminal(
-                                &state,
-                                &conn,
-                                &msg,
-                                &join_args.container,
-                            )
-                            .await;
-                        }
-                        other => {
-                            warn!("unknown terminal type: {other}");
-                            if let Some(id) = msg.id {
-                                conn.send_ack(
-                                    id,
-                                    ErrorResponse::new(format!(
-                                        "unknown terminal type: {other}"
-                                    )),
-                                )
-                                .await;
-                            }
-                        }
-                    }
+        let join_args: JoinArgs = match arg_object(&args, 0) {
+            Some(a) => a,
+            None => {
+                if let Some(id) = msg.id {
+                    conn.send_ack(id, ErrorResponse::new("Invalid arguments"))
+                        .await;
                 }
-            },
-        );
-    }
+                return;
+            }
+        };
+
+        let shell = if join_args.shell.is_empty() {
+            "bash".to_string()
+        } else {
+            join_args.shell.clone()
+        };
+
+        match join_args.terminal_type.as_str() {
+            "combined" => {
+                if join_args.stack.is_empty() {
+                    send_join_error(&conn, &msg, "stack parameter required").await;
+                    return;
+                }
+                handle_combined(
+                    &state,
+                    &conn,
+                    &msg,
+                    &join_args.stack,
+                )
+                .await;
+            }
+            "container-log" => {
+                if join_args.stack.is_empty() || join_args.service.is_empty() {
+                    send_join_error(&conn, &msg, "stack and service parameters required").await;
+                    return;
+                }
+                handle_container_log(
+                    &state,
+                    &conn,
+                    &msg,
+                    &join_args.stack,
+                    &join_args.service,
+                    &join_args.container,
+                )
+                .await;
+            }
+            "container-log-by-name" => {
+                if join_args.container.is_empty() {
+                    send_join_error(&conn, &msg, "container parameter required").await;
+                    return;
+                }
+                handle_container_log_by_name(
+                    &state,
+                    &conn,
+                    &msg,
+                    &join_args.container,
+                )
+                .await;
+            }
+            "exec" => {
+                if join_args.stack.is_empty() || join_args.service.is_empty() {
+                    send_join_error(&conn, &msg, "stack and service parameters required").await;
+                    return;
+                }
+                handle_exec(
+                    &state,
+                    &conn,
+                    &msg,
+                    &join_args.stack,
+                    &join_args.service,
+                    &shell,
+                )
+                .await;
+            }
+            "exec-by-name" => {
+                if join_args.container.is_empty() {
+                    send_join_error(&conn, &msg, "container parameter required").await;
+                    return;
+                }
+                handle_exec_by_name(
+                    &state,
+                    &conn,
+                    &msg,
+                    &join_args.container,
+                    &shell,
+                )
+                .await;
+            }
+            "console" => {
+                handle_console(&state, &conn, &msg, &shell).await;
+            }
+            "compose" => {
+                if join_args.stack.is_empty() {
+                    send_join_error(&conn, &msg, "stack parameter required").await;
+                    return;
+                }
+                handle_compose_terminal(
+                    &state,
+                    &conn,
+                    &msg,
+                    &join_args.stack,
+                )
+                .await;
+            }
+            "container-action" => {
+                if join_args.container.is_empty() {
+                    send_join_error(&conn, &msg, "container parameter required").await;
+                    return;
+                }
+                handle_container_action_terminal(
+                    &state,
+                    &conn,
+                    &msg,
+                    &join_args.container,
+                )
+                .await;
+            }
+            other => {
+                warn!("unknown terminal type: {other}");
+                if let Some(id) = msg.id {
+                    conn.send_ack(
+                        id,
+                        ErrorResponse::new(format!(
+                            "unknown terminal type: {other}"
+                        )),
+                    )
+                    .await;
+                }
+            }
+        }
+    });
 
     // terminalLeave
-    {
-        let state = state.clone();
-        ws.handle(
-            "terminalLeave",
-            move |conn: Arc<Conn>, msg: ClientMessage| {
-                let state = state.clone();
-                async move {
-                    let uid = state.check_login(&conn, &msg).await;
-                    if uid == 0 {
-                        return;
-                    }
+    ws.handle_with_state("terminalLeave", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
 
-                    let args = parse_args(&msg);
-                    #[derive(Deserialize)]
-                    #[serde(rename_all = "camelCase")]
-                    struct LeaveArgs {
-                        #[serde(default)]
-                        session_id: u16,
-                    }
-                    let leave_args = match arg_object::<LeaveArgs>(&args, 0) {
-                        Some(a) => a,
-                        None => {
-                            if let Some(id) = msg.id {
-                                conn.send_ack(id, ErrorResponse::new("invalid args")).await;
-                            }
-                            return;
-                        }
-                    };
-
-                    let writer_key =
-                        format!("{}-{}", conn.id, leave_args.session_id);
-                    // Remove from all terminals with this writer key
-                    state.terminal_manager.remove_writer_from_all(&writer_key);
-
-                    if let Some(id) = msg.id {
-                        conn.send_ack(
-                            id,
-                            OkResponse {
-                                ok: true,
-                                msg: None,
-                                token: None,
-                            },
-                        )
-                        .await;
-                    }
+        let args = parse_args(&msg);
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct LeaveArgs {
+            #[serde(default)]
+            session_id: u16,
+        }
+        let leave_args = match arg_object::<LeaveArgs>(&args, 0) {
+            Some(a) => a,
+            None => {
+                if let Some(id) = msg.id {
+                    conn.send_ack(id, ErrorResponse::new("invalid args")).await;
                 }
-            },
-        );
-    }
+                return;
+            }
+        };
+
+        let writer_key =
+            format!("{}-{}", conn.id, leave_args.session_id);
+        // Remove from all terminals with this writer key
+        state.terminal_manager.remove_writer_from_all(&writer_key);
+
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                OkResponse {
+                    ok: true,
+                    msg: None,
+                    token: None,
+                },
+            )
+            .await;
+        }
+    });
 }
 
 /// Send a terminalJoin error ack.
