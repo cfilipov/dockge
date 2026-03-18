@@ -418,7 +418,7 @@ const { getSocket, emit } = useSocket();
 const containerStore = useContainerStore();
 const stackStoreInstance = useStackStore();
 const updateStoreInstance = useUpdateStore();
-const { toastRes } = useAppToast();
+const { toastRes, toastSuccess } = useAppToast();
 
 const containerInfo = computed(() =>
     containerStore.containers.find(c => c.name === containerName.value)
@@ -489,31 +489,74 @@ const {
 
 // Standalone container actions (no compose project)
 const standaloneProcessing = ref(false);
+let standalonePendingAction: string | null = null;
+
+// Watch for Docker events matching standalone container actions.
+watch(() => containerStore.lastEvent, (evt) => {
+    if (!evt || !standaloneProcessing.value || !standalonePendingAction) return;
+    if (evt.name !== containerName.value) return;
+
+    switch (standalonePendingAction) {
+        case "start":
+            if (evt.action === "start") {
+                toastSuccess("Started");
+                standaloneProcessing.value = false;
+                standalonePendingAction = null;
+            }
+            break;
+        case "stop":
+            if (evt.action === "die" || evt.action === "stop") {
+                toastSuccess("Stopped");
+                standaloneProcessing.value = false;
+                standalonePendingAction = null;
+            }
+            break;
+        case "restart":
+            if (evt.action === "start") {
+                toastSuccess("Restarted");
+                standaloneProcessing.value = false;
+                standalonePendingAction = null;
+            }
+            break;
+    }
+});
 
 function standaloneStart() {
+    standalonePendingAction = "start";
     standaloneProcessing.value = true;
     progressTerminalRef.value?.show();
     emit("startContainer", containerName.value, (res: any) => {
-        standaloneProcessing.value = false;
-        toastRes(res);
+        if (!res.ok) {
+            standaloneProcessing.value = false;
+            standalonePendingAction = null;
+            toastRes(res);
+        }
     });
 }
 
 function standaloneStop() {
+    standalonePendingAction = "stop";
     standaloneProcessing.value = true;
     progressTerminalRef.value?.show();
     emit("stopContainer", containerName.value, (res: any) => {
-        standaloneProcessing.value = false;
-        toastRes(res);
+        if (!res.ok) {
+            standaloneProcessing.value = false;
+            standalonePendingAction = null;
+            toastRes(res);
+        }
     });
 }
 
 function standaloneRestart() {
+    standalonePendingAction = "restart";
     standaloneProcessing.value = true;
     progressTerminalRef.value?.show();
     emit("restartContainer", containerName.value, (res: any) => {
-        standaloneProcessing.value = false;
-        toastRes(res);
+        if (!res.ok) {
+            standaloneProcessing.value = false;
+            standalonePendingAction = null;
+            toastRes(res);
+        }
     });
 }
 
@@ -689,21 +732,35 @@ const switchShellLink = computed(() => ({
     },
 }));
 
+function fetchInspect() {
+    if (!containerName.value) return;
+    emit("containerInspect", containerName.value, (res: any) => {
+        if (res.ok) {
+            const data = res.inspectData;
+            if (Array.isArray(data) && data.length > 0) {
+                inspectObj.value = data[0];
+            } else if (data) {
+                inspectObj.value = data;
+            }
+            if (data) {
+                inspectData.value = yamlLib.stringify(data, { lineWidth: 0 });
+            }
+        }
+    });
+}
+
+// Debounced re-fetch on relevant events
+let refetchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(() => containerStore.lastEvent, (evt) => {
+    if (!evt || evt.name !== containerName.value) return;
+    if (refetchTimeout) clearTimeout(refetchTimeout);
+    refetchTimeout = setTimeout(fetchInspect, 500);
+});
+
 onMounted(() => {
     if (containerName.value) {
-        emit("containerInspect", containerName.value, (res: any) => {
-            if (res.ok) {
-                const data = res.inspectData;
-                if (Array.isArray(data) && data.length > 0) {
-                    inspectObj.value = data[0];
-                } else if (data) {
-                    inspectObj.value = data;
-                }
-                if (data) {
-                    inspectData.value = yamlLib.stringify(data, { lineWidth: 0 });
-                }
-            }
-        });
+        fetchInspect();
 
         // Subscribe to server-pushed process list
         getSocket().on("containerTop", onContainerTop);
@@ -722,6 +779,9 @@ onMounted(() => {
 onUnmounted(() => {
     if (uptimeTimer) {
         clearInterval(uptimeTimer);
+    }
+    if (refetchTimeout) {
+        clearTimeout(refetchTimeout);
     }
     // Unsubscribe from process list streaming
     getSocket().off("containerTop", onContainerTop);

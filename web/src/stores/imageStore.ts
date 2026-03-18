@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, shallowRef } from "vue";
 import { useContainerStore } from "./containerStore";
+import type { DockerResourceEvent } from "./containerStore";
 
 /** Matches the Go ImageSummary type. */
 export interface ImageSummary {
@@ -19,22 +20,33 @@ export interface ImageWithStatus extends ImageSummary {
 export const useImageStore = defineStore("images", () => {
     const imageMap = reactive(new Map<string, ImageSummary>());
     const loading = ref(true);
+    const lastEvent = shallowRef<DockerResourceEvent | null>(null);
 
     /** Sorted array of images (backward-compatible). Images keyed by ID. */
     const images = computed(() =>
         [...imageMap.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     );
 
-    /** Merge a map update. Null values delete the key; non-null values upsert. */
-    function mergeImages(data: Record<string, ImageSummary | null>) {
+    /** Merge a map update with field-level merge for existing entries. */
+    function mergeImages(data: Record<string, Partial<ImageSummary> | null>) {
         for (const [key, value] of Object.entries(data)) {
             if (value === null) {
                 imageMap.delete(key);
             } else {
-                imageMap.set(key, value);
+                const existing = imageMap.get(key);
+                if (existing) {
+                    imageMap.set(key, { ...existing, ...value } as ImageSummary);
+                } else {
+                    imageMap.set(key, value as ImageSummary);
+                }
             }
         }
         loading.value = false;
+    }
+
+    /** Set the last event (called from the resourceEvent channel listener). */
+    function setLastEvent(evt: DockerResourceEvent) {
+        lastEvent.value = evt;
     }
 
     /** Images enriched with container count from container store. */
@@ -60,7 +72,9 @@ export const useImageStore = defineStore("images", () => {
         images,
         imageMap,
         loading,
+        lastEvent,
         mergeImages,
+        setLastEvent,
         imagesWithStatus,
         dangling,
     };

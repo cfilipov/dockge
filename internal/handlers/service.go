@@ -59,7 +59,7 @@ func (app *App) handleStartService(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
 	}
 
 	if app.isStackManaged(stackName) {
@@ -92,7 +92,7 @@ func (app *App) handleStopService(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
 	}
 
 	if app.isStackManaged(stackName) {
@@ -125,7 +125,7 @@ func (app *App) handleRestartService(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
 	}
 
 	if app.isStackManaged(stackName) {
@@ -158,7 +158,7 @@ func (app *App) handleRecreateService(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Recreated"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
 	}
 
 	if !app.isStackManaged(stackName) {
@@ -192,7 +192,7 @@ func (app *App) handleUpdateService(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Updated"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
 	}
 
 	if !app.isStackManaged(stackName) {
@@ -297,7 +297,7 @@ func (app *App) handleStartContainer(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Started"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
 	}
 
 	go app.runContainerAction(containerName, "start")
@@ -317,7 +317,7 @@ func (app *App) handleStopContainer(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Stopped"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
 	}
 
 	go app.runContainerAction(containerName, "stop")
@@ -337,7 +337,7 @@ func (app *App) handleRestartContainer(c *ws.Conn, msg *ws.ClientMessage) {
 	}
 
 	if msg.ID != nil {
-		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true, Msg: "Restarted"})
+		ws.SendAck(c, *msg.ID, ws.OkResponse{OK: true})
 	}
 
 	go app.runContainerAction(containerName, "restart")

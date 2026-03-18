@@ -17,12 +17,13 @@ import (
 
 // Broadcast channel names.
 const (
-	chanStacks     = "stacks"
-	chanContainers = "containers"
-	chanNetworks   = "networks"
-	chanImages     = "images"
-	chanVolumes    = "volumes"
-	chanUpdates    = "updates"
+	chanStacks        = "stacks"
+	chanContainers    = "containers"
+	chanNetworks      = "networks"
+	chanImages        = "images"
+	chanVolumes       = "volumes"
+	chanUpdates       = "updates"
+	chanResourceEvent = "resourceEvent"
 )
 
 // StackBroadcastEntry is the per-stack data sent via the stacks broadcast channel.
@@ -94,8 +95,55 @@ func (bm *BroadcastMetrics) Snapshot() map[string]*ChannelMetrics {
 	return result
 }
 
+// ChannelBroadcast wraps broadcast data for resource channels.
+// All resource channels (containers, networks, images, volumes, stacks) use this shape.
+// Events are sent separately on the "resourceEvent" channel.
+type ChannelBroadcast struct {
+	Items map[string]any `json:"items"`
+}
+
+// ResourceEvent describes a Docker event that triggered a broadcast.
+type ResourceEvent struct {
+	Type        string `json:"type"`                  // "container", "network", "image", "volume"
+	Action      string `json:"action"`                // start, stop, die, destroy, create, connect, ...
+	ID          string `json:"id"`                    // Actor ID
+	Name        string `json:"name"`                  // Resource name
+	StackName   string `json:"stackName,omitempty"`   // com.docker.compose.project
+	ServiceName string `json:"serviceName,omitempty"` // com.docker.compose.service
+	ContainerID string `json:"containerId,omitempty"` // For network connect/disconnect
+}
+
+// toResourceEvent converts a DockerEvent to a ResourceEvent for broadcast.
+func toResourceEvent(evt docker.DockerEvent) ResourceEvent {
+	return ResourceEvent{
+		Type:        evt.Type,
+		Action:      evt.Action,
+		ID:          evt.ActorID,
+		Name:        evt.Name,
+		StackName:   evt.Project,
+		ServiceName: evt.Service,
+		ContainerID: evt.ContainerID,
+	}
+}
+
+// broadcastChannel sends a ChannelBroadcast on the given channel.
+func (app *App) broadcastChannel(channel string, items map[string]any) {
+	ws.BroadcastAuthenticated(app.WS, channel, ChannelBroadcast{
+		Items: items,
+	})
+	app.BcastMetrics.recordSent(channel)
+}
+
 // sendToConn sends channel data to a single connection (used for initial connect).
+// For resource channels, wraps data in ChannelBroadcast format.
 func sendToConn(c *ws.Conn, channel string, data any) {
+	switch channel {
+	case chanStacks, chanContainers, chanNetworks, chanImages, chanVolumes:
+		if m, ok := data.(map[string]any); ok {
+			ws.SendEvent(c, channel, ChannelBroadcast{Items: m})
+			return
+		}
+	}
 	ws.SendEvent(c, channel, data)
 }
 
@@ -154,8 +202,7 @@ func (app *App) broadcastStacksMap() {
 		return
 	}
 	entries := buildStackBroadcast(app.StacksDir)
-	ws.BroadcastAuthenticated(app.WS, chanStacks, stacksToMap(entries))
-	app.BcastMetrics.recordSent(chanStacks)
+	app.broadcastChannel(chanStacks, stacksToMap(entries))
 }
 
 // broadcastContainersMap queries Docker for all containers and broadcasts as a full-replace map.
@@ -170,8 +217,7 @@ func (app *App) broadcastContainersMap() {
 		slog.Warn("broadcastContainersMap", "err", err)
 		containers = []docker.ContainerBroadcast{}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanContainers, containersToMap(containers))
-	app.BcastMetrics.recordSent(chanContainers)
+	app.broadcastChannel(chanContainers, containersToMap(containers))
 }
 
 // broadcastNetworksMap queries Docker for all networks and broadcasts as a full-replace map.
@@ -186,8 +232,7 @@ func (app *App) broadcastNetworksMap() {
 		slog.Warn("broadcastNetworksMap", "err", err)
 		networks = []docker.NetworkSummary{}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanNetworks, networksToMap(networks))
-	app.BcastMetrics.recordSent(chanNetworks)
+	app.broadcastChannel(chanNetworks, networksToMap(networks))
 }
 
 // broadcastImagesMap queries Docker for all images and broadcasts as a full-replace map.
@@ -202,8 +247,7 @@ func (app *App) broadcastImagesMap() {
 		slog.Warn("broadcastImagesMap", "err", err)
 		images = []docker.ImageSummary{}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanImages, imagesToMap(images))
-	app.BcastMetrics.recordSent(chanImages)
+	app.broadcastChannel(chanImages, imagesToMap(images))
 }
 
 // broadcastVolumesMap queries Docker for all volumes and broadcasts as a full-replace map.
@@ -218,124 +262,134 @@ func (app *App) broadcastVolumesMap() {
 		slog.Warn("broadcastVolumesMap", "err", err)
 		volumes = []docker.VolumeSummary{}
 	}
-	ws.BroadcastAuthenticated(app.WS, chanVolumes, volumesToMap(volumes))
-	app.BcastMetrics.recordSent(chanVolumes)
+	app.broadcastChannel(chanVolumes, volumesToMap(volumes))
 }
 
-// broadcastContainersByIDs queries Docker for specific containers and broadcasts a partial map.
-// Falls back to a full broadcast if fullSync is true.
+// broadcastContainersByIDs queries Docker for specific containers using batched
+// list call and broadcasts a partial map. Falls back to full list if >25 IDs.
 func (app *App) broadcastContainersByIDs(ids map[string]bool, destroyed []string) {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
+	if len(ids) > 25 {
+		app.broadcastContainersMap()
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	m := make(map[string]any, len(ids)+len(destroyed))
+	idSlice := make([]string, 0, len(ids))
 	for id := range ids {
-		containers, err := app.Docker.ContainerListDetailedByID(ctx, id)
-		if err != nil {
-			slog.Warn("broadcastContainersByIDs", "id", id, "err", err)
-			continue
-		}
-		for _, c := range containers {
-			m[c.Name] = c
-		}
+		idSlice = append(idSlice, id)
 	}
+	containers, err := app.Docker.ContainerListDetailedByIDs(ctx, idSlice)
+	if err != nil {
+		slog.Warn("broadcastContainersByIDs", "err", err)
+		return
+	}
+	m := containersToMap(containers)
 	for _, name := range destroyed {
 		if _, exists := m[name]; !exists {
 			m[name] = nil
 		}
 	}
 	if len(m) > 0 {
-		ws.BroadcastAuthenticated(app.WS, chanContainers, m)
-		app.BcastMetrics.recordSent(chanContainers)
+		app.broadcastChannel(chanContainers, m)
 	}
 }
 
-// broadcastNetworksByIDs queries Docker for specific networks and broadcasts a partial map.
+// broadcastNetworksByIDs queries Docker for specific networks using batched
+// list call and broadcasts a partial map. Falls back to full list if >25 IDs.
 func (app *App) broadcastNetworksByIDs(ids map[string]bool, destroyed []string) {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
+	if len(ids) > 25 {
+		app.broadcastNetworksMap()
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	m := make(map[string]any, len(ids)+len(destroyed))
+	idSlice := make([]string, 0, len(ids))
 	for id := range ids {
-		networks, err := app.Docker.NetworkListByID(ctx, id)
-		if err != nil {
-			slog.Warn("broadcastNetworksByIDs", "id", id, "err", err)
-			continue
-		}
-		for _, n := range networks {
-			m[n.Name] = n
-		}
+		idSlice = append(idSlice, id)
 	}
+	networks, err := app.Docker.NetworkListByIDs(ctx, idSlice)
+	if err != nil {
+		slog.Warn("broadcastNetworksByIDs", "err", err)
+		return
+	}
+	m := networksToMap(networks)
 	for _, name := range destroyed {
 		if _, exists := m[name]; !exists {
 			m[name] = nil
 		}
 	}
 	if len(m) > 0 {
-		ws.BroadcastAuthenticated(app.WS, chanNetworks, m)
-		app.BcastMetrics.recordSent(chanNetworks)
+		app.broadcastChannel(chanNetworks, m)
 	}
 }
 
-// broadcastImagesByIDs queries Docker for specific images and broadcasts a partial map.
+// broadcastImagesByIDs queries Docker for specific images using batched
+// list call and broadcasts a partial map. Falls back to full list if >25 IDs.
 func (app *App) broadcastImagesByIDs(ids map[string]bool, destroyed []string) {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
+	if len(ids) > 25 {
+		app.broadcastImagesMap()
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	m := make(map[string]any, len(ids)+len(destroyed))
+	idSlice := make([]string, 0, len(ids))
 	for id := range ids {
-		images, err := app.Docker.ImageListByID(ctx, id)
-		if err != nil {
-			slog.Warn("broadcastImagesByIDs", "id", id, "err", err)
-			continue
-		}
-		for _, img := range images {
-			m[img.ID] = img
-		}
+		idSlice = append(idSlice, id)
 	}
+	images, err := app.Docker.ImageListByIDs(ctx, idSlice)
+	if err != nil {
+		slog.Warn("broadcastImagesByIDs", "err", err)
+		return
+	}
+	m := imagesToMap(images)
 	for _, id := range destroyed {
 		if _, exists := m[id]; !exists {
 			m[id] = nil
 		}
 	}
 	if len(m) > 0 {
-		ws.BroadcastAuthenticated(app.WS, chanImages, m)
-		app.BcastMetrics.recordSent(chanImages)
+		app.broadcastChannel(chanImages, m)
 	}
 }
 
-// broadcastVolumesByNames queries Docker for specific volumes and broadcasts a partial map.
+// broadcastVolumesByNames queries Docker for specific volumes using batched
+// list call and broadcasts a partial map. Falls back to full list if >25 names.
 func (app *App) broadcastVolumesByNames(names map[string]bool, destroyed []string) {
 	if !app.WS.HasAuthenticatedConns() {
 		return
 	}
+	if len(names) > 25 {
+		app.broadcastVolumesMap()
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	m := make(map[string]any, len(names)+len(destroyed))
+	nameSlice := make([]string, 0, len(names))
 	for name := range names {
-		volumes, err := app.Docker.VolumeListByName(ctx, name)
-		if err != nil {
-			slog.Warn("broadcastVolumesByNames", "name", name, "err", err)
-			continue
-		}
-		for _, v := range volumes {
-			m[v.Name] = v
-		}
+		nameSlice = append(nameSlice, name)
 	}
+	volumes, err := app.Docker.VolumeListByNames(ctx, nameSlice)
+	if err != nil {
+		slog.Warn("broadcastVolumesByNames", "err", err)
+		return
+	}
+	m := volumesToMap(volumes)
 	for _, name := range destroyed {
 		if _, exists := m[name]; !exists {
 			m[name] = nil
 		}
 	}
 	if len(m) > 0 {
-		ws.BroadcastAuthenticated(app.WS, chanVolumes, m)
-		app.BcastMetrics.recordSent(chanVolumes)
+		app.broadcastChannel(chanVolumes, m)
 	}
 }
 
@@ -622,6 +676,7 @@ func (app *App) runDispatchWorker(ctx context.Context) {
 			app.BcastMetrics.recordTriggered(ch)
 			app.dispatchFullSync(ctx, ch)
 		}
+
 	}
 }
 
@@ -689,6 +744,8 @@ func (app *App) runBroadcastWatcherLoop(ctx context.Context) {
 }
 
 // consumeBroadcastEvents reads Docker events and sends them to the dispatch channel.
+// Each event is immediately broadcast on the "resourceEvent" channel for instant
+// frontend notification; the dispatch worker handles authoritative list broadcasts.
 func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docker.DockerEvent, errCh <-chan error) error {
 	for {
 		select {
@@ -708,14 +765,11 @@ func (app *App) consumeBroadcastEvents(ctx context.Context, eventCh <-chan docke
 				continue
 			}
 
-			// Broadcast raw Docker event for dev inspection
-			if evt.Raw != nil {
-				ws.BroadcastAuthenticated(app.WS, "dockerEvent", evt.Raw)
-			} else {
-				ws.BroadcastAuthenticated(app.WS, "dockerEvent", evt)
-			}
+			// Broadcast the event on the dedicated resourceEvent channel
+			resEvt := toResourceEvent(evt)
+			ws.BroadcastAuthenticated(app.WS, chanResourceEvent, resEvt)
 
-			// Send to dispatch channel for granular processing
+			// Send to dispatch channel for authoritative list-based broadcast
 			select {
 			case app.dispatchCh <- dispatchWork{evt: evt}:
 			default:

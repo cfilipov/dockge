@@ -1,5 +1,16 @@
 import { defineStore } from "pinia";
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, shallowRef } from "vue";
+
+/** Event metadata from Docker event broadcasts. */
+export interface DockerResourceEvent {
+    type: "container" | "network" | "image" | "volume";
+    action: string;
+    id: string;
+    name: string;
+    stackName: string;
+    serviceName: string;
+    containerId: string;
+}
 
 /** Matches the Go ContainerBroadcast type. */
 export interface ContainerBroadcast {
@@ -19,6 +30,7 @@ export interface ContainerBroadcast {
 export const useContainerStore = defineStore("containers", () => {
     const containerMap = reactive(new Map<string, ContainerBroadcast>());
     const loading = ref(true);
+    const lastEvent = shallowRef<DockerResourceEvent | null>(null);
 
     /** Sorted array of containers (backward-compatible with old array ref).
      *  Uses < comparison to match Go's lexicographic sort order. */
@@ -26,16 +38,27 @@ export const useContainerStore = defineStore("containers", () => {
         [...containerMap.values()].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
     );
 
-    /** Merge a map update. Null values delete the key; non-null values upsert. */
-    function mergeContainers(data: Record<string, ContainerBroadcast | null>) {
+    /** Merge a map update with field-level merge for existing entries.
+     *  Null values delete the key; partial objects merge into existing; full objects replace. */
+    function mergeContainers(data: Record<string, Partial<ContainerBroadcast> | null>) {
         for (const [key, value] of Object.entries(data)) {
             if (value === null) {
                 containerMap.delete(key);
             } else {
-                containerMap.set(key, value);
+                const existing = containerMap.get(key);
+                if (existing) {
+                    containerMap.set(key, { ...existing, ...value } as ContainerBroadcast);
+                } else {
+                    containerMap.set(key, value as ContainerBroadcast);
+                }
             }
         }
         loading.value = false;
+    }
+
+    /** Set the last event (called from the resourceEvent channel listener). */
+    function setLastEvent(evt: DockerResourceEvent) {
+        lastEvent.value = evt;
     }
 
     /** Containers belonging to a specific compose project (stack). */
@@ -78,7 +101,9 @@ export const useContainerStore = defineStore("containers", () => {
         containers,
         containerMap,
         loading,
+        lastEvent,
         mergeContainers,
+        setLastEvent,
         byStack,
         byNetwork,
         byImage,

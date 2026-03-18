@@ -424,31 +424,57 @@ export function initWebSocket() {
         location.reload();
     });
 
-    // --- Broadcast channel listeners (new normalized model) ---
+    // --- Broadcast channel listeners (normalized model) ---
     // Each channel pushes its data directly to the corresponding Pinia store.
 
-    socket.on("stacks", (data: unknown) => {
-        useStackStore().mergeStacks(data as Record<string, any>);
+    socket.on("stacks", (data: any) => {
+        const broadcast = data?.items ?? data;
+        useStackStore().mergeStacks(broadcast as Record<string, any>);
     });
 
-    socket.on("containers", (data: unknown) => {
-        useContainerStore().mergeContainers(data as Record<string, any>);
+    socket.on("containers", (data: any) => {
+        const broadcast = data?.items ?? data;
+        useContainerStore().mergeContainers(broadcast as Record<string, any>);
     });
 
-    socket.on("networks", (data: unknown) => {
-        useNetworkStore().mergeNetworks(data as Record<string, any>);
+    socket.on("networks", (data: any) => {
+        const broadcast = data?.items ?? data;
+        useNetworkStore().mergeNetworks(broadcast as Record<string, any>);
     });
 
-    socket.on("images", (data: unknown) => {
-        useImageStore().mergeImages(data as Record<string, any>);
+    socket.on("images", (data: any) => {
+        const broadcast = data?.items ?? data;
+        useImageStore().mergeImages(broadcast as Record<string, any>);
     });
 
-    socket.on("volumes", (data: unknown) => {
-        useVolumeStore().mergeVolumes(data as Record<string, any>);
+    socket.on("volumes", (data: any) => {
+        const broadcast = data?.items ?? data;
+        useVolumeStore().mergeVolumes(broadcast as Record<string, any>);
     });
 
     socket.on("updates", (data: unknown) => {
         useUpdateStore().setUpdates(data as string[]);
+    });
+
+    // --- Dedicated resource event channel ---
+    // Docker events are sent individually on this channel, decoupled from list broadcasts.
+    socket.on("resourceEvent", (data: any) => {
+        const evt = data;
+        if (!evt?.type) return;
+        switch (evt.type) {
+            case "container":
+                useContainerStore().setLastEvent(evt);
+                break;
+            case "network":
+                useNetworkStore().setLastEvent(evt);
+                break;
+            case "image":
+                useImageStore().setLastEvent(evt);
+                break;
+            case "volume":
+                useVolumeStore().setLastEvent(evt);
+                break;
+        }
     });
 
     socket.connect(wsUrl);
