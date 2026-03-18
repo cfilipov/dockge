@@ -169,9 +169,6 @@ async fn handle_login(state: &AppState, conn: &Conn, msg: &ClientMessage) {
     state.has_authenticated.store(true, Ordering::Relaxed);
     state.login_limiter.reset(&username);
 
-    // AfterLogin: send initial data broadcasts
-    after_login(state, conn).await;
-
     if let Some(id) = msg.id {
         conn.send_ack(id, OkResponse {
             ok: true,
@@ -181,6 +178,9 @@ async fn handle_login(state: &AppState, conn: &Conn, msg: &ClientMessage) {
     }
 
     info!(username = %username, "user logged in");
+
+    // AfterLogin: send initial data broadcasts (after ack so frontend is ready)
+    after_login(state, conn).await;
 }
 
 async fn handle_login_by_token(state: &AppState, conn: &Conn, msg: &ClientMessage) {
@@ -232,12 +232,12 @@ async fn handle_login_by_token(state: &AppState, conn: &Conn, msg: &ClientMessag
     conn.set_user(user.id);
     state.has_authenticated.store(true, Ordering::Relaxed);
 
-    // AfterLogin: send initial data broadcasts
-    after_login(state, conn).await;
-
     if let Some(id) = msg.id {
         conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
     }
+
+    // AfterLogin: send initial data broadcasts (after ack so frontend is ready)
+    after_login(state, conn).await;
 }
 
 async fn handle_setup(state: &AppState, conn: &Conn, msg: &ClientMessage) {

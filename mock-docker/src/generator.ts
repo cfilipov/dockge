@@ -838,7 +838,7 @@ function generateVolumes(input: GeneratorInput, baseTime: string): VolumeInspect
                 ...(config.labels || {}),
             },
             Scope: "local",
-            Options: config.driverOpts || undefined,
+            Options: config.driverOpts || {},
         };
         volumes.push(vol);
     }

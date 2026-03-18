@@ -652,7 +652,7 @@ export function volumeCreate(
         CreatedAt: clock.now().toISOString(),
         Labels: config.Labels || {},
         Scope: "local",
-        Options: config.DriverOpts,
+        Options: config.DriverOpts || {},
     };
 
     state.volumes.set(name, vol);
