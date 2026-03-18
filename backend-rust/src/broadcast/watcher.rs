@@ -216,6 +216,16 @@ async fn handle_event(
         _ => String::new(),
     };
 
+    // Publish to internal EventBus (terminals need events even without UI clients)
+    state.event_bus.publish(crate::broadcast::eventbus::DockerEvent {
+        event_type: event_type.clone(),
+        action: action.clone(),
+        project: stack_name.clone(),
+        service: service_name.clone(),
+        container_id: container_id.clone(),
+        name: name.clone(),
+    });
+
     // Skip broadcasts if no authenticated clients
     if !state.has_authenticated.load(std::sync::atomic::Ordering::Relaxed) {
         return;
@@ -357,6 +367,13 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
                     Err(e) => warn!("coalescer: volume list failed: {e}"),
                 }
             }
+            "stacks" => {
+                let stacks = crate::handlers::auth::build_stacks_broadcast(&state.config.stacks_dir);
+                state.broadcaster.send_event(
+                    "stacks",
+                    &serde_json::json!({"items": stacks}),
+                );
+            }
             _ => {}
         }
     }
@@ -366,8 +383,18 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
         if batch.affected.contains_key(resource_type) {
             continue; // already dispatched above
         }
-        if resource_type.as_str() == "container" {
-            dispatch_container_broadcast(state, &HashSet::new(), batch).await;
+        match resource_type.as_str() {
+            "container" => {
+                dispatch_container_broadcast(state, &HashSet::new(), batch).await;
+            }
+            "stacks" => {
+                let stacks = crate::handlers::auth::build_stacks_broadcast(&state.config.stacks_dir);
+                state.broadcaster.send_event(
+                    "stacks",
+                    &serde_json::json!({"items": stacks}),
+                );
+            }
+            _ => {}
         }
     }
 }

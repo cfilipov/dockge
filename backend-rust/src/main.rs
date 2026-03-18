@@ -4,6 +4,7 @@
 
 mod auth;
 mod broadcast;
+mod compose;
 mod config;
 mod db;
 mod docker;
@@ -95,6 +96,7 @@ async fn main() {
 
     // Create channels
     let broadcaster = broadcast::Broadcaster::new(256);
+    let event_bus = broadcast::eventbus::EventBus::new(256);
     let (dispatch_tx, dispatch_rx) = mpsc::channel::<broadcast::DispatchMsg>(256);
     let (ws_control_tx, ws_control_rx) = mpsc::channel::<broadcast::WsControlMsg>(16);
 
@@ -113,6 +115,7 @@ async fn main() {
         stack_locks: handlers::stack::NamedMutex::new(),
         has_authenticated: AtomicBool::new(false),
         terminal_manager: terminal::spawn(),
+        event_bus,
     });
 
     // Build WebSocket server with handlers
@@ -213,6 +216,11 @@ async fn main() {
     let shutdown_token = tokio_util::sync::CancellationToken::new();
     broadcast::watcher::spawn(state.clone(), dispatch_rx, shutdown_token.clone());
     handlers::image_updates::spawn_checker(state.clone(), shutdown_token.clone());
+    compose::watcher::spawn(
+        config.stacks_dir.clone(),
+        state.dispatch_tx.clone(),
+        shutdown_token.clone(),
+    );
 
     // Bind and serve
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

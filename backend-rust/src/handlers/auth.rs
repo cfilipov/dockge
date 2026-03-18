@@ -426,7 +426,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
     }
 }
 
-fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, serde_json::Value> {
+pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, serde_json::Value> {
     let mut result = HashMap::new();
     let dir = match std::fs::read_dir(stacks_dir) {
         Ok(d) => d,

@@ -4,9 +4,12 @@ use std::sync::Arc;
 use axum::extract::ws::Message;
 use futures_util::StreamExt;
 use serde::Deserialize;
+use tokio::sync::broadcast::error::RecvError;
+use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
+use crate::broadcast::eventbus::EventBus;
 use crate::docker;
 use crate::terminal::{TerminalHandle, TerminalType};
 use crate::ws::conn::Conn;
@@ -16,6 +19,53 @@ use crate::ws::WsServer;
 use super::{arg_object, parse_args, AppState};
 
 static NEXT_SESSION_ID: AtomicU16 = AtomicU16::new(1);
+
+// ── ANSI color helpers ──────────────────────────────────────────────────────
+
+/// 6 rotating ANSI colors for service prefixes.
+const SERVICE_COLORS: &[&str] = &[
+    "\x1b[36m", // cyan
+    "\x1b[33m", // yellow
+    "\x1b[32m", // green
+    "\x1b[35m", // magenta
+    "\x1b[34m", // blue
+    "\x1b[31m", // red
+];
+const ANSI_RESET: &str = "\x1b[0m";
+const ANSI_BOLD_BLUE: &str = "\x1b[1;34m";
+const ANSI_BOLD_YELLOW: &str = "\x1b[1;33m";
+
+fn colored_prefix(service: &str, max_len: usize, color_idx: usize) -> String {
+    let color = SERVICE_COLORS[color_idx % SERVICE_COLORS.len()];
+    let padded = format!("{:width$}", service, width = max_len);
+    format!("{color}{padded} | {ANSI_RESET}")
+}
+
+fn run_banner(service: &str) -> String {
+    format!("{ANSI_BOLD_BLUE}\u{25b6} CONTAINER START \u{2014} {service}{ANSI_RESET}\n")
+}
+
+fn stop_banner(service: &str) -> String {
+    format!("{ANSI_BOLD_YELLOW}\u{25fc} CONTAINER STOP \u{2014} {service}{ANSI_RESET}\n")
+}
+
+/// Split a Docker log line with timestamp prefix into (timestamp, rest).
+/// Docker timestamps are RFC3339Nano like "2024-01-15T10:30:00.123456789Z".
+/// Returns (ts_str, remaining_line). If no timestamp found, returns ("", full_line).
+fn split_timestamp(raw: &str) -> (&str, &str) {
+    // Docker timestamps end with 'Z' or offset, followed by a space.
+    // Look for the first space within 35 chars (RFC3339Nano is ~30 chars).
+    if let Some(pos) = raw[..raw.len().min(35)].find(' ') {
+        let ts = &raw[..pos];
+        // Sanity check: timestamps start with a digit
+        if ts.starts_with(|c: char| c.is_ascii_digit()) {
+            return (ts, &raw[pos + 1..]);
+        }
+    }
+    ("", raw)
+}
+
+// ── Allocate, join, replay ──────────────────────────────────────────────────
 
 /// Allocate a session, register writer, replay buffer, return session ID.
 async fn alloc_join_and_replay(
@@ -59,6 +109,8 @@ async fn alloc_join_and_replay(
 
     session_id
 }
+
+// ── Handler registration ────────────────────────────────────────────────────
 
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // terminalJoin
@@ -313,33 +365,41 @@ async fn handle_combined(
     msg: &ClientMessage,
     stack: &str,
 ) {
-    let session_id = NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed);
-    let cancel = CancellationToken::new();
-
-    // Store cancel token in terminal manager for cleanup
     let term_name = format!("combined-{}", stack);
+
+    // Check if already running — reuse if so
+    if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
+        let session_id =
+            alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
+        if let Some(id) = msg.id {
+            conn.send_ack(id, SessionResponse { ok: true, session_id }).await;
+        }
+        return;
+    }
+
     state
         .terminal_manager
-        .create(&term_name, TerminalType::Pipe)
+        .recreate(&term_name, TerminalType::Pipe)
         .await;
+    let cancel = CancellationToken::new();
     state
         .terminal_manager
         .set_cancel(&term_name, cancel.clone());
 
+    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
+
     if let Some(id) = msg.id {
-        conn.send_ack(
-            id,
-            SessionResponse { ok: true, session_id },
-        )
-        .await;
+        conn.send_ack(id, SessionResponse { ok: true, session_id }).await;
     }
 
-    // Stream directly to the connection (like the original implementation)
-    let conn = conn.clone();
+    // Spawn the combined log task
     let docker = state.docker.clone();
+    let handle = state.terminal_manager.clone();
+    let event_bus = state.event_bus.clone();
     let stack = stack.to_string();
+    let tname = term_name.clone();
     tokio::spawn(async move {
-        stream_combined_logs_direct(&docker, &stack, session_id, &conn, cancel).await;
+        run_combined_logs(&docker, &stack, &handle, &tname, &event_bus, cancel).await;
     });
 }
 
@@ -367,13 +427,25 @@ async fn handle_container_log(
         .terminal_manager
         .set_cancel(&term_name, cancel.clone());
 
-    let docker = state.docker.clone();
-    let cname = container_name.clone();
-    let handle = state.terminal_manager.clone();
-    let tname = term_name.clone();
-    tokio::spawn(async move {
-        stream_single_container_to_terminal(&docker, &cname, &handle, &tname, cancel).await;
-    });
+    {
+        let docker = state.docker.clone();
+        let handle = state.terminal_manager.clone();
+        let event_bus = state.event_bus.clone();
+        let tname = term_name.clone();
+        let stack_owned = stack.to_string();
+        let service_owned = service.to_string();
+        tokio::spawn(async move {
+            let ctx = ContainerLogCtx {
+                docker: &docker,
+                stack: &stack_owned,
+                service: &service_owned,
+                handle: &handle,
+                term_name: &tname,
+                event_bus: &event_bus,
+            };
+            run_container_log_loop(&ctx, &container_name, cancel).await;
+        });
+    }
 
     let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
 
@@ -404,11 +476,20 @@ async fn handle_container_log_by_name(
         .set_cancel(&term_name, cancel.clone());
 
     let docker = state.docker.clone();
-    let cname = container.to_string();
     let handle = state.terminal_manager.clone();
+    let event_bus = state.event_bus.clone();
+    let cname = container.to_string();
     let tname = term_name.clone();
     tokio::spawn(async move {
-        stream_single_container_to_terminal(&docker, &cname, &handle, &tname, cancel).await;
+        run_container_log_by_name_loop(
+            &docker,
+            &cname,
+            &handle,
+            &tname,
+            &event_bus,
+            cancel,
+        )
+        .await;
     });
 
     let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
@@ -652,14 +733,24 @@ async fn handle_container_action_terminal(
     }
 }
 
-// ── Log streaming helpers ──────────────────────────────────────────────────
+// ── Combined log streaming (Phase 2) ───────────────────────────────────────
 
-/// Stream combined logs directly to a WebSocket connection as binary frames.
-async fn stream_combined_logs_direct(
-    docker: &crate::docker::DockerClient,
+/// A log line with its original timestamp for sorting.
+struct TsLine {
+    /// RFC3339Nano timestamp string (sorts lexicographically for UTC —
+    /// Docker always uses UTC timestamps so this is valid).
+    ts: String,
+    /// Formatted display line with colored service prefix.
+    display: String,
+}
+
+/// Two-phase combined log streamer: historical merge-sort then live follow.
+async fn run_combined_logs(
+    docker: &docker::DockerClient,
     stack: &str,
-    session_id: u16,
-    conn: &Conn,
+    handle: &TerminalHandle,
+    term_name: &str,
+    event_bus: &EventBus,
     cancel: CancellationToken,
 ) {
     let containers = docker::container_list(docker, Some(stack))
@@ -671,45 +762,347 @@ async fn stream_combined_logs_direct(
         return;
     }
 
-    let session_bytes = session_id.to_be_bytes();
+    // Build service → color_index mapping and compute max service name length
+    let max_len = containers
+        .iter()
+        .map(|c| c.service_name.len())
+        .max()
+        .unwrap_or(0);
 
-    for container in &containers {
+    let mut color_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (i, c) in containers.iter().enumerate() {
+        color_map.entry(c.service_name.clone()).or_insert(i);
+    }
+
+    // ── Phase 1: Historical logs with merge-sort ────────────────────────
+    {
+        let mut all_lines: Vec<TsLine> = Vec::new();
+
+        for container in &containers {
+            if cancel.is_cancelled() {
+                return;
+            }
+
+            let ci = *color_map.get(&container.service_name).unwrap_or(&0);
+            let prefix = colored_prefix(&container.service_name, max_len, ci);
+
+            let opts = docker::ContainerLogsOpts {
+                follow: false,
+                stdout: true,
+                stderr: true,
+                timestamps: true,
+                tail: "100".to_string(),
+            };
+
+            let mut stream =
+                std::pin::pin!(docker::container_logs(docker, &container.name, opts));
+
+            while let Some(item) = stream.next().await {
+                if cancel.is_cancelled() {
+                    return;
+                }
+                match item {
+                    Ok(output) => {
+                        let raw = output.into_bytes();
+                        let text = String::from_utf8_lossy(&raw);
+                        for line in text.lines() {
+                            let (ts, content) = split_timestamp(line);
+                            all_lines.push(TsLine {
+                                ts: ts.to_string(),
+                                display: format!("{prefix}{content}\n"),
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        debug!(container = %container.name, "historical log error: {e}");
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Sort by timestamp — RFC3339Nano with UTC sorts lexicographically
+        all_lines.sort_by(|a, b| a.ts.cmp(&b.ts));
+
+        // Write sorted lines to terminal buffer
+        for line in &all_lines {
+            if cancel.is_cancelled() {
+                return;
+            }
+            handle.write_data(term_name, line.display.as_bytes().to_vec());
+        }
+    }
+
+    // ── Phase 2: Live follow with EventBus-driven reconnection ──────────
+    {
+        let (line_tx, mut line_rx) = tokio::sync::mpsc::channel::<String>(256);
+        let mut tasks = JoinSet::new();
+
+        // Spawn a follower for each running container
+        for container in &containers {
+            let ci = *color_map.get(&container.service_name).unwrap_or(&0);
+            let prefix = colored_prefix(&container.service_name, max_len, ci);
+            let docker = docker.clone();
+            let cname = container.name.clone();
+            let svc = container.service_name.clone();
+            let tx = line_tx.clone();
+            let cancel = cancel.clone();
+
+            tasks.spawn(async move {
+                follow_container_logs(&docker, &cname, &svc, &prefix, &tx, &cancel).await;
+            });
+        }
+
+        // Subscribe to EventBus for container start/die events
+        let mut event_rx = event_bus.subscribe();
+        let stack_owned = stack.to_string();
+
+        // Flush loop: read lines from followers and event bus
+        loop {
+            tokio::select! {
+                () = cancel.cancelled() => return,
+                line = line_rx.recv() => {
+                    match line {
+                        Some(text) => {
+                            handle.write_data(term_name, text.into_bytes());
+                        }
+                        None => break, // All senders dropped
+                    }
+                }
+                event = event_rx.recv() => {
+                    match event {
+                        Ok(evt) if evt.project == stack_owned && evt.event_type == "container" => {
+                            match evt.action.as_str() {
+                                "start" => {
+                                    let ci = *color_map.get(&evt.service).unwrap_or(&0);
+                                    let prefix = colored_prefix(&evt.service, max_len, ci);
+                                    let banner = run_banner(&evt.service);
+                                    handle.write_data(term_name, banner.into_bytes());
+
+                                    let docker = docker.clone();
+                                    let cname = evt.name.clone();
+                                    let svc = evt.service.clone();
+                                    let tx = line_tx.clone();
+                                    let cancel = cancel.clone();
+                                    tasks.spawn(async move {
+                                        follow_container_logs(
+                                            &docker, &cname, &svc, &prefix, &tx, &cancel,
+                                        )
+                                        .await;
+                                    });
+                                }
+                                "die" | "stop" => {
+                                    let banner = stop_banner(&evt.service);
+                                    handle.write_data(term_name, banner.into_bytes());
+                                }
+                                _ => {}
+                            }
+                        }
+                        Err(RecvError::Lagged(_)) => {
+                            // Missed events — acceptable, we'll catch up
+                        }
+                        Err(RecvError::Closed) => break,
+                        _ => {}
+                    }
+                }
+                // Reap completed tasks
+                Some(_) = tasks.join_next() => {}
+            }
+        }
+    }
+}
+
+/// Follow a single container's logs (live), sending prefixed lines to `tx`.
+async fn follow_container_logs(
+    docker: &docker::DockerClient,
+    container_name: &str,
+    _service: &str,
+    prefix: &str,
+    tx: &tokio::sync::mpsc::Sender<String>,
+    cancel: &CancellationToken,
+) {
+    let opts = docker::ContainerLogsOpts {
+        follow: true,
+        stdout: true,
+        stderr: true,
+        tail: "0".to_string(),
+        ..Default::default()
+    };
+
+    let mut stream = std::pin::pin!(docker::container_logs(docker, container_name, opts));
+
+    loop {
+        tokio::select! {
+            () = cancel.cancelled() => return,
+            item = stream.next() => {
+                match item {
+                    Some(Ok(output)) => {
+                        let raw = output.into_bytes();
+                        let text = String::from_utf8_lossy(&raw);
+                        for line in text.lines() {
+                            let formatted = format!("{prefix}{line}\n");
+                            if tx.send(formatted).await.is_err() {
+                                return;
+                            }
+                        }
+                    }
+                    Some(Err(e)) => {
+                        debug!(container = %container_name, "follow log error: {e}");
+                        break;
+                    }
+                    None => break,
+                }
+            }
+        }
+    }
+}
+
+// ── Single-container log reconnection (Phase 3) ────────────────────────────
+
+/// Find a container ID by stack+service, trying label match then name fallback.
+async fn find_container_id(
+    docker: &docker::DockerClient,
+    stack: &str,
+    service: &str,
+) -> Option<String> {
+    let containers = docker::container_list(docker, Some(stack))
+        .await
+        .unwrap_or_default();
+
+    // Prefer exact service_name match
+    if let Some(c) = containers.iter().find(|c| c.service_name == service) {
+        return Some(c.name.clone());
+    }
+
+    // Fallback: name contains service
+    if let Some(c) = containers.iter().find(|c| c.name.contains(service)) {
+        return Some(c.name.clone());
+    }
+
+    // Last resort: conventional name
+    let conventional = format!("{}-{}-1", stack, service);
+    Some(conventional)
+}
+
+/// Context for a single-container log reconnection loop.
+struct ContainerLogCtx<'a> {
+    docker: &'a docker::DockerClient,
+    stack: &'a str,
+    service: &'a str,
+    handle: &'a TerminalHandle,
+    term_name: &'a str,
+    event_bus: &'a EventBus,
+}
+
+/// Stream single-container logs with EventBus-driven reconnection on restart.
+async fn run_container_log_loop(
+    ctx: &ContainerLogCtx<'_>,
+    initial_container: &str,
+    cancel: CancellationToken,
+) {
+    let mut container_name = initial_container.to_string();
+
+    loop {
         if cancel.is_cancelled() {
             return;
         }
 
-        let opts = docker::ContainerLogsOpts {
-            follow: false,
-            stdout: true,
-            stderr: true,
-            tail: "100".to_string(),
-            ..Default::default()
-        };
+        // Stream logs (follow=true, tail=100 on first connect, tail=0 on reconnect)
+        let is_first = container_name == initial_container;
+        let tail = if is_first { "100" } else { "0" };
 
-        let mut stream = std::pin::pin!(docker::container_logs(docker, &container.name, opts));
+        stream_single_container_to_terminal(ctx.docker, &container_name, ctx.handle, ctx.term_name, cancel.clone(), tail).await;
+
+        if cancel.is_cancelled() {
+            return;
+        }
+
+        // Log stream ended — subscribe to EventBus and wait for restart
+        let banner = stop_banner(ctx.service);
+        ctx.handle.write_data(ctx.term_name, banner.into_bytes());
+
+        let mut event_rx = ctx.event_bus.subscribe();
+        let stack_owned = ctx.stack.to_string();
+        let service_owned = ctx.service.to_string();
 
         loop {
             tokio::select! {
                 () = cancel.cancelled() => return,
-                item = stream.next() => {
-                    match item {
-                        Some(Ok(output)) => {
-                            let data = output.into_bytes();
-                            if data.is_empty() {
-                                continue;
+                event = event_rx.recv() => {
+                    match event {
+                        Ok(evt) if evt.project == stack_owned
+                            && evt.service == service_owned
+                            && evt.event_type == "container"
+                            && evt.action == "start" =>
+                        {
+                            let banner = run_banner(ctx.service);
+                            ctx.handle.write_data(ctx.term_name, banner.into_bytes());
+
+                            // Update container name (may have changed after recreate)
+                            if let Some(name) = find_container_id(ctx.docker, ctx.stack, ctx.service).await {
+                                container_name = name;
                             }
-                            let mut frame = Vec::with_capacity(2 + data.len());
-                            frame.extend_from_slice(&session_bytes);
-                            frame.extend_from_slice(&data);
-                            if !conn.send(Message::Binary(frame.into())).await {
-                                return;
+                            break; // Reconnect
+                        }
+                        Err(RecvError::Lagged(_)) => {}
+                        Err(RecvError::Closed) => return,
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Stream single-container logs by container name with EventBus-driven reconnection.
+async fn run_container_log_by_name_loop(
+    docker: &docker::DockerClient,
+    container_name: &str,
+    handle: &TerminalHandle,
+    term_name: &str,
+    event_bus: &EventBus,
+    cancel: CancellationToken,
+) {
+    let mut first = true;
+
+    loop {
+        if cancel.is_cancelled() {
+            return;
+        }
+
+        let tail = if first { "100" } else { "0" };
+        first = false;
+
+        stream_single_container_to_terminal(docker, container_name, handle, term_name, cancel.clone(), tail).await;
+
+        if cancel.is_cancelled() {
+            return;
+        }
+
+        // Log stream ended
+        let banner = stop_banner(container_name);
+        handle.write_data(term_name, banner.into_bytes());
+
+        let mut event_rx = event_bus.subscribe();
+        let cname = container_name.to_string();
+
+        loop {
+            tokio::select! {
+                () = cancel.cancelled() => return,
+                event = event_rx.recv() => {
+                    match event {
+                        Ok(evt) if evt.event_type == "container"
+                            && (evt.name == cname || evt.container_id == cname) =>
+                        {
+                            if evt.action == "start" {
+                                let banner = run_banner(container_name);
+                                handle.write_data(term_name, banner.into_bytes());
+                                break; // Reconnect
                             }
                         }
-                        Some(Err(e)) => {
-                            debug!(container = %container.name, "log stream error: {e}");
-                            break;
-                        }
-                        None => break,
+                        Err(RecvError::Lagged(_)) => {}
+                        Err(RecvError::Closed) => return,
+                        _ => {}
                     }
                 }
             }
@@ -719,17 +1112,18 @@ async fn stream_combined_logs_direct(
 
 /// Stream logs from a single container into a terminal buffer via the actor.
 async fn stream_single_container_to_terminal(
-    docker: &crate::docker::DockerClient,
+    docker: &docker::DockerClient,
     container_name: &str,
     handle: &TerminalHandle,
     term_name: &str,
     cancel: CancellationToken,
+    tail: &str,
 ) {
     let opts = docker::ContainerLogsOpts {
         follow: true,
         stdout: true,
         stderr: true,
-        tail: "100".to_string(),
+        tail: tail.to_string(),
         ..Default::default()
     };
 

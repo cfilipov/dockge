@@ -140,6 +140,56 @@ describe("terminal", () => {
         }
     });
 
+    test("combinedLogHistoricalOrdering — logs from multiple services are interleaved", async () => {
+        await resetMockState();
+
+        const client = await connectClient();
+        try {
+            await client.login();
+
+            const joinResp = await client.sendAndReceive("terminalJoin", {
+                type: "combined",
+                stack: "test-stack",
+            });
+            expect(joinResp.ok).toBe(true);
+            const sessionId = joinResp.sessionId as number;
+
+            // Collect binary frames until we have enough output from both services
+            let output = "";
+            for (let i = 0; i < 20; i++) {
+                const data = await client.waitForBinary(5000);
+                expect(data.length).toBeGreaterThanOrEqual(2);
+                const gotSession = (data[0] << 8) | data[1];
+                expect(gotSession).toBe(sessionId);
+                output += data.subarray(2).toString("utf-8");
+
+                // Stop when we have enough from both services
+                if (output.includes("web") && output.includes("redis") && output.length > 500) break;
+            }
+
+            // Split into lines and identify service prefixes
+            const lines = output.split("\n").filter(l => l.trim());
+            const serviceOrder = lines.map(l => {
+                if (l.includes("web")) return "web";
+                if (l.includes("redis")) return "redis";
+                return null;
+            }).filter(Boolean) as string[];
+
+            // Must have lines from both services
+            expect(serviceOrder).toContain("web");
+            expect(serviceOrder).toContain("redis");
+
+            // Must be interleaved (not all-web-then-all-redis — that was the old broken behavior)
+            const firstRedis = serviceOrder.indexOf("redis");
+            const lastWeb = serviceOrder.lastIndexOf("web");
+            expect(firstRedis).toBeLessThan(lastWeb);
+
+            await client.sendAndReceive("terminalLeave", { sessionId });
+        } finally {
+            client.close();
+        }
+    });
+
     test("terminalLeaveInvalidSession — rejects nonexistent session", async () => {
         await resetMockState();
 

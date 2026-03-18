@@ -151,6 +151,7 @@ enum TerminalCmd {
         name: String,
         reply: oneshot::Sender<()>,
     },
+    #[allow(dead_code)]
     Create {
         name: String,
         typ: TerminalType,
@@ -220,6 +221,7 @@ impl TerminalHandle {
     }
 
     /// Create a fresh terminal, closing the old one if it exists.
+    #[allow(dead_code)]
     pub async fn create(&self, name: &str, typ: TerminalType) {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(TerminalCmd::Create {

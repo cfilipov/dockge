@@ -1,3 +1,4 @@
+pub mod eventbus;
 pub mod watcher;
 
 use std::sync::Arc;
@@ -53,7 +54,6 @@ pub enum DispatchMsg {
         action: String,
     },
     /// Request a full unfiltered refresh for a resource type.
-    #[allow(dead_code)]
     FullSync {
         resource_type: String,
     },

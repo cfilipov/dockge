@@ -14,7 +14,7 @@ use redb::Database;
 use serde_json::value::RawValue;
 use tokio::sync::mpsc;
 use crate::auth::LoginRateLimiter;
-use crate::broadcast::{Broadcaster, DispatchMsg, WsControlMsg};
+use crate::broadcast::{Broadcaster, DispatchMsg, WsControlMsg, eventbus::EventBus};
 use crate::config::Config;
 use crate::db;
 use crate::db::users::UserStore;
@@ -42,6 +42,7 @@ pub struct AppState {
     pub stack_locks: stack::NamedMutex,
     pub has_authenticated: AtomicBool,
     pub terminal_manager: TerminalHandle,
+    pub event_bus: EventBus,
 }
 
 impl AppState {
