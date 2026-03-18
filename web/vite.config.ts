@@ -5,18 +5,20 @@ import { BootstrapVueNextResolver } from "unplugin-vue-components/resolvers";
 import "vue";
 
 // https://vitejs.dev/config/
+const backendPort = process.env.VITE_BACKEND_PORT ?? "5001";
+
 export default defineConfig({
     server: {
-        port: 5000,
+        port: parseInt(process.env.VITE_PORT ?? "5000"),
         strictPort: true,
         allowedHosts: true,
         proxy: {
             "/ws": {
-                target: "http://localhost:5001",
+                target: `http://localhost:${backendPort}`,
                 ws: true,
             },
             "/api": {
-                target: "http://localhost:5001",
+                target: `http://localhost:${backendPort}`,
             },
         },
     },

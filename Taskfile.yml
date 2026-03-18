@@ -282,7 +282,16 @@ tasks:
     cmd: DOCKGE_BIN=../bin/dockge-rust pnpm test
 
   dev-rust:
-    desc: Run mock daemon + Rust backend on :5003
+    desc: Run mock daemon + Rust backend + Vite HMR (ports 5003 + 5000)
+    deps: [dev-rust-go, dev-rust-web]
+
+  dev-rust-web:
+    desc: Run Vite dev server for Rust backend (port 5000, proxies to 5003)
+    dir: web
+    cmd: VITE_BACKEND_PORT=5003 pnpm run dev
+
+  dev-rust-go:
+    desc: Run mock daemon + Rust backend only (port 5003)
     deps: [build-rust, build-mock-daemon, build-mock-docker]
     cmds:
       - cmd: |
