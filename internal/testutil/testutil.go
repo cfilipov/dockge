@@ -448,6 +448,13 @@ func (e *TestEnv) WaitForEvent(t testing.TB, conn *websocket.Conn, eventName str
 				if err := json.Unmarshal(respData, &parsed); err != nil {
 					t.Fatalf("WaitForEvent(%s): unmarshal data: %v", eventName, err)
 				}
+				// Unwrap ChannelBroadcast wrapper: if data has "items" key,
+				// return the items map (resource channels use this wrapper).
+				if items, ok := parsed.Data["items"]; ok {
+					if itemsMap, ok := items.(map[string]interface{}); ok {
+						return itemsMap
+					}
+				}
 				return parsed.Data
 			}
 		}

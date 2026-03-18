@@ -1,6 +1,7 @@
 package models
 
 import (
+    "fmt"
     "path/filepath"
     "testing"
 
@@ -338,6 +339,97 @@ func TestImageUpdateStoreDeleteService(t *testing.T) {
     }
     if _, ok := svcUpdates["redis"]; !ok {
         t.Error("redis should still exist")
+    }
+}
+
+// --- Regression tests ---
+
+// TestSettingStoreConcurrentGet verifies that concurrent Get calls on the same
+// key don't race. The old code had a TOCTOU bug: RLock → check cache → RUnlock →
+// Lock → fill cache → Unlock. Two goroutines could both read-miss and race on
+// the fill. The fix uses a single Lock throughout. This test catches the race
+// under -race.
+func TestSettingStoreConcurrentGet(t *testing.T) {
+    t.Parallel()
+    store := openTestSettingStore(t)
+
+    // Set a known value
+    if err := store.Set("concurrent-key", "expected-value"); err != nil {
+        t.Fatal(err)
+    }
+
+    // Invalidate cache so every goroutine hits the DB path
+    store.InvalidateCache()
+
+    const goroutines = 50
+    errs := make(chan error, goroutines)
+
+    for i := 0; i < goroutines; i++ {
+        go func() {
+            val, err := store.Get("concurrent-key")
+            if err != nil {
+                errs <- err
+                return
+            }
+            if val != "expected-value" {
+                errs <- fmt.Errorf("got %q, want %q", val, "expected-value")
+                return
+            }
+            errs <- nil
+        }()
+    }
+
+    for i := 0; i < goroutines; i++ {
+        if err := <-errs; err != nil {
+            t.Error(err)
+        }
+    }
+}
+
+// TestImageUpdateStoreCheckStatus verifies that the CheckStatus field
+// (CheckStatusOK / CheckStatusFailed) round-trips through BoltDB and that
+// failed checks never report updates.
+func TestImageUpdateStoreCheckStatus(t *testing.T) {
+    t.Parallel()
+    store := openTestImageUpdateStore(t)
+
+    // Insert an OK entry with an update
+    if err := store.Upsert("stack-ok", "web", "nginx:latest", "sha256:aaa", "sha256:bbb", true, CheckStatusOK); err != nil {
+        t.Fatal(err)
+    }
+    // Insert a failed entry — hasUpdate must be false for failed checks
+    if err := store.Upsert("stack-fail", "api", "node:20", "", "", false, CheckStatusFailed); err != nil {
+        t.Fatal(err)
+    }
+
+    entries, err := store.GetAll()
+    if err != nil {
+        t.Fatal(err)
+    }
+    if len(entries) != 2 {
+        t.Fatalf("expected 2 entries, got %d", len(entries))
+    }
+
+    // Verify the failed entry has HasUpdate=false
+    for _, e := range entries {
+        if e.StackName == "stack-fail" && e.HasUpdate {
+            t.Error("failed check should not report HasUpdate=true")
+        }
+        if e.StackName == "stack-ok" && !e.HasUpdate {
+            t.Error("ok check with update should report HasUpdate=true")
+        }
+    }
+
+    // StackHasUpdates should only include the OK stack
+    updates, err := store.StackHasUpdates()
+    if err != nil {
+        t.Fatal(err)
+    }
+    if !updates["stack-ok"] {
+        t.Error("stack-ok should have updates")
+    }
+    if updates["stack-fail"] {
+        t.Error("stack-fail should not have updates (failed check)")
     }
 }
 

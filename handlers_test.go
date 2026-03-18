@@ -1048,22 +1048,25 @@ func TestDownStackBroadcastsNullContainers(t *testing.T) {
         t.Fatalf("downStack failed: %v", resp)
     }
 
-    // Wait for the post-down containers broadcast on conn2
-    // The broadcast may take a moment due to coalescing
-    postDown := env.WaitForEvent(t, conn2, "containers")
-
-    // The destroyed container should have a null value (JSON null → Go nil)
-    val, exists := postDown[foundKey]
-    if !exists {
-        // The container key is gone entirely, which is acceptable if
-        // the full refresh didn't include it. But ideally it should be
-        // present as null for merge-based stores.
-        t.Logf("container %q not present in post-down broadcast (acceptable if full refresh)", foundKey)
-        return
+    // Wait for a post-down containers broadcast where the container is null
+    // (destroyed). Multiple broadcasts may arrive: immediate partial updates
+    // (die → exited) followed by the destroy → null broadcast.
+    for i := 0; i < 10; i++ {
+        postDown := env.WaitForEvent(t, conn2, "containers")
+        val, exists := postDown[foundKey]
+        if !exists {
+            // Container absent from broadcast — acceptable if full refresh
+            t.Logf("container %q not present in post-down broadcast (acceptable)", foundKey)
+            return
+        }
+        if val == nil {
+            // Container explicitly null — expected for merge-based stores
+            return
+        }
+        // Container still present with non-null value (e.g. state: "exited"
+        // from die event). Keep reading for the destroy broadcast.
     }
-    if val != nil {
-        t.Errorf("expected container %q to be null in post-down broadcast, got %T", foundKey, val)
-    }
+    t.Errorf("expected container %q to be null in post-down broadcast after 10 attempts", foundKey)
 }
 
 // TestConcurrentStackOperations verifies that concurrent compose operations
