@@ -2,6 +2,10 @@ import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Session Invalidation", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("protected route shows login form after logout", async ({ browser }) => {
         // Create an isolated context with stored auth state
         const context = await browser.newContext({

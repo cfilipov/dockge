@@ -3,6 +3,10 @@ import { waitForApp } from "../helpers/wait-for-app";
 import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Compose — Unmanaged Stack Banner", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("shows unmanaged banner on 10-unmanaged", async ({ page }) => {
         await page.goto("/stacks/10-unmanaged");
         await waitForApp(page);
@@ -34,6 +38,10 @@ test.describe("Compose — Unmanaged Stack Banner", () => {
 });
 
 test.describe("Compose — URL Display", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("shows URL badges on stack with URL labels", async ({ page }) => {
         await page.goto("/stacks/07-full-features");
         await waitForApp(page);

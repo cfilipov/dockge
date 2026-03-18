@@ -2,6 +2,10 @@ import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Logout Flow", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("logout via profile dropdown redirects to login form", async ({ browser }) => {
         // Create a fresh browser context with stored auth state so we start logged in.
         // This isolates the logout from other tests' shared context.

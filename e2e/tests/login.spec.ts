@@ -14,6 +14,10 @@ test.use({
 });
 
 test.describe("Login Page", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
         await expect(page.getByPlaceholder("Username")).toBeVisible({ timeout: 15000 });

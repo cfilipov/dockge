@@ -9,6 +9,10 @@ const UPDATE_MODE = !!process.env.UPDATE_BENCHMARKS;
 const REPORT_PATH = join(__dirname, "..", "..", ".e2e-output", "test-results", "benchmark-report.txt");
 
 test.describe("Performance Benchmarks", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("memory and socket metrics within baseline tolerances", async ({ perfCollector }) => {
         const results = await perfCollector.getResults();
 

@@ -26,6 +26,10 @@ async function enterEditMode(page: Page, appCard: Locator) {
 }
 
 test.describe("Container Card Editing", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     let appCard: Locator;
     let yamlEditor: Locator;
 

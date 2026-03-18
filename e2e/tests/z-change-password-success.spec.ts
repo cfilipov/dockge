@@ -2,6 +2,10 @@ import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Change Password — Success", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     // This test actually changes the admin password, so we need to restore it
     // afterwards. The test verifies the full happy path:
     //   1. Fill current + new + repeat → submit

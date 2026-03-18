@@ -2,6 +2,10 @@ import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Docker Run → Compose Converter", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
         await waitForApp(page);

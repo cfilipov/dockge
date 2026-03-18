@@ -16,6 +16,10 @@ import { takeLightScreenshot } from "../helpers/light-mode";
  */
 
 test.describe("Container Tabs — Stacks to Logs", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("log button navigates to Containers tab with logs sub-view", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
@@ -55,6 +59,10 @@ test.describe("Container Tabs — Stacks to Logs", () => {
 });
 
 test.describe("Container Tabs — Stacks to Containers", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("inspect button navigates to Containers tab with container selected", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
@@ -90,6 +98,10 @@ test.describe("Container Tabs — Stacks to Containers", () => {
 });
 
 test.describe("Container Tabs — Stacks to Shell", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("shell button navigates to Containers tab with shell sub-view", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
@@ -132,6 +144,10 @@ test.describe("Container Tabs — Stacks to Shell", () => {
 });
 
 test.describe("Container Tabs — Sidebar switching", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("clicking a different container in the sidebar switches the detail view", async ({ page }) => {
         // Start on logs sub-view with nginx selected
         await page.goto("/containers/01-web-app-nginx-1/logs");
@@ -178,6 +194,10 @@ test.describe("Container Tabs — Sidebar switching", () => {
 });
 
 test.describe("Container Tabs — Sub-view toggle preserves selection", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test("switching from parsed to logs via toggle preserves container selection", async ({ page }) => {
         await page.goto("/containers/02-blog-mysql-1");
         await waitForApp(page);

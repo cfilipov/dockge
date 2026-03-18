@@ -2,6 +2,10 @@ import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Container Metrics", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/containers/01-web-app-nginx-1");
         await waitForApp(page);

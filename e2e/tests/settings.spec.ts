@@ -3,6 +3,10 @@ import { waitForApp } from "../helpers/wait-for-app";
 import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Settings — General", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/settings/general");
         await waitForApp(page);
@@ -34,6 +38,10 @@ test.describe("Settings — General", () => {
 });
 
 test.describe("Settings — Appearance", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/settings/appearance");
         await waitForApp(page);
@@ -79,6 +87,10 @@ test.describe("Settings — Appearance", () => {
 });
 
 test.describe("Settings — Security", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/settings/security");
         await waitForApp(page);
@@ -105,6 +117,10 @@ test.describe("Settings — Security", () => {
 });
 
 test.describe("Settings — Global .env", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/settings/globalEnv");
         await waitForApp(page);
@@ -144,6 +160,10 @@ test.describe("Settings — Global .env", () => {
 });
 
 test.describe("Settings — About", () => {
+    test.beforeAll(async ({ request }) => {
+        await request.post("/api/mock/reset");
+    });
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/settings/about");
         await waitForApp(page);
