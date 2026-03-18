@@ -3,5 +3,10 @@
     "playwright.reuseBrowser": false,
     "playwright.configs": [
         "e2e/playwright.config.ts"
-    ]
+    ],
+    "workbench.sash.hoverDelay": 0,
+    "workbench.hover.delay": 0,
+    "workbench.hover.reducedDelay": 0,
+    "editor.hover.delay": 0,
+    "editor.hover.hidingDelay": 0
 }

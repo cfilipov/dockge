@@ -1,10 +1,14 @@
 {
     "recommendations": [
+        "svelte.svelte-vscode",
         "golang.go",
         "vue.volar",
         "ms-playwright.playwright",
         "task.vscode-task",
         "esbenp.prettier-vscode",
-        "dbaeumer.vscode-eslint"
+        "dbaeumer.vscode-eslint",
+        "putraadijaya.html-live-preview-pro",
+        "streetsidesoftware.code-spell-checker",
+        "yaroslavhorokhov.cmdrun"
     ]
 }
