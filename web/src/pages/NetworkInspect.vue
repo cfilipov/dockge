@@ -106,11 +106,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
 import { useContainerStore } from "../stores/containerStore";
+import { useNetworkStore } from "../stores/networkStore";
 import { formatDate } from "../common/util-common";
 import ContainerCard from "../components/ContainerCard.vue";
 
@@ -118,6 +119,7 @@ const route = useRoute();
 const { t } = useI18n();
 const { emit } = useSocket();
 const containerStore = useContainerStore();
+const networkStoreInstance = useNetworkStore();
 
 const networkDetail = ref<any>(null);
 const loading = ref(false);
@@ -161,10 +163,23 @@ function fetchDetail() {
     });
 }
 
+// Debounced re-fetch on relevant events
+let refetchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(() => networkStoreInstance.lastEvent, (evt) => {
+    if (!evt || evt.name !== networkName.value) return;
+    if (refetchTimeout) clearTimeout(refetchTimeout);
+    refetchTimeout = setTimeout(fetchDetail, 500);
+});
+
 watch(networkName, fetchDetail);
 
 onMounted(() => {
     fetchDetail();
+});
+
+onUnmounted(() => {
+    if (refetchTimeout) clearTimeout(refetchTimeout);
 });
 </script>
 

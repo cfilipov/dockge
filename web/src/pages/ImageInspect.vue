@@ -104,11 +104,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useSocket } from "../composables/useSocket";
 import { useContainerStore } from "../stores/containerStore";
+import { useImageStore } from "../stores/imageStore";
 import { formatDate } from "../common/util-common";
 import ContainerCard from "../components/ContainerCard.vue";
 
@@ -116,11 +117,22 @@ const route = useRoute();
 const { t } = useI18n();
 const { emit } = useSocket();
 const containerStore = useContainerStore();
+const imageStoreInstance = useImageStore();
 
 const imageDetail = ref<any>(null);
 const loading = ref(false);
 
 const imageRef = computed(() => route.params.imageRef as string || "");
+
+// Find this image in the store by matching imageRef against ID or repoTags
+const storeImage = computed(() => {
+    if (!imageRef.value) return undefined;
+    for (const img of imageStoreInstance.imageMap.values()) {
+        if (img.id === imageRef.value) return img;
+        if (img.repoTags?.some(t => t === imageRef.value)) return img;
+    }
+    return undefined;
+});
 
 const isDangling = computed(() => {
     if (!imageDetail.value) return false;
@@ -177,10 +189,26 @@ function fetchDetail() {
     });
 }
 
+// Debounced re-fetch on relevant events
+let refetchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(() => imageStoreInstance.lastEvent, (evt) => {
+    if (!evt) return;
+    // Images are keyed by ID, but events have name — match via storeImage
+    if (storeImage.value && evt.id === storeImage.value.id) {
+        if (refetchTimeout) clearTimeout(refetchTimeout);
+        refetchTimeout = setTimeout(fetchDetail, 500);
+    }
+});
+
 watch(imageRef, fetchDetail);
 
 onMounted(() => {
     fetchDetail();
+});
+
+onUnmounted(() => {
+    if (refetchTimeout) clearTimeout(refetchTimeout);
 });
 </script>
 
