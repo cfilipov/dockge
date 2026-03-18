@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
 use crate::docker;
-use crate::terminal::TerminalType;
+use crate::terminal::{TerminalHandle, TerminalType};
 use crate::ws::conn::Conn;
 use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse, SessionResponse};
 use crate::ws::WsServer;
@@ -18,9 +18,10 @@ use super::{arg_object, parse_args, AppState};
 static NEXT_SESSION_ID: AtomicU16 = AtomicU16::new(1);
 
 /// Allocate a session, register writer, replay buffer, return session ID.
-fn alloc_join_and_replay(
+async fn alloc_join_and_replay(
     conn: &Arc<Conn>,
-    term: &Arc<std::sync::Mutex<crate::terminal::Terminal>>,
+    handle: &TerminalHandle,
+    term_name: &str,
 ) -> u16 {
     let session_id = NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed);
     let session_bytes = session_id.to_be_bytes();
@@ -29,9 +30,9 @@ fn alloc_join_and_replay(
     let sid = session_bytes;
     let writer_key = format!("{}-{}", conn.id, session_id);
 
-    let buffer = {
-        let mut t = term.lock().unwrap();
-        t.join_and_get_buffer(
+    let buffer = handle
+        .join_and_get_buffer(
+            term_name,
             writer_key,
             Box::new(move |data: &[u8]| {
                 let mut frame = Vec::with_capacity(2 + data.len());
@@ -43,7 +44,7 @@ fn alloc_join_and_replay(
                 });
             }),
         )
-    };
+        .await;
 
     // Replay buffer
     if !buffer.is_empty() {
@@ -298,32 +299,26 @@ pub fn register_binary_handler(ws: &mut WsServer, state: Arc<AppState>) {
         let op = payload[0];
         let data = &payload[1..];
 
-        // Find the terminal associated with this session's writer key
         let writer_key = format!("{}-{}", conn.id, session_id);
 
-        // We need to find which terminal has this writer
-        // For simplicity, iterate all terminals
-        let terminals = state.terminal_manager.terminals.lock().unwrap();
-        for term in terminals.values() {
-            let t = term.lock().unwrap();
-            if t.writers.contains_key(&writer_key) {
-                match op {
-                    0x00 => {
-                        // Input
-                        t.input(data);
-                    }
-                    0x01 => {
-                        // Resize: [rows:u16][cols:u16] big-endian
-                        if data.len() >= 4 {
-                            let rows = u16::from_be_bytes([data[0], data[1]]);
-                            let cols = u16::from_be_bytes([data[2], data[3]]);
-                            t.resize(rows, cols);
-                        }
-                    }
-                    _ => {}
-                }
-                break;
+        match op {
+            0x00 => {
+                // Input
+                state
+                    .terminal_manager
+                    .input_by_writer_key(&writer_key, data.to_vec());
             }
+            0x01 => {
+                // Resize: [rows:u16][cols:u16] big-endian
+                if data.len() >= 4 {
+                    let rows = u16::from_be_bytes([data[0], data[1]]);
+                    let cols = u16::from_be_bytes([data[2], data[3]]);
+                    state
+                        .terminal_manager
+                        .resize_by_writer_key(&writer_key, rows, cols);
+                }
+            }
+            _ => {}
         }
     }));
 }
@@ -341,13 +336,13 @@ async fn handle_combined(
 
     // Store cancel token in terminal manager for cleanup
     let term_name = format!("combined-{}", stack);
-    let term = state
+    state
         .terminal_manager
-        .create(&term_name, TerminalType::Pipe);
-    {
-        let mut t = term.lock().unwrap();
-        t.cancel = Some(cancel.clone());
-    }
+        .create(&term_name, TerminalType::Pipe)
+        .await;
+    state
+        .terminal_manager
+        .set_cancel(&term_name, cancel.clone());
 
     if let Some(id) = msg.id {
         conn.send_ack(
@@ -381,23 +376,24 @@ async fn handle_container_log(
         format!("{}-{}-1", stack, service)
     };
 
-    let term = state
+    state
         .terminal_manager
-        .recreate(&term_name, TerminalType::Pipe);
+        .recreate(&term_name, TerminalType::Pipe)
+        .await;
     let cancel = CancellationToken::new();
-    {
-        let mut t = term.lock().unwrap();
-        t.cancel = Some(cancel.clone());
-    }
+    state
+        .terminal_manager
+        .set_cancel(&term_name, cancel.clone());
 
     let docker = state.docker.clone();
     let cname = container_name.clone();
-    let term_writer = term.clone();
+    let handle = state.terminal_manager.clone();
+    let tname = term_name.clone();
     tokio::spawn(async move {
-        stream_single_container_to_terminal(&docker, &cname, &term_writer, cancel).await;
+        stream_single_container_to_terminal(&docker, &cname, &handle, &tname, cancel).await;
     });
 
-    let session_id = alloc_join_and_replay(conn, &term);
+    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
 
     if let Some(id) = msg.id {
         conn.send_ack(
@@ -416,23 +412,24 @@ async fn handle_container_log_by_name(
 ) {
     let term_name = format!("container-log-by-name-{}", container);
 
-    let term = state
+    state
         .terminal_manager
-        .recreate(&term_name, TerminalType::Pipe);
+        .recreate(&term_name, TerminalType::Pipe)
+        .await;
     let cancel = CancellationToken::new();
-    {
-        let mut t = term.lock().unwrap();
-        t.cancel = Some(cancel.clone());
-    }
+    state
+        .terminal_manager
+        .set_cancel(&term_name, cancel.clone());
 
     let docker = state.docker.clone();
     let cname = container.to_string();
-    let term_writer = term.clone();
+    let handle = state.terminal_manager.clone();
+    let tname = term_name.clone();
     tokio::spawn(async move {
-        stream_single_container_to_terminal(&docker, &cname, &term_writer, cancel).await;
+        stream_single_container_to_terminal(&docker, &cname, &handle, &tname, cancel).await;
     });
 
-    let session_id = alloc_join_and_replay(conn, &term);
+    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
 
     if let Some(id) = msg.id {
         conn.send_ack(
@@ -454,35 +451,36 @@ async fn handle_exec(
     let term_name = format!("container-exec-{}-{}-0", stack, service);
 
     // Check if already running
-    if let Some(existing) = state.terminal_manager.get(&term_name) {
-        let is_running = !existing.lock().unwrap().is_closed();
-        if is_running {
-            let session_id = alloc_join_and_replay(conn, &existing);
-            if let Some(id) = msg.id {
-                conn.send_ack(
-                    id,
-                    SessionResponse { ok: true, session_id },
-                )
-                .await;
-            }
-            return;
+    if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
+        // Terminal exists and is not closed — reuse it
+        let session_id =
+            alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                SessionResponse { ok: true, session_id },
+            )
+            .await;
         }
+        return;
     }
 
-    let term = state
+    state
         .terminal_manager
-        .recreate(&term_name, TerminalType::Pty);
+        .recreate(&term_name, TerminalType::Pty)
+        .await;
     let stacks_dir = &state.config.stacks_dir;
     let stack_dir = format!("{}/{}", stacks_dir, stack);
 
     match state.terminal_manager.start_pty(
-        &term,
+        &term_name,
         "docker",
         &["compose", "exec", service, shell],
         Some(&stack_dir),
-    ) {
+    ).await {
         Ok(_cancel) => {
-            let session_id = alloc_join_and_replay(conn, &term);
+            let session_id =
+                alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
@@ -512,33 +510,33 @@ async fn handle_exec_by_name(
     let term_name = format!("container-exec-by-name-{}", container);
 
     // Check if already running
-    if let Some(existing) = state.terminal_manager.get(&term_name) {
-        let is_running = !existing.lock().unwrap().is_closed();
-        if is_running {
-            let session_id = alloc_join_and_replay(conn, &existing);
-            if let Some(id) = msg.id {
-                conn.send_ack(
-                    id,
-                    SessionResponse { ok: true, session_id },
-                )
-                .await;
-            }
-            return;
+    if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
+        let session_id =
+            alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                SessionResponse { ok: true, session_id },
+            )
+            .await;
         }
+        return;
     }
 
-    let term = state
+    state
         .terminal_manager
-        .recreate(&term_name, TerminalType::Pty);
+        .recreate(&term_name, TerminalType::Pty)
+        .await;
 
     match state.terminal_manager.start_pty(
-        &term,
+        &term_name,
         "docker",
         &["exec", "-it", container, shell],
         None,
-    ) {
+    ).await {
         Ok(_cancel) => {
-            let session_id = alloc_join_and_replay(conn, &term);
+            let session_id =
+                alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
@@ -570,24 +568,23 @@ async fn handle_console(
     let term_name = "console";
 
     // Check if already running
-    if let Some(existing) = state.terminal_manager.get(term_name) {
-        let is_running = !existing.lock().unwrap().is_closed();
-        if is_running {
-            let session_id = alloc_join_and_replay(conn, &existing);
-            if let Some(id) = msg.id {
-                conn.send_ack(
-                    id,
-                    SessionResponse { ok: true, session_id },
-                )
-                .await;
-            }
-            return;
+    if let Some(false) = state.terminal_manager.is_closed(term_name).await {
+        let session_id =
+            alloc_join_and_replay(conn, &state.terminal_manager, term_name).await;
+        if let Some(id) = msg.id {
+            conn.send_ack(
+                id,
+                SessionResponse { ok: true, session_id },
+            )
+            .await;
         }
+        return;
     }
 
-    let term = state
+    state
         .terminal_manager
-        .recreate(term_name, TerminalType::Pty);
+        .recreate(term_name, TerminalType::Pty)
+        .await;
 
     // Detect available shell
     let shell_cmd = if shell != "bash" {
@@ -607,10 +604,12 @@ async fn handle_console(
     let stacks_dir = state.config.stacks_dir.clone();
     match state
         .terminal_manager
-        .start_pty(&term, &shell_cmd, &[], Some(&stacks_dir))
+        .start_pty(term_name, &shell_cmd, &[], Some(&stacks_dir))
+        .await
     {
         Ok(_cancel) => {
-            let session_id = alloc_join_and_replay(conn, &term);
+            let session_id =
+                alloc_join_and_replay(conn, &state.terminal_manager, term_name).await;
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
@@ -640,8 +639,8 @@ async fn handle_compose_terminal(
     stack: &str,
 ) {
     let term_name = format!("compose-{}", stack);
-    let term = state.terminal_manager.get_or_create(&term_name);
-    let session_id = alloc_join_and_replay(conn, &term);
+    state.terminal_manager.get_or_create(&term_name).await;
+    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
 
     if let Some(id) = msg.id {
         conn.send_ack(
@@ -659,8 +658,8 @@ async fn handle_container_action_terminal(
     container: &str,
 ) {
     let term_name = format!("container-{}", container);
-    let term = state.terminal_manager.get_or_create(&term_name);
-    let session_id = alloc_join_and_replay(conn, &term);
+    state.terminal_manager.get_or_create(&term_name).await;
+    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
 
     if let Some(id) = msg.id {
         conn.send_ack(
@@ -736,11 +735,12 @@ async fn stream_combined_logs_direct(
     }
 }
 
-/// Stream logs from a single container into a terminal buffer.
+/// Stream logs from a single container into a terminal buffer via the actor.
 async fn stream_single_container_to_terminal(
     docker: &bollard::Docker,
     container_name: &str,
-    term: &Arc<std::sync::Mutex<crate::terminal::Terminal>>,
+    handle: &TerminalHandle,
+    term_name: &str,
     cancel: CancellationToken,
 ) {
     let opts = docker::ContainerLogsOpts {
@@ -761,7 +761,7 @@ async fn stream_single_container_to_terminal(
                     Some(Ok(output)) => {
                         let data = output.into_bytes();
                         if !data.is_empty() {
-                            term.lock().unwrap().write_data(&data);
+                            handle.write_data(term_name, data.to_vec());
                         }
                     }
                     Some(Err(e)) => {

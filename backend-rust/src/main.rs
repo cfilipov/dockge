@@ -112,7 +112,7 @@ async fn main() {
         docker: docker_client,
         stack_locks: handlers::stack::NamedMutex::new(),
         has_authenticated: AtomicBool::new(false),
-        terminal_manager: terminal::Manager::new(),
+        terminal_manager: terminal::spawn(),
     });
 
     // Build WebSocket server with handlers

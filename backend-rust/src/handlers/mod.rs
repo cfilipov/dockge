@@ -20,7 +20,7 @@ use crate::broadcast::{Broadcaster, DispatchMsg, WsControlMsg};
 use crate::config::Config;
 use crate::db;
 use crate::db::users::UserStore;
-use crate::terminal::Manager as TerminalManager;
+use crate::terminal::TerminalHandle;
 use crate::ws::protocol::ClientMessage;
 use crate::ws::conn::Conn;
 use crate::ws::protocol::ErrorResponse;
@@ -43,7 +43,7 @@ pub struct AppState {
     pub docker: bollard::Docker,
     pub stack_locks: stack::NamedMutex,
     pub has_authenticated: AtomicBool,
-    pub terminal_manager: TerminalManager,
+    pub terminal_manager: TerminalHandle,
 }
 
 impl AppState {

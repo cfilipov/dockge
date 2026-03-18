@@ -3,13 +3,14 @@
 //! Mirrors the Go terminal package. Each Terminal is either a Pipe (read-only
 //! log stream) or a PTY (interactive shell). Output is buffered (max 64KB,
 //! rolling 32KB window) and fanned out to all registered writers.
+//!
+//! All mutable state is owned by a single actor task. External code interacts
+//! via [`TerminalHandle`], which sends commands over an mpsc channel.
 
 use std::collections::HashMap;
 use std::io::Write;
-use std::sync::Arc;
 
-use std::sync::Mutex;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tracing::debug;
 
 const MAX_BUFFER: usize = 64 * 1024;
@@ -25,14 +26,15 @@ pub enum TerminalType {
 }
 
 /// A single terminal (pipe or PTY) with buffer and fan-out.
-pub struct Terminal {
-    #[allow(dead_code)] // Used for debug logging when handlers are wired up
-    pub name: String,
-    pub terminal_type: TerminalType,
+/// Private to the actor — external code uses [`TerminalHandle`].
+struct Terminal {
+    #[allow(dead_code)] // Used for debug logging
+    name: String,
+    terminal_type: TerminalType,
     buffer: Vec<u8>,
-    pub writers: HashMap<String, WriterFn>,
+    writers: HashMap<String, WriterFn>,
     closed: bool,
-    pub cancel: Option<tokio_util::sync::CancellationToken>,
+    cancel: Option<tokio_util::sync::CancellationToken>,
     /// For PTY: channel to send input to the PTY stdin writer task.
     pty_input_tx: Option<mpsc::UnboundedSender<PtyCommand>>,
 }
@@ -56,7 +58,7 @@ impl Terminal {
     }
 
     /// Write data to the buffer and fan out to all writers.
-    pub fn write_data(&mut self, data: &[u8]) {
+    fn write_data(&mut self, data: &[u8]) {
         if data.is_empty() || self.closed {
             return;
         }
@@ -84,43 +86,43 @@ impl Terminal {
     }
 
     /// Atomically add a writer and return the current buffer.
-    pub fn join_and_get_buffer(&mut self, key: String, writer: WriterFn) -> Vec<u8> {
+    fn join_and_get_buffer(&mut self, key: String, writer: WriterFn) -> Vec<u8> {
         self.writers.insert(key, writer);
         self.buffer.clone()
     }
 
-    pub fn remove_writer(&mut self, key: &str) {
+    fn remove_writer(&mut self, key: &str) {
         self.writers.remove(key);
     }
 
-    pub fn writer_count(&self) -> usize {
+    fn writer_count(&self) -> usize {
         self.writers.len()
     }
 
-    pub fn is_closed(&self) -> bool {
+    fn is_closed(&self) -> bool {
         self.closed
     }
 
-    pub fn has_cancel(&self) -> bool {
+    fn has_cancel(&self) -> bool {
         self.cancel.is_some()
     }
 
     /// Send input data to the PTY stdin.
-    pub fn input(&self, data: &[u8]) {
+    fn input(&self, data: &[u8]) {
         if let Some(ref tx) = self.pty_input_tx {
             let _ = tx.send(PtyCommand::Input(data.to_vec()));
         }
     }
 
     /// Resize the PTY window.
-    pub fn resize(&self, rows: u16, cols: u16) {
+    fn resize(&self, rows: u16, cols: u16) {
         if let Some(ref tx) = self.pty_input_tx {
             let _ = tx.send(PtyCommand::Resize { rows, cols });
         }
     }
 
     /// Close the terminal: cancel streams, clear writers.
-    pub fn close(&mut self) {
+    fn close(&mut self) {
         self.closed = true;
         if let Some(cancel) = self.cancel.take() {
             cancel.cancel();
@@ -142,232 +144,448 @@ fn normalize_newlines(data: &[u8]) -> Vec<u8> {
     result
 }
 
-/// Terminal manager: tracks all active terminals.
-///
-/// Lock ordering: always acquire outer `terminals` mutex first, then inner
-/// per-terminal mutex. Never hold an inner lock while acquiring the outer one.
-pub struct Manager {
-    pub terminals: Mutex<HashMap<String, Arc<Mutex<Terminal>>>>,
+// ── Actor commands ──────────────────────────────────────────────────────────
+
+enum TerminalCmd {
+    GetOrCreate {
+        name: String,
+        reply: oneshot::Sender<()>,
+    },
+    Create {
+        name: String,
+        typ: TerminalType,
+        reply: oneshot::Sender<()>,
+    },
+    Recreate {
+        name: String,
+        typ: TerminalType,
+        reply: oneshot::Sender<()>,
+    },
+    #[allow(dead_code)]
+    Remove {
+        name: String,
+    },
+    IsClosed {
+        name: String,
+        reply: oneshot::Sender<Option<bool>>,
+    },
+    JoinAndGetBuffer {
+        name: String,
+        writer_key: String,
+        writer: WriterFn,
+        reply: oneshot::Sender<Vec<u8>>,
+    },
+    RemoveWriterFromAll {
+        writer_key: String,
+    },
+    #[allow(dead_code)]
+    RemoveWriterAndCleanup {
+        term_name: String,
+        writer_key: String,
+    },
+    WriteData {
+        name: String,
+        data: Vec<u8>,
+    },
+    InputByWriterKey {
+        writer_key: String,
+        data: Vec<u8>,
+    },
+    ResizeByWriterKey {
+        writer_key: String,
+        rows: u16,
+        cols: u16,
+    },
+    SetCancel {
+        name: String,
+        cancel: tokio_util::sync::CancellationToken,
+    },
+    StartPty {
+        name: String,
+        cmd: String,
+        args: Vec<String>,
+        working_dir: Option<String>,
+        reply: oneshot::Sender<Result<tokio_util::sync::CancellationToken, String>>,
+    },
 }
 
-impl Manager {
-    pub fn new() -> Self {
-        Self {
-            terminals: Mutex::new(HashMap::new()),
-        }
+// ── TerminalHandle (public API) ─────────────────────────────────────────────
+
+/// Channel-based handle to the terminal actor. Clone-cheap (just an mpsc sender).
+#[derive(Clone)]
+pub struct TerminalHandle {
+    tx: mpsc::Sender<TerminalCmd>,
+}
+
+impl TerminalHandle {
+    /// Get or create a pipe terminal by name.
+    pub async fn get_or_create(&self, name: &str) {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(TerminalCmd::GetOrCreate {
+            name: name.to_string(),
+            reply,
+        }).await;
+        let _ = rx.await;
     }
 
-    /// Get an existing terminal by name.
-    pub fn get(&self, name: &str) -> Option<Arc<Mutex<Terminal>>> {
-        self.terminals.lock().unwrap().get(name).cloned()
-    }
-
-    /// Get or create a pipe terminal.
-    pub fn get_or_create(&self, name: &str) -> Arc<Mutex<Terminal>> {
-        let mut terminals = self.terminals.lock().unwrap();
-        terminals
-            .entry(name.to_string())
-            .or_insert_with(|| Arc::new(Mutex::new(Terminal::new(name.to_string(), TerminalType::Pipe))))
-            .clone()
-    }
-
-    /// Create a fresh terminal, closing the old one asynchronously if it exists.
-    pub fn create(&self, name: &str, typ: TerminalType) -> Arc<Mutex<Terminal>> {
-        let mut terminals = self.terminals.lock().unwrap();
-        if let Some(old) = terminals.remove(name) {
-            // Close old terminal asynchronously
-            let old = old.clone();
-            tokio::spawn(async move {
-                old.lock().unwrap().close();
-            });
-        }
-        let term = Arc::new(Mutex::new(Terminal::new(name.to_string(), typ)));
-        terminals.insert(name.to_string(), term.clone());
-        term
+    /// Create a fresh terminal, closing the old one if it exists.
+    pub async fn create(&self, name: &str, typ: TerminalType) {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(TerminalCmd::Create {
+            name: name.to_string(),
+            typ,
+            reply,
+        }).await;
+        let _ = rx.await;
     }
 
     /// Create a fresh terminal, carrying over writers from the old one.
-    pub fn recreate(&self, name: &str, typ: TerminalType) -> Arc<Mutex<Terminal>> {
-        let mut terminals = self.terminals.lock().unwrap();
-        let mut new_term = Terminal::new(name.to_string(), typ);
-
-        if let Some(old) = terminals.remove(name) {
-            let mut old_guard = old.lock().unwrap();
-            // Carry over writers
-            std::mem::swap(&mut new_term.writers, &mut old_guard.writers);
-            old_guard.close();
-        }
-
-        let term = Arc::new(Mutex::new(new_term));
-        terminals.insert(name.to_string(), term.clone());
-        term
+    pub async fn recreate(&self, name: &str, typ: TerminalType) {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(TerminalCmd::Recreate {
+            name: name.to_string(),
+            typ,
+            reply,
+        }).await;
+        let _ = rx.await;
     }
 
     /// Remove a terminal immediately.
-    #[allow(dead_code)] // Handler wiring pending
+    #[allow(dead_code)]
     pub fn remove(&self, name: &str) {
-        let mut terminals = self.terminals.lock().unwrap();
-        if let Some(term) = terminals.remove(name) {
-            term.lock().unwrap().close();
-        }
+        let _ = self.tx.try_send(TerminalCmd::Remove {
+            name: name.to_string(),
+        });
+    }
+
+    /// Check if a terminal exists and whether it is closed.
+    /// Returns `None` if the terminal doesn't exist.
+    pub async fn is_closed(&self, name: &str) -> Option<bool> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(TerminalCmd::IsClosed {
+            name: name.to_string(),
+            reply,
+        }).await;
+        rx.await.ok().flatten()
+    }
+
+    /// Register a writer and get the current buffer contents.
+    pub async fn join_and_get_buffer(
+        &self,
+        name: &str,
+        writer_key: String,
+        writer: WriterFn,
+    ) -> Vec<u8> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(TerminalCmd::JoinAndGetBuffer {
+            name: name.to_string(),
+            writer_key,
+            writer,
+            reply,
+        }).await;
+        rx.await.unwrap_or_default()
+    }
+
+    /// Remove a writer from all terminals (fire-and-forget).
+    pub fn remove_writer_from_all(&self, writer_key: &str) {
+        let _ = self.tx.try_send(TerminalCmd::RemoveWriterFromAll {
+            writer_key: writer_key.to_string(),
+        });
     }
 
     /// Remove writer from a specific terminal and clean up if orphaned.
-    #[allow(dead_code)] // Handler wiring pending
+    #[allow(dead_code)]
     pub fn remove_writer_and_cleanup(&self, term_name: &str, writer_key: &str) {
-        let terminals = self.terminals.lock().unwrap();
-        if let Some(term) = terminals.get(term_name) {
-            let mut t = term.lock().unwrap();
-            t.remove_writer(writer_key);
-            // For pipe terminals with cancel and no writers, cancel immediately
-            if t.writer_count() == 0 && t.terminal_type == TerminalType::Pipe && t.has_cancel() {
-                t.close();
-            }
-        }
+        let _ = self.tx.try_send(TerminalCmd::RemoveWriterAndCleanup {
+            term_name: term_name.to_string(),
+            writer_key: writer_key.to_string(),
+        });
     }
 
-    /// Remove writer from all terminals (on connection disconnect).
-    pub fn remove_writer_from_all(&self, writer_key: &str) {
-        let terminals = self.terminals.lock().unwrap();
-        for term in terminals.values() {
-            let mut t = term.lock().unwrap();
-            t.remove_writer(writer_key);
-            // Immediately close orphaned pipe terminals with cancel
-            if t.writer_count() == 0 && t.terminal_type == TerminalType::Pipe && t.has_cancel() {
-                t.close();
-            }
-        }
+    /// Write data to a terminal's buffer (fire-and-forget).
+    pub fn write_data(&self, name: &str, data: Vec<u8>) {
+        let _ = self.tx.try_send(TerminalCmd::WriteData {
+            name: name.to_string(),
+            data,
+        });
     }
 
-    /// Start a PTY command and attach it to a terminal.
-    /// Returns a CancellationToken that cancels the PTY when dropped.
-    pub fn start_pty(
+    /// Send input to the terminal associated with a writer key (fire-and-forget).
+    pub fn input_by_writer_key(&self, writer_key: &str, data: Vec<u8>) {
+        let _ = self.tx.try_send(TerminalCmd::InputByWriterKey {
+            writer_key: writer_key.to_string(),
+            data,
+        });
+    }
+
+    /// Resize the terminal associated with a writer key (fire-and-forget).
+    pub fn resize_by_writer_key(&self, writer_key: &str, rows: u16, cols: u16) {
+        let _ = self.tx.try_send(TerminalCmd::ResizeByWriterKey {
+            writer_key: writer_key.to_string(),
+            rows,
+            cols,
+        });
+    }
+
+    /// Set a cancellation token on a terminal (fire-and-forget).
+    pub fn set_cancel(&self, name: &str, cancel: tokio_util::sync::CancellationToken) {
+        let _ = self.tx.try_send(TerminalCmd::SetCancel {
+            name: name.to_string(),
+            cancel,
+        });
+    }
+
+    /// Start a PTY command attached to a terminal.
+    pub async fn start_pty(
         &self,
-        term: &Arc<Mutex<Terminal>>,
-        cmd_name: &str,
-        cmd_args: &[&str],
+        name: &str,
+        cmd: &str,
+        args: &[&str],
         working_dir: Option<&str>,
-    ) -> Result<tokio_util::sync::CancellationToken, Box<dyn std::error::Error + Send + Sync>> {
-        use portable_pty::PtySize;
-
-        let setup = open_pty(cmd_name, cmd_args, working_dir)?;
-        let mut pty_reader = setup.reader;
-        let mut master_writer = setup.writer;
-        let master_for_resize = setup.master;
-
-        let cancel = tokio_util::sync::CancellationToken::new();
-
-        // Input channel for PTY stdin
-        let (input_tx, mut input_rx) = mpsc::unbounded_channel::<PtyCommand>();
-
-        {
-            let mut t = term.lock().unwrap();
-            t.cancel = Some(cancel.clone());
-            t.pty_input_tx = Some(input_tx);
-        }
-
-        // Reader task: PTY stdout → terminal buffer
-        let term_reader = term.clone();
-        let cancel_reader = cancel.clone();
-        std::thread::spawn(move || {
-            let mut buf = [0u8; 4096];
-            loop {
-                if cancel_reader.is_cancelled() {
-                    break;
-                }
-                match pty_reader.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(n) => {
-                        term_reader.lock().unwrap().write_data(&buf[..n]);
-                    }
-                    Err(e) => {
-                        if e.kind() != std::io::ErrorKind::Interrupted {
-                            debug!("pty reader error: {e}");
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-        let cancel_input = cancel.clone();
-        let child = setup.child;
-        tokio::spawn(async move {
-            let _child = child; // Keep child alive until this task ends
-            loop {
-                tokio::select! {
-                    () = cancel_input.cancelled() => break,
-                    cmd = input_rx.recv() => {
-                        match cmd {
-                            Some(PtyCommand::Input(data)) => {
-                                let _ = master_writer.write_all(&data);
-                                let _ = master_writer.flush();
-                            }
-                            Some(PtyCommand::Resize { rows, cols }) => {
-                                let _ = master_for_resize.resize(PtySize {
-                                    rows, cols,
-                                    pixel_width: 0,
-                                    pixel_height: 0,
-                                });
-                            }
-                            None => break,
-                        }
-                    }
-                }
-            }
-        });
-
-        Ok(cancel)
+    ) -> Result<tokio_util::sync::CancellationToken, String> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(TerminalCmd::StartPty {
+            name: name.to_string(),
+            cmd: cmd.to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            working_dir: working_dir.map(|s| s.to_string()),
+            reply,
+        }).await;
+        rx.await.map_err(|_| "actor dropped".to_string())?
     }
+}
 
-    /// Run a PTY command synchronously (blocks until completion).
-    /// Used for compose actions that need to stream output.
-    #[allow(dead_code)] // Handler wiring pending
-    pub async fn run_pty(
-        &self,
-        term: &Arc<Mutex<Terminal>>,
-        cmd_name: &str,
-        cmd_args: &[&str],
-        working_dir: Option<&str>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let setup = open_pty(cmd_name, cmd_args, working_dir)?;
-        let mut pty_reader = setup.reader;
-        let mut child = setup.child;
-        // Drop master + writer to signal EOF to the child's stdin
-        drop(setup.writer);
-        drop(setup.master);
+// ── Actor loop ──────────────────────────────────────────────────────────────
 
-        // Read PTY output in a background thread
-        let term_clone = term.clone();
-        let reader_handle = std::thread::spawn(move || {
-            let mut buf = [0u8; 4096];
-            loop {
-                match pty_reader.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(n) => {
-                        term_clone.lock().unwrap().write_data(&buf[..n]);
+/// Spawn the terminal actor. Returns a cloneable handle.
+pub fn spawn() -> TerminalHandle {
+    let (tx, rx) = mpsc::channel(256);
+    let handle = TerminalHandle { tx: tx.clone() };
+    tokio::spawn(actor_loop(tx, rx));
+    handle
+}
+
+async fn actor_loop(
+    actor_tx: mpsc::Sender<TerminalCmd>,
+    mut rx: mpsc::Receiver<TerminalCmd>,
+) {
+    let mut terminals: HashMap<String, Terminal> = HashMap::new();
+    // writer_key → terminal name for O(1) lookup
+    let mut writer_index: HashMap<String, String> = HashMap::new();
+
+    while let Some(cmd) = rx.recv().await {
+        match cmd {
+            TerminalCmd::GetOrCreate { name, reply } => {
+                terminals
+                    .entry(name.clone())
+                    .or_insert_with(|| Terminal::new(name, TerminalType::Pipe));
+                let _ = reply.send(());
+            }
+
+            TerminalCmd::Create { name, typ, reply } => {
+                if let Some(mut old) = terminals.remove(&name) {
+                    // Remove old terminal's writer_index entries
+                    let keys: Vec<String> = old.writers.keys().cloned().collect();
+                    for k in keys {
+                        writer_index.remove(&k);
                     }
-                    Err(e) => {
-                        if e.kind() != std::io::ErrorKind::Interrupted {
-                            break;
+                    old.close();
+                }
+                terminals.insert(name.clone(), Terminal::new(name, typ));
+                let _ = reply.send(());
+            }
+
+            TerminalCmd::Recreate { name, typ, reply } => {
+                let mut new_term = Terminal::new(name.clone(), typ);
+                if let Some(mut old) = terminals.remove(&name) {
+                    // Carry over writers (writer_index entries stay valid — name unchanged)
+                    std::mem::swap(&mut new_term.writers, &mut old.writers);
+                    old.close();
+                }
+                terminals.insert(name, new_term);
+                let _ = reply.send(());
+            }
+
+            TerminalCmd::Remove { name } => {
+                if let Some(mut term) = terminals.remove(&name) {
+                    let keys: Vec<String> = term.writers.keys().cloned().collect();
+                    for k in keys {
+                        writer_index.remove(&k);
+                    }
+                    term.close();
+                }
+            }
+
+            TerminalCmd::IsClosed { name, reply } => {
+                let result = terminals.get(&name).map(|t| t.is_closed());
+                let _ = reply.send(result);
+            }
+
+            TerminalCmd::JoinAndGetBuffer { name, writer_key, writer, reply } => {
+                if let Some(term) = terminals.get_mut(&name) {
+                    writer_index.insert(writer_key.clone(), name);
+                    let buffer = term.join_and_get_buffer(writer_key, writer);
+                    let _ = reply.send(buffer);
+                } else {
+                    let _ = reply.send(Vec::new());
+                }
+            }
+
+            TerminalCmd::RemoveWriterFromAll { writer_key } => {
+                // Use writer_index for O(1) lookup if available
+                if let Some(term_name) = writer_index.remove(&writer_key) {
+                    if let Some(term) = terminals.get_mut(&term_name) {
+                        term.remove_writer(&writer_key);
+                        if term.writer_count() == 0
+                            && term.terminal_type == TerminalType::Pipe
+                            && term.has_cancel()
+                        {
+                            term.close();
+                        }
+                    }
+                } else {
+                    // Fallback: scan all terminals (handles legacy keys not in index)
+                    for term in terminals.values_mut() {
+                        term.remove_writer(&writer_key);
+                        if term.writer_count() == 0
+                            && term.terminal_type == TerminalType::Pipe
+                            && term.has_cancel()
+                        {
+                            term.close();
                         }
                     }
                 }
             }
-        });
 
-        // Wait for child to exit
-        let status = tokio::task::spawn_blocking(move || child.wait()).await??;
+            TerminalCmd::RemoveWriterAndCleanup { term_name, writer_key } => {
+                writer_index.remove(&writer_key);
+                if let Some(term) = terminals.get_mut(&term_name) {
+                    term.remove_writer(&writer_key);
+                    if term.writer_count() == 0
+                        && term.terminal_type == TerminalType::Pipe
+                        && term.has_cancel()
+                    {
+                        term.close();
+                    }
+                }
+            }
 
-        // Wait for reader to finish
-        let _ = reader_handle.join();
+            TerminalCmd::WriteData { name, data } => {
+                if let Some(term) = terminals.get_mut(&name) {
+                    term.write_data(&data);
+                }
+            }
 
-        if status.success() {
-            Ok(())
-        } else {
-            Err(format!("command exited with status: {:?}", status).into())
+            TerminalCmd::InputByWriterKey { writer_key, data } => {
+                if let Some(term_name) = writer_index.get(&writer_key)
+                    && let Some(term) = terminals.get(term_name)
+                {
+                    term.input(&data);
+                }
+            }
+
+            TerminalCmd::ResizeByWriterKey { writer_key, rows, cols } => {
+                if let Some(term_name) = writer_index.get(&writer_key)
+                    && let Some(term) = terminals.get(term_name)
+                {
+                    term.resize(rows, cols);
+                }
+            }
+
+            TerminalCmd::SetCancel { name, cancel } => {
+                if let Some(term) = terminals.get_mut(&name) {
+                    term.cancel = Some(cancel);
+                }
+            }
+
+            TerminalCmd::StartPty { name, cmd, args, working_dir, reply } => {
+                let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+                let wd_ref = working_dir.as_deref();
+
+                let result = match open_pty(&cmd, &arg_refs, wd_ref) {
+                    Ok(setup) => {
+                        let cancel = tokio_util::sync::CancellationToken::new();
+                        let (input_tx, mut input_rx) = mpsc::unbounded_channel::<PtyCommand>();
+
+                        if let Some(term) = terminals.get_mut(&name) {
+                            term.cancel = Some(cancel.clone());
+                            term.pty_input_tx = Some(input_tx);
+                        }
+
+                        // Reader thread: PTY stdout → actor WriteData
+                        let mut pty_reader = setup.reader;
+                        let cancel_reader = cancel.clone();
+                        let actor_tx_clone = actor_tx.clone();
+                        let name_clone = name.clone();
+                        std::thread::spawn(move || {
+                            let mut buf = [0u8; 4096];
+                            loop {
+                                if cancel_reader.is_cancelled() {
+                                    break;
+                                }
+                                match pty_reader.read(&mut buf) {
+                                    Ok(0) => break,
+                                    Ok(n) => {
+                                        let _ = actor_tx_clone.blocking_send(
+                                            TerminalCmd::WriteData {
+                                                name: name_clone.clone(),
+                                                data: buf[..n].to_vec(),
+                                            },
+                                        );
+                                    }
+                                    Err(e) => {
+                                        if e.kind() != std::io::ErrorKind::Interrupted {
+                                            debug!("pty reader error: {e}");
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        });
+
+                        // Input task: forwards PTY stdin writes and resize commands
+                        let mut master_writer = setup.writer;
+                        let master_for_resize = setup.master;
+                        let cancel_input = cancel.clone();
+                        let child = setup.child;
+                        tokio::spawn(async move {
+                            let _child = child; // Keep child alive until this task ends
+                            loop {
+                                tokio::select! {
+                                    () = cancel_input.cancelled() => break,
+                                    cmd = input_rx.recv() => {
+                                        match cmd {
+                                            Some(PtyCommand::Input(data)) => {
+                                                let _ = master_writer.write_all(&data);
+                                                let _ = master_writer.flush();
+                                            }
+                                            Some(PtyCommand::Resize { rows, cols }) => {
+                                                use portable_pty::PtySize;
+                                                let _ = master_for_resize.resize(PtySize {
+                                                    rows, cols,
+                                                    pixel_width: 0,
+                                                    pixel_height: 0,
+                                                });
+                                            }
+                                            None => break,
+                                        }
+                                    }
+                                }
+                            }
+                        });
+
+                        Ok(cancel)
+                    }
+                    Err(e) => Err(e.to_string()),
+                };
+
+                let _ = reply.send(result);
+            }
         }
     }
 }
+
+// ── PTY helpers ─────────────────────────────────────────────────────────────
 
 /// Opened PTY with child process, reader, writer, and master handle.
 struct PtySetup {
