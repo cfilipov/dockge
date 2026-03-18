@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -12,6 +13,48 @@ use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
 
 use super::{arg_string, parse_args, AppState};
+
+/// Pre-formatted container stats matching the frontend's expected shape.
+#[derive(Serialize)]
+struct ContainerStat {
+    #[serde(rename = "Name")]
+    name: String,
+    #[serde(rename = "CPUPerc")]
+    cpu_perc: String,
+    #[serde(rename = "MemPerc")]
+    mem_perc: String,
+    #[serde(rename = "MemUsage")]
+    mem_usage: String,
+    #[serde(rename = "NetIO")]
+    net_io: String,
+    #[serde(rename = "BlockIO")]
+    block_io: String,
+    #[serde(rename = "PIDs")]
+    pids: String,
+}
+
+/// Format bytes into a human-readable string (e.g. "1.5GiB").
+/// Port of Go backend's formatBytes.
+fn format_bytes(b: u64) -> String {
+    const UNIT: u64 = 1024;
+    if b < UNIT {
+        return format!("{b}B");
+    }
+    let mut div = UNIT;
+    let mut exp = 0usize;
+    let mut n = b / UNIT;
+    while n >= UNIT {
+        n /= UNIT;
+        div *= UNIT;
+        exp += 1;
+    }
+    const UNITS: &[u8] = b"KMGTPE";
+    format!("{:.1}{}iB", b as f64 / div as f64, UNITS[exp] as char)
+}
+
+fn format_bytes_pair(a: u64, b: u64) -> String {
+    format!("{} / {}", format_bytes(a), format_bytes(b))
+}
 
 /// Validate login + extract first arg for inspect-style handlers.
 /// Returns None if validation fails (ack already sent).
@@ -252,16 +295,77 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                                 // Calculate CPU percent
                                 let cpu_percent = calculate_cpu_percent(&stats);
 
-                                let mem_usage = stats.memory_stats.as_ref().and_then(|m| m.usage).unwrap_or(0);
-                                let mem_limit = stats.memory_stats.as_ref().and_then(|m| m.limit).unwrap_or(0);
+                                // Memory: subtract cache for accurate usage
+                                let mem_stats = stats.memory_stats.as_ref();
+                                let raw_usage = mem_stats.and_then(|m| m.usage).unwrap_or(0);
+                                let cache = mem_stats
+                                    .and_then(|m| m.stats.as_ref())
+                                    .and_then(|s| s.get("cache").copied())
+                                    .unwrap_or(0);
+                                let mem_usage = raw_usage.saturating_sub(cache);
+                                let mem_limit = mem_stats.and_then(|m| m.limit).unwrap_or(0);
 
-                                let stats_map = serde_json::json!({
-                                    &container: {
-                                        "cpu_percent": cpu_percent,
-                                        "mem_usage": mem_usage,
-                                        "mem_limit": mem_limit,
-                                    }
-                                });
+                                // Network I/O: sum across all interfaces
+                                let (net_rx, net_tx) = stats
+                                    .networks
+                                    .as_ref()
+                                    .map(|nets| {
+                                        nets.values().fold((0u64, 0u64), |(rx, tx), n| {
+                                            (
+                                                rx + n.rx_bytes.unwrap_or(0),
+                                                tx + n.tx_bytes.unwrap_or(0),
+                                            )
+                                        })
+                                    })
+                                    .unwrap_or((0, 0));
+
+                                // Block I/O: sum read/write ops
+                                let (blk_read, blk_write) = stats
+                                    .blkio_stats
+                                    .as_ref()
+                                    .and_then(|b| b.io_service_bytes_recursive.as_ref())
+                                    .map(|entries| {
+                                        entries.iter().fold((0u64, 0u64), |(r, w), e| {
+                                            match e.op.as_deref() {
+                                                Some("read" | "Read") => {
+                                                    (r + e.value.unwrap_or(0), w)
+                                                }
+                                                Some("write" | "Write") => {
+                                                    (r, w + e.value.unwrap_or(0))
+                                                }
+                                                _ => (r, w),
+                                            }
+                                        })
+                                    })
+                                    .unwrap_or((0, 0));
+
+                                // PIDs
+                                let pids = stats
+                                    .pids_stats
+                                    .as_ref()
+                                    .and_then(|p| p.current)
+                                    .unwrap_or(0);
+
+                                let stat = ContainerStat {
+                                    name: container.clone(),
+                                    cpu_perc: format!("{cpu_percent:.2}%"),
+                                    mem_perc: if mem_limit > 0 {
+                                        format!(
+                                            "{:.2}%",
+                                            mem_usage as f64 / mem_limit as f64 * 100.0
+                                        )
+                                    } else {
+                                        "0.00%".into()
+                                    },
+                                    mem_usage: format_bytes_pair(mem_usage, mem_limit),
+                                    net_io: format_bytes_pair(net_rx, net_tx),
+                                    block_io: format_bytes_pair(blk_read, blk_write),
+                                    pids: pids.to_string(),
+                                };
+
+                                let mut stats_map = HashMap::new();
+                                stats_map.insert(&container, &stat);
+
                                 let ok = conn.send_event("dockerStats", serde_json::json!({
                                     "ok": true,
                                     "dockerStats": stats_map,
@@ -421,5 +525,53 @@ async fn push_top(docker: &crate::docker::DockerClient, container: &str, conn: &
                 .await;
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_bytes_zero() {
+        assert_eq!(format_bytes(0), "0B");
+    }
+
+    #[test]
+    fn format_bytes_below_unit() {
+        assert_eq!(format_bytes(1023), "1023B");
+    }
+
+    #[test]
+    fn format_bytes_exact_kib() {
+        assert_eq!(format_bytes(1024), "1.0KiB");
+    }
+
+    #[test]
+    fn format_bytes_fractional_kib() {
+        assert_eq!(format_bytes(1536), "1.5KiB");
+    }
+
+    #[test]
+    fn format_bytes_exact_mib() {
+        assert_eq!(format_bytes(1_048_576), "1.0MiB");
+    }
+
+    #[test]
+    fn format_bytes_fractional_gib() {
+        assert_eq!(format_bytes(1_610_612_736), "1.5GiB");
+    }
+
+    #[test]
+    fn format_bytes_exact_tib() {
+        assert_eq!(format_bytes(1_099_511_627_776), "1.0TiB");
+    }
+
+    #[test]
+    fn format_bytes_pair_output() {
+        assert_eq!(
+            format_bytes_pair(1_048_576, 512),
+            "1.0MiB / 512B"
+        );
     }
 }
