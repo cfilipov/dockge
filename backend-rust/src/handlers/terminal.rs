@@ -32,8 +32,10 @@ const SERVICE_COLORS: &[&str] = &[
     "\x1b[31m", // red
 ];
 const ANSI_RESET: &str = "\x1b[0m";
-const ANSI_BOLD_BLUE: &str = "\x1b[1;34m";
-const ANSI_BOLD_YELLOW: &str = "\x1b[1;33m";
+/// Bold, black text on blue background (#74c2ff) — matches Go backend
+const ANSI_BG_BLUE: &str = "\x1b[1;38;2;0;0;0;48;2;116;194;255m";
+/// Bold, black text on yellow background (#f8a306) — matches Go backend
+const ANSI_BG_YELLOW: &str = "\x1b[1;38;2;0;0;0;48;2;248;163;6m";
 
 fn colored_prefix(service: &str, max_len: usize, color_idx: usize) -> String {
     let color = SERVICE_COLORS[color_idx % SERVICE_COLORS.len()];
@@ -42,11 +44,11 @@ fn colored_prefix(service: &str, max_len: usize, color_idx: usize) -> String {
 }
 
 fn run_banner(service: &str) -> String {
-    format!("{ANSI_BOLD_BLUE}\u{25b6} CONTAINER START \u{2014} {service}{ANSI_RESET}\n")
+    format!("\n{ANSI_BG_BLUE} \u{25b6} CONTAINER START \u{2014} {service} {ANSI_RESET}\n\n")
 }
 
 fn stop_banner(service: &str) -> String {
-    format!("{ANSI_BOLD_YELLOW}\u{25fc} CONTAINER STOP \u{2014} {service}{ANSI_RESET}\n")
+    format!("\n{ANSI_BG_YELLOW} \u{25fc} CONTAINER STOP \u{2014} {service} {ANSI_RESET}\n\n")
 }
 
 /// Split a Docker log line with timestamp prefix into (timestamp, rest).

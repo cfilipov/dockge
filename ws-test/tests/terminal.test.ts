@@ -205,4 +205,118 @@ describe("terminal", () => {
             client.close();
         }
     });
+
+    test("composeTerminalStreaming — stopStack writes output to compose terminal", async () => {
+        await resetMockState();
+
+        const client = await connectClient();
+        try {
+            await client.login();
+
+            // Join compose terminal for test-stack
+            const joinResp = await client.sendAndReceive("terminalJoin", {
+                type: "compose",
+                stack: "test-stack",
+            });
+            expect(joinResp.ok).toBe(true);
+            const sessionId = joinResp.sessionId as number;
+
+            // Trigger stopStack
+            const stopResp = await client.sendAndReceive("stopStack", "test-stack");
+            expect(stopResp.ok).toBe(true);
+
+            // Collect binary frames until [Done] or [Error] appears
+            let output = "";
+            const maxFrames = 50;
+            for (let i = 0; i < maxFrames; i++) {
+                const data = await client.waitForBinary(15000);
+                expect(data.length).toBeGreaterThanOrEqual(2);
+                const gotSession = (data[0] << 8) | data[1];
+                if (gotSession !== sessionId) continue;
+
+                output += data.subarray(2).toString("utf-8");
+
+                if (output.includes("[Done]") || output.includes("[Error]")) {
+                    break;
+                }
+            }
+
+            // Must have a completion marker
+            const hasMarker = output.includes("[Done]") || output.includes("[Error]");
+            expect(hasMarker).toBe(true);
+
+            // Must have command display line before completion marker
+            const cmdIdx = output.indexOf("$ docker compose");
+            expect(cmdIdx).toBeGreaterThanOrEqual(0);
+
+            const doneIdx = output.indexOf("[Done]") >= 0 ? output.indexOf("[Done]") : output.indexOf("[Error]");
+            expect(cmdIdx).toBeLessThan(doneIdx);
+
+            // Should have actual compose output between command and marker (not just empty)
+            const between = output.substring(cmdIdx, doneIdx);
+            expect(between.length).toBeGreaterThan(30);
+        } finally {
+            client.close();
+        }
+    });
+
+    test("bannerUsesBackgroundColor — stop banner uses background ANSI codes", async () => {
+        await resetMockState();
+
+        const client = await connectClient();
+        try {
+            await client.login();
+
+            // Join combined log terminal
+            const joinResp = await client.sendAndReceive("terminalJoin", {
+                type: "combined",
+                stack: "test-stack",
+            });
+            expect(joinResp.ok).toBe(true);
+            const sessionId = joinResp.sessionId as number;
+
+            // Drain initial historical log output
+            for (let i = 0; i < 10; i++) {
+                try {
+                    await client.waitForBinary(3000);
+                } catch {
+                    break;
+                }
+            }
+
+            // Trigger stopStack to produce a CONTAINER STOP banner
+            const stopResp = await client.sendAndReceive("stopStack", "test-stack");
+            expect(stopResp.ok).toBe(true);
+
+            // Collect binary frames looking for the banner — generous timeout because
+            // the banner is emitted asynchronously (EventBus on die/stop event or
+            // after log stream EOF depending on backend implementation)
+            let bannerOutput = "";
+            for (let i = 0; i < 50; i++) {
+                try {
+                    const data = await client.waitForBinary(15000);
+                    if (((data[0] << 8) | data[1]) !== sessionId) continue;
+                    bannerOutput += data.subarray(2).toString("utf-8");
+
+                    if (bannerOutput.includes("CONTAINER STOP")) {
+                        break;
+                    }
+                } catch {
+                    break;
+                }
+            }
+
+            // Banner must have been emitted
+            expect(bannerOutput).toContain("CONTAINER STOP");
+
+            // Must use background RGB color codes (48;2;R;G;B)
+            expect(bannerOutput).toContain("48;2;");
+
+            // Must NOT use foreground-only codes like \x1b[1;33m or \x1b[1;34m immediately before CONTAINER
+            const fgOnlyPattern = /\x1b\[1;3[34]m[^]*?CONTAINER/;
+            expect(fgOnlyPattern.test(bannerOutput)).toBe(false);
+        } finally {
+            client.close();
+        }
+    });
 });

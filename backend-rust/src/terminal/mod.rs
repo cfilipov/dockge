@@ -19,6 +19,9 @@ const KEEP_BUFFER: usize = 32 * 1024;
 /// Terminal output writer callback. Receives binary data to send to a client.
 pub type WriterFn = Box<dyn Fn(&[u8]) + Send + Sync + 'static>;
 
+/// Result type for `start_pty_and_wait`: cancellation token + exit code receiver.
+type PtyWaitResult = Result<(tokio_util::sync::CancellationToken, oneshot::Receiver<Option<i32>>), String>;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TerminalType {
     Pipe,
@@ -199,6 +202,13 @@ enum TerminalCmd {
         working_dir: Option<String>,
         reply: oneshot::Sender<Result<tokio_util::sync::CancellationToken, String>>,
     },
+    StartPtyAndWait {
+        name: String,
+        cmd: String,
+        args: Vec<String>,
+        working_dir: Option<String>,
+        reply: oneshot::Sender<PtyWaitResult>,
+    },
 }
 
 // ── TerminalHandle (public API) ─────────────────────────────────────────────
@@ -309,6 +319,26 @@ impl TerminalHandle {
             name: name.to_string(),
             cancel,
         });
+    }
+
+    /// Start a PTY command and return a receiver that fires when the process exits.
+    /// The receiver delivers the exit code after all PTY output has been flushed.
+    pub async fn start_pty_and_wait(
+        &self,
+        name: &str,
+        cmd: &str,
+        args: &[&str],
+        working_dir: Option<&str>,
+    ) -> PtyWaitResult {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(TerminalCmd::StartPtyAndWait {
+            name: name.to_string(),
+            cmd: cmd.to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            working_dir: working_dir.map(|s| s.to_string()),
+            reply,
+        }).await;
+        rx.await.map_err(|_| "actor dropped".to_string())?
     }
 
     /// Start a PTY command attached to a terminal.
@@ -528,6 +558,93 @@ async fn actor_loop(
                         });
 
                         Ok(cancel)
+                    }
+                    Err(e) => Err(e.to_string()),
+                };
+
+                let _ = reply.send(result);
+            }
+
+            TerminalCmd::StartPtyAndWait { name, cmd, args, working_dir, reply } => {
+                let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+                let wd_ref = working_dir.as_deref();
+
+                let result = match open_pty(&cmd, &arg_refs, wd_ref) {
+                    Ok(setup) => {
+                        let cancel = tokio_util::sync::CancellationToken::new();
+                        let (input_tx, mut input_rx) = mpsc::unbounded_channel::<PtyCommand>();
+                        let (done_tx, done_rx) = oneshot::channel::<Option<i32>>();
+
+                        if let Some(term) = terminals.get_mut(&name) {
+                            term.cancel = Some(cancel.clone());
+                            term.pty_input_tx = Some(input_tx);
+                        }
+
+                        // Reader thread: PTY stdout → actor WriteData, then wait for child exit
+                        let mut pty_reader = setup.reader;
+                        let mut child = setup.child;
+                        let cancel_reader = cancel.clone();
+                        let actor_tx_clone = actor_tx.clone();
+                        let name_clone = name.clone();
+                        std::thread::spawn(move || {
+                            let mut buf = [0u8; 4096];
+                            loop {
+                                if cancel_reader.is_cancelled() {
+                                    break;
+                                }
+                                match pty_reader.read(&mut buf) {
+                                    Ok(0) => break,
+                                    Ok(n) => {
+                                        let _ = actor_tx_clone.blocking_send(
+                                            TerminalCmd::WriteData {
+                                                name: name_clone.clone(),
+                                                data: buf[..n].to_vec(),
+                                            },
+                                        );
+                                    }
+                                    Err(e) => {
+                                        if e.kind() != std::io::ErrorKind::Interrupted {
+                                            debug!("pty reader error: {e}");
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            // All output flushed — now wait for child exit
+                            let exit_code = child.wait().ok().map(|s| s.exit_code() as i32);
+                            let _ = done_tx.send(exit_code);
+                        });
+
+                        // Input task: forwards PTY stdin writes and resize commands
+                        let mut master_writer = setup.writer;
+                        let master_for_resize = setup.master;
+                        let cancel_input = cancel.clone();
+                        tokio::spawn(async move {
+                            loop {
+                                tokio::select! {
+                                    () = cancel_input.cancelled() => break,
+                                    cmd = input_rx.recv() => {
+                                        match cmd {
+                                            Some(PtyCommand::Input(data)) => {
+                                                let _ = master_writer.write_all(&data);
+                                                let _ = master_writer.flush();
+                                            }
+                                            Some(PtyCommand::Resize { rows, cols }) => {
+                                                use portable_pty::PtySize;
+                                                let _ = master_for_resize.resize(PtySize {
+                                                    rows, cols,
+                                                    pixel_width: 0,
+                                                    pixel_height: 0,
+                                                });
+                                            }
+                                            None => break,
+                                        }
+                                    }
+                                }
+                            }
+                        });
+
+                        Ok((cancel, done_rx))
                     }
                     Err(e) => Err(e.to_string()),
                 };

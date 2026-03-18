@@ -4,6 +4,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
+use crate::terminal::TerminalType;
 use crate::ws::conn::Conn;
 use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
@@ -144,13 +145,42 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let stacks_dir = state.config.stacks_dir.clone();
                 let stack_dir = format!("{}/{}", stacks_dir, stack_name);
 
-                let result = run_compose_action(&stack_dir, &action).await;
-                match &result {
-                    Ok(_) => {
-                        info!(stack = %stack_name, action = %action, "compose action completed")
+                let term_name = format!("compose-{}", stack_name);
+                state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+
+                // Write command display line (matches Go: cmdDisplay)
+                let cmd_display = format!("$ docker compose {action}\r\n");
+                state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
+
+                // Run via PTY so output streams to terminal with proper ANSI rendering
+                match state.terminal_manager.start_pty_and_wait(
+                    &term_name, "docker", &["compose", &action], Some(&stack_dir)
+                ).await {
+                    Ok((_cancel, done_rx)) => {
+                        match done_rx.await {
+                            Ok(Some(0)) | Ok(None) => {
+                                state.terminal_manager.write_data(
+                                    &term_name, b"\r\n[Done]\r\n".to_vec(),
+                                );
+                                info!(stack = %stack_name, action = %action, "compose action completed");
+                            }
+                            Ok(Some(code)) => {
+                                let msg = format!("\r\n[Error] exit code {code}\r\n");
+                                state.terminal_manager.write_data(&term_name, msg.into_bytes());
+                                warn!(stack = %stack_name, action = %action, "compose action failed: exit code {code}");
+                            }
+                            Err(_) => {
+                                state.terminal_manager.write_data(
+                                    &term_name, b"\r\n[Error] process lost\r\n".to_vec(),
+                                );
+                                warn!(stack = %stack_name, action = %action, "compose action: process lost");
+                            }
+                        }
                     }
                     Err(e) => {
-                        warn!(stack = %stack_name, action = %action, "compose action failed: {e}")
+                        let msg = format!("\r\n[Error] {e}\r\n");
+                        state.terminal_manager.write_data(&term_name, msg.into_bytes());
+                        warn!(stack = %stack_name, action = %action, "compose action failed to start: {e}");
                     }
                 }
                 let _ = (&event_name,);
@@ -322,16 +352,41 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             return;
         }
 
-        // Deploy: docker compose up -d --remove-orphans
-        let result = run_compose_action_with_args(
-            &stack_dir,
-            &["up", "-d", "--remove-orphans"],
-        )
-        .await;
-        match &result {
-            Ok(_) => info!(stack = %stack_name, "deploy completed"),
+        // Deploy: docker compose up -d --remove-orphans via PTY
+        let term_name = format!("compose-{}", stack_name);
+        state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+
+        let cmd_display = "$ docker compose up -d --remove-orphans\r\n";
+        state.terminal_manager.write_data(&term_name, cmd_display.as_bytes().to_vec());
+
+        match state.terminal_manager.start_pty_and_wait(
+            &term_name, "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir)
+        ).await {
+            Ok((_cancel, done_rx)) => {
+                match done_rx.await {
+                    Ok(Some(0)) | Ok(None) => {
+                        state.terminal_manager.write_data(
+                            &term_name, b"\r\n[Done]\r\n".to_vec(),
+                        );
+                        info!(stack = %stack_name, "deploy completed");
+                    }
+                    Ok(Some(code)) => {
+                        let msg = format!("\r\n[Error] exit code {code}\r\n");
+                        state.terminal_manager.write_data(&term_name, msg.into_bytes());
+                        warn!(stack = %stack_name, "deploy failed: exit code {code}");
+                    }
+                    Err(_) => {
+                        state.terminal_manager.write_data(
+                            &term_name, b"\r\n[Error] process lost\r\n".to_vec(),
+                        );
+                        warn!(stack = %stack_name, "deploy: process lost");
+                    }
+                }
+            }
             Err(e) => {
-                warn!(stack = %stack_name, "deploy failed: {e}")
+                let msg = format!("\r\n[Error] {e}\r\n");
+                state.terminal_manager.write_data(&term_name, msg.into_bytes());
+                warn!(stack = %stack_name, "deploy failed to start: {e}");
             }
         }
 
@@ -393,11 +448,32 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let lock = state.stack_locks.get(&stack_name);
         let _guard = lock.lock().await;
 
-        let _ = run_compose_action_with_args(
-            &stack_dir,
-            &["down", "--remove-orphans"],
-        )
-        .await;
+        let term_name = format!("compose-{}", stack_name);
+        state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+        state.terminal_manager.write_data(&term_name, b"$ docker compose down --remove-orphans\r\n".to_vec());
+
+        match state.terminal_manager.start_pty_and_wait(
+            &term_name, "docker", &["compose", "down", "--remove-orphans"], Some(&stack_dir)
+        ).await {
+            Ok((_cancel, done_rx)) => {
+                match done_rx.await {
+                    Ok(Some(0)) | Ok(None) => {
+                        state.terminal_manager.write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
+                    }
+                    Ok(Some(code)) => {
+                        let msg = format!("\r\n[Error] exit code {code}\r\n");
+                        state.terminal_manager.write_data(&term_name, msg.into_bytes());
+                    }
+                    Err(_) => {
+                        state.terminal_manager.write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
+                    }
+                }
+            }
+            Err(e) => {
+                let msg = format!("\r\n[Error] {e}\r\n");
+                state.terminal_manager.write_data(&term_name, msg.into_bytes());
+            }
+        }
 
         if opts.delete_stack_files
             && let Err(e) = std::fs::remove_dir_all(&stack_dir)
@@ -442,11 +518,32 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let lock = state.stack_locks.get(&stack_name);
         let _guard = lock.lock().await;
 
-        let _ = run_compose_action_with_args(
-            &stack_dir,
-            &["down", "-v", "--remove-orphans"],
-        )
-        .await;
+        let term_name = format!("compose-{}", stack_name);
+        state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+        state.terminal_manager.write_data(&term_name, b"$ docker compose down -v --remove-orphans\r\n".to_vec());
+
+        match state.terminal_manager.start_pty_and_wait(
+            &term_name, "docker", &["compose", "down", "-v", "--remove-orphans"], Some(&stack_dir)
+        ).await {
+            Ok((_cancel, done_rx)) => {
+                match done_rx.await {
+                    Ok(Some(0)) | Ok(None) => {
+                        state.terminal_manager.write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
+                    }
+                    Ok(Some(code)) => {
+                        let msg = format!("\r\n[Error] exit code {code}\r\n");
+                        state.terminal_manager.write_data(&term_name, msg.into_bytes());
+                    }
+                    Err(_) => {
+                        state.terminal_manager.write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
+                    }
+                }
+            }
+            Err(e) => {
+                let msg = format!("\r\n[Error] {e}\r\n");
+                state.terminal_manager.write_data(&term_name, msg.into_bytes());
+            }
+        }
 
         if let Err(e) = std::fs::remove_dir_all(&stack_dir) {
             error!(stack = %stack_name, "force delete stack: {e}");
@@ -482,23 +579,51 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             .await;
         }
 
-        // Background: pull + up
+        // Background: pull + up via PTY
         let stacks_dir = state.config.stacks_dir.clone();
         let stack_dir =
             format!("{}/{}", stacks_dir, stack_name);
         let lock = state.stack_locks.get(&stack_name);
         let _guard = lock.lock().await;
 
-        let _ = run_compose_action_with_args(
-            &stack_dir,
-            &["pull"],
-        )
-        .await;
-        let _ = run_compose_action_with_args(
-            &stack_dir,
-            &["up", "-d", "--remove-orphans"],
-        )
-        .await;
+        let term_name = format!("compose-{}", stack_name);
+
+        // Pull phase
+        state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+        state.terminal_manager.write_data(&term_name, b"$ docker compose pull\r\n".to_vec());
+
+        if let Ok((_cancel, done_rx)) = state.terminal_manager.start_pty_and_wait(
+            &term_name, "docker", &["compose", "pull"], Some(&stack_dir)
+        ).await {
+            let _ = done_rx.await;
+        }
+
+        // Up phase
+        state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+        state.terminal_manager.write_data(&term_name, b"$ docker compose up -d --remove-orphans\r\n".to_vec());
+
+        match state.terminal_manager.start_pty_and_wait(
+            &term_name, "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir)
+        ).await {
+            Ok((_cancel, done_rx)) => {
+                match done_rx.await {
+                    Ok(Some(0)) | Ok(None) => {
+                        state.terminal_manager.write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
+                    }
+                    Ok(Some(code)) => {
+                        let msg = format!("\r\n[Error] exit code {code}\r\n");
+                        state.terminal_manager.write_data(&term_name, msg.into_bytes());
+                    }
+                    Err(_) => {
+                        state.terminal_manager.write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
+                    }
+                }
+            }
+            Err(e) => {
+                let msg = format!("\r\n[Error] {e}\r\n");
+                state.terminal_manager.write_data(&term_name, msg.into_bytes());
+            }
+        }
 
         info!(stack = %stack_name, "stack updated");
     });
@@ -525,33 +650,3 @@ fn save_stack_to_disk(
     Ok(())
 }
 
-/// Run a docker compose action in a stack directory.
-async fn run_compose_action(
-    stack_dir: &str,
-    action: &str,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    run_compose_action_with_args(stack_dir, &[action]).await
-}
-
-/// Run a docker compose action with multiple args in a stack directory.
-async fn run_compose_action_with_args(
-    stack_dir: &str,
-    args: &[&str],
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let mut cmd_args = vec!["compose"];
-    cmd_args.extend_from_slice(args);
-
-    let output = tokio::process::Command::new("docker")
-        .args(&cmd_args)
-        .current_dir(stack_dir)
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let args_str = cmd_args.join(" ");
-        return Err(format!("docker {args_str} failed: {stderr}").into());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}
