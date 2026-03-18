@@ -189,6 +189,19 @@ func (s *SDKClient) containerListDetailedWithOpts(ctx context.Context, opts cont
     return result, nil
 }
 
+// ContainerListDetailedByIDs returns enriched data for multiple containers by ID.
+// Uses Docker API multi-value id filter (one API call).
+func (s *SDKClient) ContainerListDetailedByIDs(ctx context.Context, containerIDs []string) ([]ContainerBroadcast, error) {
+    args := make([]filters.KeyValuePair, 0, len(containerIDs))
+    for _, id := range containerIDs {
+        args = append(args, filters.Arg("id", id))
+    }
+    return s.containerListDetailedWithOpts(ctx, container.ListOptions{
+        All:     true,
+        Filters: filters.NewArgs(args...),
+    })
+}
+
 func (s *SDKClient) ContainerInspect(ctx context.Context, id string) (json.RawMessage, error) {
     raw, err := s.cli.ContainerInspect(ctx, id)
     if err != nil {
@@ -428,6 +441,16 @@ func (s *SDKClient) imageListWithOpts(ctx context.Context, opts image.ListOption
     return result, nil
 }
 
+func (s *SDKClient) ImageListByIDs(ctx context.Context, imageIDs []string) ([]ImageSummary, error) {
+    args := make([]filters.KeyValuePair, 0, len(imageIDs))
+    for _, id := range imageIDs {
+        args = append(args, filters.Arg("reference", id))
+    }
+    return s.imageListWithOpts(ctx, image.ListOptions{
+        Filters: filters.NewArgs(args...),
+    })
+}
+
 func (s *SDKClient) ImageInspectDetail(ctx context.Context, imageRef string) (*ImageDetail, error) {
     resp, _, err := s.cli.ImageInspectWithRaw(ctx, imageRef)
     if err != nil {
@@ -470,14 +493,19 @@ func (s *SDKClient) ImageInspectDetail(ctx context.Context, imageRef string) (*I
     }
 
     return &ImageDetail{
-        ID:           resp.ID,
-        RepoTags:     tags,
-        Size:         formatBytes(uint64(resp.Size)),
-        Created:      resp.Created,
-        Architecture: resp.Architecture,
-        OS:           resp.Os,
-        WorkingDir:   workingDir,
-        Layers:       layers,
+        ImageSummary: ImageSummary{
+            ID:       resp.ID,
+            RepoTags: tags,
+            Size:     formatBytes(uint64(resp.Size)),
+            Created:  resp.Created,
+            Dangling: len(tags) == 0,
+        },
+        ImageDetailData: ImageDetailData{
+            Architecture: resp.Architecture,
+            OS:           resp.Os,
+            WorkingDir:   workingDir,
+            Layers:       layers,
+        },
     }, nil
 }
 
@@ -531,6 +559,16 @@ func (s *SDKClient) networkListWithOpts(ctx context.Context, opts network.ListOp
     return result, nil
 }
 
+func (s *SDKClient) NetworkListByIDs(ctx context.Context, networkIDs []string) ([]NetworkSummary, error) {
+    args := make([]filters.KeyValuePair, 0, len(networkIDs))
+    for _, id := range networkIDs {
+        args = append(args, filters.Arg("id", id))
+    }
+    return s.networkListWithOpts(ctx, network.ListOptions{
+        Filters: filters.NewArgs(args...),
+    })
+}
+
 func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*NetworkDetail, error) {
     raw, err := s.cli.NetworkInspect(ctx, networkID, network.InspectOptions{})
     if err != nil {
@@ -560,17 +598,22 @@ func (s *SDKClient) NetworkInspect(ctx context.Context, networkID string) (*Netw
     })
 
     return &NetworkDetail{
-        Name:       raw.Name,
-        ID:         raw.ID,
-        Driver:     raw.Driver,
-        Scope:      raw.Scope,
-        Internal:   raw.Internal,
-        Attachable: raw.Attachable,
-        Ingress:    raw.Ingress,
-        IPv6:       raw.EnableIPv6,
-        Created:    raw.Created.Format("2006-01-02T15:04:05Z"),
-        IPAM:       ipam,
-        Containers: containers,
+        NetworkSummary: NetworkSummary{
+            Name:       raw.Name,
+            ID:         raw.ID,
+            Driver:     raw.Driver,
+            Scope:      raw.Scope,
+            Internal:   raw.Internal,
+            Attachable: raw.Attachable,
+            Ingress:    raw.Ingress,
+            Labels:     raw.Labels,
+        },
+        NetworkDetailData: NetworkDetailData{
+            IPv6:       raw.EnableIPv6,
+            Created:    raw.Created.Format("2006-01-02T15:04:05Z"),
+            IPAM:       ipam,
+            Containers: containers,
+        },
     }, nil
 }
 
@@ -608,6 +651,16 @@ func (s *SDKClient) volumeListWithOpts(ctx context.Context, opts volume.ListOpti
     return result, nil
 }
 
+func (s *SDKClient) VolumeListByNames(ctx context.Context, volumeNames []string) ([]VolumeSummary, error) {
+    args := make([]filters.KeyValuePair, 0, len(volumeNames))
+    for _, name := range volumeNames {
+        args = append(args, filters.Arg("name", name))
+    }
+    return s.volumeListWithOpts(ctx, volume.ListOptions{
+        Filters: filters.NewArgs(args...),
+    })
+}
+
 func (s *SDKClient) VolumeInspect(ctx context.Context, volumeName string) (*VolumeDetail, error) {
     raw, err := s.cli.VolumeInspect(ctx, volumeName)
     if err != nil {
@@ -615,11 +668,16 @@ func (s *SDKClient) VolumeInspect(ctx context.Context, volumeName string) (*Volu
     }
 
     return &VolumeDetail{
-        Name:       raw.Name,
-        Driver:     raw.Driver,
-        Mountpoint: raw.Mountpoint,
-        Scope:      raw.Scope,
-        Created:    raw.CreatedAt,
+        VolumeSummary: VolumeSummary{
+            Name:       raw.Name,
+            Driver:     raw.Driver,
+            Mountpoint: raw.Mountpoint,
+            Labels:     raw.Labels,
+        },
+        VolumeDetailData: VolumeDetailData{
+            Scope:   raw.Scope,
+            Created: raw.CreatedAt,
+        },
     }, nil
 }
 

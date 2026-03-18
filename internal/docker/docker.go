@@ -24,6 +24,10 @@ type Client interface {
     // Uses Docker API id filter. Returns empty slice if not found.
     ContainerListDetailedByID(ctx context.Context, containerID string) ([]ContainerBroadcast, error)
 
+    // ContainerListDetailedByIDs returns enriched data for multiple containers.
+    // Uses Docker API multi-value id filter (one API call). Returns empty slice if none found.
+    ContainerListDetailedByIDs(ctx context.Context, containerIDs []string) ([]ContainerBroadcast, error)
+
     // ContainerInspect returns the raw JSON inspect output for a container.
     ContainerInspect(ctx context.Context, id string) (json.RawMessage, error)
 
@@ -64,6 +68,10 @@ type Client interface {
     // Returns empty slice if not found.
     NetworkListByID(ctx context.Context, networkID string) ([]NetworkSummary, error)
 
+    // NetworkListByIDs returns summary info for multiple networks by ID.
+    // Uses Docker API multi-value id filter (one API call).
+    NetworkListByIDs(ctx context.Context, networkIDs []string) ([]NetworkSummary, error)
+
     // NetworkInspect returns detailed info for a single Docker network.
     NetworkInspect(ctx context.Context, networkID string) (*NetworkDetail, error)
 
@@ -73,6 +81,10 @@ type Client interface {
     // ImageListByID returns summary info for a single image by ID.
     // Returns empty slice if not found.
     ImageListByID(ctx context.Context, imageID string) ([]ImageSummary, error)
+
+    // ImageListByIDs returns summary info for multiple images by ID.
+    // Uses Docker API multi-value reference filter (one API call).
+    ImageListByIDs(ctx context.Context, imageIDs []string) ([]ImageSummary, error)
 
     // ImageInspectDetail returns detailed info for a single Docker image,
     // including layers.
@@ -87,6 +99,10 @@ type Client interface {
     // VolumeListByName returns summary info for a single volume by name.
     // Returns empty slice if not found.
     VolumeListByName(ctx context.Context, volumeName string) ([]VolumeSummary, error)
+
+    // VolumeListByNames returns summary info for multiple volumes by name.
+    // Uses Docker API multi-value name filter (one API call).
+    VolumeListByNames(ctx context.Context, volumeNames []string) ([]VolumeSummary, error)
 
     // VolumeInspect returns detailed info for a single Docker volume.
     VolumeInspect(ctx context.Context, volumeName string) (*VolumeDetail, error)

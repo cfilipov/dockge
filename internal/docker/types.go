@@ -84,6 +84,14 @@ type DockerEvent struct {
 // Deprecated: use DockerEvent instead for new code.
 type ContainerEvent = DockerEvent
 
+// NetworkDetailData holds inspect-level data not in NetworkSummary.
+type NetworkDetailData struct {
+    IPv6       bool                     `json:"ipv6"`
+    Created    string                   `json:"created"`
+    IPAM       []NetworkIPAM            `json:"ipam"`
+    Containers []NetworkContainerDetail `json:"containers"`
+}
+
 // NetworkSummary holds basic info for network list display.
 type NetworkSummary struct {
     Name       string            `json:"name"`
@@ -96,19 +104,10 @@ type NetworkSummary struct {
     Labels     map[string]string `json:"labels"`
 }
 
-// NetworkDetail holds full info for a single network.
+// NetworkDetail holds inspect-level data for the network detail page.
 type NetworkDetail struct {
-    Name       string                   `json:"name"`
-    ID         string                   `json:"id"`
-    Driver     string                   `json:"driver"`
-    Scope      string                   `json:"scope"`
-    Internal   bool                     `json:"internal"`
-    Attachable bool                     `json:"attachable"`
-    Ingress    bool                     `json:"ingress"`
-    IPv6       bool                     `json:"ipv6"`
-    Created    string                   `json:"created"`
-    IPAM       []NetworkIPAM            `json:"ipam"`
-    Containers []NetworkContainerDetail `json:"containers"`
+    NetworkSummary
+    NetworkDetailData
 }
 
 // NetworkIPAM holds IPAM configuration for a network.
@@ -127,6 +126,14 @@ type NetworkContainerDetail struct {
     State       string `json:"state"`
 }
 
+// ImageDetailData holds inspect-level data not in ImageSummary.
+type ImageDetailData struct {
+    Architecture string       `json:"architecture"`
+    OS           string       `json:"os"`
+    WorkingDir   string       `json:"workingDir"`
+    Layers       []ImageLayer `json:"layers"`
+}
+
 // ImageSummary holds basic info for image list display.
 type ImageSummary struct {
     ID       string   `json:"id"`
@@ -136,16 +143,10 @@ type ImageSummary struct {
     Dangling bool     `json:"dangling"`
 }
 
-// ImageDetail holds full info for a single image.
+// ImageDetail holds inspect-level data for the image detail page.
 type ImageDetail struct {
-    ID           string       `json:"id"`
-    RepoTags     []string     `json:"repoTags"`
-    Size         string       `json:"size"`
-    Created      string       `json:"created"`
-    Architecture string       `json:"architecture"`
-    OS           string       `json:"os"`
-    WorkingDir   string       `json:"workingDir"`
-    Layers       []ImageLayer `json:"layers"`
+    ImageSummary
+    ImageDetailData
 }
 
 // ImageLayer holds info about a single layer in an image's history.
@@ -163,6 +164,12 @@ type ImageContainer struct {
     State       string `json:"state"`
 }
 
+// VolumeDetailData holds inspect-level data not in VolumeSummary.
+type VolumeDetailData struct {
+    Scope   string `json:"scope"`
+    Created string `json:"created"`
+}
+
 // VolumeSummary holds basic info for volume list display.
 type VolumeSummary struct {
     Name       string            `json:"name"`
@@ -171,11 +178,8 @@ type VolumeSummary struct {
     Labels     map[string]string `json:"labels"`
 }
 
-// VolumeDetail holds full info for a single volume.
+// VolumeDetail holds inspect-level data for the volume detail page.
 type VolumeDetail struct {
-    Name       string `json:"name"`
-    Driver     string `json:"driver"`
-    Mountpoint string `json:"mountpoint"`
-    Scope      string `json:"scope"`
-    Created    string `json:"created"`
+    VolumeSummary
+    VolumeDetailData
 }

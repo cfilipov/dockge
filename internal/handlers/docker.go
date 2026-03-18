@@ -258,7 +258,7 @@ func (app *App) handleNetworkInspect(c *ws.Conn, msg *ws.ClientMessage) {
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, struct {
-			OK            bool                 `json:"ok"`
+			OK            bool                  `json:"ok"`
 			NetworkDetail *docker.NetworkDetail `json:"networkDetail"`
 		}{
 			OK:            true,
@@ -325,7 +325,7 @@ func (app *App) handleImageInspect(c *ws.Conn, msg *ws.ClientMessage) {
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, struct {
-			OK          bool                `json:"ok"`
+			OK          bool                 `json:"ok"`
 			ImageDetail *docker.ImageDetail `json:"imageDetail"`
 		}{
 			OK:          true,
@@ -617,7 +617,7 @@ func (app *App) handleVolumeInspect(c *ws.Conn, msg *ws.ClientMessage) {
 
 	if msg.ID != nil {
 		ws.SendAck(c, *msg.ID, struct {
-			OK           bool                 `json:"ok"`
+			OK           bool                  `json:"ok"`
 			VolumeDetail *docker.VolumeDetail `json:"volumeDetail"`
 		}{
 			OK:           true,
