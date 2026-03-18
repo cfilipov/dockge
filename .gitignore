@@ -18,6 +18,9 @@ tmp
 /dist
 /dist-svelte
 
+# Rust
+backend-rust/target/
+
 # SvelteKit
 web-svelte/.svelte-kit/
 web-svelte/storybook-static/
