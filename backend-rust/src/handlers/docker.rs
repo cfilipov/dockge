@@ -8,7 +8,7 @@ use tracing::warn;
 
 use crate::docker;
 use crate::ws::conn::Conn;
-use crate::ws::protocol::{ClientMessage, ErrorResponse};
+use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
 
 use super::{arg_string, parse_args, AppState};
@@ -226,7 +226,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 async move {
                     let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Container name").await else { return };
-                    let result = state.docker.inspect_container(&name, None::<bollard::query_parameters::InspectContainerOptions>).await;
+                    let result = docker::with_timeout(state.docker.inspect_container(&name, None::<bollard::query_parameters::InspectContainerOptions>)).await;
                     inspect_respond(&conn, &msg, "inspectData", result).await;
                 }
             },
@@ -242,7 +242,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 async move {
                     let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Network name").await else { return };
-                    let result = state.docker.inspect_network(&name, None::<bollard::query_parameters::InspectNetworkOptions>).await;
+                    let result = docker::with_timeout(state.docker.inspect_network(&name, None::<bollard::query_parameters::InspectNetworkOptions>)).await;
                     inspect_respond(&conn, &msg, "networkDetail", result).await;
                 }
             },
@@ -258,7 +258,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 async move {
                     let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Image reference").await else { return };
-                    let result = state.docker.inspect_image(&name).await;
+                    let result = docker::with_timeout(state.docker.inspect_image(&name)).await;
                     inspect_respond(&conn, &msg, "imageDetail", result).await;
                 }
             },
@@ -274,7 +274,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 async move {
                     let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Volume name").await else { return };
-                    let result = state.docker.inspect_volume(&name).await;
+                    let result = docker::with_timeout(state.docker.inspect_volume(&name)).await;
                     inspect_respond(&conn, &msg, "volumeDetail", result).await;
                 }
             },
@@ -301,7 +301,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     conn.set_subscription("stats", token.clone());
 
                     if let Some(id) = msg.id {
-                        conn.send_ack(id, serde_json::json!({"ok": true})).await;
+                        conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
                     }
 
                     // Spawn persistent streaming task
@@ -377,7 +377,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     }
                     conn.cancel_subscription("stats");
                     if let Some(id) = msg.id {
-                        conn.send_ack(id, serde_json::json!({"ok": true})).await;
+                        conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
                     }
                 }
             },
@@ -404,7 +404,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     conn.set_subscription("top", token.clone());
 
                     if let Some(id) = msg.id {
-                        conn.send_ack(id, serde_json::json!({"ok": true})).await;
+                        conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
                     }
 
                     // Spawn persistent polling task
@@ -449,7 +449,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     }
                     conn.cancel_subscription("top");
                     if let Some(id) = msg.id {
-                        conn.send_ack(id, serde_json::json!({"ok": true})).await;
+                        conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
                     }
                 }
             },

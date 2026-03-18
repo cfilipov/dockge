@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use bollard::models::EventMessage;
+use bollard::models::{EventMessage, EventMessageTypeEnum};
 use futures_util::StreamExt;
 use serde::Serialize;
 use tokio::sync::mpsc;
@@ -176,20 +176,21 @@ async fn handle_event(
     state: &AppState,
     event: EventMessage,
 ) {
-    let event_type = event.typ.as_ref()
-        .map(|t| format!("{t:?}").to_lowercase())
-        .unwrap_or_default();
-    let action = event.action.clone().unwrap_or_default();
-    let actor = event.actor.as_ref();
-    let actor_id = actor.map(|a| a.id.clone().unwrap_or_default()).unwrap_or_default();
-    let attributes = actor
-        .and_then(|a| a.attributes.clone())
-        .unwrap_or_default();
+    let EventMessage { typ, action, actor, .. } = event;
+    let action = action.unwrap_or_default();
+    let (actor_id, attributes) = match actor {
+        Some(a) => (
+            a.id.unwrap_or_default(),
+            a.attributes.unwrap_or_default(),
+        ),
+        None => (String::new(), HashMap::new()),
+    };
+    let event_type = typ.as_ref().map(|t| t.as_ref()).unwrap_or("").to_string();
 
     let name = attributes.get("name").cloned().unwrap_or_default();
 
     // Filter container events to relevant actions
-    if event_type == "container" {
+    if typ == Some(EventMessageTypeEnum::CONTAINER) {
         match action.as_str() {
             "start" | "stop" | "die" | "pause" | "unpause" | "destroy" | "create" => {}
             a if a.starts_with("health_status") => {}
@@ -207,9 +208,11 @@ async fn handle_event(
         .get("com.docker.compose.service")
         .cloned()
         .unwrap_or_default();
-    let container_id = match event_type.as_str() {
-        "container" => actor_id.clone(),
-        "network" | "volume" => attributes.get("container").cloned().unwrap_or_default(),
+    let container_id = match typ {
+        Some(EventMessageTypeEnum::CONTAINER) => actor_id.clone(),
+        Some(EventMessageTypeEnum::NETWORK | EventMessageTypeEnum::VOLUME) => {
+            attributes.get("container").cloned().unwrap_or_default()
+        }
         _ => String::new(),
     };
 

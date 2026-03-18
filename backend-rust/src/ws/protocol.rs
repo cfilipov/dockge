@@ -34,6 +34,14 @@ pub struct OkResponse {
     pub token: Option<String>,
 }
 
+/// Ack payload for terminal join responses.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionResponse {
+    pub ok: bool,
+    pub session_id: u16,
+}
+
 /// Common ack payload for errors.
 #[derive(Serialize)]
 pub struct ErrorResponse {

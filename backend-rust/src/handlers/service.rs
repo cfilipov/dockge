@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use tracing::warn;
 
+use crate::docker;
 use crate::ws::conn::Conn;
-use crate::ws::protocol::{ClientMessage, ErrorResponse};
+use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
 
 use super::{arg_string, parse_args, AppState};
@@ -46,37 +47,31 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
                 // Ack immediately
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, serde_json::json!({"ok": true})).await;
+                    conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
                 }
 
-                // Execute Docker action
+                // Execute Docker action with timeout
                 let result = match action {
                     DockerAction::Start => {
-                        state
-                            .docker
-                            .start_container(
-                                &container_name,
-                                None::<bollard::query_parameters::StartContainerOptions>,
-                            )
-                            .await
+                        docker::with_timeout(state.docker.start_container(
+                            &container_name,
+                            None::<bollard::query_parameters::StartContainerOptions>,
+                        ))
+                        .await
                     }
                     DockerAction::Stop => {
-                        state
-                            .docker
-                            .stop_container(
-                                &container_name,
-                                None::<bollard::query_parameters::StopContainerOptions>,
-                            )
-                            .await
+                        docker::with_timeout(state.docker.stop_container(
+                            &container_name,
+                            None::<bollard::query_parameters::StopContainerOptions>,
+                        ))
+                        .await
                     }
                     DockerAction::Restart => {
-                        state
-                            .docker
-                            .restart_container(
-                                &container_name,
-                                None::<bollard::query_parameters::RestartContainerOptions>,
-                            )
-                            .await
+                        docker::with_timeout(state.docker.restart_container(
+                            &container_name,
+                            None::<bollard::query_parameters::RestartContainerOptions>,
+                        ))
+                        .await
                     }
                 };
 
@@ -114,36 +109,30 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 }
 
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, serde_json::json!({"ok": true})).await;
+                    conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
                 }
 
                 let result = match action {
                     DockerAction::Start => {
-                        state
-                            .docker
-                            .start_container(
-                                &container_name,
-                                None::<bollard::query_parameters::StartContainerOptions>,
-                            )
-                            .await
+                        docker::with_timeout(state.docker.start_container(
+                            &container_name,
+                            None::<bollard::query_parameters::StartContainerOptions>,
+                        ))
+                        .await
                     }
                     DockerAction::Stop => {
-                        state
-                            .docker
-                            .stop_container(
-                                &container_name,
-                                None::<bollard::query_parameters::StopContainerOptions>,
-                            )
-                            .await
+                        docker::with_timeout(state.docker.stop_container(
+                            &container_name,
+                            None::<bollard::query_parameters::StopContainerOptions>,
+                        ))
+                        .await
                     }
                     DockerAction::Restart => {
-                        state
-                            .docker
-                            .restart_container(
-                                &container_name,
-                                None::<bollard::query_parameters::RestartContainerOptions>,
-                            )
-                            .await
+                        docker::with_timeout(state.docker.restart_container(
+                            &container_name,
+                            None::<bollard::query_parameters::RestartContainerOptions>,
+                        ))
+                        .await
                     }
                 };
 

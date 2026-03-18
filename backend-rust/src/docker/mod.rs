@@ -4,7 +4,20 @@ use bollard::container::LogOutput;
 use bollard::Docker;
 use futures_util::Stream;
 use std::collections::HashMap;
+use std::time::Duration;
 use types::*;
+
+const DOCKER_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Wrap a Docker API call with a 10s timeout.
+pub async fn with_timeout<T>(
+    fut: impl std::future::Future<Output = Result<T, bollard::errors::Error>>,
+) -> Result<T, bollard::errors::Error> {
+    match tokio::time::timeout(DOCKER_TIMEOUT, fut).await {
+        Ok(result) => result,
+        Err(_) => Err(bollard::errors::Error::RequestTimeoutError),
+    }
+}
 
 /// Create a Docker client from DOCKER_HOST or the default socket.
 /// Uses API version 1.47 to match the mock daemon's target version.
@@ -46,14 +59,14 @@ pub async fn container_list(
             .build()
     };
 
-    let containers = docker.list_containers(Some(opts)).await?;
+    let containers = with_timeout(docker.list_containers(Some(opts))).await?;
 
     Ok(containers.into_iter().map(container_from_bollard).collect())
 }
 
 /// Map a bollard ContainerSummary to our ContainerBroadcast type.
 fn container_from_bollard(c: bollard::models::ContainerSummary) -> ContainerBroadcast {
-    let labels = c.labels.clone().unwrap_or_default();
+    let labels = c.labels.unwrap_or_default();
     let stack_name = labels
         .get("com.docker.compose.project")
         .cloned()
@@ -76,11 +89,11 @@ fn container_from_bollard(c: bollard::models::ContainerSummary) -> ContainerBroa
         .unwrap_or_default();
 
     ContainerBroadcast {
-        id: c.id.clone().unwrap_or_default(),
+        id: c.id.unwrap_or_default(),
         name,
-        image: c.image.clone().unwrap_or_default(),
+        image: c.image.unwrap_or_default(),
         state,
-        status: c.status.clone().unwrap_or_default(),
+        status: c.status.unwrap_or_default(),
         stack_name,
         service_name,
         labels,
@@ -106,7 +119,7 @@ pub async fn container_list_by_ids(
         .filters(&filters)
         .build();
 
-    let containers = docker.list_containers(Some(opts)).await?;
+    let containers = with_timeout(docker.list_containers(Some(opts))).await?;
 
     Ok(containers.into_iter().map(container_from_bollard).collect())
 }
@@ -115,9 +128,10 @@ pub async fn container_list_by_ids(
 pub async fn network_list(
     docker: &Docker,
 ) -> Result<Vec<NetworkSummary>, bollard::errors::Error> {
-    let networks = docker
-        .list_networks(None::<bollard::query_parameters::ListNetworksOptions>)
-        .await?;
+    let networks = with_timeout(
+        docker.list_networks(None::<bollard::query_parameters::ListNetworksOptions>),
+    )
+    .await?;
     Ok(networks
         .into_iter()
         .map(|n| NetworkSummary {
@@ -133,14 +147,15 @@ pub async fn network_list(
 pub async fn image_list(
     docker: &Docker,
 ) -> Result<Vec<ImageSummary>, bollard::errors::Error> {
-    let images = docker
-        .list_images(None::<bollard::query_parameters::ListImagesOptions>)
-        .await?;
+    let images = with_timeout(
+        docker.list_images(None::<bollard::query_parameters::ListImagesOptions>),
+    )
+    .await?;
     Ok(images
         .into_iter()
         .map(|i| ImageSummary {
-            id: i.id.clone(),
-            repo_tags: i.repo_tags.clone(),
+            id: i.id,
+            repo_tags: i.repo_tags,
             size: i.size,
             created: i.created,
         })
@@ -177,17 +192,18 @@ pub fn container_logs(
 pub async fn volume_list(
     docker: &Docker,
 ) -> Result<Vec<VolumeSummary>, bollard::errors::Error> {
-    let resp = docker
-        .list_volumes(None::<bollard::query_parameters::ListVolumesOptions>)
-        .await?;
+    let resp = with_timeout(
+        docker.list_volumes(None::<bollard::query_parameters::ListVolumesOptions>),
+    )
+    .await?;
     Ok(resp
         .volumes
         .unwrap_or_default()
         .into_iter()
         .map(|v| VolumeSummary {
-            name: v.name.clone(),
-            driver: v.driver.clone(),
-            mountpoint: v.mountpoint.clone(),
+            name: v.name,
+            driver: v.driver,
+            mountpoint: v.mountpoint,
         })
         .collect())
 }

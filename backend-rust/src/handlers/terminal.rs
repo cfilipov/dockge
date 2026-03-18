@@ -10,7 +10,7 @@ use tracing::{debug, info, warn};
 use crate::docker;
 use crate::terminal::TerminalType;
 use crate::ws::conn::Conn;
-use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
+use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse, SessionResponse};
 use crate::ws::WsServer;
 
 use super::{arg_object, parse_args, AppState};
@@ -352,10 +352,7 @@ async fn handle_combined(
     if let Some(id) = msg.id {
         conn.send_ack(
             id,
-            serde_json::json!({
-                "ok": true,
-                "sessionId": session_id,
-            }),
+            SessionResponse { ok: true, session_id },
         )
         .await;
     }
@@ -405,10 +402,7 @@ async fn handle_container_log(
     if let Some(id) = msg.id {
         conn.send_ack(
             id,
-            serde_json::json!({
-                "ok": true,
-                "sessionId": session_id,
-            }),
+            SessionResponse { ok: true, session_id },
         )
         .await;
     }
@@ -443,10 +437,7 @@ async fn handle_container_log_by_name(
     if let Some(id) = msg.id {
         conn.send_ack(
             id,
-            serde_json::json!({
-                "ok": true,
-                "sessionId": session_id,
-            }),
+            SessionResponse { ok: true, session_id },
         )
         .await;
     }
@@ -470,7 +461,7 @@ async fn handle_exec(
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
-                    serde_json::json!({"ok": true, "sessionId": session_id}),
+                    SessionResponse { ok: true, session_id },
                 )
                 .await;
             }
@@ -495,7 +486,7 @@ async fn handle_exec(
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
-                    serde_json::json!({"ok": true, "sessionId": session_id}),
+                    SessionResponse { ok: true, session_id },
                 )
                 .await;
             }
@@ -528,7 +519,7 @@ async fn handle_exec_by_name(
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
-                    serde_json::json!({"ok": true, "sessionId": session_id}),
+                    SessionResponse { ok: true, session_id },
                 )
                 .await;
             }
@@ -551,7 +542,7 @@ async fn handle_exec_by_name(
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
-                    serde_json::json!({"ok": true, "sessionId": session_id}),
+                    SessionResponse { ok: true, session_id },
                 )
                 .await;
             }
@@ -586,7 +577,7 @@ async fn handle_console(
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
-                    serde_json::json!({"ok": true, "sessionId": session_id}),
+                    SessionResponse { ok: true, session_id },
                 )
                 .await;
             }
@@ -623,7 +614,7 @@ async fn handle_console(
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
-                    serde_json::json!({"ok": true, "sessionId": session_id}),
+                    SessionResponse { ok: true, session_id },
                 )
                 .await;
             }
@@ -655,7 +646,7 @@ async fn handle_compose_terminal(
     if let Some(id) = msg.id {
         conn.send_ack(
             id,
-            serde_json::json!({"ok": true, "sessionId": session_id}),
+            SessionResponse { ok: true, session_id },
         )
         .await;
     }
@@ -674,7 +665,7 @@ async fn handle_container_action_terminal(
     if let Some(id) = msg.id {
         conn.send_ack(
             id,
-            serde_json::json!({"ok": true, "sessionId": session_id}),
+            SessionResponse { ok: true, session_id },
         )
         .await;
     }

@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use redb::Database;
 use serde_json::value::RawValue;
 use tokio::sync::mpsc;
+use tracing::warn;
 
 use crate::auth::LoginRateLimiter;
 use crate::broadcast::{Broadcaster, DispatchMsg, WsControlMsg};
@@ -61,18 +62,32 @@ impl AppState {
     pub fn get_all_settings(&self) -> HashMap<String, String> {
         let read_txn = match self.db.begin_read() {
             Ok(t) => t,
-            Err(_) => return HashMap::new(),
+            Err(e) => {
+                warn!("settings: begin_read failed: {e}");
+                return HashMap::new();
+            }
         };
         let table = match read_txn.open_table(db::SETTINGS_TABLE) {
             Ok(t) => t,
-            Err(_) => return HashMap::new(),
+            Err(e) => {
+                warn!("settings: open_table failed: {e}");
+                return HashMap::new();
+            }
         };
         use redb::ReadableTable;
         let mut result = HashMap::new();
-        if let Ok(iter) = table.iter() {
-            for (k, v) in iter.flatten() {
-                result.insert(k.value().to_string(), v.value().to_string());
+        match table.iter() {
+            Ok(iter) => {
+                for entry in iter {
+                    match entry {
+                        Ok((k, v)) => {
+                            result.insert(k.value().to_string(), v.value().to_string());
+                        }
+                        Err(e) => warn!("settings: iter error: {e}"),
+                    }
+                }
             }
+            Err(e) => warn!("settings: iter failed: {e}"),
         }
         result
     }
@@ -81,16 +96,26 @@ impl AppState {
     pub fn set_setting(&self, key: &str, value: &str) {
         let write_txn = match self.db.begin_write() {
             Ok(t) => t,
-            Err(_) => return,
+            Err(e) => {
+                warn!("settings: begin_write failed: {e}");
+                return;
+            }
         };
         {
             let mut table = match write_txn.open_table(db::SETTINGS_TABLE) {
                 Ok(t) => t,
-                Err(_) => return,
+                Err(e) => {
+                    warn!("settings: open_table failed: {e}");
+                    return;
+                }
             };
-            let _ = table.insert(key, value);
+            if let Err(e) = table.insert(key, value) {
+                warn!("settings: insert failed: {e}");
+            }
         }
-        let _ = write_txn.commit();
+        if let Err(e) = write_txn.commit() {
+            warn!("settings: commit failed: {e}");
+        }
     }
 }
 

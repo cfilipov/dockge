@@ -1,6 +1,7 @@
 pub mod watcher;
 
-use bytes::Bytes;
+use std::sync::Arc;
+
 use serde::Serialize;
 use tracing::warn;
 
@@ -8,10 +9,10 @@ use crate::ws::protocol::ServerMessage;
 
 /// Channel-based broadcaster for push events to all connected clients.
 /// Uses `tokio::broadcast` — each subscriber (write pump) receives every message.
-/// `Bytes::clone()` is an Arc increment, so no data is copied per subscriber.
+/// `Arc<str>::clone()` is an Arc increment, so no data is copied per subscriber.
 #[derive(Clone)]
 pub struct Broadcaster {
-    tx: tokio::sync::broadcast::Sender<Bytes>,
+    tx: tokio::sync::broadcast::Sender<Arc<str>>,
 }
 
 impl Broadcaster {
@@ -21,7 +22,7 @@ impl Broadcaster {
     }
 
     /// Get a new receiver for this broadcast channel.
-    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<Bytes> {
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<Arc<str>> {
         self.tx.subscribe()
     }
 
@@ -31,9 +32,9 @@ impl Broadcaster {
             event: event.to_string(),
             data,
         };
-        match serde_json::to_vec(&msg) {
+        match serde_json::to_string(&msg) {
             Ok(json) => {
-                let _ = self.tx.send(Bytes::from(json));
+                let _ = self.tx.send(Arc::from(json));
             }
             Err(e) => {
                 warn!("broadcast serialize error: {e}");

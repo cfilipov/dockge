@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket};
-use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use tokio::sync::mpsc;
@@ -113,7 +113,7 @@ pub type BinaryFn =
 pub fn spawn_conn(
     socket: WebSocket,
     server: std::sync::Arc<super::WsServer>,
-    broadcast_rx: tokio::sync::broadcast::Receiver<Bytes>,
+    broadcast_rx: tokio::sync::broadcast::Receiver<Arc<str>>,
 ) -> std::sync::Arc<Conn> {
     let id_num = CONN_ID_COUNTER.fetch_add(1, Ordering::Relaxed) + 1;
     let conn_id = format!("c{id_num}");
@@ -143,7 +143,7 @@ pub fn spawn_conn(
 async fn write_pump(
     conn: std::sync::Arc<Conn>,
     mut rx: mpsc::Receiver<Message>,
-    mut broadcast_rx: tokio::sync::broadcast::Receiver<Bytes>,
+    mut broadcast_rx: tokio::sync::broadcast::Receiver<Arc<str>>,
     mut ws_write: futures_util::stream::SplitSink<WebSocket, Message>,
 ) {
     loop {
@@ -168,11 +168,10 @@ async fn write_pump(
                 match result {
                     Ok(payload) => {
                         // Only forward broadcasts to authenticated connections
-                        if conn.is_authenticated() {
-                            let text = String::from_utf8(payload.to_vec()).unwrap_or_default();
-                            if ws_write.send(Message::Text(text.into())).await.is_err() {
-                                break;
-                            }
+                        if conn.is_authenticated()
+                            && ws_write.send(Message::Text((*payload).into())).await.is_err()
+                        {
+                            break;
                         }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
