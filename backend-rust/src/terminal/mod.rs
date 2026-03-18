@@ -161,10 +161,6 @@ enum TerminalCmd {
         typ: TerminalType,
         reply: oneshot::Sender<()>,
     },
-    #[allow(dead_code)]
-    Remove {
-        name: String,
-    },
     IsClosed {
         name: String,
         reply: oneshot::Sender<Option<bool>>,
@@ -176,11 +172,6 @@ enum TerminalCmd {
         reply: oneshot::Sender<Vec<u8>>,
     },
     RemoveWriterFromAll {
-        writer_key: String,
-    },
-    #[allow(dead_code)]
-    RemoveWriterAndCleanup {
-        term_name: String,
         writer_key: String,
     },
     WriteData {
@@ -250,14 +241,6 @@ impl TerminalHandle {
         let _ = rx.await;
     }
 
-    /// Remove a terminal immediately.
-    #[allow(dead_code)]
-    pub fn remove(&self, name: &str) {
-        let _ = self.tx.try_send(TerminalCmd::Remove {
-            name: name.to_string(),
-        });
-    }
-
     /// Check if a terminal exists and whether it is closed.
     /// Returns `None` if the terminal doesn't exist.
     pub async fn is_closed(&self, name: &str) -> Option<bool> {
@@ -289,15 +272,6 @@ impl TerminalHandle {
     /// Remove a writer from all terminals (fire-and-forget).
     pub fn remove_writer_from_all(&self, writer_key: &str) {
         let _ = self.tx.try_send(TerminalCmd::RemoveWriterFromAll {
-            writer_key: writer_key.to_string(),
-        });
-    }
-
-    /// Remove writer from a specific terminal and clean up if orphaned.
-    #[allow(dead_code)]
-    pub fn remove_writer_and_cleanup(&self, term_name: &str, writer_key: &str) {
-        let _ = self.tx.try_send(TerminalCmd::RemoveWriterAndCleanup {
-            term_name: term_name.to_string(),
             writer_key: writer_key.to_string(),
         });
     }
@@ -406,16 +380,6 @@ async fn actor_loop(
                 let _ = reply.send(());
             }
 
-            TerminalCmd::Remove { name } => {
-                if let Some(mut term) = terminals.remove(&name) {
-                    let keys: Vec<String> = term.writers.keys().cloned().collect();
-                    for k in keys {
-                        writer_index.remove(&k);
-                    }
-                    term.close();
-                }
-            }
-
             TerminalCmd::IsClosed { name, reply } => {
                 let result = terminals.get(&name).map(|t| t.is_closed());
                 let _ = reply.send(result);
@@ -453,19 +417,6 @@ async fn actor_loop(
                         {
                             term.close();
                         }
-                    }
-                }
-            }
-
-            TerminalCmd::RemoveWriterAndCleanup { term_name, writer_key } => {
-                writer_index.remove(&writer_key);
-                if let Some(term) = terminals.get_mut(&term_name) {
-                    term.remove_writer(&writer_key);
-                    if term.writer_count() == 0
-                        && term.terminal_type == TerminalType::Pipe
-                        && term.has_cancel()
-                    {
-                        term.close();
                     }
                 }
             }

@@ -78,9 +78,11 @@ fn container_from_bollard(c: bollard::models::ContainerSummary) -> ContainerBroa
 
     let name = c
         .names
-        .as_ref()
-        .and_then(|n| n.first())
-        .map(|n| n.trim_start_matches('/').to_string())
+        .and_then(|v| v.into_iter().next())
+        .map(|n| match n.strip_prefix('/') {
+            Some(s) => s.to_string(),
+            None => n,
+        })
         .unwrap_or_default();
 
     let state = c

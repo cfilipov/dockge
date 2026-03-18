@@ -44,7 +44,6 @@ impl Broadcaster {
 }
 
 /// Message sent to the coalescer actor from the Docker event watcher or handlers.
-#[allow(dead_code)]
 pub enum DispatchMsg {
     /// A Docker event affecting a specific resource.
     DockerEvent {
@@ -54,6 +53,7 @@ pub enum DispatchMsg {
         action: String,
     },
     /// Request a full unfiltered refresh for a resource type.
+    #[allow(dead_code)]
     FullSync {
         resource_type: String,
     },
