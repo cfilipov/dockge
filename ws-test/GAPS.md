@@ -55,7 +55,22 @@ issue `startStack` via WebSocket before testing stop/restart/etc:
 - `TestDownStack`
 - `TestPauseAndResumeStack`
 - `TestUpdateStack`
+- `TestStopContainer`, `TestRestartContainer` — ported to `services.test.ts`
 - All service tests (`TestStartService`, `TestStopService`, etc.)
 - All docker resource tests (`TestDockerStats`, `TestContainerTop`, etc.)
 - Terminal tests
 - Broadcast tests
+
+## New Coverage (beyond Go test suite)
+
+These tests cover protocol contracts that have no corresponding Go integration test:
+
+| Test | File | What it covers |
+|------|------|---------------|
+| `startContainer` | `services.test.ts` | Container-level start (no Go test existed) |
+| `info event on connect` | `connect.test.ts` | Server push of version/dev info on WebSocket connect |
+| `resourceEvent` (3 tests) | `resource-events.test.ts` | Docker event broadcasting: metadata, compose labels, event+list ordering |
+| `twoFAStatus` | `auth.test.ts` | 2FA status stub returns not-enabled |
+| `prepare2FA` | `auth.test.ts` | 2FA prepare stub returns not-supported |
+| `getTurnstileSiteKey` | `auth.test.ts` | Turnstile/CAPTCHA stub returns ok |
+| `containerInspect format` | `docker-resources.test.ts` | Validates inspectData is JSON object (not double-encoded string) |

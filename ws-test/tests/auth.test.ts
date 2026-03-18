@@ -7,10 +7,6 @@ describe("auth", () => {
         await resetDB();
     });
 
-    test.skip("needSetup — dev mode auto-seeds admin, always false", async () => {
-        // Can't test empty-DB state with --dev mode
-    });
-
     test("setupAndLogin — setup creates user, login returns token", async () => {
         await withClient(async (client) => {
             // In dev mode, admin already exists. Setup should fail (already done).
@@ -121,7 +117,26 @@ describe("auth", () => {
         });
     });
 
-    test.skip("loginRateLimitIntegration — requires injecting custom rate limiter", () => {
-        // Can't inject custom rate limiter into running server externally
+    test("twoFAStatus — returns not enabled", async () => {
+        await withClient(async (client) => {
+            const resp = await client.sendAndReceive("twoFAStatus");
+            expect(resp.ok).toBe(true);
+            expect(resp.status).toBe(false);
+        });
+    });
+
+    test("prepare2FA — returns not supported", async () => {
+        await withClient(async (client) => {
+            const resp = await client.sendAndReceive("prepare2FA");
+            expect(resp.ok).toBe(false);
+            expect(resp.msg).toContain("not yet supported");
+        });
+    });
+
+    test("getTurnstileSiteKey — returns ok", async () => {
+        await withClient(async (client) => {
+            const resp = await client.sendAndReceive("getTurnstileSiteKey");
+            expect(resp.ok).toBe(true);
+        });
     });
 });

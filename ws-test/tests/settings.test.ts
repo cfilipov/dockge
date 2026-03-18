@@ -64,8 +64,6 @@ describe("settings", () => {
         });
     });
 
-    test.skip("globalENV not in BoltDB — requires direct BoltDB access", () => {});
-
     test("globalENV empty deletes (protocol-only)", async () => {
         await withAuthClient(async (client) => {
             // Set a value first

@@ -48,6 +48,27 @@ describe("services", () => {
         });
     });
 
+    test("stopContainer", async () => {
+        await withAuthClient(async (client) => {
+            const resp = await client.sendAndReceive("stopContainer", "test-stack-web-1");
+            expect(resp.ok).toBe(true);
+        });
+    });
+
+    test("restartContainer", async () => {
+        await withAuthClient(async (client) => {
+            const resp = await client.sendAndReceive("restartContainer", "test-stack-web-1");
+            expect(resp.ok).toBe(true);
+        });
+    });
+
+    test("startContainer", async () => {
+        await withAuthClient(async (client) => {
+            const resp = await client.sendAndReceive("startContainer", "test-stack-web-1");
+            expect(resp.ok).toBe(true);
+        });
+    });
+
     test("serviceMissingArgs — empty service/stack name fails", async () => {
         await withAuthClient(async (client) => {
             // Missing service name

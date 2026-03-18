@@ -115,6 +115,10 @@ describe("docker-resources", () => {
         await withAuthClient(async (client) => {
             const resp = await client.sendAndReceive("containerInspect", "test-stack-web-1");
             expect(resp.ok).toBe(true);
+            // Verify inspectData is a JSON object, not a double-encoded string (bug fix in 6629346)
+            expect(resp.inspectData).toBeTruthy();
+            expect(typeof resp.inspectData).not.toBe("string");
+            expect(typeof resp.inspectData).toBe("object");
         });
     });
 });
