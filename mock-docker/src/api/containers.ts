@@ -174,8 +174,10 @@ export const containerRoutes: Route[] = [
             const container = r.found;
             const follow = query.follow === "1" || query.follow === "true";
             const tail = query.tail !== undefined && query.tail !== "all" ? parseInt(query.tail, 10) : undefined;
-            const since = query.since ? parseFloat(query.since) : undefined;
-            const until = query.until ? parseFloat(query.until) : undefined;
+            // Per Docker API spec, since=0 and until=0 are the defaults meaning
+            // "no filter" — treat 0 the same as omitted.
+            const since = query.since ? parseFloat(query.since) || undefined : undefined;
+            const until = query.until ? parseFloat(query.until) || undefined : undefined;
             const timestamps = query.timestamps === "1" || query.timestamps === "true";
             const isTty = container.Config.Tty || false;
 

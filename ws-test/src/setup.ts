@@ -65,7 +65,9 @@ export async function setup(): Promise<void> {
 
     const mockSock = path.join(RUN_DIR, "docker.sock");
     const mockDaemonBin = path.join(PROJECT_ROOT, "bin", "mock-daemon");
-    const dockgeBin = path.join(PROJECT_ROOT, "bin", "dockge");
+    const dockgeBin = process.env.DOCKGE_BIN
+        ? path.resolve(process.env.DOCKGE_BIN)
+        : path.join(PROJECT_ROOT, "bin", "dockge");
     const stacksSource = path.join(PROJECT_ROOT, "ws-test", "stacks");
     const imagesJSON = path.join(PROJECT_ROOT, "mock-docker", "scripts", "images.json");
 
@@ -73,7 +75,7 @@ export async function setup(): Promise<void> {
         throw new Error(`mock-daemon binary not found at ${mockDaemonBin}. Run: task build-mock-daemon`);
     }
     if (!existsSync(dockgeBin)) {
-        throw new Error(`dockge binary not found at ${dockgeBin}. Run: task build-go`);
+        throw new Error(`dockge binary not found at ${dockgeBin}. Run: task build-go (or set DOCKGE_BIN)`);
     }
 
     // Start mock daemon

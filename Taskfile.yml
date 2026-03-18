@@ -262,6 +262,44 @@ tasks:
           export PATH="$(pwd)/bin:$PATH"
           cd backend-bun && bun run src/main.ts -- --dev --port 5002 --data-dir ../.run/dev-5002/data --stacks-dir ../.run/dev-5002/stacks
 
+  build-rust:
+    desc: Build Rust backend (musl static binary)
+    dir: backend-rust
+    cmds:
+      - cargo build --release --target x86_64-unknown-linux-musl
+      - cp target/x86_64-unknown-linux-musl/release/dockge-rust ../bin/dockge-rust
+    sources:
+      - 'src/**/*.rs'
+      - Cargo.toml
+      - Cargo.lock
+    generates:
+      - ../bin/dockge-rust
+
+  test-ws-rust:
+    desc: Run WebSocket protocol tests against Rust backend
+    deps: [build-rust, build-mock-daemon, build-mock-docker]
+    dir: ws-test
+    cmd: DOCKGE_BIN=../bin/dockge-rust pnpm test
+
+  dev-rust:
+    desc: Run mock daemon + Rust backend on :5003
+    deps: [build-rust, build-mock-daemon, build-mock-docker]
+    cmds:
+      - cmd: |
+          trap 'kill 0' EXIT
+          rm -rf .run/dev-5003 && mkdir -p .run/dev-5003/data
+          MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
+          mkdir -p "$(dirname "$MOCK_SOCK")"
+          node mock-docker/dist/src/main.js \
+            --socket "$MOCK_SOCK" \
+            --stacks-source test-data/stacks \
+            --stacks-dir .run/dev-5003/stacks \
+            --images-json mock-docker/scripts/images.json &
+          for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
+          export DOCKER_HOST="unix://$MOCK_SOCK"
+          export PATH="$(pwd)/bin:$PATH"
+          ./bin/dockge-rust --dev --port 5003 --data-dir .run/dev-5003/data --stacks-dir .run/dev-5003/stacks
+
   docker:
     desc: Build Docker image
     cmd: docker buildx build -f docker/Dockerfile -t cfilipov/dockge:latest --target release .
