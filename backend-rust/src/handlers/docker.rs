@@ -263,7 +263,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
         // Create cancellation token and register (cancels any existing stats sub)
         let token = CancellationToken::new();
-        conn.set_subscription("stats", token.clone());
+        conn.set_subscription("stats", container.clone(), token.clone());
 
         if let Some(id) = msg.id {
             conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
@@ -392,7 +392,9 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         if uid == 0 {
             return;
         }
-        conn.cancel_subscription("stats");
+        let args = parse_args(&msg);
+        let container = arg_string(&args, 0);
+        conn.cancel_subscription("stats", &container);
         if let Some(id) = msg.id {
             conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
         }
@@ -409,7 +411,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
         // Create cancellation token and register (cancels any existing top sub)
         let token = CancellationToken::new();
-        conn.set_subscription("top", token.clone());
+        conn.set_subscription("top", container.clone(), token.clone());
 
         if let Some(id) = msg.id {
             conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
@@ -446,7 +448,9 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         if uid == 0 {
             return;
         }
-        conn.cancel_subscription("top");
+        let args = parse_args(&msg);
+        let container = arg_string(&args, 0);
+        conn.cancel_subscription("top", &container);
         if let Some(id) = msg.id {
             conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
         }

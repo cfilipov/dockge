@@ -785,10 +785,10 @@ onUnmounted(() => {
     }
     // Unsubscribe from process list streaming
     getSocket().off("containerTop", onContainerTop);
-    emit("unsubscribeTop");
+    emit("unsubscribeTop", containerName.value);
     // Unsubscribe from stats streaming
     getSocket().off("dockerStats", onDockerStats);
-    emit("unsubscribeStats");
+    emit("unsubscribeStats", containerName.value);
 });
 </script>
 

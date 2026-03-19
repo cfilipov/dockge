@@ -20,7 +20,10 @@ pub struct Conn {
     pub id: String,
     user_id: std::sync::atomic::AtomicI32,
     tx: mpsc::Sender<Message>,
-    subscriptions: std::sync::Mutex<HashMap<&'static str, CancellationToken>>,
+    /// Keyed by subscription type ("stats", "top"). Value is (resource_id, token).
+    /// The resource_id (e.g. container name) prevents a late-arriving unsubscribe
+    /// from cancelling a newer subscription for a different resource.
+    subscriptions: std::sync::Mutex<HashMap<&'static str, (String, CancellationToken)>>,
 }
 
 impl Conn {
@@ -68,17 +71,23 @@ impl Conn {
     }
 
     /// Cancel an existing subscription by key, then store a new token.
-    pub fn set_subscription(&self, key: &'static str, token: CancellationToken) {
+    pub fn set_subscription(&self, key: &'static str, resource_id: String, token: CancellationToken) {
         let mut subs = self.subscriptions.lock().unwrap();
-        if let Some(old) = subs.insert(key, token) {
-            old.cancel();
+        if let Some((_, old_token)) = subs.insert(key, (resource_id, token)) {
+            old_token.cancel();
         }
     }
 
-    /// Cancel and remove a subscription by key.
-    pub fn cancel_subscription(&self, key: &'static str) {
+    /// Cancel and remove a subscription by key, but only if the stored
+    /// resource_id matches. This prevents a late-arriving unsubscribe
+    /// (for container A) from killing a newer subscription (for container B)
+    /// created by a concurrent subscribe that raced ahead.
+    pub fn cancel_subscription(&self, key: &'static str, resource_id: &str) {
         let mut subs = self.subscriptions.lock().unwrap();
-        if let Some(token) = subs.remove(key) {
+        if let Some((stored_id, _)) = subs.get(key)
+            && stored_id == resource_id
+        {
+            let (_, token) = subs.remove(key).unwrap();
             token.cancel();
         }
     }
@@ -86,7 +95,7 @@ impl Conn {
     /// Cancel all subscriptions (called on disconnect).
     pub fn cancel_all_subscriptions(&self) {
         let mut subs = self.subscriptions.lock().unwrap();
-        for (_, token) in subs.drain() {
+        for (_, (_, token)) in subs.drain() {
             token.cancel();
         }
     }
