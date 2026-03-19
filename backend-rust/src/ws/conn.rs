@@ -44,6 +44,12 @@ impl Conn {
         self.tx.send(msg).await.is_ok()
     }
 
+    /// Non-blocking send. Returns false if the write channel is full (frame dropped).
+    /// Used by terminal writer callbacks which must be sync and preserve ordering.
+    pub fn send_nowait(&self, msg: Message) -> bool {
+        self.tx.try_send(msg).is_ok()
+    }
+
     /// Send a JSON ack response.
     pub async fn send_ack<T: Serialize>(&self, id: i64, data: T) {
         let ack = AckMessage { id, data };
@@ -136,15 +142,23 @@ pub fn spawn_conn(
         subscriptions: std::sync::Mutex::new(HashMap::new()),
     });
 
+    // Command channel: read_pump sends parsed text messages here,
+    // worker drains them sequentially — one handler at a time per connection.
+    let (cmd_tx, cmd_rx) = mpsc::channel::<ClientMessage>(64);
+
     let (ws_write, ws_read) = socket.split();
 
     // Write pump: select over direct mpsc + broadcast channel
     let conn_w = conn.clone();
     tokio::spawn(write_pump(conn_w, rx, broadcast_rx, ws_write));
 
-    // Read pump
+    // Read pump: parses frames, routes text → cmd_tx, handles binary inline
     let conn_r = conn.clone();
-    tokio::spawn(read_pump(conn_r, ws_read, server));
+    tokio::spawn(read_pump(conn_r, ws_read, server.clone(), cmd_tx));
+
+    // Worker: sequential dispatch of text messages for this connection
+    let conn_wk = conn.clone();
+    tokio::spawn(worker(conn_wk, cmd_rx, server));
 
     conn
 }
@@ -198,23 +212,19 @@ async fn read_pump(
     conn: std::sync::Arc<Conn>,
     mut ws_read: futures_util::stream::SplitStream<WebSocket>,
     server: std::sync::Arc<super::WsServer>,
+    cmd_tx: mpsc::Sender<ClientMessage>,
 ) {
-    // Use the global dispatch semaphore for backpressure
-    let sem = server.dispatch_semaphore.clone();
-
     while let Some(Ok(msg)) = ws_read.next().await {
         match msg {
             Message::Text(text) => {
-                let parsed: Result<ClientMessage, _> = serde_json::from_str(&text);
-                match parsed {
+                match serde_json::from_str::<ClientMessage>(&text) {
                     Ok(client_msg) => {
-                        let conn = conn.clone();
-                        let server = server.clone();
-                        let sem = sem.clone();
-                        tokio::spawn(async move {
-                            let _permit = sem.acquire().await;
-                            server.dispatch(conn, client_msg).await;
-                        });
+                        // Send to worker for sequential dispatch.
+                        // If the channel is full, this awaits — applying
+                        // backpressure to this single connection only.
+                        if cmd_tx.send(client_msg).await.is_err() {
+                            break; // worker dropped, connection closing
+                        }
                     }
                     Err(e) => {
                         warn!(conn = %conn.id, "malformed message: {e}");
@@ -222,6 +232,8 @@ async fn read_pump(
                 }
             }
             Message::Binary(data) => {
+                // Handle binary inline — terminal input is latency-sensitive
+                // and has no ordering dependency with text handlers.
                 if data.len() < 3 {
                     continue;
                 }
@@ -238,4 +250,16 @@ async fn read_pump(
 
     // Connection closed — remove from registry
     server.remove(&conn);
+}
+
+/// Sequential worker: processes text messages one at a time per connection.
+/// Slow handlers block subsequent messages on THIS connection only.
+async fn worker(
+    conn: Arc<Conn>,
+    mut cmd_rx: mpsc::Receiver<ClientMessage>,
+    server: Arc<super::WsServer>,
+) {
+    while let Some(msg) = cmd_rx.recv().await {
+        server.dispatch(conn.clone(), msg).await;
+    }
 }

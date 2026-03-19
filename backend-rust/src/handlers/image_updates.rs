@@ -255,7 +255,7 @@ async fn manifest_digest(state: &AppState, image_ref: &str) -> String {
 
 /// Simple YAML parser to extract service image references.
 /// Returns Vec<(service_name, image_ref)>.
-fn parse_service_images(yaml: &str) -> Vec<(String, String)> {
+pub(crate) fn parse_service_images(yaml: &str) -> Vec<(String, String)> {
     let mut results = Vec::new();
     let mut in_services = false;
     let mut current_service: Option<String> = None;
@@ -300,7 +300,19 @@ fn parse_service_images(yaml: &str) -> Vec<(String, String)> {
 }
 
 /// Broadcast image update results to all clients.
+/// Sends a string[] of "stackName/serviceName" keys that have updates,
+/// matching what the frontend updateStore expects.
 fn trigger_updates_broadcast(state: &AppState) {
+    let updates = collect_update_keys(state);
+    state.broadcaster.send_event(
+        "updates",
+        &serde_json::json!(updates),
+    );
+}
+
+/// Read the redb image updates cache and return keys with hasUpdate=true.
+/// Each key is "stackName/serviceName".
+pub(crate) fn collect_update_keys(state: &AppState) -> Vec<String> {
     let mut updates = Vec::new();
 
     if let Ok(read_txn) = state.db.begin_read()
@@ -309,17 +321,18 @@ fn trigger_updates_broadcast(state: &AppState) {
         use redb::ReadableTable;
         if let Ok(iter) = table.iter() {
             for entry in iter.flatten() {
-                if let Ok(value) = serde_json::from_str::<serde_json::Value>(entry.1.value()) {
-                    updates.push(value);
+                let key = entry.0.value().to_string();
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(entry.1.value())
+                    && value.get("hasUpdate").and_then(|v| v.as_bool()).unwrap_or(false)
+                {
+                    updates.push(key);
                 }
             }
         }
     }
 
-    state.broadcaster.send_event(
-        "updates",
-        &serde_json::json!(updates),
-    );
+    updates.sort();
+    updates
 }
 
 fn get_check_interval(state: &AppState) -> Duration {

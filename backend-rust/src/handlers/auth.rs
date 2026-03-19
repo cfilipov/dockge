@@ -419,11 +419,11 @@ async fn after_login(state: &AppState, conn: &Conn) {
         }
     }
 
-    // Updates broadcast (empty for now — image update checks are M8)
-    // Sent as raw array, NOT wrapped in {"items": ...} — the frontend
+    // Updates broadcast: read cached image update results from redb.
+    // Sent as raw string[] of "stackName/serviceName" keys — the frontend
     // expects a plain string[] for the updates channel.
     {
-        let updates: Vec<String> = Vec::new();
+        let updates = super::image_updates::collect_update_keys(state);
         conn.send_event("updates", updates).await;
     }
 }
@@ -452,11 +452,22 @@ pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, serde_
             continue;
         };
 
+        // Parse compose file to extract service→image mappings
+        let compose_path = path.join(compose_file);
+        let images: HashMap<String, String> = std::fs::read_to_string(&compose_path)
+            .ok()
+            .map(|yaml| {
+                super::image_updates::parse_service_images(&yaml)
+                    .into_iter()
+                    .collect()
+            })
+            .unwrap_or_default();
+
         result.insert(name.clone(), serde_json::json!({
             "name": name,
             "composeFileName": compose_file,
             "isManagedByDockge": true,
-            "images": {},
+            "images": images,
         }));
     }
 

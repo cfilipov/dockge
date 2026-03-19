@@ -69,12 +69,14 @@ fn split_timestamp(raw: &str) -> (&str, &str) {
 
 // ── Allocate, join, replay ──────────────────────────────────────────────────
 
-/// Allocate a session, register writer, replay buffer, return session ID.
-async fn alloc_join_and_replay(
+/// Allocate a session, register writer, return session ID and buffered data.
+/// The caller must send the ack FIRST, then call `replay_buffer` so the
+/// frontend has the session ID registered before binary frames arrive.
+async fn alloc_join(
     conn: &Arc<Conn>,
     handle: &TerminalHandle,
     term_name: &str,
-) -> u16 {
+) -> (u16, Vec<u8>) {
     let session_id = NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed);
     let session_bytes = session_id.to_be_bytes();
 
@@ -90,25 +92,41 @@ async fn alloc_join_and_replay(
                 let mut frame = Vec::with_capacity(2 + data.len());
                 frame.extend_from_slice(&sid);
                 frame.extend_from_slice(data);
-                let conn = conn_for_writer.clone();
-                tokio::spawn(async move {
-                    conn.send(Message::Binary(frame.into())).await;
-                });
+                conn_for_writer.send_nowait(Message::Binary(frame.into()));
             }),
         )
         .await;
 
-    // Replay buffer
-    if !buffer.is_empty() {
-        let conn = conn.clone();
-        tokio::spawn(async move {
-            let mut frame = Vec::with_capacity(2 + buffer.len());
-            frame.extend_from_slice(&session_bytes);
-            frame.extend_from_slice(&buffer);
-            conn.send(Message::Binary(frame.into())).await;
-        });
-    }
+    (session_id, buffer)
+}
 
+/// Send buffered terminal data to the client. Must be called AFTER the ack
+/// so the frontend has the session ID registered to route binary frames.
+async fn replay_buffer(conn: &Conn, session_id: u16, buffer: Vec<u8>) {
+    if buffer.is_empty() {
+        return;
+    }
+    let session_bytes = session_id.to_be_bytes();
+    let mut frame = Vec::with_capacity(2 + buffer.len());
+    frame.extend_from_slice(&session_bytes);
+    frame.extend_from_slice(&buffer);
+    conn.send(Message::Binary(frame.into())).await;
+}
+
+/// Convenience: alloc+join, send ack, replay buffer (in correct order).
+/// The ack must be sent before the binary replay so the frontend has the
+/// session ID registered to route incoming binary frames.
+async fn alloc_join_ack_replay(
+    conn: &Arc<Conn>,
+    handle: &TerminalHandle,
+    term_name: &str,
+    msg: &ClientMessage,
+) -> u16 {
+    let (session_id, buffer) = alloc_join(conn, handle, term_name).await;
+    if let Some(id) = msg.id {
+        conn.send_ack(id, SessionResponse { ok: true, session_id }).await;
+    }
+    replay_buffer(conn, session_id, buffer).await;
     session_id
 }
 
@@ -371,11 +389,7 @@ async fn handle_combined(
 
     // Check if already running — reuse if so
     if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
-        let session_id =
-            alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-        if let Some(id) = msg.id {
-            conn.send_ack(id, SessionResponse { ok: true, session_id }).await;
-        }
+        alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
         return;
     }
 
@@ -388,11 +402,7 @@ async fn handle_combined(
         .terminal_manager
         .set_cancel(&term_name, cancel.clone());
 
-    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-
-    if let Some(id) = msg.id {
-        conn.send_ack(id, SessionResponse { ok: true, session_id }).await;
-    }
+    alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 
     // Spawn the combined log task
     let docker = state.docker.clone();
@@ -449,15 +459,7 @@ async fn handle_container_log(
         });
     }
 
-    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-
-    if let Some(id) = msg.id {
-        conn.send_ack(
-            id,
-            SessionResponse { ok: true, session_id },
-        )
-        .await;
-    }
+    alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
 async fn handle_container_log_by_name(
@@ -494,15 +496,7 @@ async fn handle_container_log_by_name(
         .await;
     });
 
-    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-
-    if let Some(id) = msg.id {
-        conn.send_ack(
-            id,
-            SessionResponse { ok: true, session_id },
-        )
-        .await;
-    }
+    alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
 async fn handle_exec(
@@ -517,16 +511,7 @@ async fn handle_exec(
 
     // Check if already running
     if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
-        // Terminal exists and is not closed — reuse it
-        let session_id =
-            alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-        if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                SessionResponse { ok: true, session_id },
-            )
-            .await;
-        }
+        alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
         return;
     }
 
@@ -544,15 +529,7 @@ async fn handle_exec(
         Some(&stack_dir),
     ).await {
         Ok(_cancel) => {
-            let session_id =
-                alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-            if let Some(id) = msg.id {
-                conn.send_ack(
-                    id,
-                    SessionResponse { ok: true, session_id },
-                )
-                .await;
-            }
+            alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
             info!(stack = %stack, service = %service, "exec terminal started");
         }
         Err(e) => {
@@ -576,15 +553,7 @@ async fn handle_exec_by_name(
 
     // Check if already running
     if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
-        let session_id =
-            alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-        if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                SessionResponse { ok: true, session_id },
-            )
-            .await;
-        }
+        alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
         return;
     }
 
@@ -600,15 +569,7 @@ async fn handle_exec_by_name(
         None,
     ).await {
         Ok(_cancel) => {
-            let session_id =
-                alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-            if let Some(id) = msg.id {
-                conn.send_ack(
-                    id,
-                    SessionResponse { ok: true, session_id },
-                )
-                .await;
-            }
+            alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
             info!(container = %container, "exec-by-name terminal started");
         }
         Err(e) => {
@@ -634,15 +595,7 @@ async fn handle_console(
 
     // Check if already running
     if let Some(false) = state.terminal_manager.is_closed(term_name).await {
-        let session_id =
-            alloc_join_and_replay(conn, &state.terminal_manager, term_name).await;
-        if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                SessionResponse { ok: true, session_id },
-            )
-            .await;
-        }
+        alloc_join_ack_replay(conn, &state.terminal_manager, term_name, msg).await;
         return;
     }
 
@@ -673,15 +626,7 @@ async fn handle_console(
         .await
     {
         Ok(_cancel) => {
-            let session_id =
-                alloc_join_and_replay(conn, &state.terminal_manager, term_name).await;
-            if let Some(id) = msg.id {
-                conn.send_ack(
-                    id,
-                    SessionResponse { ok: true, session_id },
-                )
-                .await;
-            }
+            alloc_join_ack_replay(conn, &state.terminal_manager, term_name, msg).await;
             info!("console terminal started");
         }
         Err(e) => {
@@ -705,15 +650,7 @@ async fn handle_compose_terminal(
 ) {
     let term_name = format!("compose-{}", stack);
     state.terminal_manager.get_or_create(&term_name).await;
-    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-
-    if let Some(id) = msg.id {
-        conn.send_ack(
-            id,
-            SessionResponse { ok: true, session_id },
-        )
-        .await;
-    }
+    alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
 async fn handle_container_action_terminal(
@@ -724,15 +661,7 @@ async fn handle_container_action_terminal(
 ) {
     let term_name = format!("container-{}", container);
     state.terminal_manager.get_or_create(&term_name).await;
-    let session_id = alloc_join_and_replay(conn, &state.terminal_manager, &term_name).await;
-
-    if let Some(id) = msg.id {
-        conn.send_ack(
-            id,
-            SessionResponse { ok: true, session_id },
-        )
-        .await;
-    }
+    alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
 // ── Combined log streaming (Phase 2) ───────────────────────────────────────
