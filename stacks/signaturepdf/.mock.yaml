@@ -1,3 +1,2 @@
 services:
   signaturepdf:
-    update_available: true

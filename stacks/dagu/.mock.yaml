@@ -1,3 +1,2 @@
 services:
   dagu:
-    update_available: true

@@ -3,4 +3,3 @@ services:
     state: exited
     exit_code: 1
   db:
-    update_available: true

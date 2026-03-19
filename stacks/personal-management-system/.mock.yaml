@@ -2,4 +2,3 @@ services:
   pms-database:
     health: unhealthy
   pms-php-fpm:
-    update_available: true

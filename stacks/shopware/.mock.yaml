@@ -2,4 +2,3 @@ services:
   shopware:
     state: paused
   cache:
-    update_available: true

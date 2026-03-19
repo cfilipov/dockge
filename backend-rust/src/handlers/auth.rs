@@ -445,6 +445,8 @@ pub(crate) struct StackBroadcast {
     compose_file_name: String,
     is_managed_by_dockge: bool,
     images: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    ignore_status: BTreeMap<String, bool>,
 }
 
 pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> BTreeMap<String, StackBroadcast> {
@@ -471,30 +473,150 @@ pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> BTreeMap<String, Stack
             continue;
         };
 
-        // Parse compose file to extract service→image mappings
+        // Parse compose file to extract service→image mappings and labels
         let compose_path = path.join(compose_file);
-        let images: BTreeMap<String, String> = std::fs::read_to_string(&compose_path)
-            .ok()
-            .map(|yaml| {
-                super::image_updates::parse_service_images(&yaml)
-                    .into_iter()
-                    .collect()
-            })
-            .unwrap_or_default();
+        let yaml_content = std::fs::read_to_string(&compose_path).unwrap_or_default();
+        let images: BTreeMap<String, String> = super::image_updates::parse_service_images(&yaml_content)
+            .into_iter()
+            .collect();
+        let ignore_status: BTreeMap<String, bool> = parse_status_ignore_labels(&yaml_content)
+            .into_iter()
+            .collect();
 
         result.insert(name.clone(), StackBroadcast {
             name: name.clone(),
             compose_file_name: compose_file.to_string(),
             is_managed_by_dockge: true,
             images,
+            ignore_status,
         });
     }
 
     result
 }
 
+/// Parse `dockge.status.ignore` labels from compose YAML.
+/// Returns a vec of (service_name, true) for services that have the label set.
+fn parse_status_ignore_labels(yaml: &str) -> Vec<(String, bool)> {
+    let mut results = Vec::new();
+    let mut in_services = false;
+    let mut current_service: Option<String> = None;
+    let mut in_labels = false;
+
+    for line in yaml.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
+        let indent = line.len() - line.trim_start().len();
+
+        // Top-level key
+        if indent == 0 {
+            in_services = trimmed == "services:" || trimmed.starts_with("services:");
+            current_service = None;
+            in_labels = false;
+            continue;
+        }
+
+        if !in_services {
+            continue;
+        }
+
+        // Service name (indent 2, ends with ':')
+        if indent <= 2 && trimmed.ends_with(':') && !trimmed.contains(' ') {
+            current_service = Some(trimmed.trim_end_matches(':').to_string());
+            in_labels = false;
+            continue;
+        }
+
+        if current_service.is_none() {
+            continue;
+        }
+
+        // Service property level (indent 4-6)
+        if (4..=6).contains(&indent) && trimmed == "labels:" {
+            in_labels = true;
+            continue;
+        }
+
+        // Exiting labels section (back to service property level)
+        if (4..=6).contains(&indent) && trimmed.ends_with(':') && trimmed != "labels:" {
+            in_labels = false;
+            continue;
+        }
+
+        // Label value (indent 6+)
+        if in_labels && indent >= 6
+            && let Some(val) = trimmed.strip_prefix("dockge.status.ignore:")
+        {
+            let val = val.trim().trim_matches('"').trim_matches('\'');
+            if val == "true" {
+                results.push((current_service.clone().unwrap(), true));
+            }
+        }
+    }
+
+    results
+}
+
 /// Build a name → container map. Values are `Option` so that destroyed
 /// containers can be represented as `None` (serialized as JSON `null`).
 pub fn containers_to_map(containers: Vec<docker::types::ContainerBroadcast>) -> BTreeMap<String, Option<docker::types::ContainerBroadcast>> {
     containers.into_iter().map(|c| (c.name.clone(), Some(c))).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_status_ignore_labels() {
+        let yaml = r#"services:
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    labels:
+      dockge.imageupdates.changelog: "https://github.com/nginx/nginx/releases"
+      dockge.urls.web: "http://localhost:8080"
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    labels:
+      dockge.status.ignore: "true"
+"#;
+        let result = parse_status_ignore_labels(yaml);
+        assert_eq!(result, vec![("redis".to_string(), true)]);
+    }
+
+    #[test]
+    fn test_stack_broadcast_serializes_ignore_status() {
+        let mut ignore = BTreeMap::new();
+        ignore.insert("redis".to_string(), true);
+        let sb = StackBroadcast {
+            name: "test".to_string(),
+            compose_file_name: "compose.yaml".to_string(),
+            is_managed_by_dockge: true,
+            images: BTreeMap::new(),
+            ignore_status: ignore,
+        };
+        let json = serde_json::to_string(&sb).unwrap();
+        assert!(json.contains("\"ignoreStatus\""), "Expected ignoreStatus in JSON: {json}");
+        assert!(json.contains("\"redis\":true"), "Expected redis:true in JSON: {json}");
+    }
+
+    #[test]
+    fn test_stack_broadcast_omits_empty_ignore_status() {
+        let sb = StackBroadcast {
+            name: "test".to_string(),
+            compose_file_name: "compose.yaml".to_string(),
+            is_managed_by_dockge: true,
+            images: BTreeMap::new(),
+            ignore_status: BTreeMap::new(),
+        };
+        let json = serde_json::to_string(&sb).unwrap();
+        assert!(!json.contains("ignoreStatus"), "Should omit empty ignoreStatus: {json}");
+    }
 }

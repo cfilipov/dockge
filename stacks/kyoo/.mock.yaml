@@ -3,7 +3,6 @@ services:
     state: exited
     exit_code: 0
   auth:
-    update_available: true
   api:
     state: exited
     exit_code: 1

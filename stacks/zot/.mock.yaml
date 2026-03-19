@@ -1,4 +1,3 @@
 services:
   zot:
     state: paused
-    update_available: true

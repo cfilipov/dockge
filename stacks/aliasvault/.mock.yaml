@@ -4,5 +4,4 @@ services:
   reverse-proxy:
     needs_recreation: true
   smtp:
-    update_available: true
     needs_recreation: true

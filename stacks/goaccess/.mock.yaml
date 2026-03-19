@@ -1,3 +1,2 @@
 services:
   goaccess:
-    update_available: true

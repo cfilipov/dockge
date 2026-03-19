@@ -611,8 +611,8 @@ describe("distribution", () => {
         expect(r.statusCode).toBe(404);
     });
 
-    it("returns altered digest for image with update_available", async () => {
-        // postgres:16 is used by with-overrides/db which has update_available: true
+    it("returns altered digest for image with update_available in global config", async () => {
+        // postgres:16 has update_available: true in global .mock.yaml
         const r = await req(socketPath, "GET", "/distribution/postgres:16/json");
         expect(r.statusCode).toBe(200);
         const body = json(r) as { Descriptor: { digest: string } };
@@ -627,7 +627,6 @@ describe("distribution", () => {
 
         // The postgres digest should differ from its image's own digest
         // (because update_available alters it)
-        // We can verify by checking the digest doesn't match the image's RepoDigests
         const imgR = await req(socketPath, "GET", "/images/postgres:16/json");
         const img = json(imgR) as { RepoDigests: string[] };
         const originalDigest = img.RepoDigests[0]?.split("@")[1];

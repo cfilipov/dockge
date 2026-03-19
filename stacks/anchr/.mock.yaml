@@ -1,3 +1,2 @@
 services:
   mongo:
-    update_available: true

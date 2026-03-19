@@ -3,6 +3,5 @@ services:
     state: exited
     exit_code: 0
   frontend:
-    update_available: true
   backend:
     needs_recreation: true

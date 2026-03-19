@@ -1,3 +1,2 @@
 services:
   vault:
-    update_available: true

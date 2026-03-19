@@ -16,33 +16,7 @@ function makeInput(yaml: string, mockYaml: string | null = null): GeneratorInput
     };
 }
 
-describe("update_available label", () => {
-    it("does not set label when updateAvailable is not set", () => {
-        const input = makeInput(`
-services:
-  web:
-    image: nginx:latest
-`);
-        const result = generateStack(input);
-        const labels = result.containers[0].Config.Labels!;
-        expect(labels["com.portge.mock.update_available"]).toBeUndefined();
-    });
-
-    it("sets update_available label when mock config has updateAvailable", () => {
-        const input = makeInput(`
-services:
-  web:
-    image: nginx:latest
-`, `
-services:
-  web:
-    update_available: true
-`);
-        const result = generateStack(input);
-        const labels = result.containers[0].Config.Labels!;
-        expect(labels["com.portge.mock.update_available"]).toBe("true");
-    });
-
+describe("needs_recreation label", () => {
     it("sets needs_recreation label and alters Config.Image", () => {
         const input = makeInput(`
 services:
@@ -72,8 +46,8 @@ services:
     });
 });
 
-describe("digest alteration for update_available", () => {
-    it("normal container has same digest across calls", () => {
+describe("image digest generation", () => {
+    it("normal container has stable digest", () => {
         const input = makeInput(`
 services:
   web:
@@ -82,24 +56,7 @@ services:
         const result = generateStack(input);
         const img = result.images.find((i) => i.RepoTags.includes("nginx:latest"))!;
         expect(img.RepoDigests.length).toBeGreaterThan(0);
-        // Digest should be stable
         const digest = img.RepoDigests[0].split("@")[1];
         expect(digest).toMatch(/^sha256:[0-9a-f]{64}$/);
-    });
-
-    it("update_available container stores label on compose image label", () => {
-        const input = makeInput(`
-services:
-  db:
-    image: postgres:16
-`, `
-services:
-  db:
-    update_available: true
-`);
-        const result = generateStack(input);
-        const labels = result.containers[0].Config.Labels!;
-        expect(labels["com.portge.mock.update_available"]).toBe("true");
-        expect(labels["com.docker.compose.image"]).toBe("postgres:16");
     });
 });

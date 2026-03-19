@@ -1,3 +1,2 @@
 services:
   upvote-rss:
-    update_available: true

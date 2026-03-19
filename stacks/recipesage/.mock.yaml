@@ -1,6 +1,5 @@
 services:
   api:
-    update_available: true
   pushpin:
     needs_recreation: true
   browserless:

@@ -1,3 +1,2 @@
 services:
   fmd-server:
-    update_available: true

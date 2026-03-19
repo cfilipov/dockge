@@ -1,6 +1,5 @@
 services:
   background:
-    update_available: true
   web_server:
     state: exited
     exit_code: 0
@@ -10,4 +9,3 @@ services:
   relational_db:
     state: paused
   index:
-    update_available: true

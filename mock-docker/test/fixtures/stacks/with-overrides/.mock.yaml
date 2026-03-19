@@ -8,4 +8,3 @@ services:
   db:
     state: running
     health: unhealthy
-    update_available: true

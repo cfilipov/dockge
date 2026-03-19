@@ -7,7 +7,6 @@ services:
   celeryworker:
     state: exited
     exit_code: 0
-    update_available: true
   traefik:
     health: starting
   pihole:

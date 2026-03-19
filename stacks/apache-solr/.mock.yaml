@@ -1,3 +1,2 @@
 services:
   zookeeper:
-    update_available: true

@@ -217,12 +217,6 @@ function generateStackConfig(stackName: string, services: ServiceInfo[]): StackO
             changed = true;
         }
 
-        // ~8% chance: update available
-        if (chance(seed([svcSeed, "update"]), 0.08)) {
-            override.update_available = true;
-            changed = true;
-        }
-
         // ~5% chance: needs recreation
         if (chance(seed([svcSeed, "recreation"]), 0.05)) {
             override.needs_recreation = true;
@@ -256,7 +250,7 @@ function main() {
     let configCount = 0;
     let notDeployed = 0;
     let untracked = 0;
-    const serviceStats = { exited: 0, paused: 0, unhealthy: 0, starting: 0, update: 0, recreation: 0 };
+    const serviceStats = { exited: 0, paused: 0, unhealthy: 0, starting: 0, recreation: 0 };
 
     for (const entry of entries) {
         const subdir = join(stacksDir, entry);
@@ -290,7 +284,6 @@ function main() {
                 if (svc.state === "paused") serviceStats.paused++;
                 if (svc.health === "unhealthy") serviceStats.unhealthy++;
                 if (svc.health === "starting") serviceStats.starting++;
-                if (svc.update_available) serviceStats.update++;
                 if (svc.needs_recreation) serviceStats.recreation++;
             }
         }
@@ -308,7 +301,6 @@ function main() {
     console.log(`    paused: ${serviceStats.paused}`);
     console.log(`    unhealthy: ${serviceStats.unhealthy}`);
     console.log(`    starting: ${serviceStats.starting}`);
-    console.log(`    update_available: ${serviceStats.update}`);
     console.log(`    needs_recreation: ${serviceStats.recreation}`);
 }
 

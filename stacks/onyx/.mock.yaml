@@ -13,4 +13,3 @@ services:
     state: exited
     exit_code: 0
   nginx:
-    update_available: true

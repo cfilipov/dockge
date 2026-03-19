@@ -2,6 +2,5 @@ services:
   activepieces:
     state: exited
     exit_code: 1
-    update_available: true
   redis:
     health: unhealthy

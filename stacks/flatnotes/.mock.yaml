@@ -1,4 +1,3 @@
 services:
   flatnotes:
     state: paused
-    update_available: true

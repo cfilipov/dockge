@@ -3,7 +3,6 @@ services:
     state: exited
     exit_code: 1
   taiga-front:
-    update_available: true
   taiga-events-rabbitmq:
     state: exited
     exit_code: 1

@@ -202,9 +202,6 @@ function generateContainer(
     const labels = buildContainerLabels(project, serviceName, composeFilePath, stackDir, imageRef, svc);
 
     // Mock override labels
-    if (override.updateAvailable) {
-        labels["com.portge.mock.update_available"] = "true";
-    }
     if (override.needsRecreation) {
         labels["com.portge.mock.needs_recreation"] = "true";
     }

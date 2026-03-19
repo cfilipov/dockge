@@ -1,7 +1,6 @@
 services:
   web:
     health: healthy
-    update_available: true
   api:
     health: healthy
   db:

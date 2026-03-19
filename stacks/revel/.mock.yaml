@@ -8,4 +8,3 @@ services:
     state: exited
     exit_code: 0
   pgbouncer:
-    update_available: true

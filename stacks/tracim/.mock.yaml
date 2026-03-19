@@ -4,4 +4,3 @@ services:
     exit_code: 0
   db:
     state: paused
-    update_available: true

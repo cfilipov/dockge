@@ -1,3 +1,2 @@
 services:
   pacebin:
-    update_available: true

@@ -1,3 +1,2 @@
 services:
   portkey:
-    update_available: true

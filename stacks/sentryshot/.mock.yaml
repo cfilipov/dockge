@@ -1,3 +1,2 @@
 services:
   sentryshot:
-    update_available: true

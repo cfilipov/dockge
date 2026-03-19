@@ -4,12 +4,10 @@ services:
     exit_code: 0
     health: starting
   sogo:
-    update_available: true
   postfix:
     needs_recreation: true
   nginx:
     needs_recreation: true
   acme:
-    update_available: true
   dockerapi:
     health: unhealthy

@@ -1,6 +1,5 @@
 services:
   wakapi:
-    update_available: true
   db:
     state: exited
     exit_code: 0

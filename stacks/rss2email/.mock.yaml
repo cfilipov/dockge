@@ -2,4 +2,3 @@ services:
   rss2email:
     state: exited
     exit_code: 1
-    update_available: true

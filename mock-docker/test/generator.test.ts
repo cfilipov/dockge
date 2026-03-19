@@ -213,7 +213,7 @@ volumes:
         const mount = c.Mounts.find((m) => m.Destination === "/var/lib/postgresql/data");
         expect(mount).toBeDefined();
         expect(mount!.Type).toBe("volume");
-        expect(mount!.Name).toBe("pgdata");
+        expect(mount!.Name).toBe("test-project_pgdata");
 
         // Named volumes also appear in HostConfig.Binds (matching real Docker)
         expect(c.HostConfig.Binds).toContain("pgdata:/var/lib/postgresql/data:rw");

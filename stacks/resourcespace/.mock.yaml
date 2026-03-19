@@ -1,5 +1,4 @@
 services:
   resourcespace:
-    update_available: true
   mariadb:
     state: paused

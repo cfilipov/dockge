@@ -2,4 +2,3 @@ services:
   silverstripe:
     state: paused
   db:
-    update_available: true

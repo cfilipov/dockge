@@ -1,4 +1,3 @@
 services:
   meilisearch:
     state: paused
-    update_available: true

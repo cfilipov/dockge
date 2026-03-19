@@ -1,3 +1,2 @@
 services:
   smp-server:
-    update_available: true

@@ -6,6 +6,5 @@ services:
   account:
     state: paused
   front:
-    update_available: true
   collaborator:
     health: starting

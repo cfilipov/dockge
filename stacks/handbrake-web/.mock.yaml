@@ -1,3 +1,2 @@
 services:
   handbrake-worker:
-    update_available: true

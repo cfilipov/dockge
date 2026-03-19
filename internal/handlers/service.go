@@ -529,13 +529,6 @@ func (app *App) isImageUpdateCheckEnabled() bool {
 // it checked recently.
 func (app *App) StartImageUpdateChecker(ctx context.Context) {
 	go func() {
-		// Short delay on startup so the stack list loads first
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(5 * time.Second):
-		}
-
 		interval := app.getImageUpdateInterval()
 
 		// Check if enough time has elapsed since the last check

@@ -1,3 +1,2 @@
 services:
   dashy:
-    update_available: true

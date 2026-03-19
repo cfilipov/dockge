@@ -1,6 +1,5 @@
 services:
   rocketchat:
-    update_available: true
   mongodb:
     state: exited
     exit_code: 0

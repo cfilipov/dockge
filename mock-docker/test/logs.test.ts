@@ -145,8 +145,8 @@ describe("getHistoricalLogs", () => {
         const container = makeContainer();
         const clock = new FixedClock(new Date("2025-01-15T01:00:00Z"));
         const lines = getHistoricalLogs(container, clock, { tail: 10 });
-        for (const line of lines) {
-            expect(line).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        for (const entry of lines) {
+            expect(entry.line).toMatch(/^\d{4}-\d{2}-\d{2}T/);
         }
     });
 });

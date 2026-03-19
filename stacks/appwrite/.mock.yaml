@@ -2,7 +2,6 @@ services:
   appwrite-realtime:
     state: exited
     exit_code: 0
-    update_available: true
   appwrite-worker-webhooks:
     state: paused
   appwrite-worker-functions:

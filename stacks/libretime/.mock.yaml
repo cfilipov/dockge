@@ -11,4 +11,3 @@ services:
     state: exited
     exit_code: 0
   icecast:
-    update_available: true

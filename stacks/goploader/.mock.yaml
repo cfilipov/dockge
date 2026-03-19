@@ -1,3 +1,2 @@
 services:
   goploader:
-    update_available: true

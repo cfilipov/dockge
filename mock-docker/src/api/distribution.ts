@@ -1,6 +1,6 @@
 import type { Route } from "../server.js";
 import { sendJSON, sendError } from "../server.js";
-import type { ImageInspect, ContainerInspect } from "../types.js";
+import type { ImageInspect } from "../types.js";
 import type { MockState } from "../state.js";
 import { createHash } from "node:crypto";
 
@@ -20,17 +20,14 @@ function resolveImageByName(images: Map<string, ImageInspect>, name: string): Im
 }
 
 /**
- * Check if any container with the given image has the update_available mock label.
+ * Check if the given image has an update available (from global .mock.yaml).
  */
 function hasUpdateAvailable(state: MockState, imageName: string): boolean {
-    for (const container of state.containers.values()) {
-        const labels = container.Config.Labels ?? {};
-        if (labels["com.portge.mock.update_available"] !== "true") continue;
-        // Match by compose image label (the canonical image ref)
-        const composeImage = labels["com.docker.compose.image"];
-        if (composeImage === imageName) return true;
-        // Also match without tag
-        if (composeImage && composeImage.split(":")[0] === imageName) return true;
+    // Exact match (e.g. "nginx:latest")
+    if (state.updateImages.has(imageName)) return true;
+    // Match without tag (e.g. "nginx" matches "nginx:latest")
+    for (const ref of state.updateImages) {
+        if (ref.split(":")[0] === imageName) return true;
     }
     return false;
 }
@@ -64,7 +61,7 @@ export const distributionRoutes: Route[] = [
                 }
             }
 
-            // If any container using this image has update_available, return an altered digest
+            // If this image has update_available in global .mock.yaml, return an altered digest
             if (hasUpdateAvailable(state, name)) {
                 digest = alteredDigest(digest);
             }

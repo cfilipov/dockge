@@ -1,3 +1,2 @@
 services:
   ors-app:
-    update_available: true

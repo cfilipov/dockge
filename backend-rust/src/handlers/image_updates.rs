@@ -48,15 +48,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 /// Spawn the background image update checker.
 pub fn spawn_checker(state: Arc<AppState>, cancel: CancellationToken) {
     tokio::spawn(async move {
-        // Short delay on startup
-        tokio::select! {
-            () = cancel.cancelled() => return,
-            () = tokio::time::sleep(Duration::from_secs(5)) => {},
-        }
-
+        // First check: respect the interval so we don't hit the registry
+        // on every restart, but on a fresh DB (no stored timestamp) this
+        // runs immediately.
         let interval = get_check_interval(&state);
-
-        // Check if enough time has elapsed since last check
         let last_check = get_last_check_time(&state);
         let elapsed = std::time::SystemTime::now()
             .duration_since(last_check)
@@ -71,7 +66,6 @@ pub fn spawn_checker(state: Arc<AppState>, cancel: CancellationToken) {
             }
         }
 
-        // First check
         if is_check_enabled(&state) {
             check_all_image_updates(&state).await;
             set_last_check_time(&state);

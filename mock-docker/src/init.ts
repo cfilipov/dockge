@@ -89,6 +89,9 @@ export async function initState(opts: InitOptions): Promise<MockState> {
         });
     }
 
+    // Store image update flags from global config
+    state.updateImages = globalConfig.updateImages;
+
     // Step 2b: Create standalone containers (not part of any compose stack)
     for (const cDef of globalConfig.containers) {
         const container = createStandaloneContainer(cDef, state.networks, baseTime);

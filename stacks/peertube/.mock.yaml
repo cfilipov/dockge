@@ -1,3 +1,2 @@
 services:
   peertube:
-    update_available: true

@@ -3,8 +3,6 @@ services:
     state: exited
     exit_code: 0
   admin:
-    update_available: true
   webmail:
     state: exited
     exit_code: 0
-    update_available: true

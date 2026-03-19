@@ -1,3 +1,2 @@
 services:
   kurento:
-    update_available: true

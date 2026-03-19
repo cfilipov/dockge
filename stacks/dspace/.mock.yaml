@@ -2,7 +2,6 @@ services:
   dspace:
     health: starting
   dspacedb:
-    update_available: true
   dspacesolr:
     state: exited
     exit_code: 0

@@ -14,6 +14,8 @@ export class MockState {
     images: Map<string, ImageInspect>;
     execSessions: Map<string, ExecInspect>;
     logTemplates: LogTemplates | null;
+    /** Image refs that have updates available (from global .mock.yaml). */
+    updateImages: Set<string>;
     private statsCounters: Map<string, number>;
 
     constructor() {
@@ -23,6 +25,7 @@ export class MockState {
         this.images = new Map();
         this.execSessions = new Map();
         this.logTemplates = null;
+        this.updateImages = new Set();
         this.statsCounters = new Map();
     }
 

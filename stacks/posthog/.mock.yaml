@@ -7,4 +7,3 @@ services:
     exit_code: 1
     health: unhealthy
   plugins:
-    update_available: true

@@ -1,4 +1,3 @@
 services:
   memcached:
     state: paused
-    update_available: true

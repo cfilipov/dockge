@@ -1,6 +1,5 @@
 services:
   nginx:
-    update_available: true
     needs_recreation: true
   redis:
     state: exited

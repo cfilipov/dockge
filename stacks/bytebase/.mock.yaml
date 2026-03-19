@@ -1,3 +1,2 @@
 services:
   bytebase:
-    update_available: true

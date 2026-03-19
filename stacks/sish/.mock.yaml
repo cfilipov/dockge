@@ -1,3 +1,2 @@
 services:
   sish:
-    update_available: true

@@ -57,9 +57,12 @@ interface MockYAML {
     services?: Record<string, {
         state?: string;
         health?: string;
-        update_available?: boolean;
         needs_recreation?: boolean;
     }>;
+}
+
+interface GlobalMockYAML {
+    images?: Record<string, { update_available?: boolean }>;
 }
 
 // ── Compose YAML Schema ──
@@ -201,6 +204,42 @@ function resolveServiceHealth(svcMock?: { health?: string }): string {
     return svcMock?.health || "";
 }
 
+// ── Global Mock Config ──
+
+/** Cache for global update images set, keyed by stacksDir. */
+const globalUpdateImagesCache = new Map<string, Set<string>>();
+
+function loadGlobalUpdateImages(stacksDir: string): Set<string> {
+    const cached = globalUpdateImagesCache.get(stacksDir);
+    if (cached) return cached;
+
+    const globalMockPath = path.join(stacksDir, ".mock.yaml");
+    const result = new Set<string>();
+    if (fs.existsSync(globalMockPath)) {
+        const globalMock: GlobalMockYAML = parseYAML(fs.readFileSync(globalMockPath, "utf-8")) || {};
+        if (globalMock.images) {
+            for (const [name, cfg] of Object.entries(globalMock.images)) {
+                if (cfg?.update_available) {
+                    result.add(name);
+                }
+            }
+        }
+    }
+    globalUpdateImagesCache.set(stacksDir, result);
+    return result;
+}
+
+/** Check if an image has an update available (from global .mock.yaml). */
+function imageHasUpdate(updateImages: Set<string>, imageRef: string): boolean {
+    if (updateImages.has(imageRef)) return true;
+    // Match without tag (e.g. "nginx" matches "nginx:latest")
+    const baseName = imageRef.split(":")[0];
+    for (const ref of updateImages) {
+        if (ref.split(":")[0] === baseName) return true;
+    }
+    return false;
+}
+
 // ── Main Loader ──
 
 export function loadStackData(stacksDir: string, stackName: string): StackTestData {
@@ -230,6 +269,7 @@ export function loadStackData(stacksDir: string, stackName: string): StackTestDa
     // Build service data
     const services: ServiceTestData[] = [];
     const composeServices = compose.services || {};
+    const updateImages = loadGlobalUpdateImages(stacksDir);
 
     for (const [svcName, svcDef] of Object.entries(composeServices)) {
         const composeImage = svcDef.image || "";
@@ -237,7 +277,7 @@ export function loadStackData(stacksDir: string, stackName: string): StackTestDa
         // Mock daemon uses imageRef + "-old" when needs_recreation is true (generator.ts:235)
         const needsRecreation = svcMock?.needs_recreation || false;
         const runningImage = needsRecreation ? composeImage + "-old" : composeImage;
-        const updateAvailable = svcMock?.update_available || false;
+        const updateAvailable = imageHasUpdate(updateImages, composeImage);
         const statusIgnore = hasStatusIgnore(svcDef.labels);
 
         // Resolve mock state/health
@@ -291,7 +331,7 @@ export function loadStackData(stacksDir: string, stackName: string): StackTestDa
     const expectedHasRecreateIcon = stackStarted &&
         services.some(s => s.hasRecreate);
 
-    // Update icon: any service has update_available (from BoltDB, seeded from mock.yaml)
+    // Update icon: any service's image has update_available (from global .mock.yaml)
     const expectedHasUpdateIcon = services.some(s => s.updateAvailable);
 
     return {

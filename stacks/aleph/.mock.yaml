@@ -3,9 +3,7 @@ services:
     state: exited
     exit_code: 0
   redis:
-    update_available: true
   worker:
     state: exited
     exit_code: 0
   ui:
-    update_available: true

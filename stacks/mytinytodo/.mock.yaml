@@ -1,3 +1,2 @@
 services:
   mytinytodo:
-    update_available: true

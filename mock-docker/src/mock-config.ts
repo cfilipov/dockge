@@ -1,11 +1,9 @@
 import { parse as parseYaml } from "yaml";
 
-// Per §3.4 — only these 5 fields
 export interface MockServiceOverride {
     state?: "running" | "exited" | "paused" | "created";
     exitCode?: number;
     health?: "healthy" | "unhealthy" | "starting" | "none";
-    updateAvailable?: boolean;
     needsRecreation?: boolean;
 }
 
@@ -51,6 +49,8 @@ export interface MockGlobalConfig {
     volumes: Record<string, MockGlobalVolumeDef>;
     containers: MockStandaloneContainer[];
     danglingImages: MockDanglingImageDef[];
+    /** Images with updates available (image ref → true). */
+    updateImages: Set<string>;
 }
 
 function parseServiceOverride(raw: Record<string, unknown>): MockServiceOverride {
@@ -63,9 +63,6 @@ function parseServiceOverride(raw: Record<string, unknown>): MockServiceOverride
     }
     if (raw.health !== undefined) {
         override.health = raw.health as MockServiceOverride["health"];
-    }
-    if (raw.update_available !== undefined) {
-        override.updateAvailable = raw.update_available as boolean;
     }
     if (raw.needs_recreation !== undefined) {
         override.needsRecreation = raw.needs_recreation as boolean;
@@ -113,6 +110,7 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
         volumes: {},
         containers: [],
         danglingImages: [],
+        updateImages: new Set(),
     };
 
     if (yamlContent === null || yamlContent.trim() === "") {
@@ -129,6 +127,7 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
         volumes: {},
         containers: [],
         danglingImages: [],
+        updateImages: new Set(),
     };
 
     if (raw.networks && typeof raw.networks === "object") {
@@ -184,6 +183,15 @@ export function parseGlobalMockConfig(yamlContent: string | null): MockGlobalCon
                     size: (d.size as number) || 0,
                     created: (d.created as string) || "",
                 });
+            }
+        }
+    }
+
+    if (raw.images && typeof raw.images === "object") {
+        const images = raw.images as Record<string, Record<string, unknown>>;
+        for (const [name, imgRaw] of Object.entries(images)) {
+            if (imgRaw && typeof imgRaw === "object" && imgRaw.update_available === true) {
+                config.updateImages.add(name);
             }
         }
     }

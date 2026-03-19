@@ -1,4 +1,3 @@
 services:
   mymangadb-web:
     state: paused
-    update_available: true

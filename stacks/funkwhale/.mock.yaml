@@ -1,6 +1,5 @@
 services:
   redis:
-    update_available: true
   celerybeat:
     state: exited
     exit_code: 0

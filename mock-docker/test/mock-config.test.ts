@@ -35,7 +35,6 @@ services:
     state: exited
     exit_code: 137
     health: unhealthy
-    update_available: true
     needs_recreation: true
 `;
         const config = parseStackMockConfig(yaml);
@@ -44,7 +43,6 @@ services:
         expect(web.state).toBe("exited");
         expect(web.exitCode).toBe(137);
         expect(web.health).toBe("unhealthy");
-        expect(web.updateAvailable).toBe(true);
         expect(web.needsRecreation).toBe(true);
     });
 
@@ -158,5 +156,25 @@ volumes:
 `;
         const config = parseGlobalMockConfig(yaml);
         expect(config.volumes.myvol.driver).toBe("local");
+    });
+
+    it("parses images with update_available", () => {
+        const yaml = `
+images:
+  nginx:latest:
+    update_available: true
+  redis:7:
+    update_available: true
+  postgres:16: {}
+`;
+        const config = parseGlobalMockConfig(yaml);
+        expect(config.updateImages.has("nginx:latest")).toBe(true);
+        expect(config.updateImages.has("redis:7")).toBe(true);
+        expect(config.updateImages.has("postgres:16")).toBe(false);
+    });
+
+    it("updateImages defaults to empty set", () => {
+        const config = parseGlobalMockConfig(null);
+        expect(config.updateImages.size).toBe(0);
     });
 });

@@ -1,3 +1,2 @@
 services:
   minus-games-server:
-    update_available: true
