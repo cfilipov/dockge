@@ -40,6 +40,9 @@ struct Terminal {
     cancel: Option<tokio_util::sync::CancellationToken>,
     /// For PTY: channel to send input to the PTY stdin writer task.
     pty_input_tx: Option<mpsc::UnboundedSender<PtyCommand>>,
+    /// Generation counter, incremented on recreate. Used by `RemoveAfter`
+    /// to avoid removing a terminal that was recreated after the timer started.
+    generation: u64,
 }
 
 enum PtyCommand {
@@ -57,6 +60,7 @@ impl Terminal {
             closed: false,
             cancel: None,
             pty_input_tx: None,
+            generation: 0,
         }
     }
 
@@ -209,6 +213,15 @@ enum TerminalCmd {
         working_dir: Option<String>,
         reply: oneshot::Sender<PtyWaitResult>,
     },
+    RemoveAfter {
+        name: String,
+        delay: std::time::Duration,
+    },
+    /// Conditionally remove a terminal if its generation matches.
+    RemoveIfGeneration {
+        name: String,
+        generation: u64,
+    },
 }
 
 // ── TerminalHandle (public API) ─────────────────────────────────────────────
@@ -341,6 +354,15 @@ impl TerminalHandle {
         rx.await.map_err(|_| "actor dropped".to_string())?
     }
 
+    /// Schedule removal of a terminal after a delay. If the terminal is
+    /// recreated before the timer fires, the removal is a no-op.
+    pub fn remove_after(&self, name: &str, delay: std::time::Duration) {
+        let _ = self.tx.try_send(TerminalCmd::RemoveAfter {
+            name: name.to_string(),
+            delay,
+        });
+    }
+
     /// Start a PTY command attached to a terminal.
     pub async fn start_pty(
         &self,
@@ -406,6 +428,7 @@ async fn actor_loop(
                 if let Some(mut old) = terminals.remove(&name) {
                     // Carry over writers (writer_index entries stay valid — name unchanged)
                     std::mem::swap(&mut new_term.writers, &mut old.writers);
+                    new_term.generation = old.generation + 1;
                     old.close();
                 }
                 terminals.insert(name, new_term);
@@ -650,6 +673,35 @@ async fn actor_loop(
                 };
 
                 let _ = reply.send(result);
+            }
+
+            TerminalCmd::RemoveAfter { name, delay } => {
+                let current_gen = terminals.get(&name).map(|t| t.generation);
+                if let Some(g) = current_gen {
+                    let tx = actor_tx.clone();
+                    let name = name.clone();
+                    tokio::spawn(async move {
+                        tokio::time::sleep(delay).await;
+                        let _ = tx.send(TerminalCmd::RemoveIfGeneration {
+                            name,
+                            generation: g,
+                        }).await;
+                    });
+                }
+            }
+
+            TerminalCmd::RemoveIfGeneration { name, generation } => {
+                if let Some(term) = terminals.get(&name)
+                    && term.generation == generation
+                {
+                    let mut term = terminals.remove(&name).unwrap();
+                    // Clean up writer_index entries
+                    let keys: Vec<String> = term.writers.keys().cloned().collect();
+                    for k in keys {
+                        writer_index.remove(&k);
+                    }
+                    term.close();
+                }
             }
         }
     }

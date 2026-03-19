@@ -43,6 +43,8 @@ pub struct AppState {
     pub has_authenticated: AtomicBool,
     pub terminal_manager: TerminalHandle,
     pub event_bus: EventBus,
+    /// Set to true once the Docker event watcher has connected to the event stream.
+    pub event_watcher_ready: AtomicBool,
 }
 
 impl AppState {

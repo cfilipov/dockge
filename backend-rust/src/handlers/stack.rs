@@ -1,6 +1,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use std::time::Duration;
+
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
@@ -183,6 +185,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         warn!(stack = %stack_name, action = %action, "compose action failed to start: {e}");
                     }
                 }
+                state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
                 let _ = (&event_name,);
             }
         });
@@ -389,6 +392,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 warn!(stack = %stack_name, "deploy failed to start: {e}");
             }
         }
+        state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 
         if let Some(id) = msg.id {
             conn.send_ack(
@@ -474,6 +478,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 state.terminal_manager.write_data(&term_name, msg.into_bytes());
             }
         }
+        state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 
         if opts.delete_stack_files
             && let Err(e) = std::fs::remove_dir_all(&stack_dir)
@@ -544,6 +549,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 state.terminal_manager.write_data(&term_name, msg.into_bytes());
             }
         }
+        state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 
         if let Err(e) = std::fs::remove_dir_all(&stack_dir) {
             error!(stack = %stack_name, "force delete stack: {e}");
@@ -624,6 +630,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 state.terminal_manager.write_data(&term_name, msg.into_bytes());
             }
         }
+        state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 
         info!(stack = %stack_name, "stack updated");
     });

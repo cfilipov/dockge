@@ -153,6 +153,9 @@ async fn consume_events(
 
     let mut stream = state.docker.events(Some(opts));
 
+    // Signal readiness — the event stream is now open
+    state.event_watcher_ready.store(true, std::sync::atomic::Ordering::Relaxed);
+
     loop {
         tokio::select! {
             () = cancel.cancelled() => return None,

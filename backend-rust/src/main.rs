@@ -116,6 +116,7 @@ async fn main() {
         has_authenticated: AtomicBool::new(false),
         terminal_manager: terminal::spawn(),
         event_bus,
+        event_watcher_ready: AtomicBool::new(false),
     });
 
     // Build WebSocket server with handlers
@@ -162,7 +163,19 @@ async fn main() {
 
     // Build router
     let mut app = Router::new()
-        .route("/healthz", get(|| async { "ok" }))
+        .route("/healthz", get({
+            let state_healthz = state.clone();
+            move || {
+                let state = state_healthz.clone();
+                async move {
+                    if state.event_watcher_ready.load(Ordering::Relaxed) {
+                        (StatusCode::OK, "ok")
+                    } else {
+                        (StatusCode::SERVICE_UNAVAILABLE, "starting")
+                    }
+                }
+            }
+        }))
         .route("/ws", get({
             let ws_server = ws_server.clone();
             move |ws_upgrade: WebSocketUpgrade| {

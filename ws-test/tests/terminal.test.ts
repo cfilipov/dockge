@@ -319,4 +319,69 @@ describe("terminal", () => {
             client.close();
         }
     });
+
+    test("containerActionTerminal — stopContainer writes to container-action terminal", async () => {
+        await resetMockState();
+
+        const client = await connectClient();
+        try {
+            await client.login();
+
+            const containerName = "test-stack-web-1";
+
+            // Join container-action terminal for this container
+            const joinResp = await client.sendAndReceive("terminalJoin", {
+                type: "container-action",
+                container: containerName,
+            });
+            expect(joinResp.ok).toBe(true);
+            const sessionId = joinResp.sessionId as number;
+
+            // Drain any stale buffer content from previous actions (replayed on join).
+            // The terminal may have completed output from earlier tests; we need to
+            // skip past it so we only assert on the stopContainer output.
+            for (let i = 0; i < 10; i++) {
+                try {
+                    await client.waitForBinary(500);
+                } catch {
+                    break; // no more buffered frames
+                }
+            }
+
+            // Trigger stopContainer
+            const stopResp = await client.sendAndReceive("stopContainer", containerName);
+            expect(stopResp.ok).toBe(true);
+
+            // Collect binary frames until [Done] or [Error] appears
+            let output = "";
+            const maxFrames = 50;
+            for (let i = 0; i < maxFrames; i++) {
+                const data = await client.waitForBinary(15000);
+                expect(data.length).toBeGreaterThanOrEqual(2);
+                const gotSession = (data[0] << 8) | data[1];
+                if (gotSession !== sessionId) continue;
+
+                output += data.subarray(2).toString("utf-8");
+
+                if (output.includes("[Done]") || output.includes("[Error]")) {
+                    break;
+                }
+            }
+
+            // Must have a completion marker
+            const hasMarker = output.includes("[Done]") || output.includes("[Error]");
+            expect(hasMarker).toBe(true);
+
+            // Must have command display line: "$ docker stop <container>"
+            expect(output).toContain("$ docker stop");
+            expect(output).toContain(containerName);
+
+            // Command must appear before the completion marker
+            const cmdIdx = output.indexOf("$ docker stop");
+            const doneIdx = output.indexOf("[Done]") >= 0 ? output.indexOf("[Done]") : output.indexOf("[Error]");
+            expect(cmdIdx).toBeLessThan(doneIdx);
+        } finally {
+            client.close();
+        }
+    });
 });
