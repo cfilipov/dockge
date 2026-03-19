@@ -19,6 +19,16 @@ describe("stack-crud", () => {
         });
     });
 
+    test("getStack — returns composeFileName", async () => {
+        await withAuthClient(async (client) => {
+            const resp = await client.sendAndReceive("getStack", "test-stack");
+            expect(resp.ok).toBe(true);
+
+            const stack = resp.stack as Record<string, unknown>;
+            expect(stack.composeFileName).toBe("compose.yaml");
+        });
+    });
+
     test("saveStack — saves new stack (protocol-only)", async () => {
         await withAuthClient(async (client) => {
             const yaml = "services:\n  app:\n    image: alpine:3.19\n";
