@@ -103,7 +103,7 @@ tasks:
             --e2e &
           for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
           DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/bin:$PATH" \
-            exec ./bin/{{.BINARY}} --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
+            exec ${DOCKGE_BIN:-./bin/{{.BINARY}}} --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
 
   dev-svelte:
     desc: Run mock daemon + Go backend + Svelte Vite HMR (ports 6001 + 6100)
@@ -214,6 +214,12 @@ tasks:
     deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
     dir: e2e
     cmd: E2E_PORT=5052 pnpm test
+
+  test-e2e-rust:
+    desc: Run Playwright E2E tests against Rust backend
+    deps: [build-web, build-rust, build-mock-daemon, build-mock-docker]
+    dir: e2e
+    cmd: DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm test
 
   test-e2e-report:
     desc: Show Playwright HTML report with screenshot diffs
