@@ -1,8 +1,3 @@
----
-description: SvelteKit Best Practices - enforces current best practices when working with SvelteKit / Svelte 5 code
-alwaysApply: true
----
-
 Use Svelte 5 runes ($state, $derived, $effect) - never use Svelte 4 stores (writable, readable) or reactive declarations ($:).
 Use $props() for component props - never use export let.
 Use load functions in +page.server.ts for data fetching - never fetch data in onMount.
