@@ -758,17 +758,23 @@ watch(() => containerStore.lastEvent, (evt) => {
     refetchTimeout = setTimeout(fetchInspect, 500);
 });
 
+// Capture at mount time — by onUnmounted the route param has already changed
+// to the new container (Vue updates route before destroying the old component),
+// so using containerName.value in onUnmounted would unsubscribe the NEW container.
+let mountedContainerName = "";
+
 onMounted(() => {
-    if (containerName.value) {
+    mountedContainerName = containerName.value;
+    if (mountedContainerName) {
         fetchInspect();
 
         // Subscribe to server-pushed process list
         getSocket().on("containerTop", onContainerTop);
-        emit("subscribeTop", containerName.value);
+        emit("subscribeTop", mountedContainerName);
 
         // Subscribe to server-pushed stats
         getSocket().on("dockerStats", onDockerStats);
-        emit("subscribeStats", containerName.value);
+        emit("subscribeStats", mountedContainerName);
     }
 
     uptimeTimer = setInterval(() => {
@@ -785,10 +791,10 @@ onUnmounted(() => {
     }
     // Unsubscribe from process list streaming
     getSocket().off("containerTop", onContainerTop);
-    emit("unsubscribeTop", containerName.value);
+    emit("unsubscribeTop", mountedContainerName);
     // Unsubscribe from stats streaming
     getSocket().off("dockerStats", onDockerStats);
-    emit("unsubscribeStats", containerName.value);
+    emit("unsubscribeStats", mountedContainerName);
 });
 </script>
 
