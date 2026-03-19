@@ -211,8 +211,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         }
 
         let stacks_dir = &state.config.stacks_dir;
+        let compose_file_name = find_compose_file(stacks_dir, &stack_name)
+            .unwrap_or_else(|| "compose.yaml".to_string());
         let compose_path =
-            format!("{}/{}/compose.yaml", stacks_dir, stack_name);
+            format!("{}/{}/{}", stacks_dir, stack_name, compose_file_name);
         let compose_yaml =
             std::fs::read_to_string(&compose_path).unwrap_or_default();
         let env_path = format!("{}/{}/.env", stacks_dir, stack_name);
@@ -228,6 +230,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         "name": stack_name,
                         "composeYAML": compose_yaml,
                         "composeENV": compose_env,
+                        "composeFileName": compose_file_name,
                         "isManagedByDockge": true,
                     }
                 }),
