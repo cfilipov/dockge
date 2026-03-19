@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -20,7 +20,7 @@ use super::{arg_string, parse_args, AppState};
 #[serde(rename_all = "camelCase")]
 struct ServiceStatusListResponse {
     ok: bool,
-    service_status_list: std::collections::HashMap<String, Vec<ServiceStatus>>,
+    service_status_list: std::collections::BTreeMap<String, Vec<ServiceStatus>>,
     service_update_status: EmptyObject,
     service_recreate_status: EmptyObject,
 }
@@ -210,8 +210,8 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         .unwrap_or_default();
 
         // Group by service name
-        let mut service_status: std::collections::HashMap<String, Vec<ServiceStatus>> =
-            std::collections::HashMap::new();
+        let mut service_status: BTreeMap<String, Vec<ServiceStatus>> =
+            BTreeMap::new();
         for c in &containers {
             if c.service_name.is_empty() {
                 continue;

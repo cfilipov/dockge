@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,7 +12,7 @@ pub struct ContainerBroadcast {
     pub health: String,
     pub image: String,
     pub image_id: String,
-    pub networks: HashMap<String, ContainerNetwork>,
+    pub networks: BTreeMap<String, ContainerNetwork>,
     pub mounts: Vec<ContainerMount>,
     pub ports: Vec<ContainerPort>,
 }
@@ -48,7 +48,7 @@ pub struct NetworkSummary {
     pub internal: bool,
     pub attachable: bool,
     pub ingress: bool,
-    pub labels: HashMap<String, String>,
+    pub labels: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -111,7 +111,7 @@ pub struct VolumeSummary {
     pub name: String,
     pub driver: String,
     pub mountpoint: String,
-    pub labels: HashMap<String, String>,
+    pub labels: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

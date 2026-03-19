@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -399,7 +399,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
     {
         match docker::network_list(&state.docker).await {
             Ok(networks) => {
-                let map: HashMap<String, _> = networks.into_iter().map(|n| (n.name.clone(), n)).collect();
+                let map: BTreeMap<String, _> = networks.into_iter().map(|n| (n.name.clone(), n)).collect();
                 conn.send_event("networks", ItemsEvent { items: map }).await;
             }
             Err(e) => warn!("afterLogin: networks: {e}"),
@@ -410,7 +410,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
     {
         match docker::image_list(&state.docker).await {
             Ok(images) => {
-                let map: HashMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
+                let map: BTreeMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
                 conn.send_event("images", ItemsEvent { items: map }).await;
             }
             Err(e) => warn!("afterLogin: images: {e}"),
@@ -421,7 +421,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
     {
         match docker::volume_list(&state.docker).await {
             Ok(volumes) => {
-                let map: HashMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
+                let map: BTreeMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
                 conn.send_event("volumes", ItemsEvent { items: map }).await;
             }
             Err(e) => warn!("afterLogin: volumes: {e}"),
@@ -444,11 +444,11 @@ pub(crate) struct StackBroadcast {
     name: String,
     compose_file_name: String,
     is_managed_by_dockge: bool,
-    images: HashMap<String, String>,
+    images: BTreeMap<String, String>,
 }
 
-pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, StackBroadcast> {
-    let mut result = HashMap::new();
+pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> BTreeMap<String, StackBroadcast> {
+    let mut result = BTreeMap::new();
     let dir = match std::fs::read_dir(stacks_dir) {
         Ok(d) => d,
         Err(_) => return result,
@@ -473,7 +473,7 @@ pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, StackB
 
         // Parse compose file to extract service→image mappings
         let compose_path = path.join(compose_file);
-        let images: HashMap<String, String> = std::fs::read_to_string(&compose_path)
+        let images: BTreeMap<String, String> = std::fs::read_to_string(&compose_path)
             .ok()
             .map(|yaml| {
                 super::image_updates::parse_service_images(&yaml)
@@ -495,6 +495,6 @@ pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, StackB
 
 /// Build a name → container map. Values are `Option` so that destroyed
 /// containers can be represented as `None` (serialized as JSON `null`).
-pub fn containers_to_map(containers: Vec<docker::types::ContainerBroadcast>) -> HashMap<String, Option<docker::types::ContainerBroadcast>> {
+pub fn containers_to_map(containers: Vec<docker::types::ContainerBroadcast>) -> BTreeMap<String, Option<docker::types::ContainerBroadcast>> {
     containers.into_iter().map(|c| (c.name.clone(), Some(c))).collect()
 }

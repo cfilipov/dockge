@@ -8,7 +8,7 @@
 //! Coalescing: 50ms quiet window (resets per event), 200ms hard deadline.
 //! Tracks resource IDs (not stack names) for precise filtering.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -328,7 +328,7 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
             "network" => {
                 match docker::network_list(&state.docker).await {
                     Ok(networks) => {
-                        let mut map: HashMap<String, Option<_>> = networks.into_iter()
+                        let mut map: BTreeMap<String, Option<_>> = networks.into_iter()
                             .map(|n| (n.name.clone(), Some(n)))
                             .collect();
                         // Insert null for destroyed networks
@@ -350,7 +350,7 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
             "image" => {
                 match docker::image_list(&state.docker).await {
                     Ok(images) => {
-                        let map: HashMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
+                        let map: BTreeMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
                         state.broadcaster.send_event(
                             "images",
                             &ItemsEvent { items: map },
@@ -362,7 +362,7 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
             "volume" => {
                 match docker::volume_list(&state.docker).await {
                     Ok(volumes) => {
-                        let map: HashMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
+                        let map: BTreeMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
                         state.broadcaster.send_event(
                             "volumes",
                             &ItemsEvent { items: map },

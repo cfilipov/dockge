@@ -8,7 +8,7 @@ pub mod terminal;
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use redb::Database;
 use serde_json::value::RawValue;
@@ -60,11 +60,11 @@ impl AppState {
     }
 
     /// Get all settings from the database.
-    pub fn get_all_settings(&self) -> Result<HashMap<String, String>, redb::Error> {
+    pub fn get_all_settings(&self) -> Result<BTreeMap<String, String>, redb::Error> {
         use redb::ReadableTable;
         let read_txn = self.db.begin_read()?;
         let table = read_txn.open_table(db::SETTINGS_TABLE)?;
-        let mut result = HashMap::new();
+        let mut result = BTreeMap::new();
         for entry in table.iter()? {
             let (k, v) = entry?;
             result.insert(k.value().to_string(), v.value().to_string());

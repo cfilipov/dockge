@@ -340,7 +340,7 @@ pub async fn network_list(
             internal: n.internal.unwrap_or_default(),
             attachable: n.attachable.unwrap_or_default(),
             ingress: n.ingress.unwrap_or_default(),
-            labels: n.labels.unwrap_or_default(),
+            labels: n.labels.unwrap_or_default().into_iter().collect(),
         })
         .collect())
 }
@@ -400,7 +400,7 @@ pub async fn network_inspect(
             internal: raw.internal.unwrap_or_default(),
             attachable: raw.attachable.unwrap_or_default(),
             ingress: raw.ingress.unwrap_or_default(),
-            labels: raw.labels.unwrap_or_default(),
+            labels: raw.labels.unwrap_or_default().into_iter().collect(),
         },
         ipv6: raw.enable_ipv6.unwrap_or_default(),
         created,
@@ -538,7 +538,7 @@ pub async fn volume_list(
             name: v.name,
             driver: v.driver,
             mountpoint: v.mountpoint,
-            labels: v.labels,
+            labels: v.labels.into_iter().collect(),
         })
         .collect())
 }
@@ -561,7 +561,7 @@ pub async fn volume_inspect(
             name: raw.name,
             driver: raw.driver,
             mountpoint: raw.mountpoint,
-            labels: raw.labels,
+            labels: raw.labels.into_iter().collect(),
         },
         scope,
         created,

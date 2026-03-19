@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde::Serialize;
@@ -35,7 +35,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         settings.insert("globalENV".to_string(), global_env);
 
         #[derive(Serialize)]
-        struct SettingsResponse { ok: bool, data: HashMap<String, String> }
+        struct SettingsResponse { ok: bool, data: BTreeMap<String, String> }
 
         if let Some(id) = msg.id {
             conn.send_ack(id, SettingsResponse { ok: true, data: settings }).await;
