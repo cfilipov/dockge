@@ -61,6 +61,13 @@ impl DockerClient {
         with_timeout(self.inner.inspect_image(name)).await
     }
 
+    pub async fn image_history(
+        &self,
+        name: &str,
+    ) -> Result<Vec<bollard::models::HistoryResponseItem>, bollard::errors::Error> {
+        with_timeout(self.inner.image_history(name)).await
+    }
+
     pub async fn inspect_volume(
         &self,
         name: &str,
@@ -330,8 +337,76 @@ pub async fn network_list(
             name: n.name.unwrap_or_default(),
             driver: n.driver.unwrap_or_default(),
             scope: n.scope.unwrap_or_default(),
+            internal: n.internal.unwrap_or_default(),
+            attachable: n.attachable.unwrap_or_default(),
+            ingress: n.ingress.unwrap_or_default(),
+            labels: n.labels.unwrap_or_default(),
         })
         .collect())
+}
+
+/// Inspect a single network and return a shaped response matching the Go backend.
+pub async fn network_inspect(
+    docker: &DockerClient,
+    name: &str,
+) -> Result<NetworkDetail, bollard::errors::Error> {
+    let raw = docker
+        .inspect_network(name, None::<bollard::query_parameters::InspectNetworkOptions>)
+        .await?;
+
+    // Flatten IPAM configs into Vec<NetworkIPAM>
+    let ipam = raw
+        .ipam
+        .as_ref()
+        .and_then(|ipam| ipam.config.as_ref())
+        .map(|configs| {
+            configs
+                .iter()
+                .map(|cfg| NetworkIPAM {
+                    subnet: cfg.subnet.clone().unwrap_or_default(),
+                    gateway: cfg.gateway.clone().unwrap_or_default(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Extract containers map into sorted Vec<NetworkContainerDetail>
+    let mut containers: Vec<NetworkContainerDetail> = raw
+        .containers
+        .as_ref()
+        .map(|map| {
+            map.iter()
+                .map(|(id, ep)| NetworkContainerDetail {
+                    name: ep.name.clone().unwrap_or_default(),
+                    container_id: id.clone(),
+                    ipv4: ep.ipv4_address.clone().unwrap_or_default(),
+                    ipv6: ep.ipv6_address.clone().unwrap_or_default(),
+                    mac: ep.mac_address.clone().unwrap_or_default(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    containers.sort_by(|a, b| a.name.cmp(&b.name));
+
+    // Format created time — bollard gives us a String already
+    let created = raw.created.unwrap_or_default();
+
+    Ok(NetworkDetail {
+        summary: NetworkSummary {
+            id: raw.id.unwrap_or_default(),
+            name: raw.name.unwrap_or_default(),
+            driver: raw.driver.unwrap_or_default(),
+            scope: raw.scope.unwrap_or_default(),
+            internal: raw.internal.unwrap_or_default(),
+            attachable: raw.attachable.unwrap_or_default(),
+            ingress: raw.ingress.unwrap_or_default(),
+            labels: raw.labels.unwrap_or_default(),
+        },
+        ipv6: raw.enable_ipv6.unwrap_or_default(),
+        created,
+        ipam,
+        containers,
+    })
 }
 
 /// List all images.
@@ -341,15 +416,85 @@ pub async fn image_list(
     let images = docker
         .list_images(None::<bollard::query_parameters::ListImagesOptions>)
         .await?;
-    Ok(images
+    let mut result: Vec<ImageSummary> = images
         .into_iter()
-        .map(|i| ImageSummary {
-            id: i.id,
-            repo_tags: i.repo_tags,
-            size: i.size,
-            created: i.created,
+        .map(|i| {
+            let tags: Vec<String> = i
+                .repo_tags
+                .into_iter()
+                .filter(|t| t != "<none>:<none>")
+                .collect();
+            let dangling = tags.is_empty();
+            ImageSummary {
+                id: i.id,
+                repo_tags: tags,
+                size: format_bytes(i.size as u64),
+                created: format_unix_timestamp(i.created),
+                dangling,
+            }
         })
-        .collect())
+        .collect();
+    result.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(result)
+}
+
+/// Inspect a single image and return a shaped response matching the Go backend.
+pub async fn image_inspect_detail(
+    docker: &DockerClient,
+    image_ref: &str,
+) -> Result<ImageDetail, bollard::errors::Error> {
+    let raw = docker.inspect_image(image_ref).await?;
+    let history = docker.image_history(image_ref).await?;
+
+    let layers: Vec<ImageLayer> = history
+        .into_iter()
+        .map(|h| {
+            let id = if h.id == "<missing>" || h.id.is_empty() {
+                "<missing>".to_string()
+            } else if h.id.len() > 12 {
+                h.id[..12].to_string()
+            } else {
+                h.id
+            };
+            ImageLayer {
+                id,
+                created: format_unix_timestamp(h.created),
+                size: format_bytes(h.size as u64),
+                command: h.created_by,
+            }
+        })
+        .collect();
+
+    let tags: Vec<String> = raw
+        .repo_tags
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|t| t != "<none>:<none>")
+        .collect();
+    let dangling = tags.is_empty();
+
+    let working_dir = raw
+        .config
+        .as_ref()
+        .and_then(|c| c.working_dir.clone())
+        .unwrap_or_default();
+
+    let size = raw.size.unwrap_or_default();
+    let created = raw.created.unwrap_or_default();
+
+    Ok(ImageDetail {
+        summary: ImageSummary {
+            id: raw.id.unwrap_or_default(),
+            repo_tags: tags,
+            size: format_bytes(size as u64),
+            created,
+            dangling,
+        },
+        architecture: raw.architecture.unwrap_or_default(),
+        os: raw.os.unwrap_or_default(),
+        working_dir,
+        layers,
+    })
 }
 
 /// Options for container log streaming.
@@ -393,6 +538,85 @@ pub async fn volume_list(
             name: v.name,
             driver: v.driver,
             mountpoint: v.mountpoint,
+            labels: v.labels,
         })
         .collect())
+}
+
+/// Inspect a single volume and return a shaped response matching the Go backend.
+pub async fn volume_inspect(
+    docker: &DockerClient,
+    name: &str,
+) -> Result<VolumeDetail, bollard::errors::Error> {
+    let raw = docker.inspect_volume(name).await?;
+
+    let scope = raw
+        .scope
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+    let created = raw.created_at.unwrap_or_default();
+
+    Ok(VolumeDetail {
+        summary: VolumeSummary {
+            name: raw.name,
+            driver: raw.driver,
+            mountpoint: raw.mountpoint,
+            labels: raw.labels,
+        },
+        scope,
+        created,
+    })
+}
+
+/// Format a byte count as a human-readable string (e.g. "1.5MiB").
+fn format_bytes(b: u64) -> String {
+    const UNIT: u64 = 1024;
+    if b < UNIT {
+        return format!("{b}B");
+    }
+    let mut div = UNIT;
+    let mut exp = 0usize;
+    let mut n = b / UNIT;
+    while n >= UNIT {
+        div *= UNIT;
+        exp += 1;
+        n /= UNIT;
+    }
+    let units = b"KMGTPE";
+    format!("{:.1}{}iB", b as f64 / div as f64, units[exp] as char)
+}
+
+/// Format a Unix timestamp (seconds) as an RFC3339 string.
+fn format_unix_timestamp(secs: i64) -> String {
+    use std::fmt::Write;
+    // Simple UTC conversion without pulling in chrono
+    const SECS_PER_DAY: i64 = 86400;
+    const DAYS_PER_400Y: i64 = 146097;
+    const DAYS_PER_100Y: i64 = 36524;
+    const DAYS_PER_4Y: i64 = 1461;
+
+    let total_secs = secs;
+    let day_secs = ((total_secs % SECS_PER_DAY) + SECS_PER_DAY) % SECS_PER_DAY;
+    let hour = day_secs / 3600;
+    let min = (day_secs % 3600) / 60;
+    let sec = day_secs % 60;
+
+    // Days since 1970-01-01
+    let mut days = (total_secs - day_secs) / SECS_PER_DAY;
+    // Shift to 2000-03-01 epoch
+    days += 719468;
+
+    let era = if days >= 0 { days } else { days - DAYS_PER_400Y + 1 } / DAYS_PER_400Y;
+    let doe = days - era * DAYS_PER_400Y; // day of era [0, 146096]
+    let yoe = (doe - doe / (DAYS_PER_4Y - 1) + doe / DAYS_PER_100Y - doe / (DAYS_PER_400Y - 1)) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+
+    let mut buf = String::with_capacity(20);
+    let _ = write!(buf, "{y:04}-{m:02}-{d:02}T{hour:02}:{min:02}:{sec:02}Z");
+    buf
 }

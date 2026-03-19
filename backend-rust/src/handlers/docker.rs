@@ -234,21 +234,21 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // networkInspect
     ws.handle_with_state("networkInspect", state.clone(), |state, conn, msg| async move {
         let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Network name").await else { return };
-        let result = state.docker.inspect_network(&name, None::<bollard::query_parameters::InspectNetworkOptions>).await;
+        let result = docker::network_inspect(&state.docker, &name).await;
         inspect_respond(&conn, &msg, "networkDetail", result).await;
     });
 
     // imageInspect
     ws.handle_with_state("imageInspect", state.clone(), |state, conn, msg| async move {
         let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Image reference").await else { return };
-        let result = state.docker.inspect_image(&name).await;
+        let result = docker::image_inspect_detail(&state.docker, &name).await;
         inspect_respond(&conn, &msg, "imageDetail", result).await;
     });
 
     // volumeInspect
     ws.handle_with_state("volumeInspect", state.clone(), |state, conn, msg| async move {
         let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Volume name").await else { return };
-        let result = state.docker.inspect_volume(&name).await;
+        let result = docker::volume_inspect(&state.docker, &name).await;
         inspect_respond(&conn, &msg, "volumeDetail", result).await;
     });
 
