@@ -34,6 +34,7 @@ func RegisterAuthHandlers(app *App) {
             "latestVersion": app.Version,
             "isContainer":   true,
             "dev":           app.Dev,
+            "backend":       "go",
         })
 
         // If no users exist, tell the client to show the setup page

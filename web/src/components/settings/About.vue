@@ -5,6 +5,7 @@
             <div class="fs-4 fw-bold">Dockge</div>
             <div>{{ $t("Version") }}: {{ info.version }}</div>
             <div class="frontend-version">{{ $t("Frontend Version") }}: {{ frontendVersion }}</div>
+            <div v-if="info.backend" class="frontend-version">Backend: {{ info.backend }}</div>
 
             <div v-if="!isFrontendBackendVersionMatched" class="alert alert-warning mt-4" role="alert">
                 ⚠️ {{ $t("Frontend Version do not match backend version!") }}
