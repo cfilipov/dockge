@@ -29,8 +29,6 @@ pub struct WsServer {
     connect_handler: Option<ConnectFn>,
     disconnect_handler: Option<DisconnectFn>,
     pub(crate) binary_handler: Option<BinaryFn>,
-    /// Global dispatch semaphore shared across all connections for backpressure.
-    pub(crate) dispatch_semaphore: Arc<tokio::sync::Semaphore>,
     /// Broadcast channel for push events to all authenticated connections.
     broadcaster: crate::broadcast::Broadcaster,
 }
@@ -43,7 +41,6 @@ impl WsServer {
             connect_handler: None,
             disconnect_handler: None,
             binary_handler: None,
-            dispatch_semaphore: Arc::new(tokio::sync::Semaphore::new(64)),
             broadcaster,
         }
     }
