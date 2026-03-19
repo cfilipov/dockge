@@ -38,30 +38,6 @@ impl DockerClient {
         with_timeout(self.inner.list_containers(opts)).await
     }
 
-    pub async fn start_container(
-        &self,
-        name: &str,
-        opts: Option<bollard::query_parameters::StartContainerOptions>,
-    ) -> Result<(), bollard::errors::Error> {
-        with_timeout(self.inner.start_container(name, opts)).await
-    }
-
-    pub async fn stop_container(
-        &self,
-        name: &str,
-        opts: Option<bollard::query_parameters::StopContainerOptions>,
-    ) -> Result<(), bollard::errors::Error> {
-        with_timeout(self.inner.stop_container(name, opts)).await
-    }
-
-    pub async fn restart_container(
-        &self,
-        name: &str,
-        opts: Option<bollard::query_parameters::RestartContainerOptions>,
-    ) -> Result<(), bollard::errors::Error> {
-        with_timeout(self.inner.restart_container(name, opts)).await
-    }
-
     pub async fn inspect_container(
         &self,
         name: &str,

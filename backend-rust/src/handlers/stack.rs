@@ -73,7 +73,7 @@ impl NamedMutex {
 }
 
 /// Find the compose file for a stack (checks multiple filenames).
-fn find_compose_file(stacks_dir: &str, stack_name: &str) -> Option<String> {
+pub(crate) fn find_compose_file(stacks_dir: &str, stack_name: &str) -> Option<String> {
     for filename in &[
         "compose.yaml",
         "docker-compose.yml",
@@ -89,8 +89,7 @@ fn find_compose_file(stacks_dir: &str, stack_name: &str) -> Option<String> {
 }
 
 /// Check if a stack is managed (has a compose file on disk).
-#[allow(dead_code)]
-fn is_stack_managed(stacks_dir: &str, stack_name: &str) -> bool {
+pub(crate) fn is_stack_managed(stacks_dir: &str, stack_name: &str) -> bool {
     find_compose_file(stacks_dir, stack_name).is_some()
 }
 
