@@ -14,6 +14,90 @@ use crate::ws::WsServer;
 
 use super::{arg_string, parse_args, AppState};
 
+// ── Typed response structs ──────────────────────────────────────────────────
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ServiceStatusListResponse {
+    ok: bool,
+    service_status_list: std::collections::HashMap<String, Vec<ServiceStatus>>,
+    service_update_status: EmptyObject,
+    service_recreate_status: EmptyObject,
+}
+
+#[derive(Serialize)]
+struct ServiceStatus {
+    status: String,
+    name: String,
+    image: String,
+}
+
+#[derive(Serialize, Default)]
+struct EmptyObject {}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DockerNetworkListResponse<T: Serialize> {
+    ok: bool,
+    docker_network_list: T,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DockerImageListResponse<T: Serialize> {
+    ok: bool,
+    docker_image_list: T,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DockerVolumeListResponse<T: Serialize> {
+    ok: bool,
+    docker_volume_list: T,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InspectDataResponse<T: Serialize> {
+    ok: bool,
+    inspect_data: T,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NetworkDetailResponse<T: Serialize> {
+    ok: bool,
+    network_detail: T,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageDetailResponse<T: Serialize> {
+    ok: bool,
+    image_detail: T,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VolumeDetailResponse<T: Serialize> {
+    ok: bool,
+    volume_detail: T,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DockerStatsEvent<'a> {
+    ok: bool,
+    docker_stats: HashMap<&'a str, &'a ContainerStat>,
+}
+
+#[derive(Serialize)]
+struct ContainerTopEvent {
+    ok: bool,
+    processes: Vec<Vec<String>>,
+    titles: Vec<String>,
+}
+
 /// Pre-formatted container stats matching the frontend's expected shape.
 #[derive(Serialize)]
 struct ContainerStat {
@@ -80,22 +164,22 @@ async fn inspect_extract_arg(
     Some(name)
 }
 
-/// Send an inspect result (ok + field) or error ack.
-async fn inspect_respond<T: Serialize>(
+/// Send an inspect result or error ack using a typed response struct.
+async fn inspect_respond<T: Serialize, R: Serialize>(
     conn: &Conn,
     msg: &ClientMessage,
-    result_field: &str,
+    label: &str,
     result: Result<T, bollard::errors::Error>,
+    wrap: impl FnOnce(T) -> R,
 ) {
     match result {
         Ok(detail) => {
             if let Some(id) = msg.id {
-                conn.send_ack(id, serde_json::json!({"ok": true, result_field: detail}))
-                    .await;
+                conn.send_ack(id, wrap(detail)).await;
             }
         }
         Err(e) => {
-            warn!("{result_field}: {e}");
+            warn!("{label}: {e}");
             if let Some(id) = msg.id {
                 conn.send_ack(id, ErrorResponse::new(format!("Inspect failed: {e}")))
                     .await;
@@ -126,35 +210,29 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         .unwrap_or_default();
 
         // Group by service name
-        let mut service_status: std::collections::HashMap<
-            String,
-            Vec<serde_json::Value>,
-        > = std::collections::HashMap::new();
+        let mut service_status: std::collections::HashMap<String, Vec<ServiceStatus>> =
+            std::collections::HashMap::new();
         for c in &containers {
-            let key = c.service_name.clone();
-            if key.is_empty() {
+            if c.service_name.is_empty() {
                 continue;
             }
-            service_status.entry(key).or_default().push(
-                serde_json::json!({
-                    "status": c.state,
-                    "name": c.name,
-                    "image": c.image,
-                }),
-            );
+            service_status
+                .entry(c.service_name.clone())
+                .or_default()
+                .push(ServiceStatus {
+                    status: c.state.clone(),
+                    name: c.name.clone(),
+                    image: c.image.clone(),
+                });
         }
 
         if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                serde_json::json!({
-                    "ok": true,
-                    "serviceStatusList": service_status,
-                    "serviceUpdateStatus": {},
-                    "serviceRecreateStatus": {},
-                }),
-            )
-            .await;
+            conn.send_ack(id, ServiceStatusListResponse {
+                ok: true,
+                service_status_list: service_status,
+                service_update_status: EmptyObject::default(),
+                service_recreate_status: EmptyObject::default(),
+            }).await;
         }
     });
 
@@ -169,14 +247,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             .await
             .unwrap_or_default();
         if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                serde_json::json!({
-                    "ok": true,
-                    "dockerNetworkList": networks,
-                }),
-            )
-            .await;
+            conn.send_ack(id, DockerNetworkListResponse {
+                ok: true,
+                docker_network_list: networks,
+            }).await;
         }
     });
 
@@ -191,14 +265,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             .await
             .unwrap_or_default();
         if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                serde_json::json!({
-                    "ok": true,
-                    "dockerImageList": images,
-                }),
-            )
-            .await;
+            conn.send_ack(id, DockerImageListResponse {
+                ok: true,
+                docker_image_list: images,
+            }).await;
         }
     });
 
@@ -213,14 +283,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             .await
             .unwrap_or_default();
         if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                serde_json::json!({
-                    "ok": true,
-                    "dockerVolumeList": volumes,
-                }),
-            )
-            .await;
+            conn.send_ack(id, DockerVolumeListResponse {
+                ok: true,
+                docker_volume_list: volumes,
+            }).await;
         }
     });
 
@@ -228,28 +294,28 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     ws.handle_with_state("containerInspect", state.clone(), |state, conn, msg| async move {
         let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Container name").await else { return };
         let result = state.docker.inspect_container(&name, None::<bollard::query_parameters::InspectContainerOptions>).await;
-        inspect_respond(&conn, &msg, "inspectData", result).await;
+        inspect_respond(&conn, &msg, "inspectData", result, |d| InspectDataResponse { ok: true, inspect_data: d }).await;
     });
 
     // networkInspect
     ws.handle_with_state("networkInspect", state.clone(), |state, conn, msg| async move {
         let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Network name").await else { return };
         let result = docker::network_inspect(&state.docker, &name).await;
-        inspect_respond(&conn, &msg, "networkDetail", result).await;
+        inspect_respond(&conn, &msg, "networkDetail", result, |d| NetworkDetailResponse { ok: true, network_detail: d }).await;
     });
 
     // imageInspect
     ws.handle_with_state("imageInspect", state.clone(), |state, conn, msg| async move {
         let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Image reference").await else { return };
         let result = docker::image_inspect_detail(&state.docker, &name).await;
-        inspect_respond(&conn, &msg, "imageDetail", result).await;
+        inspect_respond(&conn, &msg, "imageDetail", result, |d| ImageDetailResponse { ok: true, image_detail: d }).await;
     });
 
     // volumeInspect
     ws.handle_with_state("volumeInspect", state.clone(), |state, conn, msg| async move {
         let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Volume name").await else { return };
         let result = docker::volume_inspect(&state.docker, &name).await;
-        inspect_respond(&conn, &msg, "volumeDetail", result).await;
+        inspect_respond(&conn, &msg, "volumeDetail", result, |d| VolumeDetailResponse { ok: true, volume_detail: d }).await;
     });
 
     // subscribeStats — spawn a persistent streaming task
@@ -266,7 +332,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         conn.set_subscription("stats", container.clone(), token.clone());
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+            conn.send_ack(id, OkResponse::simple()).await;
         }
 
         // Spawn persistent streaming task
@@ -364,12 +430,12 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                                 };
 
                                 let mut stats_map = HashMap::new();
-                                stats_map.insert(&container, &stat);
+                                stats_map.insert(container.as_str(), &stat);
 
-                                let ok = conn.send_event("dockerStats", serde_json::json!({
-                                    "ok": true,
-                                    "dockerStats": stats_map,
-                                })).await;
+                                let ok = conn.send_event("dockerStats", DockerStatsEvent {
+                                    ok: true,
+                                    docker_stats: stats_map,
+                                }).await;
                                 if !ok {
                                     return; // connection dead
                                 }
@@ -396,7 +462,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let container = arg_string(&args, 0);
         conn.cancel_subscription("stats", &container);
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+            conn.send_ack(id, OkResponse::simple()).await;
         }
     });
 
@@ -414,7 +480,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         conn.set_subscription("top", container.clone(), token.clone());
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+            conn.send_ack(id, OkResponse::simple()).await;
         }
 
         // Spawn persistent polling task
@@ -452,7 +518,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let container = arg_string(&args, 0);
         conn.cancel_subscription("top", &container);
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+            conn.send_ack(id, OkResponse::simple()).await;
         }
     });
 }
@@ -506,26 +572,20 @@ async fn push_top(docker: &crate::docker::DockerClient, container: &str, conn: &
         .await
     {
         Ok(top) => conn
-            .send_event(
-                "containerTop",
-                serde_json::json!({
-                    "ok": true,
-                    "processes": top.processes.unwrap_or_default(),
-                    "titles": top.titles.unwrap_or_default(),
-                }),
-            )
+            .send_event("containerTop", ContainerTopEvent {
+                ok: true,
+                processes: top.processes.unwrap_or_default(),
+                titles: top.titles.unwrap_or_default(),
+            })
             .await,
         Err(e) => {
             warn!("subscribeTop poll error: {e}");
             let _ = conn
-                .send_event(
-                    "containerTop",
-                    serde_json::json!({
-                        "ok": true,
-                        "processes": [],
-                        "titles": [],
-                    }),
-                )
+                .send_event("containerTop", ContainerTopEvent {
+                    ok: true,
+                    processes: Vec::new(),
+                    titles: Vec::new(),
+                })
                 .await;
             false
         }

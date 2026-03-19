@@ -76,6 +76,23 @@ impl Conn {
         }
     }
 
+    /// Synchronous variant of `send_event` — uses `try_send` so it can be
+    /// called from non-async contexts (e.g. the connect handler). Returns
+    /// false if the write channel is full.
+    pub fn send_event_sync<T: Serialize>(&self, event: &str, data: T) -> bool {
+        let msg = ServerMessage {
+            event: event.to_string(),
+            data,
+        };
+        match serde_json::to_string(&msg) {
+            Ok(json) => self.send_nowait(Message::Text(json.into())),
+            Err(e) => {
+                warn!(conn = %self.id, "failed to serialize event: {e}");
+                false
+            }
+        }
+    }
+
     /// Cancel an existing subscription by key, then store a new token.
     pub fn set_subscription(&self, key: &'static str, resource_id: String, token: CancellationToken) {
         let mut subs = self.subscriptions.lock().unwrap();
@@ -123,13 +140,10 @@ pub type ConnectFn = Box<dyn Fn(std::sync::Arc<Conn>) + Send + Sync + 'static>;
 pub type BinaryFn =
     Box<dyn Fn(std::sync::Arc<Conn>, u16, &[u8]) + Send + Sync + 'static>;
 
-/// Splits a WebSocket into read/write halves and runs the connection.
-/// Returns the connection Arc for registration.
-pub fn spawn_conn(
-    socket: WebSocket,
-    server: std::sync::Arc<super::WsServer>,
-    broadcast_rx: tokio::sync::broadcast::Receiver<Arc<str>>,
-) -> std::sync::Arc<Conn> {
+/// Create a new connection with its write channel. The caller fires the
+/// connect handler (which can queue messages into the write channel via
+/// `send_event_sync`), then calls [`start_tasks`] to begin processing.
+pub fn new_conn() -> (std::sync::Arc<Conn>, mpsc::Receiver<Message>) {
     let id_num = CONN_ID_COUNTER.fetch_add(1, Ordering::Relaxed) + 1;
     let conn_id = format!("c{id_num}");
 
@@ -142,6 +156,19 @@ pub fn spawn_conn(
         subscriptions: std::sync::Mutex::new(HashMap::new()),
     });
 
+    (conn, rx)
+}
+
+/// Start the read pump, write pump, and worker tasks for a connection.
+/// Must be called after the connect handler so any queued messages
+/// (e.g. the "info" event) are sent before client messages are processed.
+pub fn start_tasks(
+    socket: WebSocket,
+    conn: std::sync::Arc<Conn>,
+    write_rx: mpsc::Receiver<Message>,
+    server: std::sync::Arc<super::WsServer>,
+    broadcast_rx: tokio::sync::broadcast::Receiver<Arc<str>>,
+) {
     // Command channel: read_pump sends parsed text messages here,
     // worker drains them sequentially — one handler at a time per connection.
     let (cmd_tx, cmd_rx) = mpsc::channel::<ClientMessage>(64);
@@ -150,7 +177,7 @@ pub fn spawn_conn(
 
     // Write pump: select over direct mpsc + broadcast channel
     let conn_w = conn.clone();
-    tokio::spawn(write_pump(conn_w, rx, broadcast_rx, ws_write));
+    tokio::spawn(write_pump(conn_w, write_rx, broadcast_rx, ws_write));
 
     // Read pump: parses frames, routes text → cmd_tx, handles binary inline
     let conn_r = conn.clone();
@@ -159,8 +186,6 @@ pub fn spawn_conn(
     // Worker: sequential dispatch of text messages for this connection
     let conn_wk = conn.clone();
     tokio::spawn(worker(conn_wk, cmd_rx, server));
-
-    conn
 }
 
 async fn write_pump(

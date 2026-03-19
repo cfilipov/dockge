@@ -31,7 +31,7 @@ pub enum TerminalType {
 /// A single terminal (pipe or PTY) with buffer and fan-out.
 /// Private to the actor — external code uses [`TerminalHandle`].
 struct Terminal {
-    #[allow(dead_code)] // Used for debug logging
+    #[allow(dead_code)]
     name: String,
     terminal_type: TerminalType,
     buffer: Vec<u8>,
@@ -158,12 +158,6 @@ enum TerminalCmd {
         name: String,
         reply: oneshot::Sender<()>,
     },
-    #[allow(dead_code)]
-    Create {
-        name: String,
-        typ: TerminalType,
-        reply: oneshot::Sender<()>,
-    },
     Recreate {
         name: String,
         typ: TerminalType,
@@ -238,18 +232,6 @@ impl TerminalHandle {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(TerminalCmd::GetOrCreate {
             name: name.to_string(),
-            reply,
-        }).await;
-        let _ = rx.await;
-    }
-
-    /// Create a fresh terminal, closing the old one if it exists.
-    #[allow(dead_code)]
-    pub async fn create(&self, name: &str, typ: TerminalType) {
-        let (reply, rx) = oneshot::channel();
-        let _ = self.tx.send(TerminalCmd::Create {
-            name: name.to_string(),
-            typ,
             reply,
         }).await;
         let _ = rx.await;
@@ -410,19 +392,6 @@ async fn actor_loop(
                 let _ = reply.send(());
             }
 
-            TerminalCmd::Create { name, typ, reply } => {
-                if let Some(mut old) = terminals.remove(&name) {
-                    // Remove old terminal's writer_index entries
-                    let keys: Vec<String> = old.writers.keys().cloned().collect();
-                    for k in keys {
-                        writer_index.remove(&k);
-                    }
-                    old.close();
-                }
-                terminals.insert(name.clone(), Terminal::new(name, typ));
-                let _ = reply.send(());
-            }
-
             TerminalCmd::Recreate { name, typ, reply } => {
                 let mut new_term = Terminal::new(name.clone(), typ);
                 if let Some(mut old) = terminals.remove(&name) {
@@ -506,172 +475,38 @@ async fn actor_loop(
 
             TerminalCmd::StartPty { name, cmd, args, working_dir, reply } => {
                 let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-                let wd_ref = working_dir.as_deref();
-
-                let result = match open_pty(&cmd, &arg_refs, wd_ref) {
+                let result = match open_pty(&cmd, &arg_refs, working_dir.as_deref()) {
                     Ok(setup) => {
                         let cancel = tokio_util::sync::CancellationToken::new();
-                        let (input_tx, mut input_rx) = mpsc::unbounded_channel::<PtyCommand>();
-
+                        let (input_tx, input_rx) = mpsc::unbounded_channel();
                         if let Some(term) = terminals.get_mut(&name) {
                             term.cancel = Some(cancel.clone());
                             term.pty_input_tx = Some(input_tx);
                         }
-
-                        // Reader thread: PTY stdout → actor WriteData
-                        let mut pty_reader = setup.reader;
-                        let cancel_reader = cancel.clone();
-                        let actor_tx_clone = actor_tx.clone();
-                        let name_clone = name.clone();
-                        std::thread::spawn(move || {
-                            let mut buf = [0u8; 4096];
-                            loop {
-                                if cancel_reader.is_cancelled() {
-                                    break;
-                                }
-                                match pty_reader.read(&mut buf) {
-                                    Ok(0) => break,
-                                    Ok(n) => {
-                                        let _ = actor_tx_clone.blocking_send(
-                                            TerminalCmd::WriteData {
-                                                name: name_clone.clone(),
-                                                data: buf[..n].to_vec(),
-                                            },
-                                        );
-                                    }
-                                    Err(e) => {
-                                        if e.kind() != std::io::ErrorKind::Interrupted {
-                                            debug!("pty reader error: {e}");
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        });
-
-                        // Input task: forwards PTY stdin writes and resize commands
-                        let mut master_writer = setup.writer;
-                        let master_for_resize = setup.master;
-                        let cancel_input = cancel.clone();
-                        let child = setup.child;
-                        tokio::spawn(async move {
-                            let _child = child; // Keep child alive until this task ends
-                            loop {
-                                tokio::select! {
-                                    () = cancel_input.cancelled() => break,
-                                    cmd = input_rx.recv() => {
-                                        match cmd {
-                                            Some(PtyCommand::Input(data)) => {
-                                                let _ = master_writer.write_all(&data);
-                                                let _ = master_writer.flush();
-                                            }
-                                            Some(PtyCommand::Resize { rows, cols }) => {
-                                                use portable_pty::PtySize;
-                                                let _ = master_for_resize.resize(PtySize {
-                                                    rows, cols,
-                                                    pixel_width: 0,
-                                                    pixel_height: 0,
-                                                });
-                                            }
-                                            None => break,
-                                        }
-                                    }
-                                }
-                            }
-                        });
-
+                        setup_pty_tasks(setup, &cancel, &actor_tx, &name, input_rx, None);
                         Ok(cancel)
                     }
                     Err(e) => Err(e.to_string()),
                 };
-
                 let _ = reply.send(result);
             }
 
             TerminalCmd::StartPtyAndWait { name, cmd, args, working_dir, reply } => {
                 let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-                let wd_ref = working_dir.as_deref();
-
-                let result = match open_pty(&cmd, &arg_refs, wd_ref) {
+                let result = match open_pty(&cmd, &arg_refs, working_dir.as_deref()) {
                     Ok(setup) => {
                         let cancel = tokio_util::sync::CancellationToken::new();
-                        let (input_tx, mut input_rx) = mpsc::unbounded_channel::<PtyCommand>();
+                        let (input_tx, input_rx) = mpsc::unbounded_channel();
                         let (done_tx, done_rx) = oneshot::channel::<Option<i32>>();
-
                         if let Some(term) = terminals.get_mut(&name) {
                             term.cancel = Some(cancel.clone());
                             term.pty_input_tx = Some(input_tx);
                         }
-
-                        // Reader thread: PTY stdout → actor WriteData, then wait for child exit
-                        let mut pty_reader = setup.reader;
-                        let mut child = setup.child;
-                        let cancel_reader = cancel.clone();
-                        let actor_tx_clone = actor_tx.clone();
-                        let name_clone = name.clone();
-                        std::thread::spawn(move || {
-                            let mut buf = [0u8; 4096];
-                            loop {
-                                if cancel_reader.is_cancelled() {
-                                    break;
-                                }
-                                match pty_reader.read(&mut buf) {
-                                    Ok(0) => break,
-                                    Ok(n) => {
-                                        let _ = actor_tx_clone.blocking_send(
-                                            TerminalCmd::WriteData {
-                                                name: name_clone.clone(),
-                                                data: buf[..n].to_vec(),
-                                            },
-                                        );
-                                    }
-                                    Err(e) => {
-                                        if e.kind() != std::io::ErrorKind::Interrupted {
-                                            debug!("pty reader error: {e}");
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            // All output flushed — now wait for child exit
-                            let exit_code = child.wait().ok().map(|s| s.exit_code() as i32);
-                            let _ = done_tx.send(exit_code);
-                        });
-
-                        // Input task: forwards PTY stdin writes and resize commands
-                        let mut master_writer = setup.writer;
-                        let master_for_resize = setup.master;
-                        let cancel_input = cancel.clone();
-                        tokio::spawn(async move {
-                            loop {
-                                tokio::select! {
-                                    () = cancel_input.cancelled() => break,
-                                    cmd = input_rx.recv() => {
-                                        match cmd {
-                                            Some(PtyCommand::Input(data)) => {
-                                                let _ = master_writer.write_all(&data);
-                                                let _ = master_writer.flush();
-                                            }
-                                            Some(PtyCommand::Resize { rows, cols }) => {
-                                                use portable_pty::PtySize;
-                                                let _ = master_for_resize.resize(PtySize {
-                                                    rows, cols,
-                                                    pixel_width: 0,
-                                                    pixel_height: 0,
-                                                });
-                                            }
-                                            None => break,
-                                        }
-                                    }
-                                }
-                            }
-                        });
-
+                        setup_pty_tasks(setup, &cancel, &actor_tx, &name, input_rx, Some(done_tx));
                         Ok((cancel, done_rx))
                     }
                     Err(e) => Err(e.to_string()),
                 };
-
                 let _ = reply.send(result);
             }
 
@@ -708,6 +543,91 @@ async fn actor_loop(
 }
 
 // ── PTY helpers ─────────────────────────────────────────────────────────────
+
+/// Shared setup for both `StartPty` and `StartPtyAndWait`.
+///
+/// If `done_tx` is `Some`, the reader thread takes ownership of the child
+/// process, waits for exit, and sends the exit code. Otherwise the input
+/// task holds the child alive (interactive PTY behavior).
+fn setup_pty_tasks(
+    setup: PtySetup,
+    cancel: &tokio_util::sync::CancellationToken,
+    actor_tx: &mpsc::Sender<TerminalCmd>,
+    name: &str,
+    mut input_rx: mpsc::UnboundedReceiver<PtyCommand>,
+    done_tx: Option<oneshot::Sender<Option<i32>>>,
+) {
+    let mut pty_reader = setup.reader;
+    let cancel_reader = cancel.clone();
+    let actor_tx_clone = actor_tx.clone();
+    let name_clone = name.to_string();
+
+    // Decide who owns the child process
+    let (child_for_reader, child_for_input) = if done_tx.is_some() {
+        (Some(setup.child), None)
+    } else {
+        (None, Some(setup.child))
+    };
+
+    // Reader thread: PTY stdout → actor WriteData
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 4096];
+        loop {
+            if cancel_reader.is_cancelled() {
+                break;
+            }
+            match pty_reader.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    let _ = actor_tx_clone.blocking_send(TerminalCmd::WriteData {
+                        name: name_clone.clone(),
+                        data: buf[..n].to_vec(),
+                    });
+                }
+                Err(e) if e.kind() != std::io::ErrorKind::Interrupted => {
+                    debug!("pty reader error: {e}");
+                    break;
+                }
+                Err(_) => {}
+            }
+        }
+        // If waiting for exit: child is here, wait and send exit code
+        if let (Some(mut child), Some(done_tx)) = (child_for_reader, done_tx) {
+            let exit_code = child.wait().ok().map(|s| s.exit_code() as i32);
+            let _ = done_tx.send(exit_code);
+        }
+    });
+
+    // Input task: forwards PTY stdin writes and resize commands
+    let mut master_writer = setup.writer;
+    let master_for_resize = setup.master;
+    let cancel_input = cancel.clone();
+    tokio::spawn(async move {
+        let _child = child_for_input; // Keep child alive if owned (StartPty)
+        loop {
+            tokio::select! {
+                () = cancel_input.cancelled() => break,
+                cmd = input_rx.recv() => {
+                    match cmd {
+                        Some(PtyCommand::Input(data)) => {
+                            let _ = master_writer.write_all(&data);
+                            let _ = master_writer.flush();
+                        }
+                        Some(PtyCommand::Resize { rows, cols }) => {
+                            use portable_pty::PtySize;
+                            let _ = master_for_resize.resize(PtySize {
+                                rows, cols,
+                                pixel_width: 0,
+                                pixel_height: 0,
+                            });
+                        }
+                        None => break,
+                    }
+                }
+            }
+        }
+    });
+}
 
 /// Opened PTY with child process, reader, writer, and master handle.
 struct PtySetup {

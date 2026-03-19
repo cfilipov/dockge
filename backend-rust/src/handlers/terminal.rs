@@ -319,11 +319,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         if let Some(id) = msg.id {
             conn.send_ack(
                 id,
-                OkResponse {
-                    ok: true,
-                    msg: None,
-                    token: None,
-                },
+                OkResponse::simple(),
             )
             .await;
         }
@@ -333,14 +329,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 /// Send a terminalJoin error ack.
 async fn send_join_error(conn: &Conn, msg: &ClientMessage, err_msg: &str) {
     if let Some(id) = msg.id {
-        conn.send_ack(
-            id,
-            serde_json::json!({
-                "ok": false,
-                "msg": err_msg,
-            }),
-        )
-        .await;
+        conn.send_ack(id, ErrorResponse::new(err_msg)).await;
     }
 }
 
@@ -775,12 +764,11 @@ async fn run_combined_logs(
             let prefix = colored_prefix(&container.service_name, max_len, ci);
             let docker = docker.clone();
             let cname = container.name.clone();
-            let svc = container.service_name.clone();
             let tx = line_tx.clone();
             let cancel = cancel.clone();
 
             tasks.spawn(async move {
-                follow_container_logs(&docker, &cname, &svc, &prefix, &tx, &cancel).await;
+                follow_container_logs(&docker, &cname, &prefix, &tx, &cancel).await;
             });
         }
 
@@ -812,12 +800,11 @@ async fn run_combined_logs(
 
                                     let docker = docker.clone();
                                     let cname = evt.name.clone();
-                                    let svc = evt.service.clone();
                                     let tx = line_tx.clone();
                                     let cancel = cancel.clone();
                                     tasks.spawn(async move {
                                         follow_container_logs(
-                                            &docker, &cname, &svc, &prefix, &tx, &cancel,
+                                            &docker, &cname, &prefix, &tx, &cancel,
                                         )
                                         .await;
                                     });
@@ -847,7 +834,6 @@ async fn run_combined_logs(
 async fn follow_container_logs(
     docker: &docker::DockerClient,
     container_name: &str,
-    _service: &str,
     prefix: &str,
     tx: &tokio::sync::mpsc::Sender<String>,
     cancel: &CancellationToken,

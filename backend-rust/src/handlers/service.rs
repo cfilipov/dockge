@@ -9,7 +9,7 @@ use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
 
 use super::stack::is_stack_managed;
-use super::{arg_string, parse_args, AppState};
+use super::{arg_string, parse_args, run_pty_to_terminal, AppState};
 
 /// Service action descriptor for the loop-registered handlers.
 struct ServiceAction {
@@ -100,7 +100,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
                 // Ack immediately
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, OkResponse { ok: true, msg: None, token: None })
+                    conn.send_ack(id, OkResponse::simple())
                         .await;
                 }
 
@@ -180,7 +180,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
 
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+                    conn.send_ack(id, OkResponse::simple()).await;
                 }
 
                 // Run action in background via PTY terminal
@@ -195,7 +195,6 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
 /// Run a compose command for a single service in a managed stack,
 /// streaming output through a PTY terminal on "compose-{stackName}".
-/// Mirrors Go's runServiceAction.
 async fn run_service_compose_action(
     state: &AppState,
     stack_name: &str,
@@ -205,7 +204,6 @@ async fn run_service_compose_action(
     let term_name = format!("compose-{stack_name}");
     let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
 
-    // Build the full args: ["compose", ...compose_args, service_name]
     let mut args: Vec<&str> = vec!["compose"];
     args.extend_from_slice(compose_args);
     args.push(service_name);
@@ -215,45 +213,16 @@ async fn run_service_compose_action(
     state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
     state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
 
-    match state
-        .terminal_manager
-        .start_pty_and_wait(&term_name, "docker", &args, Some(&stack_dir))
-        .await
-    {
-        Ok((_cancel, done_rx)) => match done_rx.await {
-            Ok(Some(0)) | Ok(None) => {
-                state
-                    .terminal_manager
-                    .write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
-                info!(stack = %stack_name, service = %service_name, "service compose action completed");
-            }
-            Ok(Some(code)) => {
-                let msg = format!("\r\n[Error] exit code {code}\r\n");
-                state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                warn!(stack = %stack_name, service = %service_name, "service compose action failed: exit code {code}");
-            }
-            Err(_) => {
-                state
-                    .terminal_manager
-                    .write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
-                warn!(stack = %stack_name, service = %service_name, "service compose action: process lost");
-            }
-        },
-        Err(e) => {
-            let msg = format!("\r\n[Error] {e}\r\n");
-            state.terminal_manager.write_data(&term_name, msg.into_bytes());
-            warn!(stack = %stack_name, service = %service_name, "service compose action failed to start: {e}");
-        }
+    match run_pty_to_terminal(&state.terminal_manager, &term_name, "docker", &args, Some(&stack_dir)).await {
+        Ok(()) => info!(stack = %stack_name, service = %service_name, "service compose action completed"),
+        Err(e) => warn!(stack = %stack_name, service = %service_name, "service compose action failed: {e}"),
     }
 
-    state
-        .terminal_manager
-        .remove_after(&term_name, Duration::from_secs(30));
+    state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 }
 
 /// Run a plain docker command (start/stop/restart) for an unmanaged service container,
 /// writing output to the stack's compose terminal so the UI progress terminal shows it.
-/// Mirrors Go's runContainerActionForStack.
 async fn run_container_action_for_stack(
     state: &AppState,
     stack_name: &str,
@@ -266,44 +235,16 @@ async fn run_container_action_for_stack(
     state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
     state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
 
-    match state
-        .terminal_manager
-        .start_pty_and_wait(&term_name, "docker", &[action, container_name], None)
-        .await
-    {
-        Ok((_cancel, done_rx)) => match done_rx.await {
-            Ok(Some(0)) | Ok(None) => {
-                state
-                    .terminal_manager
-                    .write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
-                info!(stack = %stack_name, container = %container_name, action = %action, "unmanaged container action completed");
-            }
-            Ok(Some(code)) => {
-                let msg = format!("\r\n[Error] exit code {code}\r\n");
-                state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                warn!(stack = %stack_name, container = %container_name, action = %action, "unmanaged container action failed: exit code {code}");
-            }
-            Err(_) => {
-                state
-                    .terminal_manager
-                    .write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
-                warn!(stack = %stack_name, container = %container_name, action = %action, "unmanaged container action: process lost");
-            }
-        },
-        Err(e) => {
-            let msg = format!("\r\n[Error] {e}\r\n");
-            state.terminal_manager.write_data(&term_name, msg.into_bytes());
-            warn!(stack = %stack_name, container = %container_name, action = %action, "unmanaged container action failed to start: {e}");
-        }
+    match run_pty_to_terminal(&state.terminal_manager, &term_name, "docker", &[action, container_name], None).await {
+        Ok(()) => info!(stack = %stack_name, container = %container_name, action = %action, "unmanaged container action completed"),
+        Err(e) => warn!(stack = %stack_name, container = %container_name, action = %action, "unmanaged container action failed: {e}"),
     }
 
-    state
-        .terminal_manager
-        .remove_after(&term_name, Duration::from_secs(30));
+    state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 }
 
 /// Run a plain docker command (start/stop/restart) for a standalone container,
-/// streaming output through a PTY terminal (mirrors Go's runContainerAction).
+/// streaming output through a PTY terminal.
 async fn run_container_action(state: &AppState, container_name: &str, action: &str) {
     let term_name = format!("container-{container_name}");
     let cmd_display = format!("$ docker {action} {container_name}\r\n");
@@ -311,38 +252,10 @@ async fn run_container_action(state: &AppState, container_name: &str, action: &s
     // Terminal already created by the handler before ack; just write the command display
     state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
 
-    match state
-        .terminal_manager
-        .start_pty_and_wait(&term_name, "docker", &[action, container_name], None)
-        .await
-    {
-        Ok((_cancel, done_rx)) => match done_rx.await {
-            Ok(Some(0)) | Ok(None) => {
-                state
-                    .terminal_manager
-                    .write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
-                info!(container = %container_name, action = %action, "container action completed");
-            }
-            Ok(Some(code)) => {
-                let msg = format!("\r\n[Error] exit code {code}\r\n");
-                state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                warn!(container = %container_name, action = %action, "container action failed: exit code {code}");
-            }
-            Err(_) => {
-                state
-                    .terminal_manager
-                    .write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
-                warn!(container = %container_name, action = %action, "container action: process lost");
-            }
-        },
-        Err(e) => {
-            let msg = format!("\r\n[Error] {e}\r\n");
-            state.terminal_manager.write_data(&term_name, msg.into_bytes());
-            warn!(container = %container_name, action = %action, "container action failed to start: {e}");
-        }
+    match run_pty_to_terminal(&state.terminal_manager, &term_name, "docker", &[action, container_name], None).await {
+        Ok(()) => info!(container = %container_name, action = %action, "container action completed"),
+        Err(e) => warn!(container = %container_name, action = %action, "container action failed: {e}"),
     }
 
-    state
-        .terminal_manager
-        .remove_after(&term_name, Duration::from_secs(30));
+    state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 }

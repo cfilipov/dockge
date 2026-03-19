@@ -122,21 +122,24 @@ async fn main() {
     // Build WebSocket server with handlers
     let mut ws_builder = WsServer::new(broadcaster);
 
-    // Register connect handler: send "info" event
+    // Register connect handler: send "info" event synchronously so it is
+    // queued in the write channel before the read pump starts.
     let dev = config.dev;
     ws_builder.handle_connect(move |conn| {
-        let conn = conn.clone();
-        tokio::spawn(async move {
-            conn.send_event(
-                "info",
-                serde_json::json!({
-                    "version": env!("CARGO_PKG_VERSION"),
-                    "latestVersion": env!("CARGO_PKG_VERSION"),
-                    "isContainer": true,
-                    "dev": dev,
-                }),
-            )
-            .await;
+        #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct InfoEvent {
+            version: &'static str,
+            latest_version: &'static str,
+            is_container: bool,
+            dev: bool,
+        }
+
+        conn.send_event_sync("info", InfoEvent {
+            version: env!("CARGO_PKG_VERSION"),
+            latest_version: env!("CARGO_PKG_VERSION"),
+            is_container: true,
+            dev,
         });
     });
 
@@ -154,7 +157,6 @@ async fn main() {
     handlers::terminal::register(&mut ws_builder, state.clone());
     handlers::terminal::register_binary_handler(&mut ws_builder, state.clone());
     handlers::image_updates::register(&mut ws_builder, state.clone());
-    register_stub_handlers(&mut ws_builder, state.clone());
 
     let ws_server = Arc::new(ws_builder);
 
@@ -247,24 +249,6 @@ async fn main() {
 
     shutdown_token.cancel();
     info!("shutdown complete");
-}
-
-/// Register stub handlers for events not yet fully implemented.
-fn register_stub_handlers(ws: &mut WsServer, state: Arc<AppState>) {
-    // Simple ok stubs (no arg validation needed)
-    for event in &[
-        "monitorImportantHeartbeatListCount", "monitorImportantHeartbeatListPaged",
-    ] {
-        ws.handle_with_state(event, state.clone(), |state, conn, msg| async move {
-            let uid = state.check_login(&conn, &msg).await;
-            if uid == 0 { return; }
-            if let Some(id) = msg.id {
-                conn.send_ack(id, serde_json::json!({"ok": true})).await;
-            }
-        });
-    }
-
-    // Service and container handlers are in handlers::service
 }
 
 /// Proxy POST /_mock/reset to the mock daemon via DOCKER_HOST unix socket.

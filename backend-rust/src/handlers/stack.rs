@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use std::time::Duration;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 
 use crate::terminal::TerminalType;
@@ -11,7 +11,7 @@ use crate::ws::conn::Conn;
 use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
 
-use super::{arg_object, arg_string, parse_args, AppState};
+use super::{arg_object, arg_string, parse_args, run_pty_to_terminal, AppState};
 
 /// Validate stack name: reject path traversal, shell injection, uppercase, dots, spaces, etc.
 fn validate_stack_name(name: &str) -> Result<(), &'static str> {
@@ -105,11 +105,9 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     ] {
         let state = state.clone();
         let action = action.to_string();
-        let event_name = event.to_string();
         ws.handle(event, move |conn: Arc<Conn>, msg: ClientMessage| {
             let state = state.clone();
             let action = action.clone();
-            let event_name = event_name.clone();
             async move {
                 let uid = state.check_login(&conn, &msg).await;
                 if uid == 0 {
@@ -126,17 +124,8 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     return;
                 }
 
-                // Respond immediately
                 if let Some(id) = msg.id {
-                    conn.send_ack(
-                        id,
-                        OkResponse {
-                            ok: true,
-                            msg: None,
-                            token: None,
-                        },
-                    )
-                    .await;
+                    conn.send_ack(id, OkResponse::simple()).await;
                 }
 
                 // Run compose action in background so the worker is free
@@ -145,49 +134,21 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     let lock = state.stack_locks.get(&stack_name);
                     let _guard = lock.lock().await;
 
-                    let stacks_dir = state.config.stacks_dir.clone();
-                    let stack_dir = format!("{}/{}", stacks_dir, stack_name);
-
+                    let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
                     let term_name = format!("compose-{}", stack_name);
                     state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
 
-                    // Write command display line (matches Go: cmdDisplay)
                     let cmd_display = format!("$ docker compose {action}\r\n");
                     state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
 
-                    // Run via PTY so output streams to terminal with proper ANSI rendering
-                    match state.terminal_manager.start_pty_and_wait(
-                        &term_name, "docker", &["compose", &action], Some(&stack_dir)
+                    match run_pty_to_terminal(
+                        &state.terminal_manager, &term_name,
+                        "docker", &["compose", &action], Some(&stack_dir),
                     ).await {
-                        Ok((_cancel, done_rx)) => {
-                            match done_rx.await {
-                                Ok(Some(0)) | Ok(None) => {
-                                    state.terminal_manager.write_data(
-                                        &term_name, b"\r\n[Done]\r\n".to_vec(),
-                                    );
-                                    info!(stack = %stack_name, action = %action, "compose action completed");
-                                }
-                                Ok(Some(code)) => {
-                                    let msg = format!("\r\n[Error] exit code {code}\r\n");
-                                    state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                                    warn!(stack = %stack_name, action = %action, "compose action failed: exit code {code}");
-                                }
-                                Err(_) => {
-                                    state.terminal_manager.write_data(
-                                        &term_name, b"\r\n[Error] process lost\r\n".to_vec(),
-                                    );
-                                    warn!(stack = %stack_name, action = %action, "compose action: process lost");
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            let msg = format!("\r\n[Error] {e}\r\n");
-                            state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                            warn!(stack = %stack_name, action = %action, "compose action failed to start: {e}");
-                        }
+                        Ok(()) => info!(stack = %stack_name, action = %action, "compose action completed"),
+                        Err(e) => warn!(stack = %stack_name, action = %action, "compose action failed: {e}"),
                     }
                     state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
-                    let _ = (&event_name,);
                 });
             }
         });
@@ -221,21 +182,32 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let compose_env =
             std::fs::read_to_string(&env_path).unwrap_or_default();
 
+        #[derive(Serialize)]
+        struct GetStackResponse { ok: bool, stack: StackData }
+        #[derive(Serialize)]
+        struct StackData {
+            name: String,
+            #[serde(rename = "composeYAML")]
+            compose_yaml: String,
+            #[serde(rename = "composeENV")]
+            compose_env: String,
+            #[serde(rename = "composeFileName")]
+            compose_file_name: String,
+            #[serde(rename = "isManagedByDockge")]
+            is_managed_by_dockge: bool,
+        }
+
         if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                serde_json::json!({
-                    "ok": true,
-                    "stack": {
-                        "name": stack_name,
-                        "composeYAML": compose_yaml,
-                        "composeENV": compose_env,
-                        "composeFileName": compose_file_name,
-                        "isManagedByDockge": true,
-                    }
-                }),
-            )
-            .await;
+            conn.send_ack(id, GetStackResponse {
+                ok: true,
+                stack: StackData {
+                    name: stack_name,
+                    compose_yaml,
+                    compose_env,
+                    compose_file_name,
+                    is_managed_by_dockge: true,
+                },
+            }).await;
         }
     });
 
@@ -381,39 +353,14 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
             let term_name = format!("compose-{}", stack_name);
             state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+            state.terminal_manager.write_data(&term_name, b"$ docker compose up -d --remove-orphans\r\n".to_vec());
 
-            let cmd_display = "$ docker compose up -d --remove-orphans\r\n";
-            state.terminal_manager.write_data(&term_name, cmd_display.as_bytes().to_vec());
-
-            match state.terminal_manager.start_pty_and_wait(
-                &term_name, "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir)
+            match run_pty_to_terminal(
+                &state.terminal_manager, &term_name,
+                "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir),
             ).await {
-                Ok((_cancel, done_rx)) => {
-                    match done_rx.await {
-                        Ok(Some(0)) | Ok(None) => {
-                            state.terminal_manager.write_data(
-                                &term_name, b"\r\n[Done]\r\n".to_vec(),
-                            );
-                            info!(stack = %stack_name, "deploy completed");
-                        }
-                        Ok(Some(code)) => {
-                            let msg = format!("\r\n[Error] exit code {code}\r\n");
-                            state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                            warn!(stack = %stack_name, "deploy failed: exit code {code}");
-                        }
-                        Err(_) => {
-                            state.terminal_manager.write_data(
-                                &term_name, b"\r\n[Error] process lost\r\n".to_vec(),
-                            );
-                            warn!(stack = %stack_name, "deploy: process lost");
-                        }
-                    }
-                }
-                Err(e) => {
-                    let msg = format!("\r\n[Error] {e}\r\n");
-                    state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                    warn!(stack = %stack_name, "deploy failed to start: {e}");
-                }
+                Ok(()) => info!(stack = %stack_name, "deploy completed"),
+                Err(e) => warn!(stack = %stack_name, "deploy failed: {e}"),
             }
             state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
         });
@@ -448,20 +395,14 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         if let Some(id) = msg.id {
             conn.send_ack(
                 id,
-                OkResponse {
-                    ok: true,
-                    msg: None,
-                    token: None,
-                },
+                OkResponse::simple(),
             )
             .await;
         }
 
         // Run in background so the worker is free for subsequent messages.
         tokio::spawn(async move {
-            let stacks_dir = state.config.stacks_dir.clone();
-            let stack_dir =
-                format!("{}/{}", stacks_dir, stack_name);
+            let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
             let lock = state.stack_locks.get(&stack_name);
             let _guard = lock.lock().await;
 
@@ -469,28 +410,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
             state.terminal_manager.write_data(&term_name, b"$ docker compose down --remove-orphans\r\n".to_vec());
 
-            match state.terminal_manager.start_pty_and_wait(
-                &term_name, "docker", &["compose", "down", "--remove-orphans"], Some(&stack_dir)
-            ).await {
-                Ok((_cancel, done_rx)) => {
-                    match done_rx.await {
-                        Ok(Some(0)) | Ok(None) => {
-                            state.terminal_manager.write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
-                        }
-                        Ok(Some(code)) => {
-                            let msg = format!("\r\n[Error] exit code {code}\r\n");
-                            state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                        }
-                        Err(_) => {
-                            state.terminal_manager.write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
-                        }
-                    }
-                }
-                Err(e) => {
-                    let msg = format!("\r\n[Error] {e}\r\n");
-                    state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                }
-            }
+            let _ = run_pty_to_terminal(
+                &state.terminal_manager, &term_name,
+                "docker", &["compose", "down", "--remove-orphans"], Some(&stack_dir),
+            ).await;
             state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 
             if opts.delete_stack_files
@@ -517,24 +440,12 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             return;
         }
 
-        // Ack immediately
         if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                OkResponse {
-                    ok: true,
-                    msg: None,
-                    token: None,
-                },
-            )
-            .await;
+            conn.send_ack(id, OkResponse::simple()).await;
         }
 
-        // Run in background so the worker is free for subsequent messages.
         tokio::spawn(async move {
-            let stacks_dir = state.config.stacks_dir.clone();
-            let stack_dir =
-                format!("{}/{}", stacks_dir, stack_name);
+            let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
             let lock = state.stack_locks.get(&stack_name);
             let _guard = lock.lock().await;
 
@@ -542,28 +453,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
             state.terminal_manager.write_data(&term_name, b"$ docker compose down -v --remove-orphans\r\n".to_vec());
 
-            match state.terminal_manager.start_pty_and_wait(
-                &term_name, "docker", &["compose", "down", "-v", "--remove-orphans"], Some(&stack_dir)
-            ).await {
-                Ok((_cancel, done_rx)) => {
-                    match done_rx.await {
-                        Ok(Some(0)) | Ok(None) => {
-                            state.terminal_manager.write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
-                        }
-                        Ok(Some(code)) => {
-                            let msg = format!("\r\n[Error] exit code {code}\r\n");
-                            state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                        }
-                        Err(_) => {
-                            state.terminal_manager.write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
-                        }
-                    }
-                }
-                Err(e) => {
-                    let msg = format!("\r\n[Error] {e}\r\n");
-                    state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                }
-            }
+            let _ = run_pty_to_terminal(
+                &state.terminal_manager, &term_name,
+                "docker", &["compose", "down", "-v", "--remove-orphans"], Some(&stack_dir),
+            ).await;
             state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
 
             if let Err(e) = std::fs::remove_dir_all(&stack_dir) {
@@ -588,24 +481,12 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             return;
         }
 
-        // Ack immediately
         if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                OkResponse {
-                    ok: true,
-                    msg: None,
-                    token: None,
-                },
-            )
-            .await;
+            conn.send_ack(id, OkResponse::simple()).await;
         }
 
-        // Run in background so the worker is free for subsequent messages.
         tokio::spawn(async move {
-            let stacks_dir = state.config.stacks_dir.clone();
-            let stack_dir =
-                format!("{}/{}", stacks_dir, stack_name);
+            let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
             let lock = state.stack_locks.get(&stack_name);
             let _guard = lock.lock().await;
 
@@ -614,42 +495,22 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             // Pull phase
             state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
             state.terminal_manager.write_data(&term_name, b"$ docker compose pull\r\n".to_vec());
-
-            if let Ok((_cancel, done_rx)) = state.terminal_manager.start_pty_and_wait(
-                &term_name, "docker", &["compose", "pull"], Some(&stack_dir)
-            ).await {
-                let _ = done_rx.await;
-            }
+            let _ = run_pty_to_terminal(
+                &state.terminal_manager, &term_name,
+                "docker", &["compose", "pull"], Some(&stack_dir),
+            ).await;
 
             // Up phase
             state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
             state.terminal_manager.write_data(&term_name, b"$ docker compose up -d --remove-orphans\r\n".to_vec());
-
-            match state.terminal_manager.start_pty_and_wait(
-                &term_name, "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir)
+            match run_pty_to_terminal(
+                &state.terminal_manager, &term_name,
+                "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir),
             ).await {
-                Ok((_cancel, done_rx)) => {
-                    match done_rx.await {
-                        Ok(Some(0)) | Ok(None) => {
-                            state.terminal_manager.write_data(&term_name, b"\r\n[Done]\r\n".to_vec());
-                        }
-                        Ok(Some(code)) => {
-                            let msg = format!("\r\n[Error] exit code {code}\r\n");
-                            state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                        }
-                        Err(_) => {
-                            state.terminal_manager.write_data(&term_name, b"\r\n[Error] process lost\r\n".to_vec());
-                        }
-                    }
-                }
-                Err(e) => {
-                    let msg = format!("\r\n[Error] {e}\r\n");
-                    state.terminal_manager.write_data(&term_name, msg.into_bytes());
-                }
+                Ok(()) => info!(stack = %stack_name, "stack updated"),
+                Err(e) => warn!(stack = %stack_name, "stack update failed: {e}"),
             }
             state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
-
-            info!(stack = %stack_name, "stack updated");
         });
     });
 }

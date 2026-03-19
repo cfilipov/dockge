@@ -22,6 +22,7 @@ use tracing::{debug, warn};
 use crate::docker;
 use crate::handlers::auth::containers_to_map;
 use crate::handlers::AppState;
+use crate::ws::protocol::ItemsEvent;
 
 use super::DispatchMsg;
 
@@ -327,20 +328,20 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
             "network" => {
                 match docker::network_list(&state.docker).await {
                     Ok(networks) => {
-                        let mut map: HashMap<String, serde_json::Value> = networks.into_iter()
-                            .map(|n| (n.name.clone(), serde_json::to_value(&n).unwrap_or_default()))
+                        let mut map: HashMap<String, Option<_>> = networks.into_iter()
+                            .map(|n| (n.name.clone(), Some(n)))
                             .collect();
                         // Insert null for destroyed networks
                         if let Some(destroyed) = batch.destroyed.get("network") {
                             for name in destroyed.keys() {
                                 if !map.contains_key(name) {
-                                    map.insert(name.clone(), serde_json::Value::Null);
+                                    map.insert(name.clone(), None);
                                 }
                             }
                         }
                         state.broadcaster.send_event(
                             "networks",
-                            &serde_json::json!({"items": map}),
+                            &ItemsEvent { items: map },
                         );
                     }
                     Err(e) => warn!("coalescer: network list failed: {e}"),
@@ -352,7 +353,7 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
                         let map: HashMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
                         state.broadcaster.send_event(
                             "images",
-                            &serde_json::json!({"items": map}),
+                            &ItemsEvent { items: map },
                         );
                     }
                     Err(e) => warn!("coalescer: image list failed: {e}"),
@@ -364,7 +365,7 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
                         let map: HashMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
                         state.broadcaster.send_event(
                             "volumes",
-                            &serde_json::json!({"items": map}),
+                            &ItemsEvent { items: map },
                         );
                     }
                     Err(e) => warn!("coalescer: volume list failed: {e}"),
@@ -374,7 +375,7 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
                 let stacks = crate::handlers::auth::build_stacks_broadcast(&state.config.stacks_dir);
                 state.broadcaster.send_event(
                     "stacks",
-                    &serde_json::json!({"items": stacks}),
+                    &ItemsEvent { items: stacks },
                 );
             }
             _ => {}
@@ -394,7 +395,7 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
                 let stacks = crate::handlers::auth::build_stacks_broadcast(&state.config.stacks_dir);
                 state.broadcaster.send_event(
                     "stacks",
-                    &serde_json::json!({"items": stacks}),
+                    &ItemsEvent { items: stacks },
                 );
             }
             _ => {}
@@ -426,7 +427,7 @@ async fn dispatch_container_broadcast(
             if let Some(destroyed) = batch.destroyed.get("container") {
                 for name in destroyed.keys() {
                     if !map.contains_key(name) {
-                        map.insert(name.clone(), serde_json::Value::Null);
+                        map.insert(name.clone(), None);
                     }
                 }
             }
@@ -434,7 +435,7 @@ async fn dispatch_container_broadcast(
             if !map.is_empty() {
                 state.broadcaster.send_event(
                     "containers",
-                    &serde_json::json!({"items": map}),
+                    &ItemsEvent { items: map },
                 );
             }
         }

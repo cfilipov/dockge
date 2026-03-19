@@ -106,9 +106,13 @@ impl WsServer {
     }
 
     /// Accept a new WebSocket connection.
+    ///
+    /// Order: create conn → register → fire connect handler → start tasks.
+    /// This ensures the info event is queued in the write channel before the
+    /// read pump starts accepting client messages, eliminating the race.
     pub fn accept(self: &Arc<Self>, socket: WebSocket) {
         let broadcast_rx = self.broadcaster.subscribe();
-        let conn = conn::spawn_conn(socket, self.clone(), broadcast_rx);
+        let (conn, write_rx) = conn::new_conn();
 
         // Register connection
         {
@@ -116,10 +120,14 @@ impl WsServer {
             conns.insert(conn.id.clone(), conn.clone());
         }
 
-        // Fire connect handler
+        // Fire connect handler — queues info event via send_event_sync
+        // before the read pump starts processing client messages.
         if let Some(ref handler) = self.connect_handler {
-            handler(conn);
+            handler(conn.clone());
         }
+
+        // Now start the read/write/worker tasks
+        conn::start_tasks(socket, conn, write_rx, self.clone(), broadcast_rx);
     }
 
     /// Remove a connection from the registry.

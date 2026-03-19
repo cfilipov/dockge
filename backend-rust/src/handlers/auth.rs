@@ -9,8 +9,10 @@ use crate::auth;
 use crate::db::users;
 use crate::docker;
 use crate::ws::conn::Conn;
-use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
+use crate::ws::protocol::{ClientMessage, ErrorResponse, ItemsEvent, OkResponse};
 use crate::ws::WsServer;
+
+use serde::Serialize;
 
 use super::{parse_args, arg_string, arg_object, AppState};
 
@@ -30,7 +32,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         async move {
             conn.set_user(0);
             if let Some(id) = msg.id {
-                conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+                conn.send_ack(id, OkResponse::simple()).await;
             }
         }
     });
@@ -47,11 +49,15 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // needSetup
     ws.handle_with_state("needSetup", state.clone(), |state, conn, msg| async move {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct NeedSetupResponse { ok: bool, need_setup: bool }
+
         if let Some(id) = msg.id {
-            conn.send_ack(id, serde_json::json!({
-                "ok": true,
-                "needSetup": state.need_setup.load(Ordering::Relaxed),
-            })).await;
+            conn.send_ack(id, NeedSetupResponse {
+                ok: true,
+                need_setup: state.need_setup.load(Ordering::Relaxed),
+            }).await;
         }
     });
 
@@ -59,7 +65,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     ws.handle("getTurnstileSiteKey", move |conn: Arc<Conn>, msg: ClientMessage| {
         async move {
             if let Some(id) = msg.id {
-                conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+                conn.send_ack(id, OkResponse::simple()).await;
             }
         }
     });
@@ -67,11 +73,11 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // twoFAStatus (stateless stub)
     ws.handle("twoFAStatus", move |conn: Arc<Conn>, msg: ClientMessage| {
         async move {
+            #[derive(Serialize)]
+            struct TwoFAStatusResponse { ok: bool, status: bool }
+
             if let Some(id) = msg.id {
-                conn.send_ack(id, serde_json::json!({
-                    "ok": true,
-                    "status": false,
-                })).await;
+                conn.send_ack(id, TwoFAStatusResponse { ok: true, status: false }).await;
             }
         }
     });
@@ -233,7 +239,7 @@ async fn handle_login_by_token(state: &AppState, conn: &Conn, msg: &ClientMessag
     state.has_authenticated.store(true, Ordering::Relaxed);
 
     if let Some(id) = msg.id {
-        conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+        conn.send_ack(id, OkResponse::simple()).await;
     }
 
     // AfterLogin: send initial data broadcasts (after ack so frontend is ready)
@@ -287,12 +293,15 @@ async fn handle_setup(state: &AppState, conn: &Conn, msg: &ClientMessage) {
 
     state.need_setup.store(false, Ordering::Relaxed);
 
+    #[derive(Serialize)]
+    struct SetupSuccessResponse { ok: bool, msg: &'static str, msgi18n: bool }
+
     if let Some(id) = msg.id {
-        conn.send_ack(id, serde_json::json!({
-            "ok": true,
-            "msg": "successAdded",
-            "msgi18n": true,
-        })).await;
+        conn.send_ack(id, SetupSuccessResponse {
+            ok: true,
+            msg: "successAdded",
+            msgi18n: true,
+        }).await;
     }
 
     info!(username = %username, "setup complete");
@@ -371,7 +380,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
     {
         let stacks_dir = state.config.stacks_dir.clone();
         let stacks = build_stacks_broadcast(&stacks_dir);
-        conn.send_event("stacks", serde_json::json!({"items": stacks})).await;
+        conn.send_event("stacks", ItemsEvent { items: stacks }).await;
     }
 
     // Containers broadcast
@@ -380,7 +389,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
         match docker::container_list(docker, None).await {
             Ok(containers) => {
                 let map = containers_to_map(containers);
-                conn.send_event("containers", serde_json::json!({"items": map})).await;
+                conn.send_event("containers", ItemsEvent { items: map }).await;
             }
             Err(e) => warn!("afterLogin: containers: {e}"),
         }
@@ -391,7 +400,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
         match docker::network_list(&state.docker).await {
             Ok(networks) => {
                 let map: HashMap<String, _> = networks.into_iter().map(|n| (n.name.clone(), n)).collect();
-                conn.send_event("networks", serde_json::json!({"items": map})).await;
+                conn.send_event("networks", ItemsEvent { items: map }).await;
             }
             Err(e) => warn!("afterLogin: networks: {e}"),
         }
@@ -402,7 +411,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
         match docker::image_list(&state.docker).await {
             Ok(images) => {
                 let map: HashMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
-                conn.send_event("images", serde_json::json!({"items": map})).await;
+                conn.send_event("images", ItemsEvent { items: map }).await;
             }
             Err(e) => warn!("afterLogin: images: {e}"),
         }
@@ -413,7 +422,7 @@ async fn after_login(state: &AppState, conn: &Conn) {
         match docker::volume_list(&state.docker).await {
             Ok(volumes) => {
                 let map: HashMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
-                conn.send_event("volumes", serde_json::json!({"items": map})).await;
+                conn.send_event("volumes", ItemsEvent { items: map }).await;
             }
             Err(e) => warn!("afterLogin: volumes: {e}"),
         }
@@ -428,7 +437,17 @@ async fn after_login(state: &AppState, conn: &Conn) {
     }
 }
 
-pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, serde_json::Value> {
+/// Stack metadata for the "stacks" broadcast event.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StackBroadcast {
+    name: String,
+    compose_file_name: String,
+    is_managed_by_dockge: bool,
+    images: HashMap<String, String>,
+}
+
+pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, StackBroadcast> {
     let mut result = HashMap::new();
     let dir = match std::fs::read_dir(stacks_dir) {
         Ok(d) => d,
@@ -463,22 +482,19 @@ pub(crate) fn build_stacks_broadcast(stacks_dir: &str) -> HashMap<String, serde_
             })
             .unwrap_or_default();
 
-        result.insert(name.clone(), serde_json::json!({
-            "name": name,
-            "composeFileName": compose_file,
-            "isManagedByDockge": true,
-            "images": images,
-        }));
+        result.insert(name.clone(), StackBroadcast {
+            name: name.clone(),
+            compose_file_name: compose_file.to_string(),
+            is_managed_by_dockge: true,
+            images,
+        });
     }
 
     result
 }
 
-pub fn containers_to_map(containers: Vec<docker::types::ContainerBroadcast>) -> HashMap<String, serde_json::Value> {
-    let mut map = HashMap::new();
-    for c in containers {
-        let key = c.name.clone();
-        map.insert(key, serde_json::to_value(&c).unwrap_or_default());
-    }
-    map
+/// Build a name → container map. Values are `Option` so that destroyed
+/// containers can be represented as `None` (serialized as JSON `null`).
+pub fn containers_to_map(containers: Vec<docker::types::ContainerBroadcast>) -> HashMap<String, Option<docker::types::ContainerBroadcast>> {
+    containers.into_iter().map(|c| (c.name.clone(), Some(c))).collect()
 }

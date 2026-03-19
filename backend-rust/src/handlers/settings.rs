@@ -1,4 +1,7 @@
+use std::collections::HashMap;
 use std::sync::Arc;
+
+use serde::Serialize;
 
 use crate::broadcast::WsControlMsg;
 use crate::ws::protocol::{ErrorResponse, OkResponse};
@@ -31,11 +34,11 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let global_env = read_global_env(&state.config.stacks_dir);
         settings.insert("globalENV".to_string(), global_env);
 
+        #[derive(Serialize)]
+        struct SettingsResponse { ok: bool, data: HashMap<String, String> }
+
         if let Some(id) = msg.id {
-            conn.send_ack(id, serde_json::json!({
-                "ok": true,
-                "data": settings,
-            })).await;
+            conn.send_ack(id, SettingsResponse { ok: true, data: settings }).await;
         }
     });
 
@@ -103,7 +106,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let _ = done_rx.await;
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse { ok: true, msg: None, token: None }).await;
+            conn.send_ack(id, OkResponse::simple()).await;
         }
     });
 }

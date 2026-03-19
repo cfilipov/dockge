@@ -28,13 +28,11 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let args = parse_args(&msg);
         let stack_name = arg_string(&args, 0);
 
-        // Ack immediately
+        #[derive(serde::Serialize)]
+        struct ImageUpdateAck { ok: bool, updated: bool }
+
         if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                serde_json::json!({"ok": true, "updated": true}),
-            )
-            .await;
+            conn.send_ack(id, ImageUpdateAck { ok: true, updated: true }).await;
         }
 
         if !stack_name.is_empty() {
@@ -191,21 +189,33 @@ async fn check_image_updates_for_stack(state: &AppState, stack_name: &str) {
             "ok"
         };
 
+        #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ImageUpdateRecord<'a> {
+            stack_name: &'a str,
+            service_name: &'a str,
+            image_ref: &'a str,
+            local_digest: &'a str,
+            remote_digest: &'a str,
+            has_update: bool,
+            check_status: &'a str,
+        }
+
         // Store in redb
         let key = format!("{}/{}", stack_name, service_name);
-        let value = serde_json::json!({
-            "stackName": stack_name,
-            "serviceName": service_name,
-            "imageRef": image_ref,
-            "localDigest": local,
-            "remoteDigest": remote,
-            "hasUpdate": has_update,
-            "checkStatus": check_status,
-        });
+        let value = serde_json::to_string(&ImageUpdateRecord {
+            stack_name,
+            service_name,
+            image_ref,
+            local_digest: &local,
+            remote_digest: &remote,
+            has_update,
+            check_status,
+        }).unwrap();
 
         if let Ok(write_txn) = state.db.begin_write() {
             if let Ok(mut table) = write_txn.open_table(db::IMAGE_UPDATES_TABLE) {
-                let _ = table.insert(key.as_str(), value.to_string().as_str());
+                let _ = table.insert(key.as_str(), value.as_str());
             }
             let _ = write_txn.commit();
         }
@@ -304,10 +314,7 @@ pub(crate) fn parse_service_images(yaml: &str) -> Vec<(String, String)> {
 /// matching what the frontend updateStore expects.
 fn trigger_updates_broadcast(state: &AppState) {
     let updates = collect_update_keys(state);
-    state.broadcaster.send_event(
-        "updates",
-        &serde_json::json!(updates),
-    );
+    state.broadcaster.send_event("updates", &updates);
 }
 
 /// Read the redb image updates cache and return keys with hasUpdate=true.

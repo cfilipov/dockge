@@ -51,6 +51,23 @@ pub struct ErrorResponse {
     pub msgi18n: Option<bool>,
 }
 
+impl OkResponse {
+    pub fn simple() -> Self {
+        Self {
+            ok: true,
+            msg: None,
+            token: None,
+        }
+    }
+}
+
+/// Generic wrapper for broadcast events with an `items` map.
+/// Used by stacks, containers, networks, images, and volumes broadcasts.
+#[derive(Serialize)]
+pub struct ItemsEvent<T: Serialize> {
+    pub items: T,
+}
+
 impl ErrorResponse {
     pub fn new(msg: impl Into<String>) -> Self {
         Self {

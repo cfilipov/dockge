@@ -84,6 +84,39 @@ impl AppState {
     }
 }
 
+/// Run a command via PTY, writing status messages to the terminal.
+/// Returns `Ok(())` on success (exit code 0), `Err(message)` on failure.
+pub(crate) async fn run_pty_to_terminal(
+    tm: &TerminalHandle,
+    term_name: &str,
+    cmd: &str,
+    args: &[&str],
+    working_dir: Option<&str>,
+) -> Result<(), String> {
+    match tm.start_pty_and_wait(term_name, cmd, args, working_dir).await {
+        Ok((_cancel, done_rx)) => match done_rx.await {
+            Ok(Some(0)) | Ok(None) => {
+                tm.write_data(term_name, b"\r\n[Done]\r\n".to_vec());
+                Ok(())
+            }
+            Ok(Some(code)) => {
+                let msg = format!("\r\n[Error] exit code {code}\r\n");
+                tm.write_data(term_name, msg.into_bytes());
+                Err(format!("exit code {code}"))
+            }
+            Err(_) => {
+                tm.write_data(term_name, b"\r\n[Error] process lost\r\n".to_vec());
+                Err("process lost".into())
+            }
+        },
+        Err(e) => {
+            let msg = format!("\r\n[Error] {e}\r\n");
+            tm.write_data(term_name, msg.into_bytes());
+            Err(e)
+        }
+    }
+}
+
 /// Parse the args JSON array into a Vec of RawValue.
 pub fn parse_args(msg: &ClientMessage) -> Vec<Box<RawValue>> {
     match &msg.args {
