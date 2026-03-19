@@ -232,6 +232,12 @@ tasks:
     dir: e2e
     cmd: E2E_PORT=5052 pnpm run test:update-screenshots
 
+  update-screenshots-rust:
+    desc: Update E2E golden screenshots (Rust backend)
+    deps: [build-web, build-rust, build-mock-daemon, build-mock-docker]
+    dir: e2e
+    cmd: DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm run test:update-screenshots
+
   update-benchmarks:
     desc: Update E2E performance golden baselines (requires full test run)
     deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
