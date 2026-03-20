@@ -391,9 +391,7 @@ async fn handle_combined(
         .terminal_manager
         .set_cancel(&term_name, cancel.clone());
 
-    alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
-
-    // Spawn the combined log task
+    // Spawn the combined log task FIRST so buffer starts filling
     let docker = state.docker.clone();
     let handle = state.terminal_manager.clone();
     let event_bus = state.event_bus.clone();
@@ -402,6 +400,9 @@ async fn handle_combined(
     tokio::spawn(async move {
         run_combined_logs(&docker, &stack, &handle, &tname, &event_bus, cancel).await;
     });
+
+    // THEN join — client gets any buffered data
+    alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
 async fn handle_container_log(
@@ -673,17 +674,17 @@ async fn run_combined_logs(
     event_bus: &EventBus,
     cancel: CancellationToken,
 ) {
+    // Signal readiness — triggers the frontend's firstMessage handler which
+    // clears the "Connecting..." spinner. The cursor-show sequence is invisible.
+    handle.write_data(term_name, b"\x1b[?25h".to_vec());
+
     let containers = docker::container_list(docker, Some(stack))
         .await
         .unwrap_or_default();
 
-    if containers.is_empty() {
-        warn!(stack = %stack, "no containers found for combined logs");
-        return;
-    }
-
     // Build service → color_index mapping and compute max service name length
-    let max_len = containers
+    // (may be empty if stack hasn't started yet — Phase 2 will pick up new containers)
+    let mut max_len = containers
         .iter()
         .map(|c| c.service_name.len())
         .max()
@@ -695,7 +696,8 @@ async fn run_combined_logs(
     }
 
     // ── Phase 1: Historical logs with merge-sort ────────────────────────
-    {
+    // Skip when no containers exist yet (e.g. newly created stack before deploy).
+    if !containers.is_empty() {
         let mut all_lines: Vec<TsLine> = Vec::new();
 
         for container in &containers {
@@ -793,7 +795,17 @@ async fn run_combined_logs(
                         Ok(evt) if evt.project == stack_owned && evt.event_type == "container" => {
                             match evt.action.as_str() {
                                 "start" => {
-                                    let ci = *color_map.get(&evt.service).unwrap_or(&0);
+                                    // Register new service if not yet in color_map
+                                    let ci = if let Some(&idx) = color_map.get(&evt.service) {
+                                        idx
+                                    } else {
+                                        let idx = color_map.len();
+                                        color_map.insert(evt.service.clone(), idx);
+                                        if evt.service.len() > max_len {
+                                            max_len = evt.service.len();
+                                        }
+                                        idx
+                                    };
                                     let prefix = colored_prefix(&evt.service, max_len, ci);
                                     let banner = run_banner(&evt.service);
                                     handle.write_data(term_name, banner.into_bytes());
