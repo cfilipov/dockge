@@ -275,11 +275,24 @@ tasks:
           cd backend-bun && bun run src/main.ts -- --dev --port 5002 --data-dir ../.run/dev-5002/data --stacks-dir ../.run/dev-5002/stacks
 
   build-rust:
-    desc: Build Rust backend (musl static binary)
+    desc: Build Rust backend (musl static binary, release)
     dir: backend-rust
     cmds:
       - cargo build --release --target x86_64-unknown-linux-musl
       - cp target/x86_64-unknown-linux-musl/release/dockge-rust ../bin/dockge-rust
+    sources:
+      - 'src/**/*.rs'
+      - Cargo.toml
+      - Cargo.lock
+    generates:
+      - ../bin/dockge-rust
+
+  build-rust-dev:
+    desc: Build Rust backend (musl debug binary, fast compile)
+    dir: backend-rust
+    cmds:
+      - cargo build --target x86_64-unknown-linux-musl
+      - cp target/x86_64-unknown-linux-musl/debug/dockge-rust ../bin/dockge-rust
     sources:
       - 'src/**/*.rs'
       - Cargo.toml
@@ -295,16 +308,16 @@ tasks:
 
   dev-rust:
     desc: Run mock daemon + Rust backend + Vite HMR (ports 5003 + 5000)
-    deps: [dev-rust-go, dev-rust-web]
+    deps: [dev-rust-backend, dev-rust-web]
 
   dev-rust-web:
     desc: Run Vite dev server for Rust backend (port 5000, proxies to 5003)
     dir: web
     cmd: VITE_BACKEND_PORT=5003 pnpm run dev
 
-  dev-rust-go:
+  dev-rust-backend:
     desc: Run mock daemon + Rust backend only (port 5003)
-    deps: [build-rust, build-mock-daemon, build-mock-docker]
+    deps: [build-rust-dev, build-mock-daemon, build-mock-docker]
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
