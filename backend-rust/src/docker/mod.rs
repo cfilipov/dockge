@@ -569,7 +569,7 @@ pub async fn volume_inspect(
 }
 
 /// Format a byte count as a human-readable string (e.g. "1.5MiB").
-fn format_bytes(b: u64) -> String {
+pub(crate) fn format_bytes(b: u64) -> String {
     const UNIT: u64 = 1024;
     if b < UNIT {
         return format!("{b}B");

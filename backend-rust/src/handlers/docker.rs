@@ -7,7 +7,7 @@ use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
-use crate::docker;
+use crate::docker::{self, format_bytes};
 use crate::ws::conn::Conn;
 use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
@@ -115,25 +115,6 @@ struct ContainerStat {
     block_io: String,
     #[serde(rename = "PIDs")]
     pids: String,
-}
-
-/// Format bytes into a human-readable string (e.g. "1.5GiB").
-/// Port of Go backend's formatBytes.
-fn format_bytes(b: u64) -> String {
-    const UNIT: u64 = 1024;
-    if b < UNIT {
-        return format!("{b}B");
-    }
-    let mut div = UNIT;
-    let mut exp = 0usize;
-    let mut n = b / UNIT;
-    while n >= UNIT {
-        n /= UNIT;
-        div *= UNIT;
-        exp += 1;
-    }
-    const UNITS: &[u8] = b"KMGTPE";
-    format!("{:.1}{}iB", b as f64 / div as f64, UNITS[exp] as char)
 }
 
 fn format_bytes_pair(a: u64, b: u64) -> String {
@@ -595,41 +576,6 @@ async fn push_top(docker: &crate::docker::DockerClient, container: &str, conn: &
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn format_bytes_zero() {
-        assert_eq!(format_bytes(0), "0B");
-    }
-
-    #[test]
-    fn format_bytes_below_unit() {
-        assert_eq!(format_bytes(1023), "1023B");
-    }
-
-    #[test]
-    fn format_bytes_exact_kib() {
-        assert_eq!(format_bytes(1024), "1.0KiB");
-    }
-
-    #[test]
-    fn format_bytes_fractional_kib() {
-        assert_eq!(format_bytes(1536), "1.5KiB");
-    }
-
-    #[test]
-    fn format_bytes_exact_mib() {
-        assert_eq!(format_bytes(1_048_576), "1.0MiB");
-    }
-
-    #[test]
-    fn format_bytes_fractional_gib() {
-        assert_eq!(format_bytes(1_610_612_736), "1.5GiB");
-    }
-
-    #[test]
-    fn format_bytes_exact_tib() {
-        assert_eq!(format_bytes(1_099_511_627_776), "1.0TiB");
-    }
 
     #[test]
     fn format_bytes_pair_output() {
