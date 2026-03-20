@@ -148,6 +148,20 @@ async fn run_watcher(
                     None => return Some("fs event channel closed".to_string()),
                 };
 
+                // Only react to content changes, creation, removal, and renames.
+                // Ignore metadata/chmod/access events to prevent a feedback loop
+                // where reading compose files triggers metadata inotify events on
+                // ZFS/CoW filesystems, causing endless stacks broadcasts.
+                if !matches!(
+                    event.kind,
+                    EventKind::Create(_)
+                        | EventKind::Modify(notify::event::ModifyKind::Data(_))
+                        | EventKind::Modify(notify::event::ModifyKind::Name(_))
+                        | EventKind::Remove(_)
+                ) {
+                    continue;
+                }
+
                 for path in &event.paths {
                     // New subdirectory created in stacks dir → start watching it
                     if matches!(event.kind, EventKind::Create(_))
