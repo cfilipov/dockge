@@ -54,5 +54,5 @@ COPY --from=build_backend /dockge /app/dockge
 
 VOLUME /app/data
 EXPOSE 5001
-HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 CMD wget -q -O /dev/null http://localhost:5001/healthz
+HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 CMD wget -q -O /dev/null http://127.0.0.1:5001/healthz
 ENTRYPOINT ["/app/dockge"]
