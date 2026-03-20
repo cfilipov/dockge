@@ -216,3 +216,58 @@ fn extract_stack_name(path: &Path, stacks_dir: &Path) -> Option<String> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_compose_file_valid_names() {
+        for name in COMPOSE_FILENAMES {
+            let path = Path::new(name);
+            assert!(is_compose_file(path), "should accept {name}");
+        }
+    }
+
+    #[test]
+    fn is_compose_file_invalid_names() {
+        assert!(!is_compose_file(Path::new("Dockerfile")));
+        assert!(!is_compose_file(Path::new("docker-compose.json")));
+        assert!(!is_compose_file(Path::new("compose.toml")));
+        assert!(!is_compose_file(Path::new(".env")));
+    }
+
+    #[test]
+    fn is_compose_file_full_path() {
+        let path = Path::new("/opt/stacks/my-stack/compose.yaml");
+        assert!(is_compose_file(path));
+    }
+
+    #[test]
+    fn extract_from_subdirectory() {
+        let stacks_dir = Path::new("/opt/stacks");
+        let path = Path::new("/opt/stacks/my-stack/compose.yaml");
+        assert_eq!(extract_stack_name(path, stacks_dir), Some("my-stack".to_string()));
+    }
+
+    #[test]
+    fn extract_direct_file() {
+        let stacks_dir = Path::new("/opt/stacks");
+        let path = Path::new("/opt/stacks/compose.yaml");
+        assert_eq!(extract_stack_name(path, stacks_dir), Some("compose".to_string()));
+    }
+
+    #[test]
+    fn extract_too_deep() {
+        let stacks_dir = Path::new("/opt/stacks");
+        let path = Path::new("/opt/stacks/my-stack/sub/compose.yaml");
+        assert_eq!(extract_stack_name(path, stacks_dir), None);
+    }
+
+    #[test]
+    fn extract_unrelated_path() {
+        let stacks_dir = Path::new("/opt/stacks");
+        let path = Path::new("/var/lib/compose.yaml");
+        assert_eq!(extract_stack_name(path, stacks_dir), None);
+    }
+}

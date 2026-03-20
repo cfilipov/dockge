@@ -120,3 +120,130 @@ impl LoginRateLimiter {
         self.entries.lock().unwrap().clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── shake256_hex ────────────────────────────────────────────────────
+
+    #[test]
+    fn shake256_empty_returns_empty() {
+        assert_eq!(shake256_hex(""), "");
+    }
+
+    #[test]
+    fn shake256_deterministic() {
+        assert_eq!(shake256_hex("hello"), shake256_hex("hello"));
+    }
+
+    #[test]
+    fn shake256_correct_length() {
+        let result = shake256_hex("test");
+        assert_eq!(result.len(), 32);
+    }
+
+    #[test]
+    fn shake256_different_inputs_differ() {
+        assert_ne!(shake256_hex("a"), shake256_hex("b"));
+    }
+
+    #[test]
+    fn shake256_hex_chars_only() {
+        let result = shake256_hex("test");
+        assert!(result.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    // ── gen_secret ──────────────────────────────────────────────────────
+
+    #[test]
+    fn gen_secret_correct_length() {
+        assert_eq!(gen_secret(32).len(), 32);
+        assert_eq!(gen_secret(0).len(), 0);
+        assert_eq!(gen_secret(1).len(), 1);
+    }
+
+    #[test]
+    fn gen_secret_alphanumeric_only() {
+        let secret = gen_secret(100);
+        assert!(secret.chars().all(|c| c.is_ascii_alphanumeric()));
+    }
+
+    #[test]
+    fn gen_secret_uniqueness() {
+        let a = gen_secret(32);
+        let b = gen_secret(32);
+        assert_ne!(a, b);
+    }
+
+    // ── LoginRateLimiter ────────────────────────────────────────────────
+
+    #[test]
+    fn rate_limiter_allows_up_to_max() {
+        let limiter = LoginRateLimiter::new();
+        for _ in 0..5 {
+            assert!(limiter.allow("user1"));
+        }
+    }
+
+    #[test]
+    fn rate_limiter_blocks_after_max() {
+        let limiter = LoginRateLimiter::new();
+        for _ in 0..5 {
+            limiter.allow("user1");
+        }
+        assert!(!limiter.allow("user1"));
+    }
+
+    #[test]
+    fn rate_limiter_reset_clears_key() {
+        let limiter = LoginRateLimiter::new();
+        for _ in 0..5 {
+            limiter.allow("user1");
+        }
+        assert!(!limiter.allow("user1"));
+        limiter.reset("user1");
+        assert!(limiter.allow("user1"));
+    }
+
+    #[test]
+    fn rate_limiter_reset_all_clears_all() {
+        let limiter = LoginRateLimiter::new();
+        for _ in 0..5 {
+            limiter.allow("user1");
+            limiter.allow("user2");
+        }
+        limiter.reset_all();
+        assert!(limiter.allow("user1"));
+        assert!(limiter.allow("user2"));
+    }
+
+    // ── JWT roundtrip ───────────────────────────────────────────────────
+
+    #[test]
+    fn jwt_roundtrip() {
+        let user = User {
+            id: 1,
+            username: "admin".to_string(),
+            password: "hashed_pw".to_string(),
+            active: true,
+        };
+        let secret = "test-secret-key";
+        let token = create_jwt(&user, secret).unwrap();
+        let claims = verify_jwt(&token, secret).unwrap();
+        assert_eq!(claims.username, "admin");
+        assert_eq!(claims.h, shake256_hex("hashed_pw"));
+    }
+
+    #[test]
+    fn jwt_wrong_secret_fails() {
+        let user = User {
+            id: 1,
+            username: "admin".to_string(),
+            password: "pw".to_string(),
+            active: true,
+        };
+        let token = create_jwt(&user, "secret1").unwrap();
+        assert!(verify_jwt(&token, "secret2").is_err());
+    }
+}

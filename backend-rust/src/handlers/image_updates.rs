@@ -372,3 +372,65 @@ fn set_last_check_time(state: &AppState) {
         tracing::warn!("failed to save imageUpdateLastCheck: {e}");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_single_service() {
+        let yaml = "services:\n  web:\n    image: nginx:latest\n";
+        let result = parse_service_images(yaml);
+        assert_eq!(result, vec![("web".to_string(), "nginx:latest".to_string())]);
+    }
+
+    #[test]
+    fn parse_multiple_services() {
+        let yaml = "services:\n  web:\n    image: nginx:latest\n  db:\n    image: postgres:16\n";
+        let result = parse_service_images(yaml);
+        assert_eq!(result, vec![
+            ("web".to_string(), "nginx:latest".to_string()),
+            ("db".to_string(), "postgres:16".to_string()),
+        ]);
+    }
+
+    #[test]
+    fn parse_no_image_key() {
+        let yaml = "services:\n  web:\n    build: .\n";
+        let result = parse_service_images(yaml);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn parse_quoted_image() {
+        let yaml = "services:\n  web:\n    image: \"nginx:latest\"\n";
+        let result = parse_service_images(yaml);
+        assert_eq!(result, vec![("web".to_string(), "nginx:latest".to_string())]);
+    }
+
+    #[test]
+    fn parse_single_quoted_image() {
+        let yaml = "services:\n  web:\n    image: 'redis:alpine'\n";
+        let result = parse_service_images(yaml);
+        assert_eq!(result, vec![("web".to_string(), "redis:alpine".to_string())]);
+    }
+
+    #[test]
+    fn parse_empty_yaml() {
+        assert!(parse_service_images("").is_empty());
+    }
+
+    #[test]
+    fn parse_non_service_image_key() {
+        let yaml = "volumes:\n  data:\n    image: something\n";
+        let result = parse_service_images(yaml);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn parse_build_only_service() {
+        let yaml = "services:\n  app:\n    build:\n      context: .\n    ports:\n      - '3000:3000'\n";
+        let result = parse_service_images(yaml);
+        assert!(result.is_empty());
+    }
+}

@@ -139,3 +139,109 @@ pub fn arg_object<T: serde::de::DeserializeOwned>(args: &[Box<RawValue>], index:
     args.get(index)
         .and_then(|v| serde_json::from_str(v.get()).ok())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ws::protocol::ClientMessage;
+
+    fn make_msg(args_json: Option<&str>) -> ClientMessage {
+        let args = args_json.map(|s| RawValue::from_string(s.to_string()).unwrap());
+        ClientMessage {
+            id: Some(1),
+            event: "test".to_string(),
+            args,
+        }
+    }
+
+    // ── parse_args ──────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_args_none() {
+        let msg = make_msg(None);
+        assert!(parse_args(&msg).is_empty());
+    }
+
+    #[test]
+    fn parse_args_empty_array() {
+        let msg = make_msg(Some("[]"));
+        assert!(parse_args(&msg).is_empty());
+    }
+
+    #[test]
+    fn parse_args_string_array() {
+        let msg = make_msg(Some(r#"["hello","world"]"#));
+        let args = parse_args(&msg);
+        assert_eq!(args.len(), 2);
+    }
+
+    #[test]
+    fn parse_args_mixed_types() {
+        let msg = make_msg(Some(r#"["hello",42,true]"#));
+        let args = parse_args(&msg);
+        assert_eq!(args.len(), 3);
+    }
+
+    #[test]
+    fn parse_args_invalid_json() {
+        let msg = make_msg(Some(r#""not an array""#));
+        assert!(parse_args(&msg).is_empty());
+    }
+
+    // ── arg_string ──────────────────────────────────────────────────────
+
+    #[test]
+    fn arg_string_valid() {
+        let msg = make_msg(Some(r#"["hello","world"]"#));
+        let args = parse_args(&msg);
+        assert_eq!(arg_string(&args, 0), "hello");
+        assert_eq!(arg_string(&args, 1), "world");
+    }
+
+    #[test]
+    fn arg_string_out_of_bounds() {
+        let msg = make_msg(Some(r#"["hello"]"#));
+        let args = parse_args(&msg);
+        assert_eq!(arg_string(&args, 5), "");
+    }
+
+    #[test]
+    fn arg_string_non_string_value() {
+        let msg = make_msg(Some(r#"[42]"#));
+        let args = parse_args(&msg);
+        assert_eq!(arg_string(&args, 0), "");
+    }
+
+    // ── arg_object ──────────────────────────────────────────────────────
+
+    #[test]
+    fn arg_object_valid() {
+        #[derive(serde::Deserialize, Debug, PartialEq)]
+        struct Opts { name: String }
+
+        let msg = make_msg(Some(r#"[{"name":"test"}]"#));
+        let args = parse_args(&msg);
+        let result: Option<Opts> = arg_object(&args, 0);
+        assert_eq!(result, Some(Opts { name: "test".to_string() }));
+    }
+
+    #[test]
+    fn arg_object_out_of_bounds() {
+        let msg = make_msg(Some(r#"[]"#));
+        let args = parse_args(&msg);
+        let result: Option<serde_json::Value> = arg_object(&args, 0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn arg_object_wrong_shape() {
+        #[derive(serde::Deserialize)]
+        #[allow(dead_code)]
+        struct Opts { name: String }
+
+        let msg = make_msg(Some(r#"["not an object"]"#));
+        let args = parse_args(&msg);
+        let result: Option<Opts> = arg_object(&args, 0);
+        assert!(result.is_none());
+    }
+}

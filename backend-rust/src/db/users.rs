@@ -153,3 +153,26 @@ impl UserStore {
 pub fn verify_password(password: &str, hash: &str) -> bool {
     bcrypt::verify(password, hash).unwrap_or(false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verify_correct_password() {
+        let hash = bcrypt::hash("testpass123", 4).unwrap();
+        assert!(verify_password("testpass123", &hash));
+    }
+
+    #[test]
+    fn verify_wrong_password() {
+        let hash = bcrypt::hash("testpass123", 4).unwrap();
+        assert!(!verify_password("wrongpass", &hash));
+    }
+
+    #[test]
+    fn verify_invalid_hash_no_panic() {
+        assert!(!verify_password("password", "not-a-valid-hash"));
+        assert!(!verify_password("password", ""));
+    }
+}

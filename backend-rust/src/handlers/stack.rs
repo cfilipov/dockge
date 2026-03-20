@@ -617,3 +617,174 @@ fn save_stack_to_disk(
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── validate_stack_name ─────────────────────────────────────────────
+
+    #[test]
+    fn validate_empty_name() {
+        assert_eq!(validate_stack_name(""), Err("Stack name required"));
+    }
+
+    #[test]
+    fn validate_valid_names() {
+        assert!(validate_stack_name("my-stack").is_ok());
+        assert!(validate_stack_name("web-app-2").is_ok());
+        assert!(validate_stack_name("a").is_ok());
+        assert!(validate_stack_name("test123").is_ok());
+    }
+
+    #[test]
+    fn validate_path_traversal_dotdot() {
+        assert_eq!(validate_stack_name(".."), Err("Invalid stack name (path traversal)"));
+    }
+
+    #[test]
+    fn validate_path_traversal_embedded() {
+        assert_eq!(validate_stack_name("foo/../etc"), Err("Invalid stack name (path traversal)"));
+    }
+
+    #[test]
+    fn validate_path_traversal_slash() {
+        assert_eq!(validate_stack_name("foo/bar"), Err("Invalid stack name (path traversal)"));
+    }
+
+    #[test]
+    fn validate_path_traversal_backslash() {
+        assert_eq!(validate_stack_name("foo\\bar"), Err("Invalid stack name (path traversal)"));
+    }
+
+    #[test]
+    fn validate_null_byte() {
+        assert_eq!(validate_stack_name("foo\0bar"), Err("Invalid stack name (null byte)"));
+    }
+
+    #[test]
+    fn validate_shell_chars() {
+        for ch in &[';', '|', '&', '`', '$', '>', '<', '(', ')'] {
+            let name = format!("foo{}bar", ch);
+            assert_eq!(
+                validate_stack_name(&name),
+                Err("Invalid stack name (shell characters)"),
+                "should reject '{ch}'"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_dot_prefix() {
+        assert_eq!(validate_stack_name(".hidden"), Err("Invalid stack name (dot prefix)"));
+    }
+
+    #[test]
+    fn validate_leading_hyphen() {
+        assert_eq!(validate_stack_name("-flag"), Err("Invalid stack name (leading hyphen)"));
+    }
+
+    #[test]
+    fn validate_spaces() {
+        assert_eq!(validate_stack_name("my stack"), Err("Invalid stack name (spaces)"));
+    }
+
+    #[test]
+    fn validate_uppercase() {
+        assert_eq!(validate_stack_name("MyStack"), Err("Invalid stack name (uppercase)"));
+    }
+
+    // ── NamedMutex ──────────────────────────────────────────────────────
+
+    #[test]
+    fn named_mutex_same_name_returns_same_arc() {
+        let nm = NamedMutex::new();
+        let a = nm.get("test");
+        let b = nm.get("test");
+        assert!(Arc::ptr_eq(&a, &b));
+    }
+
+    #[test]
+    fn named_mutex_different_names_return_different_arcs() {
+        let nm = NamedMutex::new();
+        let a = nm.get("alpha");
+        let b = nm.get("beta");
+        assert!(!Arc::ptr_eq(&a, &b));
+    }
+
+    #[test]
+    fn named_mutex_fresh_name_gets_new_mutex() {
+        let nm = NamedMutex::new();
+        let _a = nm.get("first");
+        let b = nm.get("second");
+        let c = nm.get("second");
+        assert!(Arc::ptr_eq(&b, &c));
+    }
+
+    // ── save_stack_to_disk (filesystem) ─────────────────────────────────
+
+    #[test]
+    fn save_creates_dir_and_compose_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("my-stack");
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "version: '3'\n", "").unwrap();
+        let content = std::fs::read_to_string(stack_dir.join("compose.yaml")).unwrap();
+        assert_eq!(content, "version: '3'\n");
+    }
+
+    #[test]
+    fn save_writes_env_when_nonempty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("my-stack");
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "FOO=bar").unwrap();
+        let env = std::fs::read_to_string(stack_dir.join(".env")).unwrap();
+        assert_eq!(env, "FOO=bar");
+    }
+
+    #[test]
+    fn save_removes_env_when_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("my-stack");
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "FOO=bar").unwrap();
+        assert!(stack_dir.join(".env").exists());
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "").unwrap();
+        assert!(!stack_dir.join(".env").exists());
+    }
+
+    // ── find_compose_file (filesystem) ──────────────────────────────────
+
+    #[test]
+    fn find_compose_file_yaml() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("test-stack");
+        std::fs::create_dir_all(&stack_dir).unwrap();
+        std::fs::write(stack_dir.join("compose.yaml"), "").unwrap();
+        assert_eq!(
+            find_compose_file(tmp.path().to_str().unwrap(), "test-stack"),
+            Some("compose.yaml".to_string())
+        );
+    }
+
+    #[test]
+    fn find_compose_file_docker_compose_yml() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("test-stack");
+        std::fs::create_dir_all(&stack_dir).unwrap();
+        std::fs::write(stack_dir.join("docker-compose.yml"), "").unwrap();
+        assert_eq!(
+            find_compose_file(tmp.path().to_str().unwrap(), "test-stack"),
+            Some("docker-compose.yml".to_string())
+        );
+    }
+
+    #[test]
+    fn find_compose_file_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("empty-stack");
+        std::fs::create_dir_all(&stack_dir).unwrap();
+        assert_eq!(
+            find_compose_file(tmp.path().to_str().unwrap(), "empty-stack"),
+            None
+        );
+    }
+}
+

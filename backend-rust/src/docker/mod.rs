@@ -620,3 +620,150 @@ fn format_unix_timestamp(secs: i64) -> String {
     let _ = write!(buf, "{y:04}-{m:02}-{d:02}T{hour:02}:{min:02}:{sec:02}Z");
     buf
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── format_bytes ────────────────────────────────────────────────────
+
+    #[test]
+    fn format_bytes_zero() {
+        assert_eq!(format_bytes(0), "0B");
+    }
+
+    #[test]
+    fn format_bytes_below_unit() {
+        assert_eq!(format_bytes(512), "512B");
+        assert_eq!(format_bytes(1023), "1023B");
+    }
+
+    #[test]
+    fn format_bytes_exact_kib() {
+        assert_eq!(format_bytes(1024), "1.0KiB");
+    }
+
+    #[test]
+    fn format_bytes_fractional_kib() {
+        assert_eq!(format_bytes(1536), "1.5KiB");
+    }
+
+    #[test]
+    fn format_bytes_exact_mib() {
+        assert_eq!(format_bytes(1_048_576), "1.0MiB");
+    }
+
+    #[test]
+    fn format_bytes_exact_gib() {
+        assert_eq!(format_bytes(1_073_741_824), "1.0GiB");
+    }
+
+    #[test]
+    fn format_bytes_exact_tib() {
+        assert_eq!(format_bytes(1_099_511_627_776), "1.0TiB");
+    }
+
+    // ── format_unix_timestamp ───────────────────────────────────────────
+
+    #[test]
+    fn format_unix_timestamp_epoch() {
+        assert_eq!(format_unix_timestamp(0), "1970-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn format_unix_timestamp_known_date() {
+        assert_eq!(format_unix_timestamp(1704067200), "2024-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn format_unix_timestamp_leap_year() {
+        assert_eq!(format_unix_timestamp(1709208000), "2024-02-29T12:00:00Z");
+    }
+
+    #[test]
+    fn format_unix_timestamp_end_of_day() {
+        assert_eq!(format_unix_timestamp(1735689599), "2024-12-31T23:59:59Z");
+    }
+
+    #[test]
+    fn format_unix_timestamp_y2k() {
+        assert_eq!(format_unix_timestamp(946684800), "2000-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn format_unix_timestamp_negative() {
+        assert_eq!(format_unix_timestamp(-1), "1969-12-31T23:59:59Z");
+    }
+
+    #[test]
+    fn format_unix_timestamp_pre_epoch() {
+        assert_eq!(format_unix_timestamp(-315619200), "1960-01-01T00:00:00Z");
+    }
+
+    // ── parse_health_from_status ────────────────────────────────────────
+
+    #[test]
+    fn health_healthy() {
+        assert_eq!(parse_health_from_status("running", "Up 2 hours (healthy)"), "healthy");
+    }
+
+    #[test]
+    fn health_unhealthy() {
+        assert_eq!(parse_health_from_status("running", "Up 5 minutes (unhealthy)"), "unhealthy");
+    }
+
+    #[test]
+    fn health_starting() {
+        assert_eq!(parse_health_from_status("running", "Up 10 seconds (health: starting)"), "starting");
+    }
+
+    #[test]
+    fn health_no_healthcheck() {
+        assert_eq!(parse_health_from_status("running", "Up 2 hours"), "");
+    }
+
+    #[test]
+    fn health_not_running() {
+        assert_eq!(parse_health_from_status("exited", "Exited (0) 5 minutes ago"), "");
+    }
+
+    #[test]
+    fn health_empty_status() {
+        assert_eq!(parse_health_from_status("running", ""), "");
+    }
+
+    #[test]
+    fn health_stopped_state() {
+        assert_eq!(parse_health_from_status("stopped", ""), "");
+    }
+
+    // ── container_from_bollard ──────────────────────────────────────────
+
+    #[test]
+    fn container_from_bollard_all_none() {
+        let c = bollard::models::ContainerSummary {
+            id: None,
+            names: None,
+            image: None,
+            image_id: None,
+            command: None,
+            created: None,
+            ports: None,
+            size_rw: None,
+            size_root_fs: None,
+            labels: None,
+            state: None,
+            status: None,
+            host_config: None,
+            network_settings: None,
+            mounts: None,
+            image_manifest_descriptor: None,
+        };
+        let result = container_from_bollard(c);
+        assert_eq!(result.name, "");
+        assert_eq!(result.container_id, "");
+        assert_eq!(result.state, "");
+        assert_eq!(result.health, "");
+        assert_eq!(result.image, "");
+    }
+}

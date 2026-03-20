@@ -85,3 +85,65 @@ impl ErrorResponse {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── OkResponse ──────────────────────────────────────────────────────
+
+    #[test]
+    fn ok_response_simple() {
+        let r = OkResponse::simple();
+        assert!(r.ok);
+        assert!(r.msg.is_none());
+        assert!(r.token.is_none());
+    }
+
+    #[test]
+    fn ok_response_omits_optional_fields() {
+        let r = OkResponse::simple();
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(!json.contains("msg"));
+        assert!(!json.contains("token"));
+        assert!(json.contains("\"ok\":true"));
+    }
+
+    // ── ErrorResponse ───────────────────────────────────────────────────
+
+    #[test]
+    fn error_response_new() {
+        let r = ErrorResponse::new("something failed");
+        assert!(!r.ok);
+        assert_eq!(r.msg, "something failed");
+        assert!(r.msgi18n.is_none());
+    }
+
+    #[test]
+    fn error_response_i18n() {
+        let r = ErrorResponse::i18n("authIncorrectCreds");
+        assert!(!r.ok);
+        assert_eq!(r.msg, "authIncorrectCreds");
+        assert_eq!(r.msgi18n, Some(true));
+    }
+
+    // ── ClientMessage deserialization ────────────────────────────────────
+
+    #[test]
+    fn client_message_from_json() {
+        let json = r#"{"id":1,"event":"login","args":["admin","pass"]}"#;
+        let msg: ClientMessage = serde_json::from_str(json).unwrap();
+        assert_eq!(msg.id, Some(1));
+        assert_eq!(msg.event, "login");
+        assert!(msg.args.is_some());
+    }
+
+    #[test]
+    fn client_message_no_args() {
+        let json = r#"{"event":"ping"}"#;
+        let msg: ClientMessage = serde_json::from_str(json).unwrap();
+        assert!(msg.id.is_none());
+        assert_eq!(msg.event, "ping");
+        assert!(msg.args.is_none());
+    }
+}

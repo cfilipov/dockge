@@ -638,4 +638,61 @@ mod tests {
             "1.0MiB / 512B"
         );
     }
+
+    // ── calculate_cpu_percent ───────────────────────────────────────────
+
+    fn make_stats(
+        cpu: Option<u64>,
+        precpu: Option<u64>,
+        sys: Option<u64>,
+        presys: Option<u64>,
+        cpus: Option<u32>,
+    ) -> bollard::models::ContainerStatsResponse {
+        bollard::models::ContainerStatsResponse {
+            cpu_stats: Some(bollard::models::ContainerCpuStats {
+                cpu_usage: Some(bollard::models::ContainerCpuUsage {
+                    total_usage: cpu,
+                    ..Default::default()
+                }),
+                system_cpu_usage: sys,
+                online_cpus: cpus,
+                ..Default::default()
+            }),
+            precpu_stats: Some(bollard::models::ContainerCpuStats {
+                cpu_usage: Some(bollard::models::ContainerCpuUsage {
+                    total_usage: precpu,
+                    ..Default::default()
+                }),
+                system_cpu_usage: presys,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn cpu_percent_known_values() {
+        // cpu_delta=100, system_delta=1000, 4 cpus → (100/1000)*4*100 = 40%
+        let stats = make_stats(Some(200), Some(100), Some(2000), Some(1000), Some(4));
+        let pct = calculate_cpu_percent(&stats);
+        assert!((pct - 40.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn cpu_percent_zero_system_delta() {
+        let stats = make_stats(Some(200), Some(100), Some(1000), Some(1000), Some(4));
+        assert_eq!(calculate_cpu_percent(&stats), 0.0);
+    }
+
+    #[test]
+    fn cpu_percent_negative_cpu_delta() {
+        let stats = make_stats(Some(50), Some(100), Some(2000), Some(1000), Some(4));
+        assert_eq!(calculate_cpu_percent(&stats), 0.0);
+    }
+
+    #[test]
+    fn cpu_percent_all_defaults() {
+        let stats = bollard::models::ContainerStatsResponse::default();
+        assert_eq!(calculate_cpu_percent(&stats), 0.0);
+    }
 }

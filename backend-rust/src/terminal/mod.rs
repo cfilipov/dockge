@@ -151,6 +151,97 @@ fn normalize_newlines(data: &[u8]) -> Vec<u8> {
     result
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── normalize_newlines ──────────────────────────────────────────────
+
+    #[test]
+    fn normalize_empty() {
+        assert_eq!(normalize_newlines(b""), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn normalize_bare_lf() {
+        assert_eq!(normalize_newlines(b"hello\nworld"), b"hello\r\nworld");
+    }
+
+    #[test]
+    fn normalize_crlf_passthrough() {
+        assert_eq!(normalize_newlines(b"hello\r\nworld"), b"hello\r\nworld");
+    }
+
+    #[test]
+    fn normalize_leading_lf() {
+        assert_eq!(normalize_newlines(b"\nhello"), b"\r\nhello");
+    }
+
+    #[test]
+    fn normalize_only_lf() {
+        assert_eq!(normalize_newlines(b"\n"), b"\r\n");
+    }
+
+    #[test]
+    fn normalize_mixed() {
+        assert_eq!(
+            normalize_newlines(b"a\nb\r\nc\n"),
+            b"a\r\nb\r\nc\r\n"
+        );
+    }
+
+    #[test]
+    fn normalize_no_newlines() {
+        assert_eq!(normalize_newlines(b"hello world"), b"hello world");
+    }
+
+    // ── Terminal struct ─────────────────────────────────────────────────
+
+    #[test]
+    fn terminal_write_buffers_data() {
+        let mut term = Terminal::new("test".into(), TerminalType::Pty);
+        term.write_data(b"hello");
+        assert_eq!(term.buffer, b"hello");
+    }
+
+    #[test]
+    fn terminal_rolling_window() {
+        let mut term = Terminal::new("test".into(), TerminalType::Pty);
+        // Write >64KB of data
+        let chunk = vec![b'x'; MAX_BUFFER + 1024];
+        term.write_data(&chunk);
+        assert!(term.buffer.len() <= KEEP_BUFFER);
+        assert_eq!(term.buffer.len(), KEEP_BUFFER);
+    }
+
+    #[test]
+    fn terminal_closed_ignores_writes() {
+        let mut term = Terminal::new("test".into(), TerminalType::Pty);
+        term.close();
+        term.write_data(b"hello");
+        assert!(term.buffer.is_empty());
+    }
+
+    #[test]
+    fn terminal_join_and_get_buffer() {
+        let mut term = Terminal::new("test".into(), TerminalType::Pty);
+        term.write_data(b"existing data");
+        let buf = term.join_and_get_buffer(
+            "writer1".into(),
+            Box::new(|_| {}),
+        );
+        assert_eq!(buf, b"existing data");
+        assert_eq!(term.writer_count(), 1);
+    }
+
+    #[test]
+    fn terminal_pipe_normalizes_newlines() {
+        let mut term = Terminal::new("test".into(), TerminalType::Pipe);
+        term.write_data(b"line1\nline2");
+        assert_eq!(term.buffer, b"line1\r\nline2");
+    }
+}
+
 // ── Actor commands ──────────────────────────────────────────────────────────
 
 enum TerminalCmd {

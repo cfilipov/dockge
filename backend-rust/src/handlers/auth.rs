@@ -612,6 +612,43 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_no_labels_section() {
+        let yaml = "services:\n  web:\n    image: nginx:latest\n";
+        let result = parse_status_ignore_labels(yaml);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_ignore_false_value() {
+        let yaml = "services:\n  web:\n    image: nginx\n    labels:\n      dockge.status.ignore: \"false\"\n";
+        let result = parse_status_ignore_labels(yaml);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_multiple_services_with_ignore() {
+        let yaml = r#"services:
+  web:
+    image: nginx
+    labels:
+      dockge.status.ignore: "true"
+  db:
+    image: postgres
+    labels:
+      dockge.status.ignore: "true"
+"#;
+        let result = parse_status_ignore_labels(yaml);
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&("web".to_string(), true)));
+        assert!(result.contains(&("db".to_string(), true)));
+    }
+
+    #[test]
+    fn test_parse_empty_yaml() {
+        assert!(parse_status_ignore_labels("").is_empty());
+    }
+
+    #[test]
     fn test_stack_broadcast_omits_empty_ignore_status() {
         let sb = StackBroadcast {
             name: "test".to_string(),

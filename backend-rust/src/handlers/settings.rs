@@ -128,3 +128,44 @@ fn write_global_env(stacks_dir: &str, content: &str) {
         let _ = std::fs::write(&path, content);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── read_global_env ─────────────────────────────────────────────────
+
+    #[test]
+    fn read_missing_file_returns_default() {
+        let tmp = tempfile::tempdir().unwrap();
+        let result = read_global_env(tmp.path().to_str().unwrap());
+        assert_eq!(result, GLOBAL_ENV_DEFAULT);
+    }
+
+    #[test]
+    fn read_existing_file_returns_content() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("global.env"), "MY_VAR=hello").unwrap();
+        let result = read_global_env(tmp.path().to_str().unwrap());
+        assert_eq!(result, "MY_VAR=hello");
+    }
+
+    // ── write_global_env ────────────────────────────────────────────────
+
+    #[test]
+    fn write_creates_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_global_env(tmp.path().to_str().unwrap(), "FOO=bar");
+        let content = std::fs::read_to_string(tmp.path().join("global.env")).unwrap();
+        assert_eq!(content, "FOO=bar");
+    }
+
+    #[test]
+    fn write_deletes_when_default() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_global_env(tmp.path().to_str().unwrap(), "FOO=bar");
+        assert!(tmp.path().join("global.env").exists());
+        write_global_env(tmp.path().to_str().unwrap(), GLOBAL_ENV_DEFAULT);
+        assert!(!tmp.path().join("global.env").exists());
+    }
+}
