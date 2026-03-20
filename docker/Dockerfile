@@ -13,29 +13,30 @@ COPY web/ ./
 RUN pnpm run build
 
 ############################################
-# Build Go backend (embeds frontend)
+# Build Rust backend (embeds frontend)
 ############################################
-FROM golang:1.25-alpine AS build_backend
-RUN apk add --no-cache git
+FROM rust:1-bookworm AS build_backend
+RUN rustup target add x86_64-unknown-linux-musl && \
+    apt-get update && apt-get install -y musl-tools && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-# Copy go module files first for dependency caching
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copy frontend build output for embedding
+# Copy frontend build output — rust-embed references ../dist/ from backend-rust/
 COPY --from=build_frontend /app/dist ./dist/
 
-# Copy package.json for version extraction, then Go source
-COPY web/package.json ./web/
-COPY internal/ ./internal/
-COPY cmd/ ./cmd/
-COPY main.go embed.go ./
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    VERSION=$(grep '"version"' web/package.json | head -1 | sed 's/.*"\([0-9][^"]*\)".*/\1/') && \
-    CGO_ENABLED=0 go build \
-    -ldflags="-s -w -X main.version=${VERSION}" \
-    -o /dockge .
+# Copy Rust project files — dependencies first for caching
+COPY backend-rust/Cargo.toml backend-rust/Cargo.lock ./backend-rust/
+RUN mkdir -p backend-rust/src && echo 'fn main() {}' > backend-rust/src/main.rs && \
+    cd backend-rust && cargo build --release --target x86_64-unknown-linux-musl && \
+    rm -rf src
+
+# Copy actual source and rebuild
+COPY backend-rust/src ./backend-rust/src/
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/backend-rust/target \
+    cd backend-rust && \
+    touch src/main.rs && \
+    cargo build --release --target x86_64-unknown-linux-musl && \
+    cp target/x86_64-unknown-linux-musl/release/dockge-rust /dockge
 
 ############################################
 # Final image — Alpine (bash + docker CLI)
@@ -53,5 +54,5 @@ COPY --from=build_backend /dockge /app/dockge
 
 VOLUME /app/data
 EXPOSE 5001
-HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 CMD ["/app/dockge", "healthcheck"]
+HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 CMD ["wget", "-q", "--spider", "http://localhost:5001/healthz"]
 ENTRYPOINT ["/app/dockge"]
