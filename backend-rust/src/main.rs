@@ -127,6 +127,7 @@ async fn main() {
     // Register connect handler: send "info" event synchronously so it is
     // queued in the write channel before the read pump starts.
     let dev = config.dev;
+    let connect_state = state.clone();
     ws_builder.handle_connect(move |conn| {
         #[derive(serde::Serialize)]
         #[serde(rename_all = "camelCase")]
@@ -143,6 +144,11 @@ async fn main() {
             is_container: true,
             dev,
         });
+
+        // If no users exist, tell the client to show the setup page
+        if connect_state.need_setup.load(std::sync::atomic::Ordering::Relaxed) {
+            conn.send_event_sync("setup", serde_json::Value::Null);
+        }
     });
 
     // Register disconnect handler for subscription cleanup
