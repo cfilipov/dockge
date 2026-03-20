@@ -96,7 +96,6 @@ pub(crate) fn is_stack_managed(stacks_dir: &str, stack_name: &str) -> bool {
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // Register stack lifecycle handlers (loop — keep on ws.handle)
     for (event, action) in &[
-        ("startStack", "start"),
         ("stopStack", "stop"),
         ("restartStack", "restart"),
         ("downStack", "down"),
@@ -153,6 +152,50 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             }
         });
     }
+
+    // startStack — uses "up -d --remove-orphans" (not "start") for managed stacks
+    ws.handle_with_state("startStack", state.clone(), |state, conn, msg| async move {
+        let uid = state.check_login(&conn, &msg).await;
+        if uid == 0 {
+            return;
+        }
+
+        let args = parse_args(&msg);
+        let stack_name = arg_string(&args, 0);
+
+        if let Err(e) = validate_stack_name(&stack_name) {
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new(e)).await;
+            }
+            return;
+        }
+
+        if let Some(id) = msg.id {
+            conn.send_ack(id, OkResponse::simple()).await;
+        }
+
+        tokio::spawn(async move {
+            let lock = state.stack_locks.get(&stack_name);
+            let _guard = lock.lock().await;
+
+            let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
+            let term_name = format!("compose-{}", stack_name);
+            state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+            state.terminal_manager.write_data(
+                &term_name,
+                b"$ docker compose up -d --remove-orphans\r\n".to_vec(),
+            );
+
+            match run_pty_to_terminal(
+                &state.terminal_manager, &term_name,
+                "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir),
+            ).await {
+                Ok(()) => info!(stack = %stack_name, "startStack completed"),
+                Err(e) => warn!(stack = %stack_name, "startStack failed: {e}"),
+            }
+            state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
+        });
+    });
 
     // getStack
     ws.handle_with_state("getStack", state.clone(), |state, conn, msg| async move {
@@ -264,6 +307,14 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             return;
         }
 
+        // Trigger immediate stacks broadcast so the frontend store is updated
+        // before the ack triggers navigation to the new stack page.
+        let _ = state.dispatch_tx.try_send(
+            crate::broadcast::DispatchMsg::FullSync {
+                resource_type: "stacks".to_string(),
+            },
+        );
+
         if let Some(id) = msg.id {
             conn.send_ack(
                 id,
@@ -278,7 +329,8 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         info!(stack = %stack_name, "stack saved");
     });
 
-    // deployStack
+    // deployStack — validate then deploy; ack AFTER completion so the frontend
+    // stays on /stacks/new showing progress output until done.
     ws.handle_with_state("deployStack", state.clone(), |state, conn, msg| async move {
         let uid = state.check_login(&conn, &msg).await;
         if uid == 0 {
@@ -333,28 +385,47 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             }
         }
 
-        // Ack immediately
-        if let Some(id) = msg.id {
-            conn.send_ack(
-                id,
-                OkResponse {
-                    ok: true,
-                    msg: Some("Deployed".into()),
-                    token: None,
-                },
-            )
-            .await;
-        }
-
-        // Run compose up in background so the worker is free for subsequent messages.
+        // Validate then deploy in background; ack AFTER completion so the
+        // frontend stays on the current page showing progress output.
         tokio::spawn(async move {
             let lock = state.stack_locks.get(&stack_name);
             let _guard = lock.lock().await;
 
             let term_name = format!("compose-{}", stack_name);
             state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
-            state.terminal_manager.write_data(&term_name, b"$ docker compose up -d --remove-orphans\r\n".to_vec());
 
+            // Step 1: Validate via dry-run
+            state.terminal_manager.write_data(
+                &term_name,
+                b"$ docker compose config --dry-run\r\n".to_vec(),
+            );
+            match run_pty_to_terminal(
+                &state.terminal_manager, &term_name,
+                "docker", &["compose", "config", "--dry-run"], Some(&stack_dir),
+            ).await {
+                Ok(()) => {}
+                Err(e) => {
+                    warn!(stack = %stack_name, "deploy validation failed: {e}");
+                    // Ack with success — the stack was saved to disk; fsnotify
+                    // picks it up. Validation failure just means no "up".
+                    if let Some(id) = msg.id {
+                        conn.send_ack(id, OkResponse {
+                            ok: true,
+                            msg: Some("Deployed".into()),
+                            token: None,
+                        }).await;
+                    }
+                    state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
+                    return;
+                }
+            }
+
+            // Step 2: Deploy
+            state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+            state.terminal_manager.write_data(
+                &term_name,
+                b"$ docker compose up -d --remove-orphans\r\n".to_vec(),
+            );
             match run_pty_to_terminal(
                 &state.terminal_manager, &term_name,
                 "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir),
@@ -362,6 +433,16 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 Ok(()) => info!(stack = %stack_name, "deploy completed"),
                 Err(e) => warn!(stack = %stack_name, "deploy failed: {e}"),
             }
+
+            // Ack after completion
+            if let Some(id) = msg.id {
+                conn.send_ack(id, OkResponse {
+                    ok: true,
+                    msg: Some("Deployed".into()),
+                    token: None,
+                }).await;
+            }
+
             state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
         });
     });

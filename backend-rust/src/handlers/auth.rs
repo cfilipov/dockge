@@ -364,6 +364,10 @@ async fn handle_change_password(state: &AppState, conn: &Conn, msg: &ClientMessa
         return;
     }
 
+    // Broadcast "refresh" to all connections — forces re-login (session invalidated
+    // because the password hash changed, so existing JWT tokens won't validate).
+    state.broadcaster.send_event("refresh", &serde_json::Value::Null);
+
     if let Some(id) = msg.id {
         conn.send_ack(id, OkResponse {
             ok: true,

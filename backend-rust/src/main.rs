@@ -7,6 +7,7 @@ mod broadcast;
 mod compose;
 mod config;
 mod db;
+mod debug;
 mod docker;
 mod embed;
 mod handlers;
@@ -19,6 +20,7 @@ use std::sync::Arc;
 use axum::{
     extract::WebSocketUpgrade,
     http::StatusCode,
+    response::Json,
     routing::{get, post},
     Router,
 };
@@ -219,6 +221,25 @@ async fn main() {
                     error!("mock reset proxy: {e}");
                     (StatusCode::BAD_GATEWAY, format!("{e}"))
                 }
+            }
+        }));
+
+        // Memory stats endpoints for performance benchmarks
+        let mem_tracker = Arc::new(debug::MemTracker::new());
+        debug::MemTracker::spawn_sampler(mem_tracker.clone());
+
+        let mt_get = mem_tracker.clone();
+        app = app.route("/api/debug/memstats", get(move || {
+            let mt = mt_get.clone();
+            async move { Json(mt.stats()) }
+        }));
+
+        let mt_reset = mem_tracker;
+        app = app.route("/api/debug/memstats/reset", post(move || {
+            let mt = mt_reset.clone();
+            async move {
+                mt.reset();
+                Json(serde_json::json!({"ok": true}))
             }
         }));
     }
