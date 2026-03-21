@@ -326,50 +326,13 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
                 dispatch_container_broadcast(state, ids, batch).await;
             }
             "network" => {
-                match docker::network_list(&state.docker).await {
-                    Ok(networks) => {
-                        let mut map: BTreeMap<String, Option<_>> = networks.into_iter()
-                            .map(|n| (n.name.clone(), Some(n)))
-                            .collect();
-                        // Insert null for destroyed networks
-                        if let Some(destroyed) = batch.destroyed.get("network") {
-                            for name in destroyed.keys() {
-                                if !map.contains_key(name) {
-                                    map.insert(name.clone(), None);
-                                }
-                            }
-                        }
-                        state.broadcaster.send_event(
-                            "networks",
-                            &ItemsEvent { items: map },
-                        );
-                    }
-                    Err(e) => warn!("coalescer: network list failed: {e}"),
-                }
+                dispatch_network_broadcast(state, ids, batch).await;
             }
             "image" => {
-                match docker::image_list(&state.docker).await {
-                    Ok(images) => {
-                        let map: BTreeMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
-                        state.broadcaster.send_event(
-                            "images",
-                            &ItemsEvent { items: map },
-                        );
-                    }
-                    Err(e) => warn!("coalescer: image list failed: {e}"),
-                }
+                dispatch_image_broadcast(state, ids, batch).await;
             }
             "volume" => {
-                match docker::volume_list(&state.docker).await {
-                    Ok(volumes) => {
-                        let map: BTreeMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
-                        state.broadcaster.send_event(
-                            "volumes",
-                            &ItemsEvent { items: map },
-                        );
-                    }
-                    Err(e) => warn!("coalescer: volume list failed: {e}"),
-                }
+                dispatch_volume_broadcast(state, ids, batch).await;
             }
             "stacks" => {
                 let stacks = crate::handlers::auth::build_stacks_broadcast(&state.config.stacks_dir);
@@ -390,6 +353,15 @@ async fn dispatch_broadcasts(state: &AppState, batch: &PendingBatch) {
         match resource_type.as_str() {
             "container" => {
                 dispatch_container_broadcast(state, &HashSet::new(), batch).await;
+            }
+            "network" => {
+                dispatch_network_broadcast(state, &HashSet::new(), batch).await;
+            }
+            "image" => {
+                dispatch_image_broadcast(state, &HashSet::new(), batch).await;
+            }
+            "volume" => {
+                dispatch_volume_broadcast(state, &HashSet::new(), batch).await;
             }
             "stacks" => {
                 let stacks = crate::handlers::auth::build_stacks_broadcast(&state.config.stacks_dir);
@@ -440,5 +412,129 @@ async fn dispatch_container_broadcast(
             }
         }
         Err(e) => warn!("coalescer: container list failed: {e}"),
+    }
+}
+
+/// Dispatch network list broadcast with optional ID filtering.
+async fn dispatch_network_broadcast(
+    state: &AppState,
+    ids: &HashSet<String>,
+    batch: &PendingBatch,
+) {
+    let use_full = batch.force_full.contains("network") || ids.len() > FILTERED_THRESHOLD;
+
+    let networks = if use_full || ids.is_empty() {
+        docker::network_list(&state.docker).await
+    } else {
+        docker::network_list_by_ids(&state.docker, ids).await
+    };
+
+    match networks {
+        Ok(networks) => {
+            let mut map: BTreeMap<String, Option<_>> = networks
+                .into_iter()
+                .map(|n| (n.name.clone(), Some(n)))
+                .collect();
+
+            // Insert null for destroyed networks so the frontend removes them
+            if let Some(destroyed) = batch.destroyed.get("network") {
+                for name in destroyed.keys() {
+                    if !map.contains_key(name) {
+                        map.insert(name.clone(), None);
+                    }
+                }
+            }
+
+            if !map.is_empty() {
+                state.broadcaster.send_event(
+                    "networks",
+                    &ItemsEvent { items: map },
+                );
+            }
+        }
+        Err(e) => warn!("coalescer: network list failed: {e}"),
+    }
+}
+
+/// Dispatch image list broadcast with optional ID filtering.
+async fn dispatch_image_broadcast(
+    state: &AppState,
+    ids: &HashSet<String>,
+    batch: &PendingBatch,
+) {
+    let use_full = batch.force_full.contains("image") || ids.len() > FILTERED_THRESHOLD;
+
+    let images = if use_full || ids.is_empty() {
+        docker::image_list(&state.docker).await
+    } else {
+        docker::image_list_by_ids(&state.docker, ids).await
+    };
+
+    match images {
+        Ok(images) => {
+            let mut map: BTreeMap<String, Option<_>> = images
+                .into_iter()
+                .map(|i| (i.id.clone(), Some(i)))
+                .collect();
+
+            // Insert null for destroyed images so the frontend removes them
+            if let Some(destroyed) = batch.destroyed.get("image") {
+                for id in destroyed.keys() {
+                    if !map.contains_key(id) {
+                        map.insert(id.clone(), None);
+                    }
+                }
+            }
+
+            if !map.is_empty() {
+                state.broadcaster.send_event(
+                    "images",
+                    &ItemsEvent { items: map },
+                );
+            }
+        }
+        Err(e) => warn!("coalescer: image list failed: {e}"),
+    }
+}
+
+/// Dispatch volume list broadcast with optional name filtering.
+async fn dispatch_volume_broadcast(
+    state: &AppState,
+    ids: &HashSet<String>,
+    batch: &PendingBatch,
+) {
+    let use_full = batch.force_full.contains("volume") || ids.len() > FILTERED_THRESHOLD;
+
+    let volumes = if use_full || ids.is_empty() {
+        docker::volume_list(&state.docker).await
+    } else {
+        // Volume events use the volume name as the actor ID
+        docker::volume_list_by_names(&state.docker, ids).await
+    };
+
+    match volumes {
+        Ok(volumes) => {
+            let mut map: BTreeMap<String, Option<_>> = volumes
+                .into_iter()
+                .map(|v| (v.name.clone(), Some(v)))
+                .collect();
+
+            // Insert null for destroyed volumes so the frontend removes them
+            if let Some(destroyed) = batch.destroyed.get("volume") {
+                for name in destroyed.keys() {
+                    if !map.contains_key(name) {
+                        map.insert(name.clone(), None);
+                    }
+                }
+            }
+
+            if !map.is_empty() {
+                state.broadcaster.send_event(
+                    "volumes",
+                    &ItemsEvent { items: map },
+                );
+            }
+        }
+        Err(e) => warn!("coalescer: volume list failed: {e}"),
     }
 }

@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use axum::extract::ws::WebSocket;
+use futures_util::StreamExt;
 use tracing::{debug, warn};
 
 use conn::{BinaryFn, Conn, ConnectFn};
@@ -107,12 +108,14 @@ impl WsServer {
 
     /// Accept a new WebSocket connection.
     ///
-    /// Order: create conn → register → fire connect handler → start tasks.
-    /// This ensures the info event is queued in the write channel before the
-    /// read pump starts accepting client messages, eliminating the race.
+    /// Order: create conn → register → fire connect handler → spawn task.
+    /// The info event is queued via `send_event_sync` (unbounded send) before
+    /// the task starts. On the task's first iteration, `biased` checks
+    /// `direct_rx` first, finds the info event, sends it. No inter-task
+    /// dependency. No circular wait.
     pub fn accept(self: &Arc<Self>, socket: WebSocket) {
         let broadcast_rx = self.broadcaster.subscribe();
-        let (conn, write_rx) = conn::new_conn();
+        let (conn, direct_rx) = conn::new_conn();
 
         // Register connection
         {
@@ -121,13 +124,15 @@ impl WsServer {
         }
 
         // Fire connect handler — queues info event via send_event_sync
-        // before the read pump starts processing client messages.
+        // before the connection task starts processing client messages.
         if let Some(ref handler) = self.connect_handler {
             handler(conn.clone());
         }
 
-        // Now start the read/write/worker tasks
-        conn::start_tasks(socket, conn, write_rx, self.clone(), broadcast_rx);
+        let (ws_write, ws_read) = socket.split();
+        tokio::spawn(conn::connection_task(
+            conn, direct_rx, broadcast_rx, ws_read, ws_write, self.clone(),
+        ));
     }
 
     /// Remove a connection from the registry.
@@ -149,8 +154,7 @@ impl WsServer {
         } else {
             warn!(event = %msg.event, "unknown event");
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(format!("unknown event: {}", msg.event)))
-                    .await;
+                conn.send_ack(id, ErrorResponse::new(format!("unknown event: {}", msg.event)));
             }
         }
     }

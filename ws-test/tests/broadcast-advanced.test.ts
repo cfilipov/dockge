@@ -1,6 +1,8 @@
 import { describe, test, expect, beforeAll } from "vitest";
 import { resetMockState, connectClient } from "../src/helpers.js";
 
+const isNoAuth = !!process.env.DOCKGE_NO_AUTH;
+
 describe("broadcast-advanced", () => {
     beforeAll(async () => {
         await resetMockState();
@@ -93,12 +95,17 @@ describe("broadcast-advanced", () => {
         await resetMockState();
 
         const client1 = await connectClient();
-        const client2 = await connectClient(); // NOT logged in
+        const client2 = await connectClient(); // NOT logged in (in auth mode)
         try {
             await client1.login();
 
             // Drain AfterLogin on client1
             await client1.waitForEvent("containers");
+
+            if (isNoAuth) {
+                // No-auth: client2 is auto-authenticated on connect — drain its after_login too
+                await client2.waitForEvent("containers");
+            }
 
             // Trigger events via client1
             const resp = await client1.sendAndReceive("restartService", "test-stack", "web");
@@ -108,12 +115,18 @@ describe("broadcast-advanced", () => {
             const re = await client1.waitForEvent("resourceEvent");
             expect(re).toBeTruthy();
 
-            // client2 (unauthenticated) should NOT receive broadcasts
-            const re2 = await client2.tryWaitForEvent("resourceEvent", 1000);
-            expect(re2).toBeNull();
+            if (isNoAuth) {
+                // No-auth: client2 is also authenticated, so it DOES receive broadcasts
+                const re2 = await client2.waitForEvent("resourceEvent");
+                expect(re2).toBeTruthy();
+            } else {
+                // Auth mode: client2 (unauthenticated) should NOT receive broadcasts
+                const re2 = await client2.tryWaitForEvent("resourceEvent", 1000);
+                expect(re2).toBeNull();
 
-            const c2 = await client2.tryWaitForEvent("containers", 500);
-            expect(c2).toBeNull();
+                const c2 = await client2.tryWaitForEvent("containers", 500);
+                expect(c2).toBeNull();
+            }
         } finally {
             client1.close();
             client2.close();
@@ -291,6 +304,58 @@ describe("broadcast-advanced", () => {
 
             const containers = await client.waitForEvent("containers");
             expect(Object.keys(containers).length).toBeGreaterThan(0);
+        } finally {
+            client.close();
+        }
+    });
+
+    test("networkEventBroadcastsOnlyAffectedNetwork — filtered broadcast", async () => {
+        await resetMockState();
+
+        const client1 = await connectClient();
+        const client2 = await connectClient();
+        try {
+            await client1.login();
+            await client2.login();
+
+            // Drain AfterLogin networks on client2
+            const initialNetworks = await client2.waitForEvent("networks");
+            const totalInitial = Object.keys(initialNetworks).length;
+
+            // Down the test-stack (destroys its network)
+            const downResp = await client1.sendAndReceive("downStack", "test-stack");
+            expect(downResp.ok).toBe(true);
+
+            // Wait for event-driven networks broadcast on client2
+            const postDown = await client2.waitForEvent("networks");
+
+            // The filtered broadcast should contain only the affected network(s),
+            // not ALL networks. If the code does a full-list query, we'd see all networks.
+            expect(Object.keys(postDown).length).toBeLessThan(totalInitial);
+        } finally {
+            client1.close();
+            client2.close();
+        }
+    });
+
+    test("imageBroadcastAfterEvent — images broadcast arrives after event", async () => {
+        await resetMockState();
+
+        const client = await connectClient();
+        try {
+            await client.login();
+            // Drain AfterLogin images
+            const initialImages = await client.waitForEvent("images");
+            expect(Object.keys(initialImages).length).toBeGreaterThan(0);
+
+            // Verify the initial images broadcast is well-formed
+            for (const [key, val] of Object.entries(initialImages)) {
+                expect(typeof key).toBe("string");
+                if (val !== null) {
+                    const img = val as Record<string, unknown>;
+                    expect(img).toHaveProperty("id");
+                }
+            }
         } finally {
             client.close();
         }

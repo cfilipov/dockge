@@ -24,7 +24,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // loginByToken
     ws.handle_with_state("loginByToken", state.clone(), |state, conn, msg| async move {
-        handle_login_by_token(&state, &conn, &msg).await;
+        handle_login_by_token(&state, &conn, &msg);
     });
 
     // logout (stateless — no state needed)
@@ -32,7 +32,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         async move {
             conn.set_user(0);
             if let Some(id) = msg.id {
-                conn.send_ack(id, OkResponse::simple()).await;
+                conn.send_ack(id, OkResponse::simple());
             }
         }
     });
@@ -57,7 +57,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             conn.send_ack(id, NeedSetupResponse {
                 ok: true,
                 need_setup: state.need_setup.load(Ordering::Relaxed),
-            }).await;
+            });
         }
     });
 
@@ -65,7 +65,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     ws.handle("getTurnstileSiteKey", move |conn: Arc<Conn>, msg: ClientMessage| {
         async move {
             if let Some(id) = msg.id {
-                conn.send_ack(id, OkResponse::simple()).await;
+                conn.send_ack(id, OkResponse::simple());
             }
         }
     });
@@ -77,7 +77,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             struct TwoFAStatusResponse { ok: bool, status: bool }
 
             if let Some(id) = msg.id {
-                conn.send_ack(id, TwoFAStatusResponse { ok: true, status: false }).await;
+                conn.send_ack(id, TwoFAStatusResponse { ok: true, status: false });
             }
         }
     });
@@ -87,14 +87,14 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         ws.handle(event, move |conn: Arc<Conn>, msg: ClientMessage| {
             async move {
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, ErrorResponse::new("2FA is not yet supported")).await;
+                    conn.send_ack(id, ErrorResponse::new("2FA is not yet supported"));
                 }
             }
         });
     }
 }
 
-async fn handle_login(state: &AppState, conn: &Conn, msg: &ClientMessage) {
+async fn handle_login(state: &Arc<AppState>, conn: &Arc<Conn>, msg: &ClientMessage) {
     let args = parse_args(msg);
 
     // Try positional args: [username, password, token, captchaToken]
@@ -122,7 +122,7 @@ async fn handle_login(state: &AppState, conn: &Conn, msg: &ClientMessage) {
 
     if username.is_empty() || password.is_empty() {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::i18n("authIncorrectCreds")).await;
+            conn.send_ack(id, ErrorResponse::i18n("authIncorrectCreds"));
         }
         return;
     }
@@ -131,7 +131,7 @@ async fn handle_login(state: &AppState, conn: &Conn, msg: &ClientMessage) {
     if !state.login_limiter.allow(&username) {
         warn!(username = %username, "login rate limited");
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::new("Too many login attempts. Please try again later.")).await;
+            conn.send_ack(id, ErrorResponse::new("Too many login attempts. Please try again later."));
         }
         return;
     }
@@ -140,22 +140,22 @@ async fn handle_login(state: &AppState, conn: &Conn, msg: &ClientMessage) {
         Ok(Some(u)) => u,
         Ok(None) => {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::i18n("authIncorrectCreds")).await;
+                conn.send_ack(id, ErrorResponse::i18n("authIncorrectCreds"));
             }
             return;
         }
         Err(e) => {
             error!("login lookup: {e}");
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new("Internal error")).await;
+                conn.send_ack(id, ErrorResponse::new("Internal error"));
             }
             return;
         }
     };
 
-    if !users::verify_password(&password, &user.password) {
+    if !users::verify_password_async(&password, &user.password).await {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::i18n("authIncorrectCreds")).await;
+            conn.send_ack(id, ErrorResponse::i18n("authIncorrectCreds"));
         }
         return;
     }
@@ -165,12 +165,15 @@ async fn handle_login(state: &AppState, conn: &Conn, msg: &ClientMessage) {
         Err(e) => {
             error!("create jwt: {e}");
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new("Internal error")).await;
+                conn.send_ack(id, ErrorResponse::new("Internal error"));
             }
             return;
         }
     };
 
+    // If already authenticated (e.g. no-auth mode auto-auth'd on connect),
+    // skip after_login — data was already sent. Still update user_id and ack.
+    let was_authenticated = conn.is_authenticated();
     conn.set_user(user.id);
     state.has_authenticated.store(true, Ordering::Relaxed);
     state.login_limiter.reset(&username);
@@ -180,22 +183,23 @@ async fn handle_login(state: &AppState, conn: &Conn, msg: &ClientMessage) {
             ok: true,
             msg: None,
             token: Some(token),
-        }).await;
+        });
     }
 
     info!(username = %username, "user logged in");
 
-    // AfterLogin: send initial data broadcasts (after ack so frontend is ready)
-    after_login(state, conn).await;
+    if !was_authenticated {
+        after_login(state, conn);
+    }
 }
 
-async fn handle_login_by_token(state: &AppState, conn: &Conn, msg: &ClientMessage) {
+fn handle_login_by_token(state: &Arc<AppState>, conn: &Arc<Conn>, msg: &ClientMessage) {
     let args = parse_args(msg);
     let token = arg_string(&args, 0);
 
     if token.is_empty() {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::i18n("authInvalidToken")).await;
+            conn.send_ack(id, ErrorResponse::i18n("authInvalidToken"));
         }
         return;
     }
@@ -204,7 +208,7 @@ async fn handle_login_by_token(state: &AppState, conn: &Conn, msg: &ClientMessag
         Ok(c) => c,
         Err(_) => {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::i18n("authInvalidToken")).await;
+                conn.send_ack(id, ErrorResponse::i18n("authInvalidToken"));
             }
             return;
         }
@@ -214,14 +218,14 @@ async fn handle_login_by_token(state: &AppState, conn: &Conn, msg: &ClientMessag
         Ok(Some(u)) => u,
         Ok(None) => {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::i18n("authUserInactiveOrDeleted")).await;
+                conn.send_ack(id, ErrorResponse::i18n("authUserInactiveOrDeleted"));
             }
             return;
         }
         Err(e) => {
             error!("token user lookup: {e}");
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new("Internal error")).await;
+                conn.send_ack(id, ErrorResponse::new("Internal error"));
             }
             return;
         }
@@ -230,20 +234,22 @@ async fn handle_login_by_token(state: &AppState, conn: &Conn, msg: &ClientMessag
     // Password change detection
     if claims.h != auth::shake256_hex(&user.password) {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::i18n("authInvalidToken")).await;
+            conn.send_ack(id, ErrorResponse::i18n("authInvalidToken"));
         }
         return;
     }
 
+    let was_authenticated = conn.is_authenticated();
     conn.set_user(user.id);
     state.has_authenticated.store(true, Ordering::Relaxed);
 
     if let Some(id) = msg.id {
-        conn.send_ack(id, OkResponse::simple()).await;
+        conn.send_ack(id, OkResponse::simple());
     }
 
-    // AfterLogin: send initial data broadcasts (after ack so frontend is ready)
-    after_login(state, conn).await;
+    if !was_authenticated {
+        after_login(state, conn);
+    }
 }
 
 async fn handle_setup(state: &AppState, conn: &Conn, msg: &ClientMessage) {
@@ -253,14 +259,14 @@ async fn handle_setup(state: &AppState, conn: &Conn, msg: &ClientMessage) {
 
     if username.is_empty() || password.is_empty() {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::new("Username and password required")).await;
+            conn.send_ack(id, ErrorResponse::new("Username and password required"));
         }
         return;
     }
 
     if password.len() < 6 {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::new("Password is too weak. It should be at least 6 characters.")).await;
+            conn.send_ack(id, ErrorResponse::new("Password is too weak. It should be at least 6 characters."));
         }
         return;
     }
@@ -270,7 +276,7 @@ async fn handle_setup(state: &AppState, conn: &Conn, msg: &ClientMessage) {
         Err(e) => {
             error!("setup count: {e}");
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new("Internal error")).await;
+                conn.send_ack(id, ErrorResponse::new("Internal error"));
             }
             return;
         }
@@ -278,15 +284,26 @@ async fn handle_setup(state: &AppState, conn: &Conn, msg: &ClientMessage) {
 
     if count > 0 {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::new("Dockge has already been set up")).await;
+            conn.send_ack(id, ErrorResponse::new("Dockge has already been set up"));
         }
         return;
     }
 
-    if let Err(e) = state.users.create(&username, &password) {
+    let hash = match users::hash_password_async(&password).await {
+        Ok(h) => h,
+        Err(e) => {
+            error!("setup hash password: {e}");
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new("Internal error"));
+            }
+            return;
+        }
+    };
+
+    if let Err(e) = state.users.create_with_hash(&username, hash) {
         error!("setup create user: {e}");
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::new("Failed to create user")).await;
+            conn.send_ack(id, ErrorResponse::new("Failed to create user"));
         }
         return;
     }
@@ -301,14 +318,14 @@ async fn handle_setup(state: &AppState, conn: &Conn, msg: &ClientMessage) {
             ok: true,
             msg: "successAdded",
             msgi18n: true,
-        }).await;
+        });
     }
 
     info!(username = %username, "setup complete");
 }
 
 async fn handle_change_password(state: &AppState, conn: &Conn, msg: &ClientMessage) {
-    let uid = state.check_login(conn, msg).await;
+    let uid = state.check_login(conn, msg);
     if uid == 0 {
         return;
     }
@@ -326,7 +343,7 @@ async fn handle_change_password(state: &AppState, conn: &Conn, msg: &ClientMessa
         Some(d) => d,
         None => {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new("Invalid arguments")).await;
+                conn.send_ack(id, ErrorResponse::new("Invalid arguments"));
             }
             return;
         }
@@ -336,30 +353,41 @@ async fn handle_change_password(state: &AppState, conn: &Conn, msg: &ClientMessa
         Ok(Some(u)) => u,
         _ => {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new("Internal error")).await;
+                conn.send_ack(id, ErrorResponse::new("Internal error"));
             }
             return;
         }
     };
 
-    if !users::verify_password(&data.current_password, &user.password) {
+    if !users::verify_password_async(&data.current_password, &user.password).await {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::i18n("authIncorrectCreds")).await;
+            conn.send_ack(id, ErrorResponse::i18n("authIncorrectCreds"));
         }
         return;
     }
 
     if data.new_password.len() < 6 {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::new("Password too weak")).await;
+            conn.send_ack(id, ErrorResponse::new("Password too weak"));
         }
         return;
     }
 
-    if let Err(e) = state.users.change_password(uid, &data.new_password) {
+    let hash = match users::hash_password_async(&data.new_password).await {
+        Ok(h) => h,
+        Err(e) => {
+            error!("hash password: {e}");
+            if let Some(id) = msg.id {
+                conn.send_ack(id, ErrorResponse::new("Internal error"));
+            }
+            return;
+        }
+    };
+
+    if let Err(e) = state.users.change_password_with_hash(uid, hash) {
         error!("change password: {e}");
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::new("Failed to change password")).await;
+            conn.send_ack(id, ErrorResponse::new("Failed to change password"));
         }
         return;
     }
@@ -373,71 +401,92 @@ async fn handle_change_password(state: &AppState, conn: &Conn, msg: &ClientMessa
             ok: true,
             msg: Some("Password changed".into()),
             token: None,
-        }).await;
+        });
     }
 }
 
 /// Send initial data to a freshly authenticated connection.
-/// Each broadcast fires independently — no channel waits on any other.
-async fn after_login(state: &AppState, conn: &Conn) {
-    // Stacks broadcast
+/// Each data source is spawned independently — results trickle in via the
+/// connection's direct channel. Returns immediately.
+pub(crate) fn after_login(state: &Arc<AppState>, conn: &Arc<Conn>) {
+    // Stacks (sync filesystem I/O — use spawn_blocking)
     {
         let stacks_dir = state.config.stacks_dir.clone();
-        let stacks = build_stacks_broadcast(&stacks_dir);
-        conn.send_event("stacks", ItemsEvent { items: stacks }).await;
+        let conn = conn.clone();
+        tokio::task::spawn_blocking(move || {
+            let stacks = build_stacks_broadcast(&stacks_dir);
+            conn.send_event("stacks", ItemsEvent { items: stacks });
+        });
     }
 
-    // Containers broadcast
+    // Containers
     {
-        let docker = &state.docker;
-        match docker::container_list(docker, None).await {
-            Ok(containers) => {
-                let map = containers_to_map(containers);
-                conn.send_event("containers", ItemsEvent { items: map }).await;
+        let docker = state.docker.clone();
+        let conn = conn.clone();
+        tokio::spawn(async move {
+            match docker::container_list(&docker, None).await {
+                Ok(containers) => {
+                    let map = containers_to_map(containers);
+                    conn.send_event("containers", ItemsEvent { items: map });
+                }
+                Err(e) => warn!("afterLogin: containers: {e}"),
             }
-            Err(e) => warn!("afterLogin: containers: {e}"),
-        }
+        });
     }
 
-    // Networks broadcast
+    // Networks
     {
-        match docker::network_list(&state.docker).await {
-            Ok(networks) => {
-                let map: BTreeMap<String, _> = networks.into_iter().map(|n| (n.name.clone(), n)).collect();
-                conn.send_event("networks", ItemsEvent { items: map }).await;
+        let docker = state.docker.clone();
+        let conn = conn.clone();
+        tokio::spawn(async move {
+            match docker::network_list(&docker).await {
+                Ok(networks) => {
+                    let map: BTreeMap<String, _> = networks.into_iter().map(|n| (n.name.clone(), n)).collect();
+                    conn.send_event("networks", ItemsEvent { items: map });
+                }
+                Err(e) => warn!("afterLogin: networks: {e}"),
             }
-            Err(e) => warn!("afterLogin: networks: {e}"),
-        }
+        });
     }
 
-    // Images broadcast
+    // Images
     {
-        match docker::image_list(&state.docker).await {
-            Ok(images) => {
-                let map: BTreeMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
-                conn.send_event("images", ItemsEvent { items: map }).await;
+        let docker = state.docker.clone();
+        let conn = conn.clone();
+        tokio::spawn(async move {
+            match docker::image_list(&docker).await {
+                Ok(images) => {
+                    let map: BTreeMap<String, _> = images.into_iter().map(|i| (i.id.clone(), i)).collect();
+                    conn.send_event("images", ItemsEvent { items: map });
+                }
+                Err(e) => warn!("afterLogin: images: {e}"),
             }
-            Err(e) => warn!("afterLogin: images: {e}"),
-        }
+        });
     }
 
-    // Volumes broadcast
+    // Volumes
     {
-        match docker::volume_list(&state.docker).await {
-            Ok(volumes) => {
-                let map: BTreeMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
-                conn.send_event("volumes", ItemsEvent { items: map }).await;
+        let docker = state.docker.clone();
+        let conn = conn.clone();
+        tokio::spawn(async move {
+            match docker::volume_list(&docker).await {
+                Ok(volumes) => {
+                    let map: BTreeMap<String, _> = volumes.into_iter().map(|v| (v.name.clone(), v)).collect();
+                    conn.send_event("volumes", ItemsEvent { items: map });
+                }
+                Err(e) => warn!("afterLogin: volumes: {e}"),
             }
-            Err(e) => warn!("afterLogin: volumes: {e}"),
-        }
+        });
     }
 
-    // Updates broadcast: read cached image update results from redb.
-    // Sent as raw string[] of "stackName/serviceName" keys — the frontend
-    // expects a plain string[] for the updates channel.
+    // Image updates (sync redb I/O — use spawn_blocking)
     {
-        let updates = super::image_updates::collect_update_keys(state);
-        conn.send_event("updates", updates).await;
+        let state = state.clone();
+        let conn = conn.clone();
+        tokio::task::spawn_blocking(move || {
+            let updates = super::image_updates::collect_update_keys(&state);
+            conn.send_event("updates", updates);
+        });
     }
 }
 

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
@@ -13,13 +13,11 @@ use super::protocol::{AckMessage, ClientMessage, ServerMessage};
 
 static CONN_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-const WRITE_CHANNEL_SIZE: usize = 64;
-
 /// A WebSocket connection.
 pub struct Conn {
     pub id: String,
     user_id: std::sync::atomic::AtomicI32,
-    tx: mpsc::Sender<Message>,
+    tx: mpsc::UnboundedSender<Message>,
     /// Keyed by subscription type ("stats", "top"). Value is (resource_id, token).
     /// The resource_id (e.g. container name) prevents a late-arriving unsubscribe
     /// from cancelling a newer subscription for a different resource.
@@ -39,36 +37,35 @@ impl Conn {
         self.user_id() != 0
     }
 
-    /// Send a raw WebSocket message.
-    pub async fn send(&self, msg: Message) -> bool {
-        self.tx.send(msg).await.is_ok()
+    /// Send a raw WebSocket message (non-blocking).
+    pub fn send(&self, msg: Message) -> bool {
+        self.tx.send(msg).is_ok()
     }
 
-    /// Non-blocking send. Returns false if the write channel is full (frame dropped).
-    /// Used by terminal writer callbacks which must be sync and preserve ordering.
+    /// Alias for `send` — with unbounded channel, all sends are non-blocking.
     pub fn send_nowait(&self, msg: Message) -> bool {
-        self.tx.try_send(msg).is_ok()
+        self.send(msg)
     }
 
     /// Send a JSON ack response.
-    pub async fn send_ack<T: Serialize>(&self, id: i64, data: T) {
+    pub fn send_ack<T: Serialize>(&self, id: i64, data: T) {
         let ack = AckMessage { id, data };
         match serde_json::to_string(&ack) {
             Ok(json) => {
-                let _ = self.send(Message::Text(json.into())).await;
+                let _ = self.send(Message::Text(json.into()));
             }
             Err(e) => warn!(conn = %self.id, "failed to serialize ack: {e}"),
         }
     }
 
     /// Send a push event. Returns true if sent successfully.
-    pub async fn send_event<T: Serialize>(&self, event: &str, data: T) -> bool {
+    pub fn send_event<T: Serialize>(&self, event: &str, data: T) -> bool {
         let msg = ServerMessage {
             event: event.to_string(),
             data,
         };
         match serde_json::to_string(&msg) {
-            Ok(json) => self.send(Message::Text(json.into())).await,
+            Ok(json) => self.send(Message::Text(json.into())),
             Err(e) => {
                 warn!(conn = %self.id, "failed to serialize event: {e}");
                 false
@@ -76,21 +73,10 @@ impl Conn {
         }
     }
 
-    /// Synchronous variant of `send_event` — uses `try_send` so it can be
-    /// called from non-async contexts (e.g. the connect handler). Returns
-    /// false if the write channel is full.
+    /// Synchronous variant of `send_event` — identical to `send_event` now
+    /// that all sends are non-blocking. Kept for API compatibility.
     pub fn send_event_sync<T: Serialize>(&self, event: &str, data: T) -> bool {
-        let msg = ServerMessage {
-            event: event.to_string(),
-            data,
-        };
-        match serde_json::to_string(&msg) {
-            Ok(json) => self.send_nowait(Message::Text(json.into())),
-            Err(e) => {
-                warn!(conn = %self.id, "failed to serialize event: {e}");
-                false
-            }
-        }
+        self.send_event(event, data)
     }
 
     /// Cancel an existing subscription by key, then store a new token.
@@ -125,10 +111,7 @@ impl Conn {
 
     /// Close the connection by sending a Close frame.
     pub fn close(&self) {
-        let tx = self.tx.clone();
-        tokio::spawn(async move {
-            let _ = tx.send(Message::Close(None)).await;
-        });
+        let _ = self.tx.send(Message::Close(None));
     }
 }
 
@@ -140,14 +123,12 @@ pub type ConnectFn = Box<dyn Fn(std::sync::Arc<Conn>) + Send + Sync + 'static>;
 pub type BinaryFn =
     Box<dyn Fn(std::sync::Arc<Conn>, u16, &[u8]) + Send + Sync + 'static>;
 
-/// Create a new connection with its write channel. The caller fires the
-/// connect handler (which can queue messages into the write channel via
-/// `send_event_sync`), then calls [`start_tasks`] to begin processing.
-pub fn new_conn() -> (std::sync::Arc<Conn>, mpsc::Receiver<Message>) {
+/// Create a new connection with its write channel.
+pub fn new_conn() -> (std::sync::Arc<Conn>, mpsc::UnboundedReceiver<Message>) {
     let id_num = CONN_ID_COUNTER.fetch_add(1, Ordering::Relaxed) + 1;
     let conn_id = format!("c{id_num}");
 
-    let (tx, rx) = mpsc::channel(WRITE_CHANNEL_SIZE);
+    let (tx, rx) = mpsc::unbounded_channel();
 
     let conn = std::sync::Arc::new(Conn {
         id: conn_id,
@@ -159,132 +140,70 @@ pub fn new_conn() -> (std::sync::Arc<Conn>, mpsc::Receiver<Message>) {
     (conn, rx)
 }
 
-/// Start the read pump, write pump, and worker tasks for a connection.
-/// Must be called after the connect handler so any queued messages
-/// (e.g. the "info" event) are sent before client messages are processed.
-pub fn start_tasks(
-    socket: WebSocket,
-    conn: std::sync::Arc<Conn>,
-    write_rx: mpsc::Receiver<Message>,
-    server: std::sync::Arc<super::WsServer>,
-    broadcast_rx: tokio::sync::broadcast::Receiver<Arc<str>>,
-) {
-    // Command channel: read_pump sends parsed text messages here,
-    // worker drains them sequentially — one handler at a time per connection.
-    let (cmd_tx, cmd_rx) = mpsc::channel::<ClientMessage>(64);
-
-    let (ws_write, ws_read) = socket.split();
-
-    // Write pump: select over direct mpsc + broadcast channel
-    let conn_w = conn.clone();
-    tokio::spawn(write_pump(conn_w, write_rx, broadcast_rx, ws_write));
-
-    // Read pump: parses frames, routes text → cmd_tx, handles binary inline
-    let conn_r = conn.clone();
-    tokio::spawn(read_pump(conn_r, ws_read, server.clone(), cmd_tx));
-
-    // Worker: sequential dispatch of text messages for this connection
-    let conn_wk = conn.clone();
-    tokio::spawn(worker(conn_wk, cmd_rx, server));
-}
-
-async fn write_pump(
-    conn: std::sync::Arc<Conn>,
-    mut rx: mpsc::Receiver<Message>,
-    mut broadcast_rx: tokio::sync::broadcast::Receiver<Arc<str>>,
+/// Single task per connection: owns both halves of the WebSocket and uses a
+/// `biased` `select!` loop over three sources:
+/// 1. `direct_rx` — queued acks/events from handlers and background tasks
+/// 2. `broadcast_rx` — server-wide push events (authenticated only)
+/// 3. `ws_read` — incoming client frames, dispatched inline
+pub async fn connection_task(
+    conn: Arc<Conn>,
+    mut direct_rx: mpsc::UnboundedReceiver<Message>,
+    mut broadcast_rx: broadcast::Receiver<Arc<str>>,
+    mut ws_read: futures_util::stream::SplitStream<WebSocket>,
     mut ws_write: futures_util::stream::SplitSink<WebSocket, Message>,
+    server: Arc<super::WsServer>,
 ) {
     loop {
         tokio::select! {
-            msg = rx.recv() => {
-                match msg {
-                    Some(msg) => {
-                        let is_close = matches!(&msg, Message::Close(_));
-                        if ws_write.send(msg).await.is_err() {
-                            debug!(conn = %conn.id, "write error, closing");
-                            break;
-                        }
-                        if is_close {
-                            debug!(conn = %conn.id, "close frame sent, shutting down write pump");
-                            break;
-                        }
-                    }
-                    None => break,
+            biased;
+
+            // Priority 1: send queued responses/events to client
+            Some(msg) = direct_rx.recv() => {
+                let is_close = matches!(&msg, Message::Close(_));
+                if ws_write.send(msg).await.is_err() {
+                    break;
+                }
+                if is_close {
+                    debug!(conn = %conn.id, "close frame sent");
+                    break;
                 }
             }
+
+            // Priority 2: broadcasts (authenticated only)
             result = broadcast_rx.recv() => {
                 match result {
-                    Ok(payload) => {
-                        // Only forward broadcasts to authenticated connections
-                        if conn.is_authenticated()
-                            && ws_write.send(Message::Text((*payload).into())).await.is_err()
-                        {
+                    Ok(payload) if conn.is_authenticated() => {
+                        if ws_write.send(Message::Text((*payload).into())).await.is_err() {
                             break;
                         }
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        warn!(conn = %conn.id, lagged = n, "broadcast receiver lagged");
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(broadcast::error::RecvError::Closed) => break,
+                    _ => {} // Lagged or not authenticated — skip
                 }
             }
-        }
-    }
-    let _ = ws_write.close().await;
-}
 
-async fn read_pump(
-    conn: std::sync::Arc<Conn>,
-    mut ws_read: futures_util::stream::SplitStream<WebSocket>,
-    server: std::sync::Arc<super::WsServer>,
-    cmd_tx: mpsc::Sender<ClientMessage>,
-) {
-    while let Some(Ok(msg)) = ws_read.next().await {
-        match msg {
-            Message::Text(text) => {
-                match serde_json::from_str::<ClientMessage>(&text) {
-                    Ok(client_msg) => {
-                        // Send to worker for sequential dispatch.
-                        // If the channel is full, this awaits — applying
-                        // backpressure to this single connection only.
-                        if cmd_tx.send(client_msg).await.is_err() {
-                            break; // worker dropped, connection closing
+            // Priority 3: client frames — dispatch inline
+            frame = ws_read.next() => {
+                match frame {
+                    Some(Ok(Message::Text(text))) => {
+                        if let Ok(msg) = serde_json::from_str::<ClientMessage>(&text) {
+                            server.dispatch(conn.clone(), msg).await;
                         }
                     }
-                    Err(e) => {
-                        warn!(conn = %conn.id, "malformed message: {e}");
+                    Some(Ok(Message::Binary(data))) if data.len() >= 3 => {
+                        let session_id = u16::from_be_bytes([data[0], data[1]]);
+                        if let Some(ref handler) = server.binary_handler {
+                            handler(conn.clone(), session_id, &data[2..]);
+                        }
                     }
+                    Some(Ok(Message::Close(_))) | None => break,
+                    _ => {}
                 }
             }
-            Message::Binary(data) => {
-                // Handle binary inline — terminal input is latency-sensitive
-                // and has no ordering dependency with text handlers.
-                if data.len() < 3 {
-                    continue;
-                }
-                let session_id = u16::from_be_bytes([data[0], data[1]]);
-                let payload = &data[2..];
-                if let Some(ref handler) = server.binary_handler {
-                    handler(conn.clone(), session_id, payload);
-                }
-            }
-            Message::Close(_) => break,
-            _ => {}
         }
     }
 
-    // Connection closed — remove from registry
+    // Cleanup
     server.remove(&conn);
-}
-
-/// Sequential worker: processes text messages one at a time per connection.
-/// Slow handlers block subsequent messages on THIS connection only.
-async fn worker(
-    conn: Arc<Conn>,
-    mut cmd_rx: mpsc::Receiver<ClientMessage>,
-    server: Arc<super::WsServer>,
-) {
-    while let Some(msg) = cmd_rx.recv().await {
-        server.dispatch(conn.clone(), msg).await;
-    }
+    let _ = ws_write.close().await;
 }

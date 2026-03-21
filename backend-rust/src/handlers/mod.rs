@@ -49,12 +49,17 @@ pub struct AppState {
 
 impl AppState {
     /// Check that the connection is authenticated.
-    pub async fn check_login(&self, conn: &Conn, msg: &ClientMessage) -> i32 {
+    /// Returns the user ID or sends an error ack and returns 0.
+    ///
+    /// In `--no-auth` mode, connections are auto-authenticated at connect time
+    /// (user_id set to 1), so this returns 1 without special handling — matching
+    /// the Go backend's behavior where logout clears user_id back to 0.
+    pub fn check_login(&self, conn: &Conn, msg: &ClientMessage) -> i32 {
         let uid = conn.user_id();
         if uid == 0
             && let Some(id) = msg.id
         {
-            conn.send_ack(id, ErrorResponse::new("Not logged in")).await;
+            conn.send_ack(id, ErrorResponse::new("Not logged in"));
         }
         uid
     }

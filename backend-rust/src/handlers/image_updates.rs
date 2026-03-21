@@ -20,7 +20,7 @@ const PER_IMAGE_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     ws.handle_with_state("checkImageUpdates", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -32,7 +32,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         struct ImageUpdateAck { ok: bool, updated: bool }
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, ImageUpdateAck { ok: true, updated: true }).await;
+            conn.send_ack(id, ImageUpdateAck { ok: true, updated: true });
         }
 
         if !stack_name.is_empty() {

@@ -14,6 +14,13 @@ use crate::docker;
 use crate::terminal::{TerminalHandle, TerminalType};
 use crate::ws::conn::Conn;
 use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse, SessionResponse};
+
+/// Push event payload sent when a PTY process exits.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalExitedEvent {
+    session_id: u16,
+}
 use crate::ws::WsServer;
 
 use super::{arg_object, parse_args, AppState};
@@ -102,7 +109,7 @@ async fn alloc_join(
 
 /// Send buffered terminal data to the client. Must be called AFTER the ack
 /// so the frontend has the session ID registered to route binary frames.
-async fn replay_buffer(conn: &Conn, session_id: u16, buffer: Vec<u8>) {
+fn replay_buffer(conn: &Conn, session_id: u16, buffer: Vec<u8>) {
     if buffer.is_empty() {
         return;
     }
@@ -110,7 +117,7 @@ async fn replay_buffer(conn: &Conn, session_id: u16, buffer: Vec<u8>) {
     let mut frame = Vec::with_capacity(2 + buffer.len());
     frame.extend_from_slice(&session_bytes);
     frame.extend_from_slice(&buffer);
-    conn.send(Message::Binary(frame.into())).await;
+    conn.send(Message::Binary(frame.into()));
 }
 
 /// Convenience: alloc+join, send ack, replay buffer (in correct order).
@@ -124,9 +131,9 @@ async fn alloc_join_ack_replay(
 ) -> u16 {
     let (session_id, buffer) = alloc_join(conn, handle, term_name).await;
     if let Some(id) = msg.id {
-        conn.send_ack(id, SessionResponse { ok: true, session_id }).await;
+        conn.send_ack(id, SessionResponse { ok: true, session_id });
     }
-    replay_buffer(conn, session_id, buffer).await;
+    replay_buffer(conn, session_id, buffer);
     session_id
 }
 
@@ -135,7 +142,7 @@ async fn alloc_join_ack_replay(
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // terminalJoin
     ws.handle_with_state("terminalJoin", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -159,8 +166,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             Some(a) => a,
             None => {
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, ErrorResponse::new("Invalid arguments"))
-                        .await;
+                    conn.send_ack(id, ErrorResponse::new("Invalid arguments"));
                 }
                 return;
             }
@@ -175,7 +181,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         match join_args.terminal_type.as_str() {
             "combined" => {
                 if join_args.stack.is_empty() {
-                    send_join_error(&conn, &msg, "stack parameter required").await;
+                    send_join_error(&conn, &msg, "stack parameter required");
                     return;
                 }
                 handle_combined(
@@ -188,7 +194,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             }
             "container-log" => {
                 if join_args.stack.is_empty() || join_args.service.is_empty() {
-                    send_join_error(&conn, &msg, "stack and service parameters required").await;
+                    send_join_error(&conn, &msg, "stack and service parameters required");
                     return;
                 }
                 handle_container_log(
@@ -203,7 +209,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             }
             "container-log-by-name" => {
                 if join_args.container.is_empty() {
-                    send_join_error(&conn, &msg, "container parameter required").await;
+                    send_join_error(&conn, &msg, "container parameter required");
                     return;
                 }
                 handle_container_log_by_name(
@@ -216,7 +222,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             }
             "exec" => {
                 if join_args.stack.is_empty() || join_args.service.is_empty() {
-                    send_join_error(&conn, &msg, "stack and service parameters required").await;
+                    send_join_error(&conn, &msg, "stack and service parameters required");
                     return;
                 }
                 handle_exec(
@@ -231,7 +237,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             }
             "exec-by-name" => {
                 if join_args.container.is_empty() {
-                    send_join_error(&conn, &msg, "container parameter required").await;
+                    send_join_error(&conn, &msg, "container parameter required");
                     return;
                 }
                 handle_exec_by_name(
@@ -248,7 +254,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             }
             "compose" => {
                 if join_args.stack.is_empty() {
-                    send_join_error(&conn, &msg, "stack parameter required").await;
+                    send_join_error(&conn, &msg, "stack parameter required");
                     return;
                 }
                 handle_compose_terminal(
@@ -261,7 +267,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             }
             "container-action" => {
                 if join_args.container.is_empty() {
-                    send_join_error(&conn, &msg, "container parameter required").await;
+                    send_join_error(&conn, &msg, "container parameter required");
                     return;
                 }
                 handle_container_action_terminal(
@@ -280,8 +286,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         ErrorResponse::new(format!(
                             "unknown terminal type: {other}"
                         )),
-                    )
-                    .await;
+                    );
                 }
             }
         }
@@ -289,7 +294,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // terminalLeave
     ws.handle_with_state("terminalLeave", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -305,7 +310,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             Some(a) => a,
             None => {
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, ErrorResponse::new("invalid args")).await;
+                    conn.send_ack(id, ErrorResponse::new("invalid args"));
                 }
                 return;
             }
@@ -320,16 +325,15 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             conn.send_ack(
                 id,
                 OkResponse::simple(),
-            )
-            .await;
+            );
         }
     });
 }
 
 /// Send a terminalJoin error ack.
-async fn send_join_error(conn: &Conn, msg: &ClientMessage, err_msg: &str) {
+fn send_join_error(conn: &Conn, msg: &ClientMessage, err_msg: &str) {
     if let Some(id) = msg.id {
-        conn.send_ack(id, ErrorResponse::new(err_msg)).await;
+        conn.send_ack(id, ErrorResponse::new(err_msg));
     }
 }
 
@@ -512,21 +516,27 @@ async fn handle_exec(
     let stacks_dir = &state.config.stacks_dir;
     let stack_dir = format!("{}/{}", stacks_dir, stack);
 
-    match state.terminal_manager.start_pty(
+    match state.terminal_manager.start_pty_and_wait(
         &term_name,
         "docker",
         &["compose", "exec", service, shell],
         Some(&stack_dir),
     ).await {
-        Ok(_cancel) => {
-            alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
+        Ok((_cancel, done_rx)) => {
+            let session_id = alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
             info!(stack = %stack, service = %service, "exec terminal started");
+
+            // Notify client when PTY process exits
+            let conn = conn.clone();
+            tokio::spawn(async move {
+                let _ = done_rx.await;
+                conn.send_event("terminalExited", TerminalExitedEvent { session_id });
+            });
         }
         Err(e) => {
             warn!("failed to start exec terminal: {e}");
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(format!("Failed to start exec: {e}")))
-                    .await;
+                conn.send_ack(id, ErrorResponse::new(format!("Failed to start exec: {e}")));
             }
         }
     }
@@ -552,15 +562,22 @@ async fn handle_exec_by_name(
         .recreate(&term_name, TerminalType::Pty)
         .await;
 
-    match state.terminal_manager.start_pty(
+    match state.terminal_manager.start_pty_and_wait(
         &term_name,
         "docker",
         &["exec", "-it", container, shell],
         None,
     ).await {
-        Ok(_cancel) => {
-            alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
+        Ok((_cancel, done_rx)) => {
+            let session_id = alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
             info!(container = %container, "exec-by-name terminal started");
+
+            // Notify client when PTY process exits
+            let conn = conn.clone();
+            tokio::spawn(async move {
+                let _ = done_rx.await;
+                conn.send_event("terminalExited", TerminalExitedEvent { session_id });
+            });
         }
         Err(e) => {
             warn!("failed to start exec-by-name terminal: {e}");
@@ -568,8 +585,7 @@ async fn handle_exec_by_name(
                 conn.send_ack(
                     id,
                     ErrorResponse::new(format!("Failed to start exec: {e}")),
-                )
-                .await;
+                );
             }
         }
     }
@@ -612,12 +628,19 @@ async fn handle_console(
     let stacks_dir = state.config.stacks_dir.clone();
     match state
         .terminal_manager
-        .start_pty(term_name, &shell_cmd, &[], Some(&stacks_dir))
+        .start_pty_and_wait(term_name, &shell_cmd, &[], Some(&stacks_dir))
         .await
     {
-        Ok(_cancel) => {
-            alloc_join_ack_replay(conn, &state.terminal_manager, term_name, msg).await;
+        Ok((_cancel, done_rx)) => {
+            let session_id = alloc_join_ack_replay(conn, &state.terminal_manager, term_name, msg).await;
             info!("console terminal started");
+
+            // Notify client when PTY process exits
+            let conn = conn.clone();
+            tokio::spawn(async move {
+                let _ = done_rx.await;
+                conn.send_event("terminalExited", TerminalExitedEvent { session_id });
+            });
         }
         Err(e) => {
             warn!("failed to start console terminal: {e}");
@@ -625,8 +648,7 @@ async fn handle_console(
                 conn.send_ack(
                     id,
                     ErrorResponse::new(format!("Failed to start console: {e}")),
-                )
-                .await;
+                );
             }
         }
     }

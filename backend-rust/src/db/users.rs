@@ -62,7 +62,12 @@ impl UserStore {
 
     pub fn create(&self, username: &str, password: &str) -> Result<User, Box<dyn std::error::Error + Send + Sync>> {
         let hash = bcrypt::hash(password, 10)?;
+        self.create_with_hash(username, hash)
+    }
 
+    /// Create a user with a pre-computed password hash. Use with
+    /// `hash_password_async` to avoid blocking the tokio runtime.
+    pub fn create_with_hash(&self, username: &str, password_hash: String) -> Result<User, Box<dyn std::error::Error + Send + Sync>> {
         let write_txn = self.db.begin_write()?;
         let user = {
             let mut id_table = write_txn.open_table(USERS_BY_ID_TABLE)?;
@@ -76,7 +81,7 @@ impl UserStore {
             let user = User {
                 id: next_id as i32,
                 username: username.to_string(),
-                password: hash,
+                password: password_hash,
                 active: true,
             };
 
@@ -120,9 +125,9 @@ impl UserStore {
         Ok(())
     }
 
-    pub fn change_password(&self, user_id: i32, new_password: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let hash = bcrypt::hash(new_password, 10)?;
-
+    /// Change password with a pre-computed hash. Use with
+    /// `hash_password_async` to avoid blocking the tokio runtime.
+    pub fn change_password_with_hash(&self, user_id: i32, password_hash: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let write_txn = self.db.begin_write()?;
         {
             let id_table = write_txn.open_table(USERS_BY_ID_TABLE)?;
@@ -140,7 +145,7 @@ impl UserStore {
                 .to_string();
 
             let mut user: User = serde_json::from_str(&json_str)?;
-            user.password = hash;
+            user.password = password_hash;
             let new_json = serde_json::to_string(&user)?;
             users_table.insert(username.as_str(), new_json.as_str())?;
         }
@@ -149,9 +154,28 @@ impl UserStore {
     }
 }
 
-/// Verify a plaintext password against a bcrypt hash.
+/// Verify a plaintext password against a bcrypt hash (sync — test-only).
+#[cfg(test)]
 pub fn verify_password(password: &str, hash: &str) -> bool {
     bcrypt::verify(password, hash).unwrap_or(false)
+}
+
+/// Async variant of `verify_password` — offloads bcrypt (~225ms at cost 10)
+/// to a blocking thread so it doesn't starve the tokio runtime.
+pub async fn verify_password_async(password: &str, hash: &str) -> bool {
+    let password = password.to_string();
+    let hash = hash.to_string();
+    tokio::task::spawn_blocking(move || bcrypt::verify(&password, &hash).unwrap_or(false))
+        .await
+        .unwrap_or(false)
+}
+
+/// Async bcrypt hash — offloads to a blocking thread.
+pub async fn hash_password_async(password: &str) -> Result<String, bcrypt::BcryptError> {
+    let password = password.to_string();
+    tokio::task::spawn_blocking(move || bcrypt::hash(&password, 10))
+        .await
+        .unwrap_or(Err(bcrypt::BcryptError::CostNotAllowed(0)))
 }
 
 #[cfg(test)]

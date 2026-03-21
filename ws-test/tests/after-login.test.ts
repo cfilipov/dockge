@@ -3,6 +3,7 @@ import WebSocket from "ws";
 import { resetMockState, connectClient } from "../src/helpers.js";
 
 const BASE_URL = process.env.TEST_WS_URL ?? "ws://localhost:5053/ws";
+const isNoAuth = !!process.env.DOCKGE_NO_AUTH;
 
 /** Open a raw WebSocket and drain the initial "info" event. */
 async function openRawWs(): Promise<WebSocket> {
@@ -28,8 +29,53 @@ describe("after-login", () => {
     // loggedIn=true and the dashboard mounted before data events arrive.
 
     test("login ack arrives before initial data events", async () => {
-        const ws = await openRawWs();
+        if (isNoAuth) {
+            // No-auth mode: server sends info + 6 data events unprompted on
+            // connect. Open a raw WS and register the handler immediately so
+            // nothing is lost.
+            const ws = new WebSocket(BASE_URL);
+            await new Promise<void>((resolve, reject) => {
+                ws.once("open", resolve);
+                ws.once("error", reject);
+            });
 
+            const received: Array<{ type: "event"; name: string }> = [];
+            const done = new Promise<void>((resolve) => {
+                const expectedEvents = new Set([
+                    "stacks", "containers", "networks", "images", "volumes", "updates",
+                ]);
+                const seen = new Set<string>();
+
+                ws.on("message", (raw: Buffer) => {
+                    const msg = JSON.parse(raw.toString());
+                    if (typeof msg.event === "string") {
+                        received.push({ type: "event", name: msg.event });
+                        if (expectedEvents.has(msg.event)) {
+                            seen.add(msg.event);
+                        }
+                        if (seen.size === expectedEvents.size) {
+                            resolve();
+                        }
+                    }
+                });
+            });
+
+            await done;
+            ws.close();
+
+            // info must be the first event
+            expect(received[0].name).toBe("info");
+
+            // All six data events must be present
+            for (const name of ["stacks", "containers", "networks", "images", "volumes", "updates"]) {
+                const idx = received.findIndex(r => r.name === name);
+                expect(idx, `"${name}" event should arrive in no-auth mode`).toBeGreaterThanOrEqual(0);
+            }
+            return;
+        }
+
+        // Auth mode: login ack must arrive before data events
+        const ws = await openRawWs();
         const received: Array<{ type: "ack" | "event"; name: string }> = [];
 
         const done = new Promise<void>((resolve) => {
@@ -72,6 +118,35 @@ describe("after-login", () => {
     });
 
     test("loginByToken ack arrives before initial data events", async () => {
+        if (isNoAuth) {
+            // No-auth mode: data events arrive on connect unprompted.
+            // Same verification as the login test above.
+            const ws = new WebSocket(BASE_URL);
+            await new Promise<void>((resolve, reject) => {
+                ws.once("open", resolve);
+                ws.once("error", reject);
+            });
+
+            const received: Array<{ type: "event"; name: string }> = [];
+            const done = new Promise<void>((resolve) => {
+                const expected = new Set(["stacks", "containers", "networks", "images", "volumes", "updates"]);
+                const seen = new Set<string>();
+                ws.on("message", (raw: Buffer) => {
+                    const msg = JSON.parse(raw.toString());
+                    if (typeof msg.event === "string" && expected.has(msg.event)) {
+                        received.push({ type: "event", name: msg.event });
+                        seen.add(msg.event);
+                        if (seen.size === expected.size) resolve();
+                    }
+                });
+            });
+            await done;
+            ws.close();
+            expect(received.length).toBe(6);
+            return;
+        }
+
+        // Auth mode: original test
         // Get a token first
         const client = await connectClient();
         const token = await client.login();

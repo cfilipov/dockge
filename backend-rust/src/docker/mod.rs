@@ -323,6 +323,22 @@ pub async fn container_list_by_ids(
     Ok(containers.into_iter().map(container_from_bollard).collect())
 }
 
+// ── Network helpers ─────────────────────────────────────────────────────────
+
+/// Map a bollard Network to our NetworkSummary type.
+fn network_from_bollard(n: bollard::models::Network) -> NetworkSummary {
+    NetworkSummary {
+        id: n.id.unwrap_or_default(),
+        name: n.name.unwrap_or_default(),
+        driver: n.driver.unwrap_or_default(),
+        scope: n.scope.unwrap_or_default(),
+        internal: n.internal.unwrap_or_default(),
+        attachable: n.attachable.unwrap_or_default(),
+        ingress: n.ingress.unwrap_or_default(),
+        labels: n.labels.unwrap_or_default().into_iter().collect(),
+    }
+}
+
 /// List all networks.
 pub async fn network_list(
     docker: &DockerClient,
@@ -330,19 +346,29 @@ pub async fn network_list(
     let networks = docker
         .list_networks(None::<bollard::query_parameters::ListNetworksOptions>)
         .await?;
-    Ok(networks
-        .into_iter()
-        .map(|n| NetworkSummary {
-            id: n.id.unwrap_or_default(),
-            name: n.name.unwrap_or_default(),
-            driver: n.driver.unwrap_or_default(),
-            scope: n.scope.unwrap_or_default(),
-            internal: n.internal.unwrap_or_default(),
-            attachable: n.attachable.unwrap_or_default(),
-            ingress: n.ingress.unwrap_or_default(),
-            labels: n.labels.unwrap_or_default().into_iter().collect(),
-        })
-        .collect())
+    Ok(networks.into_iter().map(network_from_bollard).collect())
+}
+
+/// List networks filtered by IDs. Returns empty vec if no IDs given.
+pub async fn network_list_by_ids(
+    docker: &DockerClient,
+    ids: &std::collections::HashSet<String>,
+) -> Result<Vec<NetworkSummary>, bollard::errors::Error> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut filters = HashMap::new();
+    filters.insert(
+        "id".to_string(),
+        ids.iter().cloned().collect::<Vec<_>>(),
+    );
+    let opts = bollard::query_parameters::ListNetworksOptionsBuilder::default()
+        .filters(&filters)
+        .build();
+
+    let networks = docker.list_networks(Some(opts)).await?;
+    Ok(networks.into_iter().map(network_from_bollard).collect())
 }
 
 /// Inspect a single network and return a shaped response matching the Go backend.
@@ -409,6 +435,25 @@ pub async fn network_inspect(
     })
 }
 
+// ── Image helpers ───────────────────────────────────────────────────────────
+
+/// Map a bollard ImageSummary to our ImageSummary type.
+fn image_from_bollard(i: bollard::models::ImageSummary) -> ImageSummary {
+    let tags: Vec<String> = i
+        .repo_tags
+        .into_iter()
+        .filter(|t| t != "<none>:<none>")
+        .collect();
+    let dangling = tags.is_empty();
+    ImageSummary {
+        id: i.id,
+        repo_tags: tags,
+        size: format_bytes(i.size as u64),
+        created: format_unix_timestamp(i.created),
+        dangling,
+    }
+}
+
 /// List all images.
 pub async fn image_list(
     docker: &DockerClient,
@@ -416,24 +461,32 @@ pub async fn image_list(
     let images = docker
         .list_images(None::<bollard::query_parameters::ListImagesOptions>)
         .await?;
-    let mut result: Vec<ImageSummary> = images
-        .into_iter()
-        .map(|i| {
-            let tags: Vec<String> = i
-                .repo_tags
-                .into_iter()
-                .filter(|t| t != "<none>:<none>")
-                .collect();
-            let dangling = tags.is_empty();
-            ImageSummary {
-                id: i.id,
-                repo_tags: tags,
-                size: format_bytes(i.size as u64),
-                created: format_unix_timestamp(i.created),
-                dangling,
-            }
-        })
-        .collect();
+    let mut result: Vec<ImageSummary> = images.into_iter().map(image_from_bollard).collect();
+    result.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(result)
+}
+
+/// List images filtered by IDs (uses `reference` filter, matching Go backend).
+/// Returns empty vec if no IDs given.
+pub async fn image_list_by_ids(
+    docker: &DockerClient,
+    ids: &std::collections::HashSet<String>,
+) -> Result<Vec<ImageSummary>, bollard::errors::Error> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut filters = HashMap::new();
+    filters.insert(
+        "reference".to_string(),
+        ids.iter().cloned().collect::<Vec<_>>(),
+    );
+    let opts = bollard::query_parameters::ListImagesOptionsBuilder::default()
+        .filters(&filters)
+        .build();
+
+    let images = docker.list_images(Some(opts)).await?;
+    let mut result: Vec<ImageSummary> = images.into_iter().map(image_from_bollard).collect();
     result.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(result)
 }
@@ -523,6 +576,18 @@ pub fn container_logs(
     docker.logs(container_name, Some(bollard_opts))
 }
 
+// ── Volume helpers ──────────────────────────────────────────────────────────
+
+/// Map a bollard Volume to our VolumeSummary type.
+fn volume_from_bollard(v: bollard::models::Volume) -> VolumeSummary {
+    VolumeSummary {
+        name: v.name,
+        driver: v.driver,
+        mountpoint: v.mountpoint,
+        labels: v.labels.into_iter().collect(),
+    }
+}
+
 /// List all volumes.
 pub async fn volume_list(
     docker: &DockerClient,
@@ -534,12 +599,34 @@ pub async fn volume_list(
         .volumes
         .unwrap_or_default()
         .into_iter()
-        .map(|v| VolumeSummary {
-            name: v.name,
-            driver: v.driver,
-            mountpoint: v.mountpoint,
-            labels: v.labels.into_iter().collect(),
-        })
+        .map(volume_from_bollard)
+        .collect())
+}
+
+/// List volumes filtered by names. Returns empty vec if no names given.
+pub async fn volume_list_by_names(
+    docker: &DockerClient,
+    names: &std::collections::HashSet<String>,
+) -> Result<Vec<VolumeSummary>, bollard::errors::Error> {
+    if names.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut filters = HashMap::new();
+    filters.insert(
+        "name".to_string(),
+        names.iter().cloned().collect::<Vec<_>>(),
+    );
+    let opts = bollard::query_parameters::ListVolumesOptionsBuilder::default()
+        .filters(&filters)
+        .build();
+
+    let resp = docker.list_volumes(Some(opts)).await?;
+    Ok(resp
+        .volumes
+        .unwrap_or_default()
+        .into_iter()
+        .map(volume_from_bollard)
         .collect())
 }
 

@@ -101,14 +101,18 @@ export async function setup(): Promise<void> {
     await waitForFile(mockSock);
 
     // Start dockge server
+    const dockgeArgs = [
+        "--dev",
+        "--port", String(PORT),
+        "--data-dir", DATA_DIR,
+        "--stacks-dir", STACKS_DIR,
+    ];
+    if (process.env.DOCKGE_NO_AUTH === "1") {
+        dockgeArgs.push("--no-auth");
+    }
     dockgeServer = spawn(
         dockgeBin,
-        [
-            "--dev",
-            "--port", String(PORT),
-            "--data-dir", DATA_DIR,
-            "--stacks-dir", STACKS_DIR,
-        ],
+        dockgeArgs,
         {
             env: {
                 ...process.env,

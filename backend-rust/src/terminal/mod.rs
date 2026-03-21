@@ -284,13 +284,6 @@ enum TerminalCmd {
         name: String,
         cancel: tokio_util::sync::CancellationToken,
     },
-    StartPty {
-        name: String,
-        cmd: String,
-        args: Vec<String>,
-        working_dir: Option<String>,
-        reply: oneshot::Sender<Result<tokio_util::sync::CancellationToken, String>>,
-    },
     StartPtyAndWait {
         name: String,
         cmd: String,
@@ -436,24 +429,6 @@ impl TerminalHandle {
         });
     }
 
-    /// Start a PTY command attached to a terminal.
-    pub async fn start_pty(
-        &self,
-        name: &str,
-        cmd: &str,
-        args: &[&str],
-        working_dir: Option<&str>,
-    ) -> Result<tokio_util::sync::CancellationToken, String> {
-        let (reply, rx) = oneshot::channel();
-        let _ = self.tx.send(TerminalCmd::StartPty {
-            name: name.to_string(),
-            cmd: cmd.to_string(),
-            args: args.iter().map(|s| s.to_string()).collect(),
-            working_dir: working_dir.map(|s| s.to_string()),
-            reply,
-        }).await;
-        rx.await.map_err(|_| "actor dropped".to_string())?
-    }
 }
 
 // ── Actor loop ──────────────────────────────────────────────────────────────
@@ -564,24 +539,6 @@ async fn actor_loop(
                 }
             }
 
-            TerminalCmd::StartPty { name, cmd, args, working_dir, reply } => {
-                let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-                let result = match open_pty(&cmd, &arg_refs, working_dir.as_deref()) {
-                    Ok(setup) => {
-                        let cancel = tokio_util::sync::CancellationToken::new();
-                        let (input_tx, input_rx) = mpsc::unbounded_channel();
-                        if let Some(term) = terminals.get_mut(&name) {
-                            term.cancel = Some(cancel.clone());
-                            term.pty_input_tx = Some(input_tx);
-                        }
-                        setup_pty_tasks(setup, &cancel, &actor_tx, &name, input_rx, None);
-                        Ok(cancel)
-                    }
-                    Err(e) => Err(e.to_string()),
-                };
-                let _ = reply.send(result);
-            }
-
             TerminalCmd::StartPtyAndWait { name, cmd, args, working_dir, reply } => {
                 let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
                 let result = match open_pty(&cmd, &arg_refs, working_dir.as_deref()) {
@@ -635,7 +592,7 @@ async fn actor_loop(
 
 // ── PTY helpers ─────────────────────────────────────────────────────────────
 
-/// Shared setup for both `StartPty` and `StartPtyAndWait`.
+/// Shared PTY setup for `StartPtyAndWait`.
 ///
 /// If `done_tx` is `Some`, the reader thread takes ownership of the child
 /// process, waits for exit, and sends the exit code. Otherwise the input
@@ -694,7 +651,7 @@ fn setup_pty_tasks(
     let master_for_resize = setup.master;
     let cancel_input = cancel.clone();
     tokio::spawn(async move {
-        let _child = child_for_input; // Keep child alive if owned (StartPty)
+        let _child = child_for_input; // Keep child alive if owned
         loop {
             tokio::select! {
                 () = cancel_input.cancelled() => break,

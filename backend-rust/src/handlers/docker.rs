@@ -123,13 +123,13 @@ fn format_bytes_pair(a: u64, b: u64) -> String {
 
 /// Validate login + extract first arg for inspect-style handlers.
 /// Returns None if validation fails (ack already sent).
-async fn inspect_extract_arg(
+fn inspect_extract_arg(
     state: &AppState,
     conn: &Conn,
     msg: &ClientMessage,
     arg_label: &str,
 ) -> Option<String> {
-    let uid = state.check_login(conn, msg).await;
+    let uid = state.check_login(conn, msg);
     if uid == 0 {
         return None;
     }
@@ -137,8 +137,7 @@ async fn inspect_extract_arg(
     let name = arg_string(&args, 0);
     if name.is_empty() {
         if let Some(id) = msg.id {
-            conn.send_ack(id, ErrorResponse::new(format!("{arg_label} required")))
-                .await;
+            conn.send_ack(id, ErrorResponse::new(format!("{arg_label} required")));
         }
         return None;
     }
@@ -146,7 +145,7 @@ async fn inspect_extract_arg(
 }
 
 /// Send an inspect result or error ack using a typed response struct.
-async fn inspect_respond<T: Serialize, R: Serialize>(
+fn inspect_respond<T: Serialize, R: Serialize>(
     conn: &Conn,
     msg: &ClientMessage,
     label: &str,
@@ -156,14 +155,13 @@ async fn inspect_respond<T: Serialize, R: Serialize>(
     match result {
         Ok(detail) => {
             if let Some(id) = msg.id {
-                conn.send_ack(id, wrap(detail)).await;
+                conn.send_ack(id, wrap(detail));
             }
         }
         Err(e) => {
             warn!("{label}: {e}");
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(format!("Inspect failed: {e}")))
-                    .await;
+                conn.send_ack(id, ErrorResponse::new(format!("Inspect failed: {e}")));
             }
         }
     }
@@ -172,7 +170,7 @@ async fn inspect_respond<T: Serialize, R: Serialize>(
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // serviceStatusList
     ws.handle_with_state("serviceStatusList", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -213,13 +211,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 service_status_list: service_status,
                 service_update_status: EmptyObject::default(),
                 service_recreate_status: EmptyObject::default(),
-            }).await;
+            });
         }
     });
 
     // getDockerNetworkList
     ws.handle_with_state("getDockerNetworkList", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -231,13 +229,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             conn.send_ack(id, DockerNetworkListResponse {
                 ok: true,
                 docker_network_list: networks,
-            }).await;
+            });
         }
     });
 
     // getDockerImageList
     ws.handle_with_state("getDockerImageList", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -249,13 +247,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             conn.send_ack(id, DockerImageListResponse {
                 ok: true,
                 docker_image_list: images,
-            }).await;
+            });
         }
     });
 
     // getDockerVolumeList
     ws.handle_with_state("getDockerVolumeList", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -267,41 +265,41 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             conn.send_ack(id, DockerVolumeListResponse {
                 ok: true,
                 docker_volume_list: volumes,
-            }).await;
+            });
         }
     });
 
     // containerInspect
     ws.handle_with_state("containerInspect", state.clone(), |state, conn, msg| async move {
-        let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Container name").await else { return };
+        let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Container name") else { return };
         let result = state.docker.inspect_container(&name, None::<bollard::query_parameters::InspectContainerOptions>).await;
-        inspect_respond(&conn, &msg, "inspectData", result, |d| InspectDataResponse { ok: true, inspect_data: d }).await;
+        inspect_respond(&conn, &msg, "inspectData", result, |d| InspectDataResponse { ok: true, inspect_data: d });
     });
 
     // networkInspect
     ws.handle_with_state("networkInspect", state.clone(), |state, conn, msg| async move {
-        let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Network name").await else { return };
+        let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Network name") else { return };
         let result = docker::network_inspect(&state.docker, &name).await;
-        inspect_respond(&conn, &msg, "networkDetail", result, |d| NetworkDetailResponse { ok: true, network_detail: d }).await;
+        inspect_respond(&conn, &msg, "networkDetail", result, |d| NetworkDetailResponse { ok: true, network_detail: d });
     });
 
     // imageInspect
     ws.handle_with_state("imageInspect", state.clone(), |state, conn, msg| async move {
-        let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Image reference").await else { return };
+        let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Image reference") else { return };
         let result = docker::image_inspect_detail(&state.docker, &name).await;
-        inspect_respond(&conn, &msg, "imageDetail", result, |d| ImageDetailResponse { ok: true, image_detail: d }).await;
+        inspect_respond(&conn, &msg, "imageDetail", result, |d| ImageDetailResponse { ok: true, image_detail: d });
     });
 
     // volumeInspect
     ws.handle_with_state("volumeInspect", state.clone(), |state, conn, msg| async move {
-        let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Volume name").await else { return };
+        let Some(name) = inspect_extract_arg(&state, &conn, &msg, "Volume name") else { return };
         let result = docker::volume_inspect(&state.docker, &name).await;
-        inspect_respond(&conn, &msg, "volumeDetail", result, |d| VolumeDetailResponse { ok: true, volume_detail: d }).await;
+        inspect_respond(&conn, &msg, "volumeDetail", result, |d| VolumeDetailResponse { ok: true, volume_detail: d });
     });
 
     // subscribeStats — spawn a persistent streaming task
     ws.handle_with_state("subscribeStats", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -313,7 +311,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         conn.set_subscription("stats", container.clone(), token.clone());
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse::simple()).await;
+            conn.send_ack(id, OkResponse::simple());
         }
 
         // Spawn persistent streaming task
@@ -416,7 +414,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                                 let ok = conn.send_event("dockerStats", DockerStatsEvent {
                                     ok: true,
                                     docker_stats: stats_map,
-                                }).await;
+                                });
                                 if !ok {
                                     return; // connection dead
                                 }
@@ -435,7 +433,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // unsubscribeStats
     ws.handle_with_state("unsubscribeStats", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -443,13 +441,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let container = arg_string(&args, 0);
         conn.cancel_subscription("stats", &container);
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse::simple()).await;
+            conn.send_ack(id, OkResponse::simple());
         }
     });
 
     // subscribeTop — spawn a persistent polling task
     ws.handle_with_state("subscribeTop", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -461,7 +459,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         conn.set_subscription("top", container.clone(), token.clone());
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse::simple()).await;
+            conn.send_ack(id, OkResponse::simple());
         }
 
         // Spawn persistent polling task
@@ -491,7 +489,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // unsubscribeTop
     ws.handle_with_state("unsubscribeTop", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -499,7 +497,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let container = arg_string(&args, 0);
         conn.cancel_subscription("top", &container);
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse::simple()).await;
+            conn.send_ack(id, OkResponse::simple());
         }
     });
 }
@@ -557,8 +555,7 @@ async fn push_top(docker: &crate::docker::DockerClient, container: &str, conn: &
                 ok: true,
                 processes: top.processes.unwrap_or_default(),
                 titles: top.titles.unwrap_or_default(),
-            })
-            .await,
+            }),
         Err(e) => {
             warn!("subscribeTop poll error: {e}");
             let _ = conn
@@ -566,8 +563,7 @@ async fn push_top(docker: &crate::docker::DockerClient, container: &str, conn: &
                     ok: true,
                     processes: Vec::new(),
                     titles: Vec::new(),
-                })
-                .await;
+                });
             false
         }
     }

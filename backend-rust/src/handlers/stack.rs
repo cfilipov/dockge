@@ -93,6 +93,36 @@ pub(crate) fn is_stack_managed(stacks_dir: &str, stack_name: &str) -> bool {
     find_compose_file(stacks_dir, stack_name).is_some()
 }
 
+/// Find the compose override file for a stack.
+fn find_compose_override_file(stacks_dir: &str, stack_name: &str, compose_file_name: &str) -> Option<String> {
+    let override_name = if let Some(base) = compose_file_name.strip_suffix(".yaml") {
+        format!("{}.override.yaml", base)
+    } else if let Some(base) = compose_file_name.strip_suffix(".yml") {
+        format!("{}.override.yml", base)
+    } else {
+        return None;
+    };
+    let path = format!("{}/{}/{}", stacks_dir, stack_name, override_name);
+    if Path::new(&path).exists() {
+        Some(override_name)
+    } else {
+        None
+    }
+}
+
+/// Build global env-file args if global.env exists in the stacks directory.
+fn global_env_args(stacks_dir: &str) -> Vec<String> {
+    let global_env_path = std::path::Path::new(stacks_dir).join("global.env");
+    if global_env_path.exists() {
+        vec![
+            "--env-file".to_string(),
+            global_env_path.to_string_lossy().to_string(),
+        ]
+    } else {
+        vec![]
+    }
+}
+
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // Register stack lifecycle handlers (loop — keep on ws.handle)
     for (event, action) in &[
@@ -108,7 +138,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             let state = state.clone();
             let action = action.clone();
             async move {
-                let uid = state.check_login(&conn, &msg).await;
+                let uid = state.check_login(&conn, &msg);
                 if uid == 0 {
                     return;
                 }
@@ -118,13 +148,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
                 if let Err(e) = validate_stack_name(&stack_name) {
                     if let Some(id) = msg.id {
-                        conn.send_ack(id, ErrorResponse::new(e)).await;
+                        conn.send_ack(id, ErrorResponse::new(e));
                     }
                     return;
                 }
 
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, OkResponse::simple()).await;
+                    conn.send_ack(id, OkResponse::simple());
                 }
 
                 // Run compose action in background so the worker is free
@@ -133,16 +163,31 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     let lock = state.stack_locks.get(&stack_name);
                     let _guard = lock.lock().await;
 
-                    let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
+                    let managed = is_stack_managed(&state.config.stacks_dir, &stack_name);
+                    let env_args = global_env_args(&state.config.stacks_dir);
                     let term_name = format!("compose-{}", stack_name);
                     state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
 
-                    let cmd_display = format!("$ docker compose {action}\r\n");
+                    let (cmd_args, working_dir): (Vec<String>, Option<String>) = if managed {
+                        let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
+                        let mut a = vec!["compose".to_string()];
+                        a.extend(env_args);
+                        a.push(action.clone());
+                        (a, Some(stack_dir))
+                    } else {
+                        let mut a = vec!["compose".to_string(), "-p".to_string(), stack_name.clone()];
+                        a.extend(env_args);
+                        a.push(action.clone());
+                        (a, None)
+                    };
+
+                    let cmd_display = format!("$ docker {}\r\n", cmd_args.join(" "));
                     state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
 
+                    let arg_refs: Vec<&str> = cmd_args.iter().map(|s| s.as_str()).collect();
                     match run_pty_to_terminal(
                         &state.terminal_manager, &term_name,
-                        "docker", &["compose", &action], Some(&stack_dir),
+                        "docker", &arg_refs, working_dir.as_deref(),
                     ).await {
                         Ok(()) => info!(stack = %stack_name, action = %action, "compose action completed"),
                         Err(e) => warn!(stack = %stack_name, action = %action, "compose action failed: {e}"),
@@ -155,7 +200,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // startStack — uses "up -d --remove-orphans" (not "start") for managed stacks
     ws.handle_with_state("startStack", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -165,30 +210,44 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
         if let Err(e) = validate_stack_name(&stack_name) {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(e)).await;
+                conn.send_ack(id, ErrorResponse::new(e));
             }
             return;
         }
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse::simple()).await;
+            conn.send_ack(id, OkResponse::simple());
         }
 
         tokio::spawn(async move {
             let lock = state.stack_locks.get(&stack_name);
             let _guard = lock.lock().await;
 
-            let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
+            let managed = is_stack_managed(&state.config.stacks_dir, &stack_name);
+            let env_args = global_env_args(&state.config.stacks_dir);
             let term_name = format!("compose-{}", stack_name);
             state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
-            state.terminal_manager.write_data(
-                &term_name,
-                b"$ docker compose up -d --remove-orphans\r\n".to_vec(),
-            );
 
+            let (cmd_args, working_dir): (Vec<String>, Option<String>) = if managed {
+                let stack_dir = format!("{}/{}", state.config.stacks_dir, stack_name);
+                let mut a = vec!["compose".to_string()];
+                a.extend(env_args);
+                a.extend(["up".to_string(), "-d".to_string(), "--remove-orphans".to_string()]);
+                (a, Some(stack_dir))
+            } else {
+                let mut a = vec!["compose".to_string(), "-p".to_string(), stack_name.clone()];
+                a.extend(env_args);
+                a.extend(["up".to_string(), "-d".to_string(), "--remove-orphans".to_string()]);
+                (a, None)
+            };
+
+            let cmd_display = format!("$ docker {}\r\n", cmd_args.join(" "));
+            state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
+
+            let arg_refs: Vec<&str> = cmd_args.iter().map(|s| s.as_str()).collect();
             match run_pty_to_terminal(
                 &state.terminal_manager, &term_name,
-                "docker", &["compose", "up", "-d", "--remove-orphans"], Some(&stack_dir),
+                "docker", &arg_refs, working_dir.as_deref(),
             ).await {
                 Ok(()) => info!(stack = %stack_name, "startStack completed"),
                 Err(e) => warn!(stack = %stack_name, "startStack failed: {e}"),
@@ -199,7 +258,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // getStack
     ws.handle_with_state("getStack", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -209,7 +268,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
         if let Err(e) = validate_stack_name(&stack_name) {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(e)).await;
+                conn.send_ack(id, ErrorResponse::new(e));
             }
             return;
         }
@@ -225,6 +284,16 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let compose_env =
             std::fs::read_to_string(&env_path).unwrap_or_default();
 
+        let (compose_override_yaml, compose_override_file_name) =
+            match find_compose_override_file(stacks_dir, &stack_name, &compose_file_name) {
+                Some(override_name) => {
+                    let override_path = format!("{}/{}/{}", stacks_dir, stack_name, override_name);
+                    let content = std::fs::read_to_string(&override_path).unwrap_or_default();
+                    (content, override_name)
+                }
+                None => (String::new(), String::new()),
+            };
+
         #[derive(Serialize)]
         struct GetStackResponse { ok: bool, stack: StackData }
         #[derive(Serialize)]
@@ -236,6 +305,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             compose_env: String,
             #[serde(rename = "composeFileName")]
             compose_file_name: String,
+            #[serde(rename = "composeOverrideYAML")]
+            compose_override_yaml: String,
+            #[serde(rename = "composeOverrideFileName")]
+            compose_override_file_name: String,
             #[serde(rename = "isManagedByDockge")]
             is_managed_by_dockge: bool,
         }
@@ -248,15 +321,17 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     compose_yaml,
                     compose_env,
                     compose_file_name,
+                    compose_override_yaml,
+                    compose_override_file_name,
                     is_managed_by_dockge: true,
                 },
-            }).await;
+            });
         }
     });
 
     // saveStack
     ws.handle_with_state("saveStack", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -264,6 +339,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let stack_name = arg_string(&args, 0);
         let compose_yaml = arg_string(&args, 1);
         let compose_env = arg_string(&args, 2);
+        let compose_override = arg_string(&args, 3);
 
         if stack_name.is_empty() || compose_yaml.is_empty() {
             if let Some(id) = msg.id {
@@ -272,14 +348,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     ErrorResponse::new(
                         "Stack name and compose YAML required",
                     ),
-                )
-                .await;
+                );
             }
             return;
         }
         if let Err(e) = validate_stack_name(&stack_name) {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(e)).await;
+                conn.send_ack(id, ErrorResponse::new(e));
             }
             return;
         }
@@ -295,14 +370,14 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             &stack_dir,
             &compose_yaml,
             &compose_env,
+            &compose_override,
         ) {
             error!(stack = %stack_name, "save stack: {e}");
             if let Some(id) = msg.id {
                 conn.send_ack(
                     id,
                     ErrorResponse::new(e.to_string()),
-                )
-                .await;
+                );
             }
             return;
         }
@@ -323,8 +398,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     msg: Some("Saved".into()),
                     token: None,
                 },
-            )
-            .await;
+            );
         }
         info!(stack = %stack_name, "stack saved");
     });
@@ -332,7 +406,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // deployStack — validate then deploy; ack AFTER completion so the frontend
     // stays on /stacks/new showing progress output until done.
     ws.handle_with_state("deployStack", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -340,6 +414,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let stack_name = arg_string(&args, 0);
         let compose_yaml = arg_string(&args, 1);
         let compose_env = arg_string(&args, 2);
+        let compose_override = arg_string(&args, 3);
 
         if stack_name.is_empty() || compose_yaml.is_empty() {
             if let Some(id) = msg.id {
@@ -348,14 +423,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     ErrorResponse::new(
                         "Stack name and compose YAML required",
                     ),
-                )
-                .await;
+                );
             }
             return;
         }
         if let Err(e) = validate_stack_name(&stack_name) {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(e)).await;
+                conn.send_ack(id, ErrorResponse::new(e));
             }
             return;
         }
@@ -372,14 +446,14 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 &stack_dir,
                 &compose_yaml,
                 &compose_env,
+                &compose_override,
             ) {
                 error!(stack = %stack_name, "deploy save: {e}");
                 if let Some(id) = msg.id {
                     conn.send_ack(
                         id,
                         ErrorResponse::new(e.to_string()),
-                    )
-                    .await;
+                    );
                 }
                 return;
             }
@@ -413,7 +487,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             ok: true,
                             msg: Some("Deployed".into()),
                             token: None,
-                        }).await;
+                        });
                     }
                     state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
                     return;
@@ -440,7 +514,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                     ok: true,
                     msg: Some("Deployed".into()),
                     token: None,
-                }).await;
+                });
             }
 
             state.terminal_manager.remove_after(&term_name, Duration::from_secs(30));
@@ -449,7 +523,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // deleteStack
     ws.handle_with_state("deleteStack", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -467,7 +541,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
         if let Err(e) = validate_stack_name(&stack_name) {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(e)).await;
+                conn.send_ack(id, ErrorResponse::new(e));
             }
             return;
         }
@@ -477,8 +551,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             conn.send_ack(
                 id,
                 OkResponse::simple(),
-            )
-            .await;
+            );
         }
 
         // Run in background so the worker is free for subsequent messages.
@@ -508,7 +581,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // forceDeleteStack
     ws.handle_with_state("forceDeleteStack", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -516,13 +589,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let stack_name = arg_string(&args, 0);
         if let Err(e) = validate_stack_name(&stack_name) {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(e)).await;
+                conn.send_ack(id, ErrorResponse::new(e));
             }
             return;
         }
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse::simple()).await;
+            conn.send_ack(id, OkResponse::simple());
         }
 
         tokio::spawn(async move {
@@ -549,7 +622,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
     // updateStack
     ws.handle_with_state("updateStack", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 {
             return;
         }
@@ -557,13 +630,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let stack_name = arg_string(&args, 0);
         if let Err(e) = validate_stack_name(&stack_name) {
             if let Some(id) = msg.id {
-                conn.send_ack(id, ErrorResponse::new(e)).await;
+                conn.send_ack(id, ErrorResponse::new(e));
             }
             return;
         }
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse::simple()).await;
+            conn.send_ack(id, OkResponse::simple());
         }
 
         tokio::spawn(async move {
@@ -596,11 +669,12 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     });
 }
 
-/// Save compose YAML and .env to disk.
+/// Save compose YAML, .env, and optional override to disk.
 fn save_stack_to_disk(
     stack_dir: &str,
     compose_yaml: &str,
     compose_env: &str,
+    compose_override: &str,
 ) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(stack_dir)?;
     std::fs::write(
@@ -609,10 +683,15 @@ fn save_stack_to_disk(
     )?;
     let env_path = format!("{}/.env", stack_dir);
     if compose_env.is_empty() {
-        // Remove .env if empty
         let _ = std::fs::remove_file(&env_path);
     } else {
         std::fs::write(&env_path, compose_env)?;
+    }
+    let override_path = format!("{}/compose.override.yaml", stack_dir);
+    if compose_override.is_empty() {
+        let _ = std::fs::remove_file(&override_path);
+    } else {
+        std::fs::write(&override_path, compose_override)?;
     }
     Ok(())
 }
@@ -726,7 +805,7 @@ mod tests {
     fn save_creates_dir_and_compose_file() {
         let tmp = tempfile::tempdir().unwrap();
         let stack_dir = tmp.path().join("my-stack");
-        save_stack_to_disk(stack_dir.to_str().unwrap(), "version: '3'\n", "").unwrap();
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "version: '3'\n", "", "").unwrap();
         let content = std::fs::read_to_string(stack_dir.join("compose.yaml")).unwrap();
         assert_eq!(content, "version: '3'\n");
     }
@@ -735,7 +814,7 @@ mod tests {
     fn save_writes_env_when_nonempty() {
         let tmp = tempfile::tempdir().unwrap();
         let stack_dir = tmp.path().join("my-stack");
-        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "FOO=bar").unwrap();
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "FOO=bar", "").unwrap();
         let env = std::fs::read_to_string(stack_dir.join(".env")).unwrap();
         assert_eq!(env, "FOO=bar");
     }
@@ -744,9 +823,9 @@ mod tests {
     fn save_removes_env_when_empty() {
         let tmp = tempfile::tempdir().unwrap();
         let stack_dir = tmp.path().join("my-stack");
-        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "FOO=bar").unwrap();
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "FOO=bar", "").unwrap();
         assert!(stack_dir.join(".env").exists());
-        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "").unwrap();
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "", "").unwrap();
         assert!(!stack_dir.join(".env").exists());
     }
 
@@ -785,6 +864,70 @@ mod tests {
             find_compose_file(tmp.path().to_str().unwrap(), "empty-stack"),
             None
         );
+    }
+
+    // ── find_compose_override_file ────────────────────────────────────────
+
+    #[test]
+    fn find_override_file_yaml() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("test-stack");
+        std::fs::create_dir_all(&stack_dir).unwrap();
+        std::fs::write(stack_dir.join("compose.override.yaml"), "").unwrap();
+        assert_eq!(
+            find_compose_override_file(tmp.path().to_str().unwrap(), "test-stack", "compose.yaml"),
+            Some("compose.override.yaml".to_string())
+        );
+    }
+
+    #[test]
+    fn find_override_file_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("test-stack");
+        std::fs::create_dir_all(&stack_dir).unwrap();
+        assert_eq!(
+            find_compose_override_file(tmp.path().to_str().unwrap(), "test-stack", "compose.yaml"),
+            None
+        );
+    }
+
+    // ── save_stack_to_disk (override) ─────────────────────────────────────
+
+    #[test]
+    fn save_writes_override_when_nonempty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("my-stack");
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "", "ports:\n  - 80:80\n").unwrap();
+        let content = std::fs::read_to_string(stack_dir.join("compose.override.yaml")).unwrap();
+        assert_eq!(content, "ports:\n  - 80:80\n");
+    }
+
+    #[test]
+    fn save_removes_override_when_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stack_dir = tmp.path().join("my-stack");
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "", "override").unwrap();
+        assert!(stack_dir.join("compose.override.yaml").exists());
+        save_stack_to_disk(stack_dir.to_str().unwrap(), "v: 3\n", "", "").unwrap();
+        assert!(!stack_dir.join("compose.override.yaml").exists());
+    }
+
+    // ── global_env_args ───────────────────────────────────────────────────
+
+    #[test]
+    fn global_env_args_no_file_returns_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(global_env_args(tmp.path().to_str().unwrap()).is_empty());
+    }
+
+    #[test]
+    fn global_env_args_file_exists_returns_args() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("global.env"), "FOO=bar").unwrap();
+        let args = global_env_args(tmp.path().to_str().unwrap());
+        assert_eq!(args.len(), 2);
+        assert_eq!(args[0], "--env-file");
+        assert!(args[1].ends_with("global.env"));
     }
 }
 

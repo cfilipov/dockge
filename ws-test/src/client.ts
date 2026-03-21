@@ -146,6 +146,10 @@ export class TestClient {
         this.ws.send(msg);
     }
 
+    sendBinary(data: Buffer): void {
+        this.ws.send(data);
+    }
+
     async waitForEvent(eventName: string, timeout = EVENT_TIMEOUT): Promise<Record<string, unknown>> {
         // Check queue first
         const idx = this.eventQueue.findIndex((e) => e.event === eventName);

@@ -125,7 +125,7 @@ async fn main() {
     let mut ws_builder = WsServer::new(broadcaster);
 
     // Register connect handler: send "info" event synchronously so it is
-    // queued in the write channel before the read pump starts.
+    // queued in the write channel before the connection task starts.
     let dev = config.dev;
     let connect_state = state.clone();
     ws_builder.handle_connect(move |conn| {
@@ -144,6 +144,13 @@ async fn main() {
             is_container: true,
             dev,
         });
+
+        // No-auth mode: auto-authenticate and send initial data
+        if connect_state.config.no_auth {
+            conn.set_user(1);
+            connect_state.has_authenticated.store(true, Ordering::Relaxed);
+            handlers::auth::after_login(&connect_state, &conn);
+        }
 
         // If no users exist, tell the client to show the setup page
         if connect_state.need_setup.load(std::sync::atomic::Ordering::Relaxed) {

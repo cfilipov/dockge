@@ -14,14 +14,14 @@ const GLOBAL_ENV_DEFAULT: &str = "# VARIABLE=value #comment";
 pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
     // getSettings
     ws.handle_with_state("getSettings", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 { return; }
 
         let mut settings = match state.get_all_settings() {
             Ok(s) => s,
             Err(e) => {
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, ErrorResponse::new(format!("Database error: {e}"))).await;
+                    conn.send_ack(id, ErrorResponse::new(format!("Database error: {e}")));
                 }
                 return;
             }
@@ -38,13 +38,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         struct SettingsResponse { ok: bool, data: BTreeMap<String, String> }
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, SettingsResponse { ok: true, data: settings }).await;
+            conn.send_ack(id, SettingsResponse { ok: true, data: settings });
         }
     });
 
     // setSettings
     ws.handle_with_state("setSettings", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 { return; }
 
         let args = parse_args(&msg);
@@ -53,7 +53,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 Some(d) => d,
                 None => {
                     if let Some(id) = msg.id {
-                        conn.send_ack(id, ErrorResponse::new("Invalid arguments")).await;
+                        conn.send_ack(id, ErrorResponse::new("Invalid arguments"));
                     }
                     return;
                 }
@@ -78,7 +78,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
             if let Err(e) = state.set_setting(key, &str_val) {
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, ErrorResponse::new(format!("Failed to save setting: {e}"))).await;
+                    conn.send_ack(id, ErrorResponse::new(format!("Failed to save setting: {e}")));
                 }
                 return;
             }
@@ -89,13 +89,13 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 ok: true,
                 msg: Some("Saved".into()),
                 token: None,
-            }).await;
+            });
         }
     });
 
     // disconnectOtherSocketClients
     ws.handle_with_state("disconnectOtherSocketClients", state.clone(), |state, conn, msg| async move {
-        let uid = state.check_login(&conn, &msg).await;
+        let uid = state.check_login(&conn, &msg);
         if uid == 0 { return; }
 
         let (done_tx, done_rx) = tokio::sync::oneshot::channel();
@@ -106,7 +106,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
         let _ = done_rx.await;
 
         if let Some(id) = msg.id {
-            conn.send_ack(id, OkResponse::simple()).await;
+            conn.send_ack(id, OkResponse::simple());
         }
     });
 }

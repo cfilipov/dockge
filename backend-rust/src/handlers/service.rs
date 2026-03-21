@@ -62,7 +62,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             let compose_args = compose_args.clone();
             let docker_action = docker_action.clone();
             async move {
-                let uid = state.check_login(&conn, &msg).await;
+                let uid = state.check_login(&conn, &msg);
                 if uid == 0 {
                     return;
                 }
@@ -75,8 +75,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         conn.send_ack(
                             id,
                             ErrorResponse::new("Stack name and service name required"),
-                        )
-                        .await;
+                        );
                     }
                     return;
                 }
@@ -92,16 +91,14 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                             ErrorResponse::new(format!(
                                 "Cannot {action_label}: stack is not managed by Dockge"
                             )),
-                        )
-                        .await;
+                        );
                     }
                     return;
                 }
 
                 // Ack immediately
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, OkResponse::simple())
-                        .await;
+                    conn.send_ack(id, OkResponse::simple());
                 }
 
                 // Run in background so the worker is free for terminalJoin etc.
@@ -160,7 +157,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
             let state = state.clone();
             let action = action.clone();
             async move {
-                let uid = state.check_login(&conn, &msg).await;
+                let uid = state.check_login(&conn, &msg);
                 if uid == 0 {
                     return;
                 }
@@ -169,8 +166,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let container_name = arg_string(&args, 0);
                 if container_name.is_empty() {
                     if let Some(id) = msg.id {
-                        conn.send_ack(id, ErrorResponse::new("Container name required"))
-                            .await;
+                        conn.send_ack(id, ErrorResponse::new("Container name required"));
                     }
                     return;
                 }
@@ -180,7 +176,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
 
                 if let Some(id) = msg.id {
-                    conn.send_ack(id, OkResponse::simple()).await;
+                    conn.send_ack(id, OkResponse::simple());
                 }
 
                 // Run action in background via PTY terminal
