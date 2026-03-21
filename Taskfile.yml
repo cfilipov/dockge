@@ -309,16 +309,27 @@ tasks:
       - ../bin/dockge-rust
 
   test-ws-rust:
-    desc: Run WebSocket protocol tests against Rust backend
-    deps: [build-rust-dev, build-mock-daemon, build-mock-docker]
-    dir: ws-test
-    cmd: DOCKGE_BIN=../bin/dockge-rust pnpm test
-
-  test-ws-rust-noauth:
-    desc: Run WebSocket no-auth mode tests against Rust backend
+    desc: Run WebSocket protocol tests against Rust backend (no-auth, full suite)
     deps: [build-rust-dev, build-mock-daemon, build-mock-docker]
     dir: ws-test
     cmd: DOCKGE_BIN=../bin/dockge-rust DOCKGE_NO_AUTH=1 pnpm test
+
+  test-ws-rust-auth:
+    desc: Run auth-specific WebSocket tests against Rust backend
+    deps: [build-rust-dev, build-mock-daemon, build-mock-docker]
+    dir: ws-test
+    cmd: >-
+      DOCKGE_BIN=../bin/dockge-rust pnpm exec vitest run
+      tests/auth.test.ts
+      tests/after-login.test.ts
+      tests/broadcast.test.ts
+      tests/broadcast-advanced.test.ts
+
+  test-ws-rust-all:
+    desc: Run all WebSocket tests (no-auth full + auth subset)
+    cmds:
+      - task: test-ws-rust
+      - task: test-ws-rust-auth
 
   dev-rust:
     desc: Run mock daemon + Rust backend + Vite HMR (ports 5003 + 5000)

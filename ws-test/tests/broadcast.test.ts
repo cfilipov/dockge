@@ -40,53 +40,7 @@ describe("broadcast", () => {
         }
     });
 
-    test("downStackBroadcastsNullContainers — null entries for destroyed containers", async () => {
-        await resetMockState();
-
-        // conn1: will issue the downStack command
-        const client1 = await connectClient();
-        // conn2: will observe broadcast events
-        const client2 = await connectClient();
-        try {
-            await client1.login();
-            await client2.login();
-
-            // Wait for initial containers broadcast on conn2 (test-stack starts running)
-            const initial = await client2.waitForEvent("containers");
-
-            // Find a test-stack container key
-            let foundKey = "";
-            for (const key of Object.keys(initial)) {
-                if (key.startsWith("test-stack")) {
-                    foundKey = key;
-                    break;
-                }
-            }
-            expect(foundKey).toBeTruthy();
-
-            // Down the stack on conn1
-            const downResp = await client1.sendAndReceive("downStack", "test-stack");
-            expect(downResp.ok).toBe(true);
-
-            // Wait for post-down broadcast where container is explicitly null
-            for (let i = 0; i < 10; i++) {
-                const postDown = await client2.waitForEvent("containers");
-                if (postDown[foundKey] === null) {
-                    // Container explicitly null — required
-                    return;
-                }
-                // Container still present (e.g. state transitioning), keep reading
-            }
-            expect.fail("Expected container to be null in post-down broadcast after 10 attempts");
-        } finally {
-            client1.close();
-            client2.close();
-        }
-    });
-
     test("eventBroadcastSendsFilteredContainers — only affected stack in broadcast", async () => {
-        await resetMockState();
-
         // Both test-stack and other-stack start running via .mock.yaml.
         // conn1: will issue commands
         const client1 = await connectClient();
@@ -141,8 +95,6 @@ describe("broadcast", () => {
     });
 
     test("mockResetTriggersFreshContainersBroadcast — reset triggers broadcast", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -156,7 +108,7 @@ describe("broadcast", () => {
             // Mock reset may or may not trigger an immediate broadcast depending on
             // whether the daemon generates Docker events during reset. Accept either.
             // The key verification is that the reset endpoint works (resp.ok above).
-            const containers = await client.tryWaitForEvent("containers", 5000);
+            const containers = await client.tryWaitForEvent("containers", 500);
             // containers may be null if no Docker events were generated during reset —
             // that's acceptable since the mock daemon reset is primarily about state,
             // not event generation.
@@ -166,6 +118,49 @@ describe("broadcast", () => {
             }
         } finally {
             client.close();
+        }
+    });
+
+    // Destructive — destroys containers, must run last
+    test("downStackBroadcastsNullContainers — null entries for destroyed containers", async () => {
+        // conn1: will issue the downStack command
+        const client1 = await connectClient();
+        // conn2: will observe broadcast events
+        const client2 = await connectClient();
+        try {
+            await client1.login();
+            await client2.login();
+
+            // Wait for initial containers broadcast on conn2 (test-stack starts running)
+            const initial = await client2.waitForEvent("containers");
+
+            // Find a test-stack container key
+            let foundKey = "";
+            for (const key of Object.keys(initial)) {
+                if (key.startsWith("test-stack")) {
+                    foundKey = key;
+                    break;
+                }
+            }
+            expect(foundKey).toBeTruthy();
+
+            // Down the stack on conn1
+            const downResp = await client1.sendAndReceive("downStack", "test-stack");
+            expect(downResp.ok).toBe(true);
+
+            // Wait for post-down broadcast where container is explicitly null
+            for (let i = 0; i < 10; i++) {
+                const postDown = await client2.waitForEvent("containers");
+                if (postDown[foundKey] === null) {
+                    // Container explicitly null — required
+                    return;
+                }
+                // Container still present (e.g. state transitioning), keep reading
+            }
+            expect.fail("Expected container to be null in post-down broadcast after 10 attempts");
+        } finally {
+            client1.close();
+            client2.close();
         }
     });
 });

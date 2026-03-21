@@ -1,10 +1,14 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeAll } from "vitest";
 import { resetMockState, connectClient, waitForContainerState } from "../src/helpers.js";
 
 describe("services", () => {
-    test("stopService — container reaches exited state", async () => {
+    beforeAll(async () => {
         await resetMockState();
+    });
 
+    // Ordered: stop → start → restart → recreate → update → read-only → container ops → errors
+
+    test("stopService — container reaches exited state", async () => {
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -23,18 +27,13 @@ describe("services", () => {
     });
 
     test("startService — container reaches running state", async () => {
-        await resetMockState();
-
+        // web is stopped from previous test
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
             await cmd.login();
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
-
-            // Stop first so we can test start
-            await cmd.sendAndReceive("stopService", "test-stack", "web");
-            await waitForContainerState(obs, "test-stack-web-1", "exited");
 
             const resp = await cmd.sendAndReceive("startService", "test-stack", "web");
             expect(resp.ok).toBe(true);
@@ -47,8 +46,6 @@ describe("services", () => {
     });
 
     test("restartService — container ends up running", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -67,8 +64,6 @@ describe("services", () => {
     });
 
     test("recreateService — container ends up running", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -87,8 +82,6 @@ describe("services", () => {
     });
 
     test("updateService — container ends up running after pull+recreate", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -107,8 +100,6 @@ describe("services", () => {
     });
 
     test("checkImageUpdates", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         try {
             await cmd.login();
@@ -119,9 +110,8 @@ describe("services", () => {
         }
     });
 
+    // Container ops: stop → start → restart
     test("stopContainer — container reaches exited state", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -139,9 +129,26 @@ describe("services", () => {
         }
     });
 
-    test("restartContainer — container ends up running", async () => {
-        await resetMockState();
+    test("startContainer — container reaches running state", async () => {
+        // web-1 is stopped from previous test
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
 
+            const resp = await cmd.sendAndReceive("startContainer", "test-stack-web-1");
+            expect(resp.ok).toBe(true);
+
+            await waitForContainerState(obs, "test-stack-web-1", "running");
+        } finally {
+            cmd.close();
+            obs.close();
+        }
+    });
+
+    test("restartContainer — container ends up running", async () => {
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -159,33 +166,7 @@ describe("services", () => {
         }
     });
 
-    test("startContainer — container reaches running state", async () => {
-        await resetMockState();
-
-        const cmd = await connectClient();
-        const obs = await connectClient();
-        try {
-            await cmd.login();
-            await obs.login();
-            await obs.waitForEvent("containers"); // drain AfterLogin
-
-            // Stop first
-            await cmd.sendAndReceive("stopContainer", "test-stack-web-1");
-            await waitForContainerState(obs, "test-stack-web-1", "exited");
-
-            const resp = await cmd.sendAndReceive("startContainer", "test-stack-web-1");
-            expect(resp.ok).toBe(true);
-
-            await waitForContainerState(obs, "test-stack-web-1", "running");
-        } finally {
-            cmd.close();
-            obs.close();
-        }
-    });
-
     test("serviceMissingArgs — empty service/stack name fails", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         try {
             await cmd.login();
@@ -203,8 +184,6 @@ describe("services", () => {
     });
 
     test("stopService nonexistent service — acks but no crash", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -216,7 +195,7 @@ describe("services", () => {
             expect(resp.ok).toBe(true);
 
             // Background goroutine fails silently; no containers broadcast for nonexistent service
-            const evt = await obs.tryWaitForEvent("containers", 2000);
+            const evt = await obs.tryWaitForEvent("containers", 500);
             expect(evt).toBeNull();
         } finally {
             cmd.close();

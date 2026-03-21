@@ -1,0 +1,9 @@
+containers:
+  - name: portainer
+    image: portainer/portainer-ce:latest
+    networks:
+      - bridge
+  - name: watchtower
+    image: containrrr/watchtower:latest
+    networks:
+      - bridge

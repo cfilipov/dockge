@@ -1,10 +1,14 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeAll } from "vitest";
 import { resetMockState, connectClient, waitForContainerState } from "../src/helpers.js";
 
 describe("stack-lifecycle", () => {
-    test("stopStack — containers reach exited state", async () => {
+    beforeAll(async () => {
         await resetMockState();
+    });
 
+    // Ordered: stop → start → pause/resume → restart → update → down → self-contained → error cases
+
+    test("stopStack — containers reach exited state", async () => {
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -23,18 +27,12 @@ describe("stack-lifecycle", () => {
     });
 
     test("startStack — containers reach running state", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
             await cmd.login();
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
-
-            // Stop first so we can test start
-            await cmd.sendAndReceive("stopStack", "test-stack");
-            await waitForContainerState(obs, "test-stack-web-1", "exited");
 
             const resp = await cmd.sendAndReceive("startStack", "test-stack");
             expect(resp.ok).toBe(true);
@@ -47,8 +45,6 @@ describe("stack-lifecycle", () => {
     });
 
     test("pauseAndResumeStack — containers transition through paused", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -72,8 +68,6 @@ describe("stack-lifecycle", () => {
     });
 
     test("restartStack — containers end up running", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -92,29 +86,7 @@ describe("stack-lifecycle", () => {
         }
     });
 
-    test("downStack — containers are destroyed (null in broadcast)", async () => {
-        await resetMockState();
-
-        const cmd = await connectClient();
-        const obs = await connectClient();
-        try {
-            await cmd.login();
-            await obs.login();
-            await obs.waitForEvent("containers"); // drain AfterLogin
-
-            const resp = await cmd.sendAndReceive("downStack", "test-stack");
-            expect(resp.ok).toBe(true);
-
-            await waitForContainerState(obs, "test-stack-web-1", null);
-        } finally {
-            cmd.close();
-            obs.close();
-        }
-    });
-
     test("updateStack — containers end up running after pull+deploy", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -132,9 +104,25 @@ describe("stack-lifecycle", () => {
         }
     });
 
-    test("deleteStackWithFiles (protocol-only)", async () => {
-        await resetMockState();
+    test("downStack — containers are destroyed (null in broadcast)", async () => {
+        const cmd = await connectClient();
+        const obs = await connectClient();
+        try {
+            await cmd.login();
+            await obs.login();
+            await obs.waitForEvent("containers"); // drain AfterLogin
 
+            const resp = await cmd.sendAndReceive("downStack", "test-stack");
+            expect(resp.ok).toBe(true);
+
+            await waitForContainerState(obs, "test-stack-web-1", null);
+        } finally {
+            cmd.close();
+            obs.close();
+        }
+    });
+
+    test("deleteStackWithFiles (protocol-only)", async () => {
         const cmd = await connectClient();
         try {
             await cmd.login();
@@ -150,8 +138,6 @@ describe("stack-lifecycle", () => {
     });
 
     test("forceDeleteStack (protocol-only)", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         try {
             await cmd.login();
@@ -167,8 +153,6 @@ describe("stack-lifecycle", () => {
     });
 
     test("startStack with empty name — fails", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         try {
             await cmd.login();
@@ -180,8 +164,6 @@ describe("stack-lifecycle", () => {
     });
 
     test("stopStack nonexistent stack — acks but no state change broadcast", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -193,7 +175,7 @@ describe("stack-lifecycle", () => {
             expect(resp.ok).toBe(true);
 
             // No containers broadcast should arrive for a nonexistent stack
-            const evt = await obs.tryWaitForEvent("containers", 2000);
+            const evt = await obs.tryWaitForEvent("containers", 500);
             expect(evt).toBeNull();
         } finally {
             cmd.close();

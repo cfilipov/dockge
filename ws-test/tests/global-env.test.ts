@@ -7,8 +7,6 @@ describe("global-env", () => {
     });
 
     test("startStack includes --env-file when global.env exists", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {
@@ -63,8 +61,6 @@ describe("global-env", () => {
     });
 
     test("startStack omits --env-file when no global.env", async () => {
-        await resetMockState();
-
         const cmd = await connectClient();
         const obs = await connectClient();
         try {

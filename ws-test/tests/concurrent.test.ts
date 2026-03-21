@@ -1,9 +1,12 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeAll } from "vitest";
 import { resetMockState, connectClient } from "../src/helpers.js";
 
 describe("concurrent", () => {
-    test("concurrent stack operations — 5 parallel stopStack all succeed and containers stop", async () => {
+    beforeAll(async () => {
         await resetMockState();
+    });
+
+    test("concurrent stack operations — 5 parallel stopStack all succeed and containers stop", async () => {
 
         // Observer joins compose terminal BEFORE stops so it sees all [Done] markers.
         // It also receives resourceEvent pushes proving containers actually stopped.
@@ -78,7 +81,15 @@ describe("concurrent", () => {
     });
 
     test("concurrent different stacks — cross-stack operations run in parallel", async () => {
-        await resetMockState();
+        // Previous test stopped test-stack; restart it
+        const setup = await connectClient();
+        try {
+            await setup.login();
+            await setup.sendAndReceive("startStack", "test-stack");
+            await setup.waitForEvent("resourceEvent");
+        } finally {
+            setup.close();
+        }
 
         const obs = await connectClient();
         try {

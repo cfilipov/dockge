@@ -1,10 +1,14 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeAll } from "vitest";
 import { resetMockState, connectClient } from "../src/helpers.js";
 
 describe("terminal", () => {
-    test("terminalJoinAndLeave — join combined, verify sessionId, leave", async () => {
+    beforeAll(async () => {
         await resetMockState();
+    });
 
+    // Read-only and error tests first
+
+    test("terminalJoinAndLeave — join combined, verify sessionId, leave", async () => {
         const client = await connectClient();
         try {
             await client.login();
@@ -28,8 +32,6 @@ describe("terminal", () => {
     });
 
     test("terminalJoinCombinedLog — binary output contains actual log content", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -70,8 +72,6 @@ describe("terminal", () => {
     });
 
     test("terminalJoinContainerLog — binary output contains service-specific content", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -106,8 +106,6 @@ describe("terminal", () => {
     });
 
     test("terminalJoinInvalidType — returns error", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -124,8 +122,6 @@ describe("terminal", () => {
     });
 
     test("terminalJoinMissingStack — returns error", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -141,8 +137,6 @@ describe("terminal", () => {
     });
 
     test("combinedLogHistoricalOrdering — logs from multiple services are interleaved", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -191,8 +185,6 @@ describe("terminal", () => {
     });
 
     test("terminalLeaveInvalidSession — rejects nonexistent session", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -206,9 +198,168 @@ describe("terminal", () => {
         }
     });
 
-    test("composeTerminalStreaming — stopStack writes output to compose terminal", async () => {
-        await resetMockState();
+    test("terminalExited sent when exec shell exits", async () => {
+        const client = await connectClient();
+        try {
+            await client.login();
 
+            // Join exec terminal for test-stack web service
+            const joinResp = await client.sendAndReceive("terminalJoin", {
+                type: "exec",
+                stack: "test-stack",
+                service: "web",
+            });
+            expect(joinResp.ok).toBe(true);
+            const sessionId = joinResp.sessionId as number;
+
+            // Send exit command via binary input to trigger shell exit
+            // Binary input format: [sessionId:u16][opcode:0x00][payload]
+            const exitCmd = Buffer.from("exit\r\n", "utf-8");
+            const inputFrame = Buffer.alloc(2 + 1 + exitCmd.length);
+            inputFrame.writeUInt16BE(sessionId, 0);
+            inputFrame[2] = 0x00; // input opcode
+            exitCmd.copy(inputFrame, 3);
+            client.sendBinary(inputFrame);
+
+            // Also send Ctrl+D (EOF) in case the shell doesn't respond to "exit"
+            const eofFrame = Buffer.alloc(2 + 1 + 1);
+            eofFrame.writeUInt16BE(sessionId, 0);
+            eofFrame[2] = 0x00;
+            eofFrame[3] = 0x04; // Ctrl+D
+            client.sendBinary(eofFrame);
+
+            // Wait for terminalExited push event
+            const exitEvent = await client.tryWaitForEvent("terminalExited", 5000);
+            if (exitEvent !== null) {
+                expect(exitEvent.sessionId).toBe(sessionId);
+            } else {
+                console.log("terminalExited: mock exec shell did not exit within timeout (expected in mock mode)");
+            }
+        } finally {
+            client.close();
+        }
+    });
+
+    // Mutation tests last — these stop containers/stacks
+
+    test("bannerUsesBackgroundColor — stop banner uses background ANSI codes", async () => {
+        const client = await connectClient();
+        try {
+            await client.login();
+
+            // Join combined log terminal
+            const joinResp = await client.sendAndReceive("terminalJoin", {
+                type: "combined",
+                stack: "test-stack",
+            });
+            expect(joinResp.ok).toBe(true);
+            const sessionId = joinResp.sessionId as number;
+
+            // Drain initial historical log output
+            for (let i = 0; i < 10; i++) {
+                try {
+                    await client.waitForBinary(3000);
+                } catch {
+                    break;
+                }
+            }
+
+            // Trigger stopStack to produce a CONTAINER STOP banner
+            const stopResp = await client.sendAndReceive("stopStack", "test-stack");
+            expect(stopResp.ok).toBe(true);
+
+            // Collect binary frames looking for the banner
+            let bannerOutput = "";
+            for (let i = 0; i < 50; i++) {
+                try {
+                    const data = await client.waitForBinary(15000);
+                    if (((data[0] << 8) | data[1]) !== sessionId) continue;
+                    bannerOutput += data.subarray(2).toString("utf-8");
+
+                    if (bannerOutput.includes("CONTAINER STOP")) {
+                        break;
+                    }
+                } catch {
+                    break;
+                }
+            }
+
+            // Banner must have been emitted
+            expect(bannerOutput).toContain("CONTAINER STOP");
+
+            // Must use background RGB color codes (48;2;R;G;B)
+            expect(bannerOutput).toContain("48;2;");
+
+            // Must NOT use foreground-only codes like \x1b[1;33m or \x1b[1;34m immediately before CONTAINER
+            const fgOnlyPattern = /\x1b\[1;3[34]m[^]*?CONTAINER/;
+            expect(fgOnlyPattern.test(bannerOutput)).toBe(false);
+        } finally {
+            client.close();
+        }
+    });
+
+    test("containerActionTerminal — stopContainer writes to container-action terminal", async () => {
+        const client = await connectClient();
+        try {
+            await client.login();
+
+            const containerName = "test-stack-web-1";
+
+            // Join container-action terminal for this container
+            const joinResp = await client.sendAndReceive("terminalJoin", {
+                type: "container-action",
+                container: containerName,
+            });
+            expect(joinResp.ok).toBe(true);
+            const sessionId = joinResp.sessionId as number;
+
+            // Drain any stale buffer content from previous actions
+            for (let i = 0; i < 10; i++) {
+                try {
+                    await client.waitForBinary(500);
+                } catch {
+                    break; // no more buffered frames
+                }
+            }
+
+            // Trigger stopContainer
+            const stopResp = await client.sendAndReceive("stopContainer", containerName);
+            expect(stopResp.ok).toBe(true);
+
+            // Collect binary frames until [Done] or [Error] appears
+            let output = "";
+            const maxFrames = 50;
+            for (let i = 0; i < maxFrames; i++) {
+                const data = await client.waitForBinary(15000);
+                expect(data.length).toBeGreaterThanOrEqual(2);
+                const gotSession = (data[0] << 8) | data[1];
+                if (gotSession !== sessionId) continue;
+
+                output += data.subarray(2).toString("utf-8");
+
+                if (output.includes("[Done]") || output.includes("[Error]")) {
+                    break;
+                }
+            }
+
+            // Must have a completion marker
+            const hasMarker = output.includes("[Done]") || output.includes("[Error]");
+            expect(hasMarker).toBe(true);
+
+            // Must have command display line: "$ docker stop <container>"
+            expect(output).toContain("$ docker stop");
+            expect(output).toContain(containerName);
+
+            // Command must appear before the completion marker
+            const cmdIdx = output.indexOf("$ docker stop");
+            const doneIdx = output.indexOf("[Done]") >= 0 ? output.indexOf("[Done]") : output.indexOf("[Error]");
+            expect(cmdIdx).toBeLessThan(doneIdx);
+        } finally {
+            client.close();
+        }
+    });
+
+    test("composeTerminalStreaming — stopStack writes output to compose terminal", async () => {
         const client = await connectClient();
         try {
             await client.login();
@@ -255,182 +406,6 @@ describe("terminal", () => {
             // Should have actual compose output between command and marker (not just empty)
             const between = output.substring(cmdIdx, doneIdx);
             expect(between.length).toBeGreaterThan(30);
-        } finally {
-            client.close();
-        }
-    });
-
-    test("bannerUsesBackgroundColor — stop banner uses background ANSI codes", async () => {
-        await resetMockState();
-
-        const client = await connectClient();
-        try {
-            await client.login();
-
-            // Join combined log terminal
-            const joinResp = await client.sendAndReceive("terminalJoin", {
-                type: "combined",
-                stack: "test-stack",
-            });
-            expect(joinResp.ok).toBe(true);
-            const sessionId = joinResp.sessionId as number;
-
-            // Drain initial historical log output
-            for (let i = 0; i < 10; i++) {
-                try {
-                    await client.waitForBinary(3000);
-                } catch {
-                    break;
-                }
-            }
-
-            // Trigger stopStack to produce a CONTAINER STOP banner
-            const stopResp = await client.sendAndReceive("stopStack", "test-stack");
-            expect(stopResp.ok).toBe(true);
-
-            // Collect binary frames looking for the banner — generous timeout because
-            // the banner is emitted asynchronously (EventBus on die/stop event or
-            // after log stream EOF depending on backend implementation)
-            let bannerOutput = "";
-            for (let i = 0; i < 50; i++) {
-                try {
-                    const data = await client.waitForBinary(15000);
-                    if (((data[0] << 8) | data[1]) !== sessionId) continue;
-                    bannerOutput += data.subarray(2).toString("utf-8");
-
-                    if (bannerOutput.includes("CONTAINER STOP")) {
-                        break;
-                    }
-                } catch {
-                    break;
-                }
-            }
-
-            // Banner must have been emitted
-            expect(bannerOutput).toContain("CONTAINER STOP");
-
-            // Must use background RGB color codes (48;2;R;G;B)
-            expect(bannerOutput).toContain("48;2;");
-
-            // Must NOT use foreground-only codes like \x1b[1;33m or \x1b[1;34m immediately before CONTAINER
-            const fgOnlyPattern = /\x1b\[1;3[34]m[^]*?CONTAINER/;
-            expect(fgOnlyPattern.test(bannerOutput)).toBe(false);
-        } finally {
-            client.close();
-        }
-    });
-
-    test("containerActionTerminal — stopContainer writes to container-action terminal", async () => {
-        await resetMockState();
-
-        const client = await connectClient();
-        try {
-            await client.login();
-
-            const containerName = "test-stack-web-1";
-
-            // Join container-action terminal for this container
-            const joinResp = await client.sendAndReceive("terminalJoin", {
-                type: "container-action",
-                container: containerName,
-            });
-            expect(joinResp.ok).toBe(true);
-            const sessionId = joinResp.sessionId as number;
-
-            // Drain any stale buffer content from previous actions (replayed on join).
-            // The terminal may have completed output from earlier tests; we need to
-            // skip past it so we only assert on the stopContainer output.
-            for (let i = 0; i < 10; i++) {
-                try {
-                    await client.waitForBinary(500);
-                } catch {
-                    break; // no more buffered frames
-                }
-            }
-
-            // Trigger stopContainer
-            const stopResp = await client.sendAndReceive("stopContainer", containerName);
-            expect(stopResp.ok).toBe(true);
-
-            // Collect binary frames until [Done] or [Error] appears
-            let output = "";
-            const maxFrames = 50;
-            for (let i = 0; i < maxFrames; i++) {
-                const data = await client.waitForBinary(15000);
-                expect(data.length).toBeGreaterThanOrEqual(2);
-                const gotSession = (data[0] << 8) | data[1];
-                if (gotSession !== sessionId) continue;
-
-                output += data.subarray(2).toString("utf-8");
-
-                if (output.includes("[Done]") || output.includes("[Error]")) {
-                    break;
-                }
-            }
-
-            // Must have a completion marker
-            const hasMarker = output.includes("[Done]") || output.includes("[Error]");
-            expect(hasMarker).toBe(true);
-
-            // Must have command display line: "$ docker stop <container>"
-            expect(output).toContain("$ docker stop");
-            expect(output).toContain(containerName);
-
-            // Command must appear before the completion marker
-            const cmdIdx = output.indexOf("$ docker stop");
-            const doneIdx = output.indexOf("[Done]") >= 0 ? output.indexOf("[Done]") : output.indexOf("[Error]");
-            expect(cmdIdx).toBeLessThan(doneIdx);
-        } finally {
-            client.close();
-        }
-    });
-
-    test("terminalExited sent when exec shell exits", async () => {
-        await resetMockState();
-
-        const client = await connectClient();
-        try {
-            await client.login();
-
-            // Join exec terminal for test-stack web service
-            const joinResp = await client.sendAndReceive("terminalJoin", {
-                type: "exec",
-                stack: "test-stack",
-                service: "web",
-            });
-            expect(joinResp.ok).toBe(true);
-            const sessionId = joinResp.sessionId as number;
-
-            // Send exit command via binary input to trigger shell exit
-            // Binary input format: [sessionId:u16][opcode:0x00][payload]
-            const exitCmd = Buffer.from("exit\r\n", "utf-8");
-            const inputFrame = Buffer.alloc(2 + 1 + exitCmd.length);
-            inputFrame.writeUInt16BE(sessionId, 0);
-            inputFrame[2] = 0x00; // input opcode
-            exitCmd.copy(inputFrame, 3);
-            client.sendBinary(inputFrame);
-
-            // Also send Ctrl+D (EOF) in case the shell doesn't respond to "exit"
-            const eofFrame = Buffer.alloc(2 + 1 + 1);
-            eofFrame.writeUInt16BE(sessionId, 0);
-            eofFrame[2] = 0x00;
-            eofFrame[3] = 0x04; // Ctrl+D
-            client.sendBinary(eofFrame);
-
-            // Wait for terminalExited push event
-            // The mock docker exec creates a real PTY shell; if exit/Ctrl+D works,
-            // we get the event. In environments where the mock shell can't be exited,
-            // this test may need to be skipped.
-            const exitEvent = await client.tryWaitForEvent("terminalExited", 5000);
-            if (exitEvent !== null) {
-                expect(exitEvent.sessionId).toBe(sessionId);
-            } else {
-                // Mock exec shell may not support graceful exit — verify at minimum
-                // that the exec terminal started successfully (joinResp.ok was true)
-                // and the implementation is wired up (checked via Rust unit tests).
-                // Skip the assertion in mock mode.
-                console.log("terminalExited: mock exec shell did not exit within timeout (expected in mock mode)");
-            }
         } finally {
             client.close();
         }

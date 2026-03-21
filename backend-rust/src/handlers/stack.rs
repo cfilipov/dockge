@@ -235,9 +235,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 a.extend(["up".to_string(), "-d".to_string(), "--remove-orphans".to_string()]);
                 (a, Some(stack_dir))
             } else {
+                // Unmanaged: no compose file on disk, use "start" to start existing containers
                 let mut a = vec!["compose".to_string(), "-p".to_string(), stack_name.clone()];
                 a.extend(env_args);
-                a.extend(["up".to_string(), "-d".to_string(), "--remove-orphans".to_string()]);
+                a.push("start".to_string());
                 (a, None)
             };
 

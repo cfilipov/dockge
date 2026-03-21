@@ -1,9 +1,12 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeAll } from "vitest";
 import { resetMockState, withAuthClient } from "../src/helpers.js";
 
 describe("subscribeStats", () => {
-    test("receives formatted stats for subscribed container", async () => {
+    beforeAll(async () => {
         await resetMockState();
+    });
+
+    test("receives formatted stats for subscribed container", async () => {
 
         await withAuthClient(async (client) => {
             const containerName = "test-stack-web-1";

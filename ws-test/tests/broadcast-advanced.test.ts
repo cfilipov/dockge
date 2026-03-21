@@ -8,47 +8,31 @@ describe("broadcast-advanced", () => {
         await resetMockState();
     });
 
-    test("destroyedNetworkNullEntries — networks broadcast has null for downed stack network", async () => {
-        await resetMockState();
-
-        const client1 = await connectClient();
-        const client2 = await connectClient();
+    // Read-only first
+    test("imageBroadcastAfterEvent — images broadcast arrives after event", async () => {
+        const client = await connectClient();
         try {
-            await client1.login();
-            await client2.login();
+            await client.login();
+            // Drain AfterLogin images
+            const initialImages = await client.waitForEvent("images");
+            expect(Object.keys(initialImages).length).toBeGreaterThan(0);
 
-            // Drain AfterLogin networks on client2, find test-stack network key
-            const initialNetworks = await client2.waitForEvent("networks");
-            let networkKey = "";
-            for (const key of Object.keys(initialNetworks)) {
-                if (key.includes("test-stack") || key.startsWith("test-stack")) {
-                    networkKey = key;
-                    break;
+            // Verify the initial images broadcast is well-formed
+            for (const [key, val] of Object.entries(initialImages)) {
+                expect(typeof key).toBe("string");
+                if (val !== null) {
+                    const img = val as Record<string, unknown>;
+                    expect(img).toHaveProperty("id");
                 }
             }
-            expect(networkKey).toBeTruthy();
-
-            // Down the stack on client1
-            const downResp = await client1.sendAndReceive("downStack", "test-stack");
-            expect(downResp.ok).toBe(true);
-
-            // Read networks broadcasts, find one where the stack network key is null
-            for (let i = 0; i < 10; i++) {
-                const networks = await client2.waitForEvent("networks");
-                if (networks[networkKey] === null) {
-                    return; // Found null entry — pass
-                }
-            }
-            expect.fail("Expected network to be null in post-down broadcast after 10 attempts");
         } finally {
-            client1.close();
-            client2.close();
+            client.close();
         }
     });
 
-    test("broadcastReachesAllAuthenticatedClients — all clients receive events", async () => {
-        await resetMockState();
+    // Stop/restart tests — leave containers running after restart
 
+    test("broadcastReachesAllAuthenticatedClients — all clients receive events", async () => {
         const client1 = await connectClient();
         const client2 = await connectClient();
         const client3 = await connectClient();
@@ -92,8 +76,6 @@ describe("broadcast-advanced", () => {
     });
 
     test("unauthenticatedClientDoesNotReceiveBroadcasts", async () => {
-        await resetMockState();
-
         const client1 = await connectClient();
         const client2 = await connectClient(); // NOT logged in (in auth mode)
         try {
@@ -134,8 +116,6 @@ describe("broadcast-advanced", () => {
     });
 
     test("clientReceivesBroadcastsAfterAuthenticating", async () => {
-        await resetMockState();
-
         const client1 = await connectClient();
         const client2 = await connectClient();
         try {
@@ -165,8 +145,6 @@ describe("broadcast-advanced", () => {
     });
 
     test("resourceEventArrivesBeforeCoalescedBroadcast", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -191,8 +169,6 @@ describe("broadcast-advanced", () => {
     });
 
     test("coalescingReducesBroadcastCount — rapid events produce fewer broadcasts", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -203,8 +179,8 @@ describe("broadcast-advanced", () => {
             const resp = await client.sendAndReceive("restartStack", "test-stack");
             expect(resp.ok).toBe(true);
 
-            // Collect all container broadcasts over 2s
-            const broadcasts = await client.collectEvents("containers", 2000);
+            // Collect all container broadcasts over 500ms (coalescing deadline is 200ms)
+            const broadcasts = await client.collectEvents("containers", 500);
 
             // 2 containers × 2 transitions = at least 4 events, but coalescing
             // should produce fewer than 4 broadcasts
@@ -215,9 +191,38 @@ describe("broadcast-advanced", () => {
         }
     });
 
-    test("afterLoginCompleteUnderConcurrentBroadcasts", async () => {
-        await resetMockState();
+    // Both stacks needed — mergedBroadcasts before afterLogin (which stops other-stack)
+    test("mergedBroadcastsFromMultipleStacks — cross-stack coalescing", async () => {
+        const client1 = await connectClient();
+        const client2 = await connectClient();
+        try {
+            await client1.login();
+            await client2.login();
 
+            // Drain AfterLogin containers on client2
+            await client2.waitForEvent("containers");
+
+            // Rapidly stop both stacks
+            const stop1 = client1.sendAndReceive("stopStack", "test-stack");
+            const stop2 = client1.sendAndReceive("stopStack", "other-stack");
+
+            // Collect all container broadcasts on client2 over 500ms (coalescing deadline is 200ms)
+            const broadcasts = await client2.collectEvents("containers", 500);
+
+            await Promise.all([stop1, stop2]);
+
+            // Two stacks with 3 total containers stopping would produce many events,
+            // but coalescing should merge them into few broadcasts (≤ 3)
+            expect(broadcasts.length).toBeGreaterThan(0);
+            expect(broadcasts.length).toBeLessThanOrEqual(3);
+        } finally {
+            client1.close();
+            client2.close();
+        }
+    });
+
+    test("afterLoginCompleteUnderConcurrentBroadcasts", async () => {
+        // Both stacks stopped from previous test; restart test-stack services
         const client1 = await connectClient();
         try {
             await client1.login();
@@ -225,8 +230,6 @@ describe("broadcast-advanced", () => {
             await client1.waitForEvent("containers");
 
             // Fire multiple operations (don't await) to create a sustained burst of events.
-            // A single restart may complete before client2 connects; multiple operations
-            // affecting multiple containers across both stacks widen the broadcast window.
             const p1 = client1.sendAndReceive("restartService", "test-stack", "web");
             const p2 = client1.sendAndReceive("restartService", "test-stack", "redis");
             const p3 = client1.sendAndReceive("stopStack", "other-stack");
@@ -258,40 +261,8 @@ describe("broadcast-advanced", () => {
         }
     });
 
-    test("mergedBroadcastsFromMultipleStacks — cross-stack coalescing", async () => {
-        await resetMockState();
-
-        const client1 = await connectClient();
-        const client2 = await connectClient();
-        try {
-            await client1.login();
-            await client2.login();
-
-            // Drain AfterLogin containers on client2
-            await client2.waitForEvent("containers");
-
-            // Rapidly stop both stacks
-            const stop1 = client1.sendAndReceive("stopStack", "test-stack");
-            const stop2 = client1.sendAndReceive("stopStack", "other-stack");
-
-            // Collect all container broadcasts on client2 over 2s
-            const broadcasts = await client2.collectEvents("containers", 2000);
-
-            await Promise.all([stop1, stop2]);
-
-            // Two stacks with 3 total containers stopping would produce many events,
-            // but coalescing should merge them into few broadcasts (≤ 3)
-            expect(broadcasts.length).toBeGreaterThan(0);
-            expect(broadcasts.length).toBeLessThanOrEqual(3);
-        } finally {
-            client1.close();
-            client2.close();
-        }
-    });
-
+    // Deploy restores test-stack for the destructive down tests that follow
     test("fullSyncAfterDeploy — deployStack triggers container broadcasts", async () => {
-        await resetMockState();
-
         const composeYAML = `services:\n  web:\n    image: nginx:latest\n  redis:\n    image: redis:7\n`;
 
         const client = await connectClient();
@@ -309,9 +280,9 @@ describe("broadcast-advanced", () => {
         }
     });
 
-    test("networkEventBroadcastsOnlyAffectedNetwork — filtered broadcast", async () => {
-        await resetMockState();
+    // Destructive tests last — these destroy containers/networks via downStack
 
+    test("networkEventBroadcastsOnlyAffectedNetwork — filtered broadcast", async () => {
         const client1 = await connectClient();
         const client2 = await connectClient();
         try {
@@ -338,26 +309,50 @@ describe("broadcast-advanced", () => {
         }
     });
 
-    test("imageBroadcastAfterEvent — images broadcast arrives after event", async () => {
-        await resetMockState();
-
-        const client = await connectClient();
+    test("destroyedNetworkNullEntries — networks broadcast has null for downed stack network", async () => {
+        // Redeploy test-stack (destroyed by previous test)
+        const setup = await connectClient();
         try {
-            await client.login();
-            // Drain AfterLogin images
-            const initialImages = await client.waitForEvent("images");
-            expect(Object.keys(initialImages).length).toBeGreaterThan(0);
+            await setup.login();
+            const yaml = `services:\n  web:\n    image: nginx:latest\n  redis:\n    image: redis:7\n`;
+            await setup.sendAndReceive("deployStack", "test-stack", yaml, "");
+            await setup.waitForEvent("containers");
+        } finally {
+            setup.close();
+        }
 
-            // Verify the initial images broadcast is well-formed
-            for (const [key, val] of Object.entries(initialImages)) {
-                expect(typeof key).toBe("string");
-                if (val !== null) {
-                    const img = val as Record<string, unknown>;
-                    expect(img).toHaveProperty("id");
+        const client1 = await connectClient();
+        const client2 = await connectClient();
+        try {
+            await client1.login();
+            await client2.login();
+
+            // Drain AfterLogin networks on client2, find test-stack network key
+            const initialNetworks = await client2.waitForEvent("networks");
+            let networkKey = "";
+            for (const key of Object.keys(initialNetworks)) {
+                if (key.includes("test-stack") || key.startsWith("test-stack")) {
+                    networkKey = key;
+                    break;
                 }
             }
+            expect(networkKey).toBeTruthy();
+
+            // Down the stack on client1
+            const downResp = await client1.sendAndReceive("downStack", "test-stack");
+            expect(downResp.ok).toBe(true);
+
+            // Read networks broadcasts, find one where the stack network key is null
+            for (let i = 0; i < 10; i++) {
+                const networks = await client2.waitForEvent("networks");
+                if (networks[networkKey] === null) {
+                    return; // Found null entry — pass
+                }
+            }
+            expect.fail("Expected network to be null in post-down broadcast after 10 attempts");
         } finally {
-            client.close();
+            client1.close();
+            client2.close();
         }
     });
 });

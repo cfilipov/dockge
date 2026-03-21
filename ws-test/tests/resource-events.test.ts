@@ -28,9 +28,6 @@ describe("resource-events", () => {
     });
 
     test("resourceEvent has stackName and serviceName for compose containers", async () => {
-        // Reset to ensure containers are running
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();
@@ -53,8 +50,6 @@ describe("resource-events", () => {
     });
 
     test("mutation triggers both resourceEvent and containers broadcast", async () => {
-        await resetMockState();
-
         const client = await connectClient();
         try {
             await client.login();

@@ -85,9 +85,6 @@ describe("settings", () => {
     });
 
     test("globalENV default on missing — returns placeholder", async () => {
-        // After reset, no global.env exists
-        await resetMockState();
-
         await withAuthClient(async (client) => {
             const resp = await client.sendAndReceive("getSettings");
             const data = resp.data as Record<string, unknown>;
