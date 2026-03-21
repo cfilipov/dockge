@@ -72,7 +72,7 @@ export async function setup(): Promise<void> {
     const imagesJSON = path.join(PROJECT_ROOT, "mock-docker", "scripts", "images.json");
 
     if (!existsSync(mockDaemonBin)) {
-        throw new Error(`mock-daemon binary not found at ${mockDaemonBin}. Run: task build-mock-daemon`);
+        throw new Error(`mock-daemon binary not found at ${mockDaemonBin}. Run: task build:mock-docker-daemon`);
     }
     if (!existsSync(dockgeBin)) {
         throw new Error(`dockge binary not found at ${dockgeBin}. Run: task build-go (or set DOCKGE_BIN)`);

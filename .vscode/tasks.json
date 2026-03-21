@@ -2,6 +2,15 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "type": "taskfile",
+            "task": "run:dev",
+            "problemMatcher": [],
+            "label": "taskfile: run:dev",
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
             "label": "Build Backend",
             "type": "shell",
             "command": "make build-go",

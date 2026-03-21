@@ -19,16 +19,16 @@ tasks:
       - cd mock-docker && npm install
       - cd ws-test && pnpm install
 
-  build:
-    desc: Build everything
-    deps: [build-web, build-go]
+  go:build-all:
+    desc: Build everything (Go)
+    deps: [build:web-vue, go:build]
 
-  build-web:
+  build:web-vue:
     desc: Build frontend (Vite → dist/)
     dir: web
     cmd: pnpm run build
 
-  build-go:
+  go:build:
     desc: Build Go backend
     cmd: go build -o bin/{{.BINARY}} .
     sources:
@@ -38,14 +38,14 @@ tasks:
     generates:
       - bin/{{.BINARY}}
 
-  build-mock-docker:
+  build:mock-docker-cli:
     desc: Build mock docker CLI binary
     dir: mock-docker
     cmds:
       - npm run build:cli
       - cp dist/docker ../bin/docker
 
-  build-mock-daemon:
+  build:mock-docker-daemon:
     desc: Build TypeScript mock daemon
     dir: mock-docker
     cmds:
@@ -54,18 +54,18 @@ tasks:
       - npm run build:daemon
       - cp dist/mock-daemon ../bin/mock-daemon
 
-  dev:
+  go:dev:
     desc: Run mock daemon + Go backend + Vite HMR (ports 5001 + 5000)
-    deps: [dev-go, dev-web]
+    deps: [go:dev-backend, go:dev-web]
 
-  dev-web:
-    desc: Run Vite dev server only (port 5000)
+  go:dev-web:
+    desc: Run Vite dev server for Go backend (port 5000, proxies to 5001)
     dir: web
     cmd: pnpm run dev
 
-  dev-go:
+  go:dev-backend:
     desc: Run mock daemon + Go backend only (port 5001)
-    deps: [build-go, build-mock-daemon, build-mock-docker]
+    deps: [go:build, build:mock-docker-daemon, build:mock-docker-cli]
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
@@ -83,7 +83,7 @@ tasks:
           cp ./bin/{{.BINARY}} .run/dev-5001/{{.BINARY}}
           .run/dev-5001/{{.BINARY}} --dev --port 5001 --data-dir .run/dev-5001/data --stacks-dir .run/dev-5001/stacks
 
-  start-mock-env:
+  run:mock-docker-daemon:
     desc: Start mock daemon + dockge for dev/test (callers must build deps first)
     vars:
       PORT: '{{.PORT | default "5001"}}'
@@ -108,18 +108,18 @@ tasks:
           DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/bin:$PATH" \
             exec "$DOCKGE_RUN" --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
 
-  dev-svelte:
+  go:dev-svelte:
     desc: Run mock daemon + Go backend + Svelte Vite HMR (ports 6001 + 6100)
-    deps: [dev-svelte-go, dev-svelte-web]
+    deps: [go:dev-svelte-backend, run:svelte-web]
 
-  dev-svelte-web:
+  run:svelte-web:
     desc: Run Svelte Vite dev server only (port 6100)
     dir: web-svelte
     cmd: pnpm run dev
 
-  dev-svelte-go:
+  go:dev-svelte-backend:
     desc: Run mock daemon + Go backend for Svelte (port 6001)
-    deps: [build-go, build-mock-daemon, build-mock-docker]
+    deps: [go:build, build:mock-docker-daemon, build:mock-docker-cli]
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
@@ -137,22 +137,22 @@ tasks:
           cp ./bin/{{.BINARY}} .run/dev-6001/{{.BINARY}}
           .run/dev-6001/{{.BINARY}} --dev --port 6001 --data-dir .run/dev-6001/data --stacks-dir .run/dev-6001/stacks
 
-  build-svelte:
+  build:web-svelte:
     desc: Build Svelte frontend (Vite → dist-svelte/)
     dir: web-svelte
     cmd: pnpm run build
 
-  check-svelte:
+  test:check-svelte:
     desc: Svelte type check
     dir: web-svelte
     cmd: pnpm run check
 
-  storybook:
+  run:storybook:
     desc: Run Storybook for Svelte components
     dir: web-svelte
     cmd: pnpm storybook
 
-  build-storybook:
+  build:storybook:
     desc: Build static Storybook site
     dir: web-svelte
     cmd: pnpm build-storybook
@@ -172,117 +172,93 @@ tasks:
       - cmd: pkill -f 'node.*mock-docker' 2>/dev/null
         ignore_error: true
 
-  clean:
+  build:clean:
     desc: Remove build artifacts
     cmd: rm -rf dist bin .run .e2e-output
 
-  check-ts:
+  test:check-ts:
     desc: TypeScript type check (tsc --noEmit)
     dir: web
     cmd: pnpm run check-ts
 
-  lint:
+  go:lint:
     desc: Lint frontend and Go code
     cmds:
       - cmd: pnpm run lint
         dir: web
       - go vet ./...
 
-  fmt:
+  go:fmt:
     desc: Format frontend and Go code
     cmds:
       - cmd: pnpm run fmt
         dir: web
       - gofmt -w .
 
-  test:
-    desc: Run all tests
-    deps: [test-go, test-ws, test-e2e]
+  go:test-all:
+    desc: Run all Go tests
+    deps: [go:test, go:test-ws, go:test-e2e]
 
-  test-go:
+  go:test:
     desc: Run Go tests with race detector
-    deps: [build-mock-daemon, build-mock-docker]
+    deps: [build:mock-docker-daemon, build:mock-docker-cli]
     cmds:
       - go test -race -count=1 . -args -mock-daemon=./bin/mock-daemon -mock-docker=./bin/docker
       - go test -race -count=1 ./internal/...
 
-  setup-ws-test:
-    desc: Install ws-test dependencies
-    dir: ws-test
-    cmd: pnpm install
-
-  test-ws:
+  go:test-ws:
     desc: Run WebSocket protocol tests
-    deps: [build-go, build-mock-daemon, build-mock-docker]
+    deps: [go:build, build:mock-docker-daemon, build:mock-docker-cli]
     dir: ws-test
     cmd: pnpm test
 
-  test-e2e:
-    desc: Run Playwright E2E tests
-    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
+  go:test-e2e:
+    desc: Run Playwright E2E tests (Go backend)
+    deps: [build:web-vue, go:build, build:mock-docker-daemon, build:mock-docker-cli]
     dir: e2e
     cmd: E2E_PORT=5052 pnpm test
 
-  test-e2e-rust:
+  test:e2e:
     desc: Run Playwright E2E tests against Rust backend
-    deps: [build-web, build-rust, build-mock-daemon, build-mock-docker]
+    deps: [build:web-vue, build:backend-release, build:mock-docker-daemon, build:mock-docker-cli]
     dir: e2e
     cmd: DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm test
 
-  test-e2e-report:
+  test:e2e-report:
     desc: Show Playwright HTML report with screenshot diffs
     dir: e2e
     cmd: pnpm run test:report
 
-  update-screenshots:
-    desc: Update E2E golden screenshots
-    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
+  go:update-screenshots:
+    desc: Update E2E golden screenshots (Go backend)
+    deps: [build:web-vue, go:build, build:mock-docker-daemon, build:mock-docker-cli]
     dir: e2e
     cmd: E2E_PORT=5052 pnpm run test:update-screenshots
 
-  update-screenshots-rust:
+  test:e2e-update-screenshots:
     desc: Update E2E golden screenshots (Rust backend)
-    deps: [build-web, build-rust, build-mock-daemon, build-mock-docker]
+    deps: [build:web-vue, build:backend-release, build:mock-docker-daemon, build:mock-docker-cli]
     dir: e2e
     cmd: DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm run test:update-screenshots
 
-  update-benchmarks:
-    desc: Update E2E performance golden baselines (requires full test run)
-    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
+  go:update-benchmarks:
+    desc: Update E2E performance golden baselines (Go backend)
+    deps: [build:web-vue, go:build, build:mock-docker-daemon, build:mock-docker-cli]
     dir: e2e
     cmd: E2E_PORT=5052 UPDATE_BENCHMARKS=1 pnpm test
 
-  test-e2e-trace:
+  go:test-e2e-trace:
     desc: Run E2E test with tracing (use -- <test-file>)
-    deps: [build-web, build-go, build-mock-daemon, build-mock-docker]
+    deps: [build:web-vue, go:build, build:mock-docker-daemon, build:mock-docker-cli]
     dir: e2e
     cmd: E2E_PORT=5052 npx playwright test {{.CLI_ARGS}} --trace on
 
-  test-bun:
+  test:bun:
     desc: Run Bun backend tests
     dir: backend-bun
     cmd: bun test
 
-  dev-bun:
-    desc: Run mock daemon + Bun backend on :5002
-    deps: [build-mock-daemon, build-mock-docker]
-    cmds:
-      - cmd: |
-          trap 'kill 0' EXIT
-          rm -rf .run/dev-5002 && mkdir -p .run/dev-5002/data
-          MOCK_SOCK="/tmp/dockge-mock-$$/docker.sock"
-          mkdir -p "$(dirname "$MOCK_SOCK")"
-          node mock-docker/dist/src/main.js \
-            --socket "$MOCK_SOCK" \
-            --stacks-source test-data/stacks \
-            --stacks-dir .run/dev-5002/stacks \
-            --images-json mock-docker/scripts/images.json &
-          for i in $(seq 1 50); do [ -S "$MOCK_SOCK" ] && break; sleep 0.1; done
-          export DOCKER_HOST="unix://$MOCK_SOCK"
-          export PATH="$(pwd)/bin:$PATH"
-          cd backend-bun && bun run src/main.ts -- --dev --port 5002 --data-dir ../.run/dev-5002/data --stacks-dir ../.run/dev-5002/stacks
-
-  build-rust:
+  build:backend-release:
     desc: Build Rust backend (musl static binary, release)
     dir: backend-rust
     cmds:
@@ -295,7 +271,7 @@ tasks:
     generates:
       - ../bin/dockge-rust
 
-  build-rust-dev:
+  build:backend:
     desc: Build Rust backend (musl debug binary, fast compile)
     dir: backend-rust
     cmds:
@@ -308,15 +284,15 @@ tasks:
     generates:
       - ../bin/dockge-rust
 
-  test-ws-rust:
+  test:ws:
     desc: Run WebSocket protocol tests against Rust backend (no-auth, full suite)
-    deps: [build-rust-dev, build-mock-daemon, build-mock-docker]
+    deps: [build:backend, build:mock-docker-daemon, build:mock-docker-cli]
     dir: ws-test
     cmd: DOCKGE_BIN=../bin/dockge-rust DOCKGE_NO_AUTH=1 pnpm test
 
-  test-ws-rust-auth:
+  test:ws-auth:
     desc: Run auth-specific WebSocket tests against Rust backend
-    deps: [build-rust-dev, build-mock-daemon, build-mock-docker]
+    deps: [build:backend, build:mock-docker-daemon, build:mock-docker-cli]
     dir: ws-test
     cmd: >-
       DOCKGE_BIN=../bin/dockge-rust pnpm exec vitest run
@@ -325,24 +301,24 @@ tasks:
       tests/broadcast.test.ts
       tests/broadcast-advanced.test.ts
 
-  test-ws-rust-all:
+  test:ws-all:
     desc: Run all WebSocket tests (no-auth full + auth subset)
     cmds:
-      - task: test-ws-rust
-      - task: test-ws-rust-auth
+      - task: test:ws
+      - task: test:ws-auth
 
-  dev-rust:
+  run:dev:
     desc: Run mock daemon + Rust backend + Vite HMR (ports 5003 + 5000)
-    deps: [dev-rust-backend, dev-rust-web]
+    deps: [run:backend, run:web-vue]
 
-  dev-rust-web:
+  run:web-vue:
     desc: Run Vite dev server for Rust backend (port 5000, proxies to 5003)
     dir: web
     cmd: VITE_BACKEND_PORT=5003 pnpm run dev
 
-  dev-rust-backend:
+  run:backend:
     desc: Run mock daemon + Rust backend only (port 5003)
-    deps: [build-rust-dev, build-mock-daemon, build-mock-docker]
+    deps: [build:backend, build:mock-docker-daemon, build:mock-docker-cli]
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
@@ -360,6 +336,6 @@ tasks:
           cp ./bin/dockge-rust .run/dev-5003/dockge-rust
           .run/dev-5003/dockge-rust --dev --port 5003 --data-dir .run/dev-5003/data --stacks-dir .run/dev-5003/stacks
 
-  docker:
+  build:docker-image:
     desc: Build Docker image
     cmd: docker buildx build -f docker/Dockerfile -t cfilipov/dockge:latest --target release .

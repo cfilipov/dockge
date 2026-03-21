@@ -46,7 +46,7 @@
       "name": "dev mode with mock data",
       "group": "Run",
       "commands": [
-        "task dev-go"
+        "task go:dev-backend"
       ]
     },
     {

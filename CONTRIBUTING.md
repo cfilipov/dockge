@@ -61,7 +61,7 @@ docker/Dockerfile                # Production multi-stage build
 
 ```bash
 ./bootstrap.sh                   # Installs Task and runs setup (deps + Playwright)
-task dev                         # Go backend (5001) + Vite HMR (5000)
+task go:dev                      # Go backend (5001) + Vite HMR (5000)
 ```
 
 ### Windows
@@ -69,12 +69,12 @@ task dev                         # Go backend (5001) + Vite HMR (5000)
 ```powershell
 go install github.com/go-task/task/v3/cmd/task@v3.45.3
 task setup                       # Install deps + Playwright
-task dev                         # Go backend (5001) + Vite HMR (5000)
+task go:dev                      # Go backend (5001) + Vite HMR (5000)
 ```
 
 Ctrl+C stops both. Use port 5000 for development — Vite proxies `/ws` to the backend automatically.
 
-No real Docker daemon is needed. `task dev` starts a standalone mock daemon that provides in-memory Docker state with four seeded stacks. Dev data (BoltDB) is stored in `.run/dev-5001/data/`.
+No real Docker daemon is needed. `task go:dev` starts a standalone mock daemon that provides in-memory Docker state with four seeded stacks. Dev data (BoltDB) is stored in `.run/dev-5001/data/`.
 
 ## Task targets
 
@@ -84,18 +84,18 @@ Run `task --list` to see all targets. The important ones:
 |--------|-------------|
 | `task setup` | Install all dependencies (first-time dev setup) |
 | `task build` | Build everything (frontend + Go binary) |
-| `task dev` | Run Go backend + Vite HMR concurrently |
-| `task dev-go` | Run Go backend only (port 5001) |
-| `task dev-web` | Run Vite dev server only (port 5000) |
+| `task go:dev` | Run Go backend + Vite HMR concurrently |
+| `task go:dev-backend` | Run Go backend only (port 5001) |
+| `task go:dev-web` | Run Vite dev server only (port 5000) |
 | `task kill` | Kill any running backend or Vite processes |
 | `task test` | Run all tests (Go + E2E) |
-| `task check-ts` | TypeScript type check (`tsc --noEmit`) |
+| `task test:check-ts` | TypeScript type check (`tsc --noEmit`) |
 | `task lint` | Lint frontend (ESLint) and Go (`go vet`) |
 | `task fmt` | Format frontend and Go (`gofmt`) |
-| `task clean` | Remove build artifacts |
-| `task test-e2e-report` | Show Playwright HTML report with screenshot diffs |
-| `task update-screenshots` | Update E2E golden screenshots |
-| `task docker` | Build production Docker image |
+| `task build:clean` | Remove build artifacts |
+| `task test:e2e-report` | Show Playwright HTML report with screenshot diffs |
+| `task test:e2e-update-screenshots` | Update E2E golden screenshots |
+| `task build:docker-image` | Build production Docker image |
 
 ## Building
 
@@ -144,7 +144,7 @@ task test-e2e                    # Playwright E2E tests (builds frontend + backe
 Golden screenshots are committed to `e2e/__screenshots__/`. When a screenshot test fails, Playwright writes expected/actual/diff images to `.e2e-output/test-results/`. View the HTML report:
 
 ```bash
-task test-e2e-report
+task test:e2e-report
 ```
 
 #### Updating golden screenshots
@@ -152,7 +152,7 @@ task test-e2e-report
 If a UI change intentionally alters how pages look, update the golden screenshots:
 
 ```bash
-task update-screenshots
+task test:e2e-update-screenshots
 ```
 
 This rebuilds the frontend and backend, then re-runs all E2E tests with `--update-snapshots` to regenerate the golden files. Review the diff in `e2e/__screenshots__/` before committing — every changed screenshot should correspond to an intentional UI change. If a screenshot changed unexpectedly, investigate before committing.

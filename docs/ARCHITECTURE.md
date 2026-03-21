@@ -575,7 +575,7 @@ POST /api/mock/reset
 
 ### Task orchestration
 
-`task dev` orchestrates the full startup sequence:
+`task go:dev` orchestrates the full startup sequence:
 
 1. **Build** — compiles 3 binaries into `bin/`: `dockge`, `mock-daemon`, `docker`
 2. **Start mock daemon** — launches on a Unix socket, polls until ready (up to 5s)
