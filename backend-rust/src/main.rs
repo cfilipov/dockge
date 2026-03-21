@@ -149,6 +149,7 @@ async fn main() {
         if connect_state.config.no_auth {
             conn.set_user(1);
             connect_state.has_authenticated.store(true, Ordering::Relaxed);
+            conn.send_event_sync("autoLogin", serde_json::Value::Null);
             handlers::auth::after_login(&connect_state, &conn);
         }
 
