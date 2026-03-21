@@ -17,7 +17,7 @@ tasks:
       - cd e2e && pnpm install
       - cd e2e && npx playwright install chromium
       - cd mock-docker && npm install
-      - cd ws-test && pnpm install
+      - cd ws-tests && pnpm install
 
   go:build-all:
     desc: Build everything (Go)
@@ -209,7 +209,7 @@ tasks:
   go:test-ws:
     desc: Run WebSocket protocol tests
     deps: [go:build, build:mock-docker-daemon, build:mock-docker-cli]
-    dir: ws-test
+    dir: ws-tests
     cmd: pnpm test
 
   go:test-e2e:
@@ -287,13 +287,13 @@ tasks:
   test:ws:
     desc: Run WebSocket protocol tests against Rust backend (no-auth, full suite)
     deps: [build:backend, build:mock-docker-daemon, build:mock-docker-cli]
-    dir: ws-test
+    dir: ws-tests
     cmd: DOCKGE_BIN=../bin/dockge-rust DOCKGE_NO_AUTH=1 pnpm test
 
   test:ws-auth:
     desc: Run auth-specific WebSocket tests against Rust backend
     deps: [build:backend, build:mock-docker-daemon, build:mock-docker-cli]
-    dir: ws-test
+    dir: ws-tests
     cmd: >-
       DOCKGE_BIN=../bin/dockge-rust pnpm exec vitest run
       tests/auth.test.ts

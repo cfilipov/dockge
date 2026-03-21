@@ -1,5 +1,5 @@
 {
-    "name": "dockge-ws-test",
+    "name": "dockge-ws-tests",
     "private": true,
     "type": "module",
     "devDependencies": {

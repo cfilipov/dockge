@@ -68,7 +68,7 @@ export async function setup(): Promise<void> {
     const dockgeBin = process.env.DOCKGE_BIN
         ? path.resolve(process.env.DOCKGE_BIN)
         : path.join(PROJECT_ROOT, "bin", "dockge");
-    const stacksSource = path.join(PROJECT_ROOT, "ws-test", "stacks");
+    const stacksSource = path.join(PROJECT_ROOT, "ws-tests", "stacks");
     const imagesJSON = path.join(PROJECT_ROOT, "mock-docker", "scripts", "images.json");
 
     if (!existsSync(mockDaemonBin)) {
