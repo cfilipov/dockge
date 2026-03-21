@@ -1,6 +1,7 @@
 {
     "recommendations": [
         "svelte.svelte-vscode",
+        "rust-lang.rust",
         "golang.go",
         "vue.volar",
         "ms-playwright.playwright",
