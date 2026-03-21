@@ -67,7 +67,7 @@ task go:dev                      # Go backend (5001) + Vite HMR (5000)
 ### Windows
 
 ```powershell
-go install github.com/go-task/task/v3/cmd/task@v3.45.3
+go install github.com/go-task/task/v3/cmd/task@v3.49.1
 task setup                       # Install deps + Playwright
 task go:dev                      # Go backend (5001) + Vite HMR (5000)
 ```
@@ -209,7 +209,7 @@ If you can't run `bootstrap.sh`, install [Task](https://taskfile.dev/) and run s
 
 **With Go** (all platforms):
 ```bash
-go install github.com/go-task/task/v3/cmd/task@v3.45.3
+go install github.com/go-task/task/v3/cmd/task@v3.49.1
 task setup
 ```
 

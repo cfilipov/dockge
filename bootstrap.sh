@@ -2,7 +2,7 @@
 # bootstrap.sh — install dev tools and set up the Dockge dev environment
 set -euo pipefail
 
-TASK_VERSION="v3.45.3"
+TASK_VERSION="v3.49.1"
 
 install_task() {
     if command -v task &>/dev/null; then
