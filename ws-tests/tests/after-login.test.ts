@@ -333,7 +333,7 @@ describe("after-login", () => {
     // The test client auto-unwraps items for objects, so we test with raw WS
     // to verify the wire format.
 
-    test("updates event is a raw array, not wrapped in items", async () => {
+    test("updates event has keys array and complete flag", async () => {
         const ws = new WebSocket(BASE_URL);
         await new Promise<void>((resolve, reject) => {
             ws.once("open", resolve);
@@ -351,10 +351,13 @@ describe("after-login", () => {
 
         ws.send(JSON.stringify({ id: 1, event: "login", args: ["admin", "testpass123", "", ""] }));
 
-        const data = await updatesData;
+        const data = await updatesData as { keys: string[]; complete: boolean };
         ws.close();
 
-        // Must be an array, not an object with items key
-        expect(Array.isArray(data), "updates data should be an array").toBe(true);
+        // New format: { keys: string[], complete: boolean }
+        expect(typeof data, "updates data should be an object").toBe("object");
+        expect(Array.isArray(data), "updates data should not be a raw array").toBe(false);
+        expect(Array.isArray(data.keys), "updates data.keys should be an array").toBe(true);
+        expect(typeof data.complete, "updates data.complete should be a boolean").toBe("boolean");
     });
 });
