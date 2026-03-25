@@ -2,15 +2,13 @@ import { describe, test, expect, beforeAll } from "vitest";
 import { resetMockState, connectClient, waitForContainerState } from "../src/helpers.js";
 
 /**
- * Helper: wait for resourceEvent proving the Docker command completed,
- * then join the compose terminal and read the buffered output.
+ * Helper: join the compose terminal and read the buffered output.
+ * Assumes the action has already completed (via sendAction).
  */
 async function getComposeTerminalOutput(
     client: Awaited<ReturnType<typeof connectClient>>,
     stackName: string,
 ): Promise<string> {
-    await client.waitForEvent("resourceEvent");
-
     const joinResp = await client.sendAndReceive("terminalJoin", {
         type: "compose",
         stack: stackName,
@@ -45,7 +43,7 @@ describe("unmanaged stacks and standalone containers", () => {
         try {
             await client.login();
 
-            const stopResp = await client.sendAndReceive("stopStack", "10-unmanaged");
+            const { ack: stopResp } = await client.sendAction("stopStack", "10-unmanaged");
             expect(stopResp.ok).toBe(true);
 
             const output = await getComposeTerminalOutput(client, "10-unmanaged");
@@ -63,7 +61,7 @@ describe("unmanaged stacks and standalone containers", () => {
         try {
             await client.login();
 
-            const startResp = await client.sendAndReceive("startStack", "10-unmanaged");
+            const { ack: startResp } = await client.sendAction("startStack", "10-unmanaged");
             expect(startResp.ok).toBe(true);
 
             const output = await getComposeTerminalOutput(client, "10-unmanaged");
@@ -81,7 +79,7 @@ describe("unmanaged stacks and standalone containers", () => {
         try {
             await client.login();
 
-            const restartResp = await client.sendAndReceive("restartStack", "10-unmanaged");
+            const { ack: restartResp } = await client.sendAction("restartStack", "10-unmanaged");
             expect(restartResp.ok).toBe(true);
 
             const output = await getComposeTerminalOutput(client, "10-unmanaged");
@@ -100,10 +98,8 @@ describe("unmanaged stacks and standalone containers", () => {
         try {
             await client.login();
 
-            const stopResp = await client.sendAndReceive("stopContainer", "portainer");
+            const { ack: stopResp } = await client.sendAction("stopContainer", "portainer");
             expect(stopResp.ok).toBe(true);
-
-            await client.waitForEvent("resourceEvent");
 
             const joinResp = await client.sendAndReceive("terminalJoin", {
                 type: "container-action",
@@ -137,10 +133,8 @@ describe("unmanaged stacks and standalone containers", () => {
         try {
             await client.login();
 
-            const startResp = await client.sendAndReceive("startContainer", "portainer");
+            const { ack: startResp } = await client.sendAction("startContainer", "portainer");
             expect(startResp.ok).toBe(true);
-
-            await client.waitForEvent("resourceEvent");
 
             const joinResp = await client.sendAndReceive("terminalJoin", {
                 type: "container-action",

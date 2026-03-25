@@ -89,6 +89,7 @@ tasks:
       PORT: '{{.PORT | default "5001"}}'
       STACKS_DIR: '{{.STACKS_DIR | default ".run/e2e-{{.PORT}}/stacks"}}'
       DATA_DIR: '{{.DATA_DIR | default ".run/e2e-{{.PORT}}/data"}}'
+      EXTRA_FLAGS: '{{.EXTRA_FLAGS | default ""}}'
     cmds:
       - cmd: |
           trap 'kill 0' EXIT
@@ -106,13 +107,13 @@ tasks:
           DOCKGE_RUN=.run/e2e-{{.PORT}}/dockge
           cp "$DOCKGE_SRC" "$DOCKGE_RUN"
           DOCKER_HOST="unix://$MOCK_SOCK" PATH="$(pwd)/bin:$PATH" \
-            exec "$DOCKGE_RUN" --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}}
+            exec "$DOCKGE_RUN" --dev --port {{.PORT}} --data-dir {{.DATA_DIR}} --stacks-dir {{.STACKS_DIR}} {{.EXTRA_FLAGS}}
 
   go:dev-svelte:
     desc: Run mock daemon + Go backend + Svelte Vite HMR (ports 6001 + 6100)
-    deps: [go:dev-svelte-backend, run:svelte-web]
+    deps: [go:dev-svelte-backend, run:web-svelte]
 
-  run:svelte-web:
+  run:web-svelte:
     desc: Run Svelte Vite dev server only (port 6100)
     dir: web-svelte
     cmd: pnpm run dev
@@ -219,10 +220,24 @@ tasks:
     cmd: E2E_PORT=5052 pnpm test
 
   test:e2e:
-    desc: Run Playwright E2E tests against Rust backend
+    desc: Run Playwright E2E tests against Rust backend (parallel then serial)
     deps: [build:web-vue, build:backend-release, build:mock-docker-daemon, build:mock-docker-cli]
     dir: e2e
-    cmd: DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm test
+    cmds:
+      - DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm test --project=parallel --workers=8
+      - DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm test --project=serial --workers=1
+
+  test:e2e-parallel:
+    desc: Run only parallel E2E tests (8 workers)
+    deps: [build:web-vue, build:backend-release, build:mock-docker-daemon, build:mock-docker-cli]
+    dir: e2e
+    cmd: DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm test --project=parallel --workers=8 {{.CLI_ARGS}}
+
+  test:e2e-serial:
+    desc: Run only serial E2E tests (1 worker)
+    deps: [build:web-vue, build:backend-release, build:mock-docker-daemon, build:mock-docker-cli]
+    dir: e2e
+    cmd: DOCKGE_BIN=./bin/dockge-rust E2E_PORT=5052 pnpm test --project=serial --workers=1 {{.CLI_ARGS}}
 
   test:e2e-report:
     desc: Show Playwright HTML report with screenshot diffs
@@ -260,6 +275,7 @@ tasks:
 
   build:backend-release:
     desc: Build Rust backend (musl static binary, release)
+    deps: [build:web-vue]
     dir: backend-rust
     cmds:
       - cargo build --release --target x86_64-unknown-linux-musl
@@ -268,6 +284,7 @@ tasks:
       - 'src/**/*.rs'
       - Cargo.toml
       - Cargo.lock
+      - '../dist/**'
     generates:
       - ../bin/dockge-rust
 
@@ -334,7 +351,7 @@ tasks:
           export DOCKER_HOST="unix://$MOCK_SOCK"
           export PATH="$(pwd)/bin:$PATH"
           cp ./bin/dockge-rust .run/dev-5003/dockge-rust
-          .run/dev-5003/dockge-rust --dev --port 5003 --data-dir .run/dev-5003/data --stacks-dir .run/dev-5003/stacks
+          .run/dev-5003/dockge-rust --dev --no-auth --port 5003 --data-dir .run/dev-5003/data --stacks-dir .run/dev-5003/stacks
 
   build:docker-image:
     desc: Build Docker image

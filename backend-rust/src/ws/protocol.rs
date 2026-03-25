@@ -61,6 +61,16 @@ impl OkResponse {
     }
 }
 
+/// Pushed to the requesting connection when a background action completes.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActionCompleteEvent {
+    pub request_id: Option<i64>,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub msg: Option<String>,
+}
+
 /// Generic wrapper for broadcast events with an `items` map.
 /// Used by stacks, containers, networks, images, and volumes broadcasts.
 #[derive(Serialize)]
@@ -145,5 +155,32 @@ mod tests {
         assert!(msg.id.is_none());
         assert_eq!(msg.event, "ping");
         assert!(msg.args.is_none());
+    }
+
+    // ── ActionCompleteEvent ────────────────────────────────────────────
+
+    #[test]
+    fn action_complete_success() {
+        let e = ActionCompleteEvent { request_id: Some(42), ok: true, msg: None };
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"requestId\":42"));
+        assert!(json.contains("\"ok\":true"));
+        assert!(!json.contains("\"msg\""));
+    }
+
+    #[test]
+    fn action_complete_failure() {
+        let e = ActionCompleteEvent { request_id: Some(7), ok: false, msg: Some("exit code 1".into()) };
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"requestId\":7"));
+        assert!(json.contains("\"ok\":false"));
+        assert!(json.contains("\"msg\":\"exit code 1\""));
+    }
+
+    #[test]
+    fn action_complete_no_request_id() {
+        let e = ActionCompleteEvent { request_id: None, ok: true, msg: None };
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"requestId\":null"));
     }
 }

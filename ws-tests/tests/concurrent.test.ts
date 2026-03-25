@@ -29,8 +29,8 @@ describe("concurrent", () => {
                     const client = await connectClient();
                     try {
                         await client.login();
-                        const resp = await client.sendAndReceive("stopStack", "test-stack");
-                        return resp.ok as boolean;
+                        const { ack } = await client.sendAction("stopStack", "test-stack");
+                        return ack.ok as boolean;
                     } finally {
                         client.close();
                     }
@@ -85,8 +85,7 @@ describe("concurrent", () => {
         const setup = await connectClient();
         try {
             await setup.login();
-            await setup.sendAndReceive("startStack", "test-stack");
-            await setup.waitForEvent("resourceEvent");
+            await setup.sendAction("startStack", "test-stack");
         } finally {
             setup.close();
         }
@@ -112,7 +111,7 @@ describe("concurrent", () => {
                     const c = await connectClient();
                     try {
                         await c.login();
-                        return await c.sendAndReceive("stopStack", "test-stack");
+                        return await c.sendAction("stopStack", "test-stack");
                     } finally {
                         c.close();
                     }
@@ -121,15 +120,15 @@ describe("concurrent", () => {
                     const c = await connectClient();
                     try {
                         await c.login();
-                        return await c.sendAndReceive("stopStack", "other-stack");
+                        return await c.sendAction("stopStack", "other-stack");
                     } finally {
                         c.close();
                     }
                 })(),
             ]);
 
-            expect(r1.ok).toBe(true);
-            expect(r2.ok).toBe(true);
+            expect(r1.ack.ok).toBe(true);
+            expect(r2.ack.ok).toBe(true);
 
             // Collect resourceEvents to verify containers from both stacks stopped
             const stoppedContainers = new Set<string>();

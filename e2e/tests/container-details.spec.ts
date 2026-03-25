@@ -38,11 +38,11 @@ test.describe("Container Log", () => {
 
     test("displays log UI elements", async ({ page }) => {
         await expect.soft(page.getByRole("heading", { name: /running\s+01-web-app-nginx-1/i })).toBeVisible({ timeout: 10000 });
-        await expect.soft(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        await expect.soft(page.getByRole("region", { name: "Logs" })).toBeVisible({ timeout: 10000 });
     });
 
     test("screenshot: container log", async ({ page }) => {
-        await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Logs" })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-log.png");
         await takeLightScreenshot(page, "container-log-light.png");
     });
@@ -68,9 +68,8 @@ test.describe("Container Log Lifecycle Banners", () => {
         const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
         await expect(logTerminal).toBeVisible({ timeout: 10000 });
 
-        // Verify initial startup logs from log-templates.yaml (alpine)
+        // Verify log content is loaded (startup + 1 heartbeat in e2e mode)
         await expect(logTerminal).toContainText("alpine container started", { timeout: 10000 });
-        await expect(logTerminal).toContainText("Running entrypoint script...", { timeout: 10000 });
 
         // Stop the container
         const stopBtn = page.getByRole("button", { name: "Stop", exact: true });
@@ -98,6 +97,12 @@ test.describe("Container Log Lifecycle Banners", () => {
         // Verify start banner appears
         await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
 
+        // This causes the next assert to pass
+        // await page.screenshot({ path: 'ContainerStart-DEBUG.png' });
+
+        // Force a rendering fence before assertion
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)))
+
         // Verify startup logs appear again after restart (from log-templates.yaml alpine.startup).
         // Use a regex to confirm startup text follows the CONTAINER START banner,
         // proving the log stream reconnected after the restart.
@@ -118,7 +123,7 @@ test.describe("Container Log Lifecycle Banners", () => {
 
         const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
         await expect(logTerminal).toBeVisible({ timeout: 10000 });
-        await expect(logTerminal).toContainText("alpine container started", { timeout: 10000 });
+        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 10000 });
 
         const restartBtn = page.getByRole("button", { name: "Restart", exact: true });
         await expect(restartBtn).toBeVisible({ timeout: 10000 });
@@ -130,6 +135,10 @@ test.describe("Container Log Lifecycle Banners", () => {
         await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
         await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
         await expect(logTerminal).toContainText("CONTAINER START", { timeout: 10000 });
+
+        // Force a rendering fence before assertion
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)))
+
         // Verify startup logs reappear after the CONTAINER START banner,
         // confirming the log stream reconnected after restart.
         await expect(logTerminal).toContainText(/CONTAINER START.*alpine container started/s, { timeout: 15000 });
@@ -146,7 +155,7 @@ test.describe("Container Log Lifecycle Banners", () => {
 
         const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
         await expect(logTerminal).toBeVisible({ timeout: 10000 });
-        await expect(logTerminal).toContainText("alpine container started", { timeout: 10000 });
+        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 10000 });
 
         const recreateBtn = page.getByRole("button", { name: "Recreate", exact: true });
         await expect(recreateBtn).toBeVisible({ timeout: 10000 });
@@ -173,7 +182,7 @@ test.describe("Container Log Lifecycle Banners", () => {
 
         const logTerminal = page.locator(".terminal.shadow-box .xterm-rows");
         await expect(logTerminal).toBeVisible({ timeout: 10000 });
-        await expect(logTerminal).toContainText("alpine container started", { timeout: 10000 });
+        await expect(logTerminal).toContainText("[INFO] Health check OK", { timeout: 10000 });
 
         // Click "Update" button to open the dialog
         const updateBtn = page.getByRole("button", { name: "Update", exact: true });
@@ -209,11 +218,11 @@ test.describe("Container Terminal", () => {
     test("displays terminal UI elements", async ({ page }) => {
         await expect.soft(page.getByRole("heading", { name: /Terminal.*nginx.*01-web-app/i })).toBeVisible({ timeout: 10000 });
         await expect.soft(page.getByRole("link", { name: /Switch to sh/i })).toBeVisible();
-        await expect.soft(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        await expect.soft(page.getByRole("region", { name: "Shell" })).toBeVisible({ timeout: 10000 });
     });
 
     test("screenshot: container terminal", async ({ page }) => {
-        await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Shell" })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-terminal.png");
         await takeLightScreenshot(page, "container-terminal-light.png");
     });

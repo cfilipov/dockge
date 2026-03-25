@@ -117,14 +117,14 @@ export interface TimestampedLine {
 export function getHistoricalLogs(
     container: ContainerInspect,
     clock: Clock,
-    opts: { tail?: number; since?: number; until?: number } = {},
+    opts: { tail?: number; since?: number; until?: number; e2eMode?: boolean } = {},
     templates?: LogTemplates | null,
 ): TimestampedLine[] {
     const imageRef = getImageRef(container);
     const tmpl = templates ? lookupTemplate(templates, imageRef) : null;
 
     const seed = containerSeed(container);
-    const totalLines = 100;
+    const e2e = opts.e2eMode ?? false;
     const startedAt = new Date(container.State.StartedAt).getTime();
     const now = clock.now().getTime();
 
@@ -142,11 +142,11 @@ export function getHistoricalLogs(
             allLines.push({ ts, line });
         }
 
-        // Periodic lines from heartbeat template
+        // In e2e mode: just 1 heartbeat line. Normal mode: fill to 100.
         const startupCount = tmpl.startup.length;
-        const periodicCount = totalLines - startupCount;
+        const periodicCount = e2e ? 1 : (100 - startupCount);
         const span = Math.max(now - startedAt - startupCount * 100, 1);
-        const interval = span / periodicCount;
+        const interval = periodicCount > 1 ? span / periodicCount : span;
 
         for (let i = 0; i < periodicCount; i++) {
             const ts = startedAt + startupCount * 100 + Math.floor(i * interval);
@@ -288,10 +288,10 @@ function generateGenericPeriodicLogLine(container: ContainerInspect, lineNumber:
 function getGenericHistoricalLogs(
     container: ContainerInspect,
     clock: Clock,
-    opts: { tail?: number; since?: number; until?: number } = {},
+    opts: { tail?: number; since?: number; until?: number; e2eMode?: boolean } = {},
 ): TimestampedLine[] {
     const seed = containerSeed(container);
-    const totalLines = 100;
+    const e2e = opts.e2eMode ?? false;
     const startedAt = new Date(container.State.StartedAt).getTime();
     const now = clock.now().getTime();
 
@@ -309,9 +309,9 @@ function getGenericHistoricalLogs(
         });
     }
 
-    const periodicCount = totalLines - startupCount;
+    const periodicCount = e2e ? 1 : (100 - startupCount);
     const span = Math.max(now - startedAt - startupCount * 100, 1);
-    const interval = span / periodicCount;
+    const interval = periodicCount > 1 ? span / periodicCount : span;
 
     for (let i = 0; i < periodicCount; i++) {
         const ts = startedAt + startupCount * 100 + Math.floor(i * interval);

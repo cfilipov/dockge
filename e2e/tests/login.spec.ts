@@ -3,11 +3,12 @@ import { takeLightScreenshot } from "../helpers/light-mode";
 
 // Login tests use a fresh context — no auth, but keep theme: "auto" so
 // emulateMedia can toggle light/dark via the useTheme composable.
+const authPort = parseInt(process.env.E2E_PORT || "5051", 10) + 1;
 test.use({
     storageState: {
         cookies: [],
         origins: [{
-            origin: `http://localhost:${process.env.E2E_PORT || "5051"}`,
+            origin: `http://localhost:${authPort}`,
             localStorage: [{ name: "theme", value: "auto" }],
         }],
     },

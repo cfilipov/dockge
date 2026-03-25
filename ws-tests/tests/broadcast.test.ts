@@ -65,11 +65,13 @@ describe("broadcast", () => {
             const totalInitial = Object.keys(initial).length;
 
             // Stop test-stack — generates container stop/die events
-            const stopResp = await client1.sendAndReceive("stopStack", "test-stack");
-            expect(stopResp.ok).toBe(true);
+            const actionPromise = client1.sendAction("stopStack", "test-stack");
 
             // Wait for event-driven containers broadcast on conn2
             const postStop = await client2.waitForEvent("containers");
+
+            const { ack: stopResp } = await actionPromise;
+            expect(stopResp.ok).toBe(true);
 
             // The filtered broadcast should contain ONLY test-stack containers
             // (with updated state), NOT containers from other-stack.
@@ -127,6 +129,7 @@ describe("broadcast", () => {
         const client1 = await connectClient();
         // conn2: will observe broadcast events
         const client2 = await connectClient();
+        let actionPromise: Promise<unknown> | undefined;
         try {
             await client1.login();
             await client2.login();
@@ -145,8 +148,7 @@ describe("broadcast", () => {
             expect(foundKey).toBeTruthy();
 
             // Down the stack on conn1
-            const downResp = await client1.sendAndReceive("downStack", "test-stack");
-            expect(downResp.ok).toBe(true);
+            actionPromise = client1.sendAction("downStack", "test-stack");
 
             // Wait for post-down broadcast where container is explicitly null
             for (let i = 0; i < 10; i++) {
@@ -159,6 +161,7 @@ describe("broadcast", () => {
             }
             expect.fail("Expected container to be null in post-down broadcast after 10 attempts");
         } finally {
+            if (actionPromise) await actionPromise.catch(() => {});
             client1.close();
             client2.close();
         }

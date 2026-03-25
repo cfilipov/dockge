@@ -4,7 +4,7 @@
             <h1 class="mb-3">{{ $t("console") }}</h1>
 
             <Terminal class="terminal" :rows="20" mode="interactive"
-                name="console" channel="terminal" terminal-type="console" />
+                aria-label="Console" name="console" channel="terminal" terminal-type="console" />
         </div>
     </transition>
 </template>

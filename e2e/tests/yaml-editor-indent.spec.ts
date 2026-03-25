@@ -31,10 +31,6 @@ async function measureIndentAfterEnter(page: import("@playwright/test").Page, li
 }
 
 test.describe("YAML Editor — Indentation", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);

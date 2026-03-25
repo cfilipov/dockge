@@ -25,6 +25,7 @@ type PtyWaitResult = Result<(tokio_util::sync::CancellationToken, oneshot::Recei
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TerminalType {
     Pipe,
+    #[allow(dead_code)]
     Pty,
 }
 
@@ -154,6 +155,7 @@ fn normalize_newlines(data: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
 
     // ── normalize_newlines ──────────────────────────────────────────────
 
@@ -240,6 +242,209 @@ mod tests {
         term.write_data(b"line1\nline2");
         assert_eq!(term.buffer, b"line1\r\nline2");
     }
+
+    #[test]
+    fn writer_cleanup_on_remove() {
+        let mut term = Terminal::new("test".into(), TerminalType::Pipe);
+        term.join_and_get_buffer("w1".into(), Box::new(|_| {}));
+        term.join_and_get_buffer("w2".into(), Box::new(|_| {}));
+        term.join_and_get_buffer("w3".into(), Box::new(|_| {}));
+        assert_eq!(term.writer_count(), 3);
+        term.remove_writer("w2");
+        assert_eq!(term.writer_count(), 2);
+        term.remove_writer("w1");
+        term.remove_writer("w3");
+        assert_eq!(term.writer_count(), 0);
+    }
+
+    #[test]
+    fn zero_writers_closes_pipe_terminal() {
+        let mut term = Terminal::new("test".into(), TerminalType::Pipe);
+        term.cancel = Some(tokio_util::sync::CancellationToken::new());
+        term.join_and_get_buffer("w1".into(), Box::new(|_| {}));
+        assert!(!term.is_closed());
+        term.remove_writer("w1");
+        // Zero writers + Pipe + cancel → should be closeable
+        assert_eq!(term.writer_count(), 0);
+        assert!(term.has_cancel());
+        // Simulate what the actor does
+        if term.writer_count() == 0 && term.terminal_type == TerminalType::Pipe && term.has_cancel() {
+            term.close();
+        }
+        assert!(term.is_closed());
+    }
+
+    #[tokio::test]
+    async fn get_or_create_reuses_existing() {
+        let handle = super::spawn();
+        handle.get_or_create("myterm", false).await;
+
+        // Write data to the terminal
+        handle.write_data("myterm", b"hello".to_vec());
+        // Small yield to let actor process
+        tokio::task::yield_now().await;
+
+        // Second get_or_create should reuse and preserve buffer
+        handle.get_or_create("myterm", false).await;
+        let buf = handle
+            .join_and_get_buffer(
+                "myterm",
+                "test-writer".to_string(),
+                Box::new(|_| {}),
+            )
+            .await;
+        assert_eq!(buf, b"hello");
+    }
+
+    #[tokio::test]
+    async fn get_or_create_clear_resets_buffer_keeps_writers() {
+        let handle = super::spawn();
+        handle.get_or_create("myterm", false).await;
+
+        // Add a writer and write data
+        let received = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recv_clone = received.clone();
+        handle
+            .join_and_get_buffer(
+                "myterm",
+                "w1".to_string(),
+                Box::new(move |data: &[u8]| {
+                    recv_clone.lock().unwrap().extend_from_slice(data);
+                }),
+            )
+            .await;
+        handle.write_data("myterm", b"old data".to_vec());
+        tokio::task::yield_now().await;
+
+        // Clear the terminal
+        handle.get_or_create("myterm", true).await;
+
+        // Buffer should be empty after clear
+        let buf = handle
+            .join_and_get_buffer("myterm", "w2".to_string(), Box::new(|_| {}))
+            .await;
+        assert!(buf.is_empty());
+
+        // Writer w1 should still receive new data
+        handle.write_data("myterm", b"new data".to_vec());
+        tokio::task::yield_now().await;
+
+        let data = received.lock().unwrap();
+        // Should contain both old and new data (writer was never removed)
+        assert!(data.windows(b"new data".len()).any(|w| w == b"new data"));
+    }
+
+    #[tokio::test]
+    async fn remove_writers_by_conn_prefix() {
+        let handle = super::spawn();
+        handle.get_or_create("term1", false).await;
+        handle.get_or_create("term2", false).await;
+
+        // Writer keys use format "{conn_id}-{session_id}"
+        handle
+            .join_and_get_buffer("term1", "c1-1".to_string(), Box::new(|_| {}))
+            .await;
+        handle
+            .join_and_get_buffer("term1", "c1-2".to_string(), Box::new(|_| {}))
+            .await;
+        handle
+            .join_and_get_buffer("term2", "c2-1".to_string(), Box::new(|_| {}))
+            .await;
+
+        // Remove all writers for conn_id="c1"
+        handle.remove_writers_by_conn_id("c1");
+        tokio::task::yield_now().await;
+
+        // term1 should have 0 writers (both were conn c1)
+        // term2 should still have 1 writer (conn c2)
+        // Verify by joining — if term2 still works, the c2-1 writer survived
+        let buf = handle
+            .join_and_get_buffer("term2", "verify".to_string(), Box::new(|_| {}))
+            .await;
+        // Buffer should be empty (no data written), but the call succeeds
+        assert!(buf.is_empty());
+
+        // Verify term1 still exists (get_or_create reuses)
+        handle.get_or_create("term1", false).await;
+        let buf = handle
+            .join_and_get_buffer("term1", "verify2".to_string(), Box::new(|_| {}))
+            .await;
+        assert!(buf.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_or_create_replaces_closed_terminal() {
+        let handle = super::spawn();
+        handle.get_or_create("myterm", false).await;
+
+        // Write data, add a writer, then close via writer removal
+        handle.write_data("myterm", b"old data".to_vec());
+        tokio::task::yield_now().await;
+
+        // Add a cancel token + writer so removal triggers close
+        handle
+            .join_and_get_buffer("myterm", "w1".to_string(), Box::new(|_| {}))
+            .await;
+        // Set cancel token by doing a clear (which sets closed=false, clears buffer,
+        // but we need the terminal to have a cancel token for close to trigger)
+        // Instead, just remove the writer — but without a cancel token, close won't
+        // trigger. So let's use the IsClosed check after manual close simulation.
+        //
+        // Simpler approach: create, write, get_or_create(true) to reset,
+        // then close by removing last writer (needs cancel token from a follow task).
+        // Actually the simplest: just verify via IsClosed + get_or_create behavior.
+
+        // We can't directly close from outside, but we can verify the fix works
+        // by creating a terminal, writing to it, then using clear to simulate
+        // the lifecycle. Let's test the actual scenario:
+        // 1. Create terminal, add writer + cancel, remove writer → closes
+        // 2. get_or_create(false) should give a fresh, usable terminal
+
+        // Start fresh
+        let handle = super::spawn();
+        handle.get_or_create("term", false).await;
+        handle.write_data("term", b"original".to_vec());
+        tokio::task::yield_now().await;
+
+        // Join a writer
+        handle
+            .join_and_get_buffer("term", "w1".to_string(), Box::new(|_| {}))
+            .await;
+
+        // We need a cancel token for close to trigger on zero writers.
+        // Use set_cancel to set it.
+        handle.set_cancel("term", tokio_util::sync::CancellationToken::new());
+        tokio::task::yield_now().await;
+
+        // Remove the writer — triggers close (zero writers + Pipe + has_cancel)
+        handle.remove_writer_from_all("w1");
+        tokio::task::yield_now().await;
+
+        // Terminal should now be closed
+        let is_closed = handle.is_closed("term").await;
+        assert_eq!(is_closed, Some(true), "terminal should be closed after last writer removed");
+
+        // get_or_create(false) should replace the closed terminal with a fresh one
+        handle.get_or_create("term", false).await;
+
+        let is_closed = handle.is_closed("term").await;
+        assert_eq!(is_closed, Some(false), "replacement terminal should not be closed");
+
+        // Fresh terminal should have empty buffer
+        let buf = handle
+            .join_and_get_buffer("term", "w2".to_string(), Box::new(|_| {}))
+            .await;
+        assert!(buf.is_empty(), "replacement terminal should have empty buffer");
+
+        // Writes should succeed on the replacement terminal
+        handle.write_data("term", b"new data".to_vec());
+        tokio::task::yield_now().await;
+
+        let buf = handle
+            .join_and_get_buffer("term", "w3".to_string(), Box::new(|_| {}))
+            .await;
+        assert_eq!(buf, b"new data", "writes to replacement terminal should work");
+    }
 }
 
 // ── Actor commands ──────────────────────────────────────────────────────────
@@ -247,11 +452,7 @@ mod tests {
 enum TerminalCmd {
     GetOrCreate {
         name: String,
-        reply: oneshot::Sender<()>,
-    },
-    Recreate {
-        name: String,
-        typ: TerminalType,
+        clear: bool,
         reply: oneshot::Sender<()>,
     },
     IsClosed {
@@ -266,6 +467,9 @@ enum TerminalCmd {
     },
     RemoveWriterFromAll {
         writer_key: String,
+    },
+    RemoveWritersByConnId {
+        conn_prefix: String,
     },
     WriteData {
         name: String,
@@ -312,21 +516,15 @@ pub struct TerminalHandle {
 
 impl TerminalHandle {
     /// Get or create a pipe terminal by name.
-    pub async fn get_or_create(&self, name: &str) {
+    ///
+    /// - `clear=false`: idempotent join — reuse existing terminal as-is, or create new.
+    /// - `clear=true`: clean slate — clear buffer, cancel running task, reset closed flag,
+    ///   but keep writers intact. Used by compose command terminals between runs.
+    pub async fn get_or_create(&self, name: &str, clear: bool) {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(TerminalCmd::GetOrCreate {
             name: name.to_string(),
-            reply,
-        }).await;
-        let _ = rx.await;
-    }
-
-    /// Create a fresh terminal, carrying over writers from the old one.
-    pub async fn recreate(&self, name: &str, typ: TerminalType) {
-        let (reply, rx) = oneshot::channel();
-        let _ = self.tx.send(TerminalCmd::Recreate {
-            name: name.to_string(),
-            typ,
+            clear,
             reply,
         }).await;
         let _ = rx.await;
@@ -364,6 +562,14 @@ impl TerminalHandle {
     pub fn remove_writer_from_all(&self, writer_key: &str) {
         let _ = self.tx.try_send(TerminalCmd::RemoveWriterFromAll {
             writer_key: writer_key.to_string(),
+        });
+    }
+
+    /// Remove all writers whose key starts with `{conn_id}-` (fire-and-forget).
+    /// Called on WebSocket disconnect to clean up leaked writers.
+    pub fn remove_writers_by_conn_id(&self, conn_id: &str) {
+        let _ = self.tx.try_send(TerminalCmd::RemoveWritersByConnId {
+            conn_prefix: format!("{conn_id}-"),
         });
     }
 
@@ -451,22 +657,33 @@ async fn actor_loop(
 
     while let Some(cmd) = rx.recv().await {
         match cmd {
-            TerminalCmd::GetOrCreate { name, reply } => {
-                terminals
-                    .entry(name.clone())
-                    .or_insert_with(|| Terminal::new(name, TerminalType::Pipe));
-                let _ = reply.send(());
-            }
-
-            TerminalCmd::Recreate { name, typ, reply } => {
-                let mut new_term = Terminal::new(name.clone(), typ);
-                if let Some(mut old) = terminals.remove(&name) {
-                    // Carry over writers (writer_index entries stay valid — name unchanged)
-                    std::mem::swap(&mut new_term.writers, &mut old.writers);
-                    new_term.generation = old.generation + 1;
-                    old.close();
+            TerminalCmd::GetOrCreate { name, clear, reply } => {
+                if clear {
+                    if let Some(term) = terminals.get_mut(&name) {
+                        term.buffer.clear();
+                        term.closed = false;
+                        if let Some(cancel) = term.cancel.take() {
+                            cancel.cancel();
+                        }
+                        term.pty_input_tx = None;
+                        term.generation += 1;
+                    } else {
+                        terminals.insert(name.clone(), Terminal::new(name, TerminalType::Pipe));
+                    }
+                } else {
+                    // A closed terminal is unusable (writes are dropped), so
+                    // remove it and let `or_insert_with` create a fresh one.
+                    if terminals.get(&name).is_some_and(|t| t.is_closed())
+                        && let Some(term) = terminals.remove(&name)
+                    {
+                        for k in term.writers.keys() {
+                            writer_index.remove(k);
+                        }
+                    }
+                    terminals
+                        .entry(name.clone())
+                        .or_insert_with(|| Terminal::new(name, TerminalType::Pipe));
                 }
-                terminals.insert(name, new_term);
                 let _ = reply.send(());
             }
 
@@ -501,6 +718,28 @@ async fn actor_loop(
                     // Fallback: scan all terminals (handles legacy keys not in index)
                     for term in terminals.values_mut() {
                         term.remove_writer(&writer_key);
+                        if term.writer_count() == 0
+                            && term.terminal_type == TerminalType::Pipe
+                            && term.has_cancel()
+                        {
+                            term.close();
+                        }
+                    }
+                }
+            }
+
+            TerminalCmd::RemoveWritersByConnId { conn_prefix } => {
+                // Collect matching writer keys from the index
+                let matching: Vec<(String, String)> = writer_index
+                    .iter()
+                    .filter(|(k, _)| k.starts_with(&conn_prefix))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                for (wk, term_name) in matching {
+                    writer_index.remove(&wk);
+                    if let Some(term) = terminals.get_mut(&term_name) {
+                        term.remove_writer(&wk);
                         if term.writer_count() == 0
                             && term.terminal_type == TerminalType::Pipe
                             && term.has_cancel()

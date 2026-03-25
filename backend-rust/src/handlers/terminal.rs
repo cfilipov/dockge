@@ -11,7 +11,7 @@ use tracing::{debug, info, warn};
 
 use crate::broadcast::eventbus::EventBus;
 use crate::docker;
-use crate::terminal::{TerminalHandle, TerminalType};
+use crate::terminal::TerminalHandle;
 use crate::ws::conn::Conn;
 use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse, SessionResponse};
 
@@ -380,16 +380,13 @@ async fn handle_combined(
 ) {
     let term_name = format!("combined-{}", stack);
 
-    // Check if already running — reuse if so
+    // Reuse existing terminal if still active
     if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
         alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
         return;
     }
 
-    state
-        .terminal_manager
-        .recreate(&term_name, TerminalType::Pipe)
-        .await;
+    state.terminal_manager.get_or_create(&term_name, false).await;
     let cancel = CancellationToken::new();
     state
         .terminal_manager
@@ -424,10 +421,13 @@ async fn handle_container_log(
         format!("{}-{}-1", stack, service)
     };
 
-    state
-        .terminal_manager
-        .recreate(&term_name, TerminalType::Pipe)
-        .await;
+    // Reuse existing terminal if still active
+    if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
+        alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
+        return;
+    }
+
+    state.terminal_manager.get_or_create(&term_name, false).await;
     let cancel = CancellationToken::new();
     state
         .terminal_manager
@@ -464,10 +464,13 @@ async fn handle_container_log_by_name(
 ) {
     let term_name = format!("container-log-by-name-{}", container);
 
-    state
-        .terminal_manager
-        .recreate(&term_name, TerminalType::Pipe)
-        .await;
+    // Reuse existing terminal if still active
+    if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
+        alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
+        return;
+    }
+
+    state.terminal_manager.get_or_create(&term_name, false).await;
     let cancel = CancellationToken::new();
     state
         .terminal_manager
@@ -503,16 +506,13 @@ async fn handle_exec(
 ) {
     let term_name = format!("container-exec-{}-{}-0", stack, service);
 
-    // Check if already running
+    // Reuse existing terminal if still active
     if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
         alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
         return;
     }
 
-    state
-        .terminal_manager
-        .recreate(&term_name, TerminalType::Pty)
-        .await;
+    state.terminal_manager.get_or_create(&term_name, false).await;
     let stacks_dir = &state.config.stacks_dir;
     let stack_dir = format!("{}/{}", stacks_dir, stack);
 
@@ -551,16 +551,13 @@ async fn handle_exec_by_name(
 ) {
     let term_name = format!("container-exec-by-name-{}", container);
 
-    // Check if already running
+    // Reuse existing terminal if still active
     if let Some(false) = state.terminal_manager.is_closed(&term_name).await {
         alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
         return;
     }
 
-    state
-        .terminal_manager
-        .recreate(&term_name, TerminalType::Pty)
-        .await;
+    state.terminal_manager.get_or_create(&term_name, false).await;
 
     match state.terminal_manager.start_pty_and_wait(
         &term_name,
@@ -599,16 +596,13 @@ async fn handle_console(
 ) {
     let term_name = "console";
 
-    // Check if already running
+    // Reuse existing terminal if still active
     if let Some(false) = state.terminal_manager.is_closed(term_name).await {
         alloc_join_ack_replay(conn, &state.terminal_manager, term_name, msg).await;
         return;
     }
 
-    state
-        .terminal_manager
-        .recreate(term_name, TerminalType::Pty)
-        .await;
+    state.terminal_manager.get_or_create(term_name, false).await;
 
     // Detect available shell
     let shell_cmd = if shell != "bash" {
@@ -661,7 +655,7 @@ async fn handle_compose_terminal(
     stack: &str,
 ) {
     let term_name = format!("compose-{}", stack);
-    state.terminal_manager.get_or_create(&term_name).await;
+    state.terminal_manager.get_or_create(&term_name, false).await;
     alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
@@ -672,7 +666,7 @@ async fn handle_container_action_terminal(
     container: &str,
 ) {
     let term_name = format!("container-{}", container);
-    state.terminal_manager.get_or_create(&term_name).await;
+    state.terminal_manager.get_or_create(&term_name, false).await;
     alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
@@ -736,6 +730,7 @@ async fn run_combined_logs(
                 stderr: true,
                 timestamps: true,
                 tail: "100".to_string(),
+                ..Default::default()
             };
 
             let mut stream =
@@ -792,7 +787,7 @@ async fn run_combined_logs(
             let cancel = cancel.clone();
 
             tasks.spawn(async move {
-                follow_container_logs(&docker, &cname, &prefix, &tx, &cancel).await;
+                follow_container_logs(&docker, &cname, &prefix, &tx, &cancel, None).await;
             });
         }
 
@@ -838,7 +833,7 @@ async fn run_combined_logs(
                                     let cancel = cancel.clone();
                                     tasks.spawn(async move {
                                         follow_container_logs(
-                                            &docker, &cname, &prefix, &tx, &cancel,
+                                            &docker, &cname, &prefix, &tx, &cancel, None,
                                         )
                                         .await;
                                     });
@@ -871,12 +866,14 @@ async fn follow_container_logs(
     prefix: &str,
     tx: &tokio::sync::mpsc::Sender<String>,
     cancel: &CancellationToken,
+    since: Option<i32>,
 ) {
     let opts = docker::ContainerLogsOpts {
         follow: true,
         stdout: true,
         stderr: true,
-        tail: "0".to_string(),
+        tail: if since.is_some() { String::new() } else { "0".to_string() },
+        since,
         ..Default::default()
     };
 
@@ -952,17 +949,29 @@ async fn run_container_log_loop(
     cancel: CancellationToken,
 ) {
     let mut container_name = initial_container.to_string();
+    let mut last_ts: Option<i32> = None;
+    let mut first = true;
 
     loop {
         if cancel.is_cancelled() {
             return;
         }
 
-        // Stream logs (follow=true, tail=100 on first connect, tail=0 on reconnect)
-        let is_first = container_name == initial_container;
-        let tail = if is_first { "100" } else { "0" };
+        // First connect: tail=100. Reconnect: since=<last_ts> to get exactly the gap.
+        let (tail, since) = if first {
+            ("100".to_string(), None)
+        } else {
+            (String::new(), last_ts)
+        };
+        first = false;
 
-        stream_single_container_to_terminal(ctx.docker, &container_name, ctx.handle, ctx.term_name, cancel.clone(), tail).await;
+        let ts = stream_single_container_to_terminal(
+            ctx.docker, &container_name, ctx.handle, ctx.term_name,
+            cancel.clone(), &tail, since,
+        ).await;
+        if let Some(t) = ts {
+            last_ts = Some(t);
+        }
 
         if cancel.is_cancelled() {
             return;
@@ -1014,6 +1023,7 @@ async fn run_container_log_by_name_loop(
     event_bus: &EventBus,
     cancel: CancellationToken,
 ) {
+    let mut last_ts: Option<i32> = None;
     let mut first = true;
 
     loop {
@@ -1021,10 +1031,21 @@ async fn run_container_log_by_name_loop(
             return;
         }
 
-        let tail = if first { "100" } else { "0" };
+        // First connect: tail=100. Reconnect: since=<last_ts> to get exactly the gap.
+        let (tail, since) = if first {
+            ("100".to_string(), None)
+        } else {
+            (String::new(), last_ts)
+        };
         first = false;
 
-        stream_single_container_to_terminal(docker, container_name, handle, term_name, cancel.clone(), tail).await;
+        let ts = stream_single_container_to_terminal(
+            docker, container_name, handle, term_name, cancel.clone(),
+            &tail, since,
+        ).await;
+        if let Some(t) = ts {
+            last_ts = Some(t);
+        }
 
         if cancel.is_cancelled() {
             return;
@@ -1062,6 +1083,7 @@ async fn run_container_log_by_name_loop(
 }
 
 /// Stream logs from a single container into a terminal buffer via the actor.
+/// Returns the last timestamp seen (Unix seconds), or `None` if no log lines were received.
 async fn stream_single_container_to_terminal(
     docker: &docker::DockerClient,
     container_name: &str,
@@ -1069,25 +1091,37 @@ async fn stream_single_container_to_terminal(
     term_name: &str,
     cancel: CancellationToken,
     tail: &str,
-) {
+    since: Option<i32>,
+) -> Option<i32> {
     let opts = docker::ContainerLogsOpts {
         follow: true,
         stdout: true,
         stderr: true,
+        timestamps: true,
         tail: tail.to_string(),
-        ..Default::default()
+        since,
     };
 
     let mut stream = std::pin::pin!(docker::container_logs(docker, container_name, opts));
+    let mut last_ts: Option<i32> = None;
 
     loop {
         tokio::select! {
-            () = cancel.cancelled() => return,
+            () = cancel.cancelled() => return last_ts,
             item = stream.next() => {
                 match item {
                     Some(Ok(output)) => {
                         let data = output.into_bytes();
                         if !data.is_empty() {
+                            // Parse timestamp from the line for since-based reconnection.
+                            // Docker timestamps are RFC3339Nano: "2024-01-15T10:30:00.123456789Z rest"
+                            let text = String::from_utf8_lossy(&data);
+                            let (ts_str, _) = split_timestamp(&text);
+                            if !ts_str.is_empty()
+                                && let Some(secs) = parse_unix_seconds(ts_str)
+                            {
+                                last_ts = Some(secs);
+                            }
                             handle.write_data(term_name, data.to_vec());
                         }
                     }
@@ -1100,4 +1134,34 @@ async fn stream_single_container_to_terminal(
             }
         }
     }
+
+    last_ts
+}
+
+/// Parse an RFC3339 timestamp string into Unix seconds.
+/// Handles "2025-01-15T00:00:09.800Z" and similar formats.
+fn parse_unix_seconds(ts: &str) -> Option<i32> {
+    // Fast path: parse YYYY-MM-DDTHH:MM:SS and ignore fractional seconds
+    if ts.len() < 19 { return None; }
+    let year: i32 = ts[0..4].parse().ok()?;
+    let month: u32 = ts[5..7].parse().ok()?;
+    let day: u32 = ts[8..10].parse().ok()?;
+    let hour: u32 = ts[11..13].parse().ok()?;
+    let min: u32 = ts[14..16].parse().ok()?;
+    let sec: u32 = ts[17..19].parse().ok()?;
+
+    // Days from 1970-01-01 (simplified — assumes UTC, no leap seconds)
+    let days = days_from_civil(year, month, day);
+    Some((days as i32) * 86400 + (hour * 3600 + min * 60 + sec) as i32)
+}
+
+/// Convert a civil date to days since epoch (1970-01-01).
+fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
+    let y = if month <= 2 { year as i64 - 1 } else { year as i64 };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = (y - era * 400) as u64;
+    let m = month as u64;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + day as u64 - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe as i64 - 719468
 }

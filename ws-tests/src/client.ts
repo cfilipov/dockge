@@ -10,6 +10,7 @@ interface PendingAck {
 
 interface EventWaiter {
     event: string;
+    predicate?: (data: Record<string, unknown>) => boolean;
     resolve: (data: Record<string, unknown>) => void;
     reject: (err: Error) => void;
 }
@@ -95,8 +96,10 @@ export class TestClient {
 
             const evt: QueuedEvent = { event: msg.event as string, data };
 
-            // Check if any waiter matches
-            const idx = this.eventWaiters.findIndex((w) => w.event === evt.event);
+            // Check if any waiter matches (with optional predicate)
+            const idx = this.eventWaiters.findIndex(
+                (w) => w.event === evt.event && (!w.predicate || w.predicate(evt.data)),
+            );
             if (idx >= 0) {
                 const waiter = this.eventWaiters.splice(idx, 1)[0];
                 waiter.resolve(evt.data);
@@ -117,6 +120,7 @@ export class TestClient {
         this.binaryQueue.push(data);
     }
 
+    /** Send a request and wait for the ack response. */
     async sendAndReceive(event: string, ...args: unknown[]): Promise<Record<string, unknown>> {
         const id = this.nextId++;
         const msg = JSON.stringify({ id, event, args });
@@ -133,6 +137,83 @@ export class TestClient {
                     clearTimeout(timer);
                     resolve(data);
                 },
+                reject: (err) => {
+                    clearTimeout(timer);
+                    reject(err);
+                },
+            });
+        });
+    }
+
+    /**
+     * Send an action and wait for both the ack AND the actionComplete event.
+     * Returns { ack, completion } where completion has { requestId, ok, msg }.
+     */
+    async sendAction(event: string, ...args: unknown[]): Promise<{
+        ack: Record<string, unknown>;
+        completion: Record<string, unknown>;
+    }> {
+        const id = this.nextId++;
+        const msg = JSON.stringify({ id, event, args });
+        this.ws.send(msg);
+
+        // Wait for ack
+        const ack = await new Promise<Record<string, unknown>>((resolve, reject) => {
+            const timer = setTimeout(() => {
+                this.pendingAcks.delete(id);
+                reject(new Error(`Timeout waiting for ack of "${event}" (id=${id})`));
+            }, ACK_TIMEOUT);
+
+            this.pendingAcks.set(id, {
+                resolve: (data) => {
+                    clearTimeout(timer);
+                    resolve(data);
+                },
+                reject: (err) => {
+                    clearTimeout(timer);
+                    reject(err);
+                },
+            });
+        });
+
+        // If ack indicates failure (handler returned before spawning), no actionComplete will come
+        if (!ack.ok) {
+            return { ack, completion: { requestId: id, ok: false, msg: ack.msg ?? null } };
+        }
+
+        // Wait for actionComplete with matching requestId
+        const completion = await this.waitForActionComplete(id);
+        return { ack, completion };
+    }
+
+    /**
+     * Wait for an actionComplete event matching the given requestId.
+     */
+    async waitForActionComplete(requestId: number, timeout = EVENT_TIMEOUT): Promise<Record<string, unknown>> {
+        // Check queue first
+        const idx = this.eventQueue.findIndex(
+            (e) => e.event === "actionComplete" && (e.data as Record<string, unknown>).requestId === requestId,
+        );
+        if (idx >= 0) {
+            return this.eventQueue.splice(idx, 1)[0].data;
+        }
+
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                const wIdx = this.eventWaiters.findIndex((w) => w.resolve === resolveRef);
+                if (wIdx >= 0) this.eventWaiters.splice(wIdx, 1);
+                reject(new Error(`Timeout waiting for actionComplete (requestId=${requestId})`));
+            }, timeout);
+
+            const resolveRef = (data: Record<string, unknown>) => {
+                clearTimeout(timer);
+                resolve(data);
+            };
+
+            this.eventWaiters.push({
+                event: "actionComplete",
+                predicate: (data) => (data as Record<string, unknown>).requestId === requestId,
+                resolve: resolveRef,
                 reject: (err) => {
                     clearTimeout(timer);
                     reject(err);
@@ -260,6 +341,19 @@ export class TestClient {
             results.push(evt);
         }
         return results;
+    }
+
+    /** Drain all queued events with the given name (non-blocking). */
+    drainEvents(eventName: string): QueuedEvent[] {
+        const matching: QueuedEvent[] = [];
+        this.eventQueue = this.eventQueue.filter((e) => {
+            if (e.event === eventName) {
+                matching.push(e);
+                return false;
+            }
+            return true;
+        });
+        return matching;
     }
 
     close(): void {

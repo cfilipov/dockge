@@ -3,10 +3,6 @@ import { waitForApp } from "../helpers/wait-for-app";
 import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Images — List", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/images");
         await waitForApp(page);
@@ -82,10 +78,6 @@ test.describe("Images — List", () => {
 });
 
 test.describe("Images — Detail", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("displays image detail view with overview fields", async ({ page }) => {
         // Navigate to a known image
         await page.goto("/images/nginx:latest");

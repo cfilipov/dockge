@@ -3,17 +3,23 @@ import { join } from "node:path";
 import type { Route } from "../server.js";
 import { sendJSON, sendError } from "../server.js";
 import { initState } from "../init.js";
+import { FixedClock } from "../clock.js";
 
 export const mockRoutes: Route[] = [
     {
         method: "POST",
         pattern: "/_mock/reset",
-        handler: async ({ res, state, initOpts }) => {
+        handler: async ({ res, state, clock, initOpts }) => {
             try {
                 // Step 1: Clear stacks dir contents
                 const entries = readdirSync(initOpts.stacksDir);
                 for (const entry of entries) {
                     rmSync(join(initOpts.stacksDir, entry), { recursive: true, force: true });
+                }
+
+                // Step 1b: Reset clock tick counter for deterministic timestamps
+                if (clock instanceof FixedClock) {
+                    clock.resetTick();
                 }
 
                 // Step 2: Re-initialize state
@@ -26,6 +32,12 @@ export const mockRoutes: Route[] = [
                 state.images = fresh.images;
                 state.execSessions = fresh.execSessions;
                 state.logTemplates = fresh.logTemplates;
+                state.logBuffers = fresh.logBuffers;
+                // Clear heartbeat intervals from old state
+                for (const interval of state.heartbeatIntervals.values()) {
+                    clearInterval(interval);
+                }
+                state.heartbeatIntervals = fresh.heartbeatIntervals;
 
                 sendJSON(res, 200, { status: "ok" });
             } catch (err) {

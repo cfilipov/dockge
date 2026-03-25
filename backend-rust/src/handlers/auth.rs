@@ -484,8 +484,12 @@ pub(crate) fn after_login(state: &Arc<AppState>, conn: &Arc<Conn>) {
         let state = state.clone();
         let conn = conn.clone();
         tokio::task::spawn_blocking(move || {
-            let updates = super::image_updates::collect_update_keys(&state);
-            conn.send_event("updates", updates);
+            let keys = super::image_updates::collect_update_keys(&state);
+            let complete = state.image_check_complete.load(std::sync::atomic::Ordering::Acquire);
+            conn.send_event("updates", super::image_updates::UpdatesBroadcast {
+                keys,
+                complete,
+            });
         });
     }
 }

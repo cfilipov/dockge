@@ -13,6 +13,34 @@ if (!process.env.CI) {
 // Allow overriding the port so VSCode's persistent test-server (default 5051)
 // and CLI runs (Taskfile sets 5052) don't conflict with each other.
 const port = parseInt(process.env.E2E_PORT || "5051", 10);
+const authPort = port + 1;
+
+// Tests that mutate mock state or test auth — must run sequentially.
+const SERIAL_FILES = [
+    "login.spec.ts",
+    "logout.spec.ts",
+    "session-invalidation.spec.ts",
+    "change-password.spec.ts",
+    "z-change-password-success.spec.ts",
+    "compose-operations.spec.ts",
+    "compose-deploy.spec.ts",
+    "compose-delete.spec.ts",
+    "compose-save-discard.spec.ts",
+    "compose-deploy-invalid.spec.ts",
+    "compose-save-env.spec.ts",
+    "container-card-delete.spec.ts",
+    "container-details.spec.ts",
+    "unmanaged-actions.spec.ts",
+    "settings.spec.ts",
+    "check-image-updates.spec.ts",
+    "zz-perf-benchmarks.spec.ts",
+];
+
+const sharedDeviceUse = {
+    ...devices["Desktop Chrome"],
+    viewport: { width: 1280, height: 720 } as const,
+    colorScheme: "dark" as const,
+};
 
 export default defineConfig({
     testDir: "./tests",
@@ -25,7 +53,6 @@ export default defineConfig({
     outputDir: "../.e2e-output/test-results",
     reporter: [["html", { outputFolder: "../.e2e-output/playwright-report", open: "on-failure" }]],
     use: {
-        baseURL: `http://localhost:${port}`,
         trace: "on-first-retry",
         viewport: { width: 1280, height: 720 },
     },
@@ -39,21 +66,46 @@ export default defineConfig({
         {
             name: "setup",
             testMatch: /auth\.setup\.ts/,
+            use: { baseURL: `http://localhost:${authPort}` },
         },
         {
-            name: "chromium",
+            name: "parallel",
             use: {
-                ...devices["Desktop Chrome"],
-                viewport: { width: 1280, height: 720 },
-                storageState: "../.e2e-output/auth/user.json",
-                colorScheme: "dark",
+                ...sharedDeviceUse,
+                baseURL: `http://localhost:${port}`,
+                storageState: {
+                    cookies: [],
+                    origins: [{
+                        origin: `http://localhost:${port}`,
+                        localStorage: [{ name: "theme", value: "auto" }],
+                    }],
+                },
             },
+            fullyParallel: true,
+            testIgnore: SERIAL_FILES,
+        },
+        {
+            name: "serial",
+            use: {
+                ...sharedDeviceUse,
+                baseURL: `http://localhost:${authPort}`,
+                storageState: "../.e2e-output/auth/user.json",
+            },
+            fullyParallel: false,
             dependencies: ["setup"],
+            testMatch: SERIAL_FILES.map(f => new RegExp(f.replace(/\./g, "\\."))),
         },
     ],
-    webServer: {
-        command: `cd .. && rm -rf .run/e2e-${port} && mkdir -p .run/e2e-${port}/data && task run:mock-docker-daemon PORT=${port} STACKS_DIR=.run/e2e-${port}/stacks DATA_DIR=.run/e2e-${port}/data`,
-        port,
-        reuseExistingServer: !process.env.CI,
-    },
+    webServer: [
+        {
+            command: `cd .. && rm -rf .run/e2e-${port} && mkdir -p .run/e2e-${port}/data && task run:mock-docker-daemon PORT=${port} STACKS_DIR=.run/e2e-${port}/stacks DATA_DIR=.run/e2e-${port}/data EXTRA_FLAGS=--no-auth`,
+            port,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            command: `cd .. && rm -rf .run/e2e-${authPort} && mkdir -p .run/e2e-${authPort}/data && task run:mock-docker-daemon PORT=${authPort} STACKS_DIR=.run/e2e-${authPort}/stacks DATA_DIR=.run/e2e-${authPort}/data`,
+            port: authPort,
+            reuseExistingServer: !process.env.CI,
+        },
+    ],
 });

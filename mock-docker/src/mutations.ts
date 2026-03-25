@@ -1,10 +1,12 @@
 import type { MockState } from "./state.js";
+import { appendLog } from "./state.js";
 import type { ContainerInspect, NetworkInspect, VolumeInspect, ImageInspect, EndpointSettings, ExecInspect } from "./types.js";
 import type { Clock } from "./clock.js";
 import type { EventEmitter } from "./events.js";
 import { makeEvent } from "./events.js";
 import { resolveByIdOrName } from "./name-resolution.js";
 import { deterministicId, deterministicInt, deterministicIp, deterministicMac, containerIdFromLabels, networkSeed, imageSeed } from "./deterministic.js";
+import { generateStartupLogs, generateShutdownLogs, generatePeriodicLogLine } from "./logs.js";
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -156,6 +158,23 @@ export function containerStart(
     }
 
     addContainerToNetworks(state, c);
+
+    // Append startup logs to the per-container buffer
+    const startupLines = generateStartupLogs(c, clock, state.logTemplates);
+    for (const line of startupLines) {
+        appendLog(state, c.Id, clock.now().getTime(), line);
+    }
+
+    // Start heartbeat interval (only in non-e2e mode)
+    if (!e2e) {
+        let lineCounter = 0;
+        const interval = setInterval(() => {
+            const line = generatePeriodicLogLine(c, lineCounter++, clock, state.logTemplates);
+            appendLog(state, c.Id, clock.now().getTime(), line);
+        }, 2000);
+        state.heartbeatIntervals.set(c.Id, interval);
+    }
+
     emitter.emit(makeEvent(clock, "container", "start", c.Id, containerAttrs(c)));
 
     return ok();
@@ -171,7 +190,9 @@ export function containerStop(
     if ("error" in r) return r;
     const c = r.ok;
 
-    if (!c.State.Running && !c.State.Paused) return fail(304, "container already stopped");
+    if (!c.State.Running && !c.State.Paused) {
+        return fail(304, "container already stopped");
+    }
 
     const now = clock.now().toISOString();
     const attrs = containerAttrs(c);
@@ -185,6 +206,19 @@ export function containerStop(
     delete c.State.Health;
 
     removeContainerFromNetworks(state, c);
+
+    // Append shutdown logs to buffer
+    const shutdownLines = generateShutdownLogs(c, clock, state.logTemplates);
+    for (const line of shutdownLines) {
+        appendLog(state, c.Id, clock.now().getTime(), line);
+    }
+
+    // Clear heartbeat interval
+    const hbInterval = state.heartbeatIntervals.get(c.Id);
+    if (hbInterval) {
+        clearInterval(hbInterval);
+        state.heartbeatIntervals.delete(c.Id);
+    }
 
     emitter.emit(makeEvent(clock, "container", "kill", c.Id, { ...attrs, signal: "SIGTERM" }));
     emitter.emit(makeEvent(clock, "container", "die", c.Id, { ...attrs, exitCode: "0" }));
@@ -277,6 +311,12 @@ export function containerRemove(
     }
 
     state.containers.delete(c.Id);
+    state.logBuffers.delete(c.Id);
+    const hbInterval = state.heartbeatIntervals.get(c.Id);
+    if (hbInterval) {
+        clearInterval(hbInterval);
+        state.heartbeatIntervals.delete(c.Id);
+    }
 
     emitter.emit(makeEvent(clock, "container", "destroy", c.Id, containerAttrs(c)));
 
@@ -456,6 +496,13 @@ export function containerKill(
     delete c.State.Health;
 
     removeContainerFromNetworks(state, c);
+
+    // Clear heartbeat interval
+    const hbInterval = state.heartbeatIntervals.get(c.Id);
+    if (hbInterval) {
+        clearInterval(hbInterval);
+        state.heartbeatIntervals.delete(c.Id);
+    }
 
     emitter.emit(makeEvent(clock, "container", "kill", c.Id, { ...attrs, signal: sig }));
     emitter.emit(makeEvent(clock, "container", "die", c.Id, { ...attrs, exitCode: String(exitCode) }));

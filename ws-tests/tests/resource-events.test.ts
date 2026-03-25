@@ -12,7 +12,7 @@ describe("resource-events", () => {
             await client.login();
 
             // Stop a service — this triggers Docker events that produce resourceEvents
-            const stopPromise = client.sendAndReceive("stopService", "test-stack", "web");
+            const actionPromise = client.sendAction("stopService", "test-stack", "web");
 
             // The resourceEvent should arrive as a push before or during the stop
             const event = await client.waitForEvent("resourceEvent");
@@ -21,7 +21,7 @@ describe("resource-events", () => {
             expect(typeof event.action).toBe("string");
             expect(typeof event.id).toBe("string");
 
-            await stopPromise;
+            await actionPromise;
         } finally {
             client.close();
         }
@@ -33,7 +33,7 @@ describe("resource-events", () => {
             await client.login();
 
             // Restart a service to trigger events with compose labels
-            const restartPromise = client.sendAndReceive("restartService", "test-stack", "web");
+            const actionPromise = client.sendAction("restartService", "test-stack", "web");
 
             const event = await client.waitForEvent("resourceEvent");
 
@@ -43,7 +43,7 @@ describe("resource-events", () => {
             expect(event.stackName).toBe("test-stack");
             expect(event.serviceName).toBe("web");
 
-            await restartPromise;
+            await actionPromise;
         } finally {
             client.close();
         }
@@ -58,7 +58,7 @@ describe("resource-events", () => {
             await client.waitForEvent("containers");
 
             // Now stop a service — should trigger both resourceEvent and a new containers broadcast
-            const stopPromise = client.sendAndReceive("stopService", "test-stack", "redis");
+            const actionPromise = client.sendAction("stopService", "test-stack", "redis");
 
             const resourceEvent = await client.waitForEvent("resourceEvent");
             expect(resourceEvent.type).toBe("container");
@@ -67,7 +67,7 @@ describe("resource-events", () => {
             const containers = await client.waitForEvent("containers");
             expect(containers).toBeTruthy();
 
-            await stopPromise;
+            await actionPromise;
         } finally {
             client.close();
         }

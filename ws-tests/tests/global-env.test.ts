@@ -20,12 +20,9 @@ describe("global-env", () => {
             }, "");
             expect(setResp.ok).toBe(true);
 
-            // Trigger startStack (background spawn recreates compose terminal)
-            const startResp = await cmd.sendAndReceive("startStack", "test-stack");
+            // Trigger startStack and wait for background action to complete
+            const { ack: startResp } = await cmd.sendAction("startStack", "test-stack");
             expect(startResp.ok).toBe(true);
-
-            // Wait for the command to complete (container reaches running state)
-            await waitForContainerState(obs, "test-stack-web-1", "running");
 
             // NOW join compose terminal to read buffered output (including command echo)
             const joinResp = await cmd.sendAndReceive("terminalJoin", {
@@ -74,12 +71,9 @@ describe("global-env", () => {
             }, "");
             expect(setResp.ok).toBe(true);
 
-            // Trigger startStack
-            const startResp = await cmd.sendAndReceive("startStack", "test-stack");
+            // Trigger startStack and wait for background action to complete
+            const { ack: startResp } = await cmd.sendAction("startStack", "test-stack");
             expect(startResp.ok).toBe(true);
-
-            // Wait for the command to complete (container reaches running state)
-            await waitForContainerState(obs, "test-stack-web-1", "running");
 
             // NOW join compose terminal to read buffered output
             const joinResp = await cmd.sendAndReceive("terminalJoin", {

@@ -16,8 +16,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("stopService", "test-stack", "web");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("stopService", "test-stack", "web");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "exited");
         } finally {
@@ -35,8 +35,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("startService", "test-stack", "web");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("startService", "test-stack", "web");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
         } finally {
@@ -53,8 +53,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("restartService", "test-stack", "web");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("restartService", "test-stack", "web");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
         } finally {
@@ -71,8 +71,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("recreateService", "test-stack", "web");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("recreateService", "test-stack", "web");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
         } finally {
@@ -89,8 +89,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("updateService", "test-stack", "web");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("updateService", "test-stack", "web");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
         } finally {
@@ -119,8 +119,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("stopContainer", "test-stack-web-1");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("stopContainer", "test-stack-web-1");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "exited");
         } finally {
@@ -138,8 +138,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("startContainer", "test-stack-web-1");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("startContainer", "test-stack-web-1");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
         } finally {
@@ -156,8 +156,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("restartContainer", "test-stack-web-1");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("restartContainer", "test-stack-web-1");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
         } finally {
@@ -172,11 +172,11 @@ describe("services", () => {
             await cmd.login();
 
             // Missing service name
-            const resp1 = await cmd.sendAndReceive("startService", "test-stack", "");
+            const { ack: resp1 } = await cmd.sendAction("startService", "test-stack", "");
             expect(resp1.ok).toBe(false);
 
             // Missing stack name
-            const resp2 = await cmd.sendAndReceive("stopService", "", "web");
+            const { ack: resp2 } = await cmd.sendAction("stopService", "", "web");
             expect(resp2.ok).toBe(false);
         } finally {
             cmd.close();
@@ -191,8 +191,8 @@ describe("services", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("stopService", "test-stack", "no-such-service");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("stopService", "test-stack", "no-such-service");
+            expect(ack.ok).toBe(true);
 
             // Background goroutine fails silently; no containers broadcast for nonexistent service
             const evt = await obs.tryWaitForEvent("containers", 500);

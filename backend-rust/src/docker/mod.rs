@@ -558,6 +558,8 @@ pub struct ContainerLogsOpts {
     pub stderr: bool,
     pub timestamps: bool,
     pub tail: String,
+    /// Unix timestamp (seconds). Only return logs since this time.
+    pub since: Option<i32>,
 }
 
 /// Stream container logs via the Docker SDK.
@@ -566,14 +568,17 @@ pub fn container_logs(
     container_name: &str,
     opts: ContainerLogsOpts,
 ) -> impl Stream<Item = Result<LogOutput, bollard::errors::Error>> {
-    let bollard_opts = bollard::query_parameters::LogsOptionsBuilder::default()
+    let mut builder = bollard::query_parameters::LogsOptionsBuilder::default();
+    builder = builder
         .follow(opts.follow)
         .stdout(opts.stdout)
         .stderr(opts.stderr)
         .timestamps(opts.timestamps)
-        .tail(if opts.tail.is_empty() { "all" } else { &opts.tail })
-        .build();
-    docker.logs(container_name, Some(bollard_opts))
+        .tail(if opts.tail.is_empty() { "all" } else { &opts.tail });
+    if let Some(since) = opts.since {
+        builder = builder.since(since);
+    }
+    docker.logs(container_name, Some(builder.build()))
 }
 
 // ── Volume helpers ──────────────────────────────────────────────────────────

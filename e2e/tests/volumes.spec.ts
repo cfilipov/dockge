@@ -3,10 +3,6 @@ import { waitForApp } from "../helpers/wait-for-app";
 import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Volumes — List", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/volumes");
         await waitForApp(page);
@@ -63,10 +59,6 @@ test.describe("Volumes — List", () => {
 });
 
 test.describe("Volumes — Detail", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("displays volume detail view with overview fields", async ({ page }) => {
         await page.goto("/volumes/04-database_pgdata");
         await waitForApp(page);

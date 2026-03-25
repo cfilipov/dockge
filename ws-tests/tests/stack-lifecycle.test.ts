@@ -16,8 +16,8 @@ describe("stack-lifecycle", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("stopStack", "test-stack");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("stopStack", "test-stack");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "exited");
         } finally {
@@ -34,8 +34,8 @@ describe("stack-lifecycle", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("startStack", "test-stack");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("startStack", "test-stack");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
         } finally {
@@ -52,12 +52,12 @@ describe("stack-lifecycle", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const pauseResp = await cmd.sendAndReceive("pauseStack", "test-stack");
+            const { ack: pauseResp } = await cmd.sendAction("pauseStack", "test-stack");
             expect(pauseResp.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "paused");
 
-            const resumeResp = await cmd.sendAndReceive("resumeStack", "test-stack");
+            const { ack: resumeResp } = await cmd.sendAction("resumeStack", "test-stack");
             expect(resumeResp.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
@@ -75,8 +75,8 @@ describe("stack-lifecycle", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("restartStack", "test-stack");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("restartStack", "test-stack");
+            expect(ack.ok).toBe(true);
 
             // Restart goes stop→start; final state should be running
             await waitForContainerState(obs, "test-stack-web-1", "running");
@@ -94,8 +94,8 @@ describe("stack-lifecycle", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("updateStack", "test-stack");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("updateStack", "test-stack");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", "running");
         } finally {
@@ -112,8 +112,8 @@ describe("stack-lifecycle", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("downStack", "test-stack");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("downStack", "test-stack");
+            expect(ack.ok).toBe(true);
 
             await waitForContainerState(obs, "test-stack-web-1", null);
         } finally {
@@ -130,8 +130,8 @@ describe("stack-lifecycle", () => {
             const yaml = "services:\n  app:\n    image: alpine\n";
             await cmd.sendAndReceive("saveStack", "to-delete", yaml, "", "", false);
 
-            const resp = await cmd.sendAndReceive("deleteStack", "to-delete", { deleteStackFiles: true });
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("deleteStack", "to-delete", { deleteStackFiles: true });
+            expect(ack.ok).toBe(true);
         } finally {
             cmd.close();
         }
@@ -145,8 +145,8 @@ describe("stack-lifecycle", () => {
             const yaml = "services:\n  app:\n    image: alpine\n";
             await cmd.sendAndReceive("saveStack", "force-delete-me", yaml, "", "", false);
 
-            const resp = await cmd.sendAndReceive("forceDeleteStack", "force-delete-me");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("forceDeleteStack", "force-delete-me");
+            expect(ack.ok).toBe(true);
         } finally {
             cmd.close();
         }
@@ -156,8 +156,8 @@ describe("stack-lifecycle", () => {
         const cmd = await connectClient();
         try {
             await cmd.login();
-            const resp = await cmd.sendAndReceive("startStack", "");
-            expect(resp.ok).toBe(false);
+            const { ack } = await cmd.sendAction("startStack", "");
+            expect(ack.ok).toBe(false);
         } finally {
             cmd.close();
         }
@@ -171,8 +171,8 @@ describe("stack-lifecycle", () => {
             await obs.login();
             await obs.waitForEvent("containers"); // drain AfterLogin
 
-            const resp = await cmd.sendAndReceive("stopStack", "no-such-stack");
-            expect(resp.ok).toBe(true);
+            const { ack } = await cmd.sendAction("stopStack", "no-such-stack");
+            expect(ack.ok).toBe(true);
 
             // No containers broadcast should arrive for a nonexistent stack
             const evt = await obs.tryWaitForEvent("containers", 500);

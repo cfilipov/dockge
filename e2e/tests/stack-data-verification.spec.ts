@@ -32,13 +32,6 @@ const BADGE_LABELS: Record<string, string> = {
 const allStacks = loadAllStacks(STACKS_DIR);
 
 test.describe("Stack data verification", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-    test.afterAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("stack list and detail pages match compose/mock data", async ({ page }) => {
         test.setTimeout(120_000);
 

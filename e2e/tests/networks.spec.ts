@@ -55,11 +55,6 @@ test.describe("Networks — List", () => {
 });
 
 test.describe("Networks — Detail", () => {
-    // Reset mock state to ensure consistent containers connected to networks.
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("displays network detail view", async ({ page }) => {
         await page.goto("/networks/bridge");
         await waitForApp(page);

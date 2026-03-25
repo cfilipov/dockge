@@ -370,12 +370,12 @@
 
             <!-- Logs View -->
             <Terminal v-if="viewMode === 'logs'" class="terminal flex-grow-1" :rows="20" mode="displayOnly"
-                :name="logTerminalName" channel="terminal" terminal-type="container-log-by-name"
+                aria-label="Logs" :name="logTerminalName" channel="terminal" terminal-type="container-log-by-name"
                 :terminal-params="{ container: containerName }" />
 
             <!-- Shell View -->
             <Terminal v-if="viewMode === 'shell'" class="terminal shell-terminal" :rows="20" mode="interactive"
-                :name="shellTerminalName" channel="terminal" terminal-type="exec-by-name"
+                aria-label="Shell" :name="shellTerminalName" channel="terminal" terminal-type="exec-by-name"
                 :terminal-params="{ container: containerName, shell: shell }" />
         </div>
         <div v-else>

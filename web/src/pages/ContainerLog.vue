@@ -3,7 +3,7 @@
         <div>
             <h1 class="mb-3">{{ $t("log") }} - {{ serviceName }} ({{ stackName }})</h1>
 
-            <Terminal class="terminal" :rows="20" mode="displayOnly" :name="terminalName"
+            <Terminal class="terminal" :rows="20" mode="displayOnly" aria-label="Logs" :name="terminalName"
                 channel="terminal" terminal-type="container-log" :terminal-params="{ stack: stackName, service: serviceName }" />
         </div>
     </transition>

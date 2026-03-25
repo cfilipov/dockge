@@ -3,10 +3,6 @@ import { waitForApp } from "../helpers/wait-for-app";
 import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Compose Create — New Stack", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/stacks/new");
         await waitForApp(page);

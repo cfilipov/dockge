@@ -119,6 +119,7 @@ async fn main() {
         terminal_manager: terminal::spawn(),
         event_bus,
         event_watcher_ready: AtomicBool::new(false),
+        image_check_complete: AtomicBool::new(false),
     });
 
     // Build WebSocket server with handlers
@@ -149,7 +150,7 @@ async fn main() {
         if connect_state.config.no_auth {
             conn.set_user(1);
             connect_state.has_authenticated.store(true, Ordering::Relaxed);
-            conn.send_event_sync("autoLogin", serde_json::Value::Null);
+            conn.send_event_sync("autoLogin", serde_json::json!("admin"));
             handlers::auth::after_login(&connect_state, &conn);
         }
 
@@ -159,9 +160,11 @@ async fn main() {
         }
     });
 
-    // Register disconnect handler for subscription cleanup
-    ws_builder.handle_disconnect(|conn| {
+    // Register disconnect handler for subscription and writer cleanup
+    let disconnect_state = state.clone();
+    ws_builder.handle_disconnect(move |conn| {
         conn.cancel_all_subscriptions();
+        disconnect_state.terminal_manager.remove_writers_by_conn_id(&conn.id);
     });
 
     // Register handlers

@@ -16,10 +16,6 @@ import { takeLightScreenshot } from "../helpers/light-mode";
  */
 
 test.describe("Container Tabs — Stacks to Logs", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("log button navigates to Containers tab with logs sub-view", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
@@ -40,8 +36,8 @@ test.describe("Container Tabs — Stacks to Logs", () => {
         const logsToggle = page.getByRole("link", { name: "Logs" });
         await expect(logsToggle).toHaveClass(/btn-primary/);
 
-        // Terminal region is visible (log output)
-        await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        // Logs region is visible (log output)
+        await expect(page.getByRole("region", { name: "Logs" })).toBeVisible({ timeout: 10000 });
 
         // Container sidebar is visible with the item highlighted
         const sidebarItem = page.locator(".item.active", { hasText: "01-web-app-nginx-1" });
@@ -52,17 +48,16 @@ test.describe("Container Tabs — Stacks to Logs", () => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         await page.getByRole("link", { name: "docker compose logs nginx" }).click();
-        await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        const logs = page.getByRole("region", { name: "Logs" });
+        await expect(logs).toBeVisible({ timeout: 10000 });
+        // Wait for log content to settle — nginx heartbeat lines contain HTTP access logs
+        await expect(logs).toContainText(/GET \/api\/health HTTP/, { timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-stacks-to-logs.png");
         await takeLightScreenshot(page, "container-tabs-stacks-to-logs-light.png");
     });
 });
 
 test.describe("Container Tabs — Stacks to Containers", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("inspect button navigates to Containers tab with container selected", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
@@ -98,10 +93,6 @@ test.describe("Container Tabs — Stacks to Containers", () => {
 });
 
 test.describe("Container Tabs — Stacks to Shell", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("shell button navigates to Containers tab with shell sub-view", async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
@@ -122,8 +113,8 @@ test.describe("Container Tabs — Stacks to Shell", () => {
         const shellToggle = page.getByRole("link", { name: "Shell" });
         await expect(shellToggle).toHaveClass(/btn-primary/);
 
-        // Terminal region is visible
-        await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        // Shell region is visible
+        await expect(page.getByRole("region", { name: "Shell" })).toBeVisible({ timeout: 10000 });
 
         // Switch shell button is visible
         await expect(page.getByRole("link", { name: /Switch to sh/i })).toBeVisible();
@@ -137,17 +128,13 @@ test.describe("Container Tabs — Stacks to Shell", () => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
         await page.getByRole("link", { name: "docker compose exec nginx" }).click();
-        await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Shell" })).toBeVisible({ timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-stacks-to-shell.png");
         await takeLightScreenshot(page, "container-tabs-stacks-to-shell-light.png");
     });
 });
 
 test.describe("Container Tabs — Sidebar switching", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("clicking a different container in the sidebar switches the detail view", async ({ page }) => {
         // Start on logs sub-view with nginx selected
         await page.goto("/containers/01-web-app-nginx-1/logs");
@@ -185,19 +172,18 @@ test.describe("Container Tabs — Sidebar switching", () => {
     test("screenshot: sidebar switch", async ({ page }) => {
         await page.goto("/containers/01-web-app-nginx-1/logs");
         await waitForApp(page);
-        await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole("region", { name: "Logs" })).toBeVisible({ timeout: 10000 });
         await page.locator(".item", { hasText: "01-web-app-redis-1" }).click();
         await expect(page.getByRole("heading", { name: /exited\s+01-web-app-redis-1/i })).toBeVisible({ timeout: 10000 });
+        // Wait for redis log content — heartbeat lines contain "DB saved on disk"
+        const logs = page.getByRole("region", { name: "Logs" });
+        await expect(logs).toContainText("DB saved on disk", { timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-sidebar-switch.png");
         await takeLightScreenshot(page, "container-tabs-sidebar-switch-light.png");
     });
 });
 
 test.describe("Container Tabs — Sub-view toggle preserves selection", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("switching from parsed to logs via toggle preserves container selection", async ({ page }) => {
         await page.goto("/containers/02-blog-mysql-1");
         await waitForApp(page);
@@ -263,6 +249,9 @@ test.describe("Container Tabs — Sub-view toggle preserves selection", () => {
         // Switch to Logs sub-view via toggle
         await page.getByRole("link", { name: "Logs" }).click();
         await expect(page.getByRole("heading", { name: /running\s+02-blog-mysql-1/i })).toBeVisible({ timeout: 10000 });
+        // Wait for mysql log content — heartbeat lines contain "Access granted"
+        const logs = page.getByRole("region", { name: "Logs" });
+        await expect(logs).toContainText("Access granted", { timeout: 10000 });
         await expect(page).toHaveScreenshot("container-tabs-preserved-selection.png");
         await takeLightScreenshot(page, "container-tabs-preserved-selection-light.png");
     });

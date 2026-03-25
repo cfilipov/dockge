@@ -1,10 +1,6 @@
 import { test, expect } from "../fixtures/auth.fixture";
 
 test.describe("Performance", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("stack list populates within 1 second", async ({ page }) => {
         const start = Date.now();
 

@@ -9,18 +9,25 @@ export class RealClock implements Clock {
 }
 
 export class FixedClock implements Clock {
-    private time: Date;
+    private base: number;
+    private tick = 0;
+    private static readonly TICK_MS = 100;
 
     constructor(time: Date) {
-        this.time = new Date(time.getTime());
+        this.base = time.getTime();
     }
 
     now(): Date {
-        return new Date(this.time.getTime());
+        return new Date(this.base + (this.tick++) * FixedClock.TICK_MS);
     }
 
     advance(ms: number): void {
-        this.time = new Date(this.time.getTime() + ms);
+        this.base += ms;
+    }
+
+    /** Reset the tick counter (e.g. for mock reset). */
+    resetTick(): void {
+        this.tick = 0;
     }
 }
 

@@ -47,8 +47,7 @@ describe("broadcast-advanced", () => {
             await client3.waitForEvent("containers");
 
             // Trigger an event
-            const stopResp = await client1.sendAndReceive("stopService", "test-stack", "web");
-            expect(stopResp.ok).toBe(true);
+            const actionPromise = client1.sendAction("stopService", "test-stack", "web");
 
             // All 3 clients should receive resourceEvent and containers broadcast
             const [re1, re2, re3] = await Promise.all([
@@ -68,6 +67,8 @@ describe("broadcast-advanced", () => {
             expect(c1).toBeTruthy();
             expect(c2).toBeTruthy();
             expect(c3).toBeTruthy();
+
+            await actionPromise;
         } finally {
             client1.close();
             client2.close();
@@ -90,8 +91,7 @@ describe("broadcast-advanced", () => {
             }
 
             // Trigger events via client1
-            const resp = await client1.sendAndReceive("restartService", "test-stack", "web");
-            expect(resp.ok).toBe(true);
+            const actionPromise = client1.sendAction("restartService", "test-stack", "web");
 
             // client1 should receive resourceEvent
             const re = await client1.waitForEvent("resourceEvent");
@@ -109,6 +109,8 @@ describe("broadcast-advanced", () => {
                 const c2 = await client2.tryWaitForEvent("containers", 500);
                 expect(c2).toBeNull();
             }
+
+            await actionPromise;
         } finally {
             client1.close();
             client2.close();
@@ -128,8 +130,7 @@ describe("broadcast-advanced", () => {
             await client2.waitForEvent("containers");
 
             // Trigger events
-            const resp = await client1.sendAndReceive("restartService", "test-stack", "web");
-            expect(resp.ok).toBe(true);
+            const actionPromise = client1.sendAction("restartService", "test-stack", "web");
 
             // Both clients should receive resourceEvent
             const [re1, re2] = await Promise.all([
@@ -138,6 +139,8 @@ describe("broadcast-advanced", () => {
             ]);
             expect(re1).toBeTruthy();
             expect(re2).toBeTruthy();
+
+            await actionPromise;
         } finally {
             client1.close();
             client2.close();
@@ -151,8 +154,8 @@ describe("broadcast-advanced", () => {
             // Drain AfterLogin containers
             await client.waitForEvent("containers");
 
-            // Stop a service (send without awaiting ack yet)
-            const stopPromise = client.sendAndReceive("stopService", "test-stack", "redis");
+            // Stop a service (fire without awaiting completion)
+            const actionPromise = client.sendAction("stopService", "test-stack", "redis");
 
             // resourceEvent must arrive before containers broadcast
             const resourceEvent = await client.waitForEvent("resourceEvent");
@@ -162,7 +165,7 @@ describe("broadcast-advanced", () => {
             const containers = await client.waitForEvent("containers");
             expect(containers).toBeTruthy();
 
-            await stopPromise;
+            await actionPromise;
         } finally {
             client.close();
         }
@@ -176,11 +179,13 @@ describe("broadcast-advanced", () => {
             await client.waitForEvent("containers");
 
             // restartStack affects 2 containers (web + redis), each emits stop+start events
-            const resp = await client.sendAndReceive("restartStack", "test-stack");
-            expect(resp.ok).toBe(true);
+            const actionPromise = client.sendAction("restartStack", "test-stack");
 
             // Collect all container broadcasts over 500ms (coalescing deadline is 200ms)
             const broadcasts = await client.collectEvents("containers", 500);
+
+            const { ack } = await actionPromise;
+            expect(ack.ok).toBe(true);
 
             // 2 containers × 2 transitions = at least 4 events, but coalescing
             // should produce fewer than 4 broadcasts
@@ -203,8 +208,8 @@ describe("broadcast-advanced", () => {
             await client2.waitForEvent("containers");
 
             // Rapidly stop both stacks
-            const stop1 = client1.sendAndReceive("stopStack", "test-stack");
-            const stop2 = client1.sendAndReceive("stopStack", "other-stack");
+            const stop1 = client1.sendAction("stopStack", "test-stack");
+            const stop2 = client1.sendAction("stopStack", "other-stack");
 
             // Collect all container broadcasts on client2 over 500ms (coalescing deadline is 200ms)
             const broadcasts = await client2.collectEvents("containers", 500);
@@ -230,9 +235,9 @@ describe("broadcast-advanced", () => {
             await client1.waitForEvent("containers");
 
             // Fire multiple operations (don't await) to create a sustained burst of events.
-            const p1 = client1.sendAndReceive("restartService", "test-stack", "web");
-            const p2 = client1.sendAndReceive("restartService", "test-stack", "redis");
-            const p3 = client1.sendAndReceive("stopStack", "other-stack");
+            const p1 = client1.sendAction("restartService", "test-stack", "web");
+            const p2 = client1.sendAction("restartService", "test-stack", "redis");
+            const p3 = client1.sendAction("stopStack", "other-stack");
 
             // Immediately connect and login client2
             const client2 = await connectClient();
@@ -270,8 +275,8 @@ describe("broadcast-advanced", () => {
             await client.login();
             await client.waitForEvent("containers");
 
-            const resp = await client.sendAndReceive("deployStack", "test-stack", composeYAML, "");
-            expect(resp.ok).toBe(true);
+            const { ack } = await client.sendAction("deployStack", "test-stack", composeYAML, "");
+            expect(ack.ok).toBe(true);
 
             const containers = await client.waitForEvent("containers");
             expect(Object.keys(containers).length).toBeGreaterThan(0);
@@ -294,11 +299,13 @@ describe("broadcast-advanced", () => {
             const totalInitial = Object.keys(initialNetworks).length;
 
             // Down the test-stack (destroys its network)
-            const downResp = await client1.sendAndReceive("downStack", "test-stack");
-            expect(downResp.ok).toBe(true);
+            const actionPromise = client1.sendAction("downStack", "test-stack");
 
             // Wait for event-driven networks broadcast on client2
             const postDown = await client2.waitForEvent("networks");
+
+            const { ack: downResp } = await actionPromise;
+            expect(downResp.ok).toBe(true);
 
             // The filtered broadcast should contain only the affected network(s),
             // not ALL networks. If the code does a full-list query, we'd see all networks.
@@ -315,7 +322,7 @@ describe("broadcast-advanced", () => {
         try {
             await setup.login();
             const yaml = `services:\n  web:\n    image: nginx:latest\n  redis:\n    image: redis:7\n`;
-            await setup.sendAndReceive("deployStack", "test-stack", yaml, "");
+            await setup.sendAction("deployStack", "test-stack", yaml, "");
             await setup.waitForEvent("containers");
         } finally {
             setup.close();
@@ -323,6 +330,7 @@ describe("broadcast-advanced", () => {
 
         const client1 = await connectClient();
         const client2 = await connectClient();
+        let actionPromise: Promise<unknown> | undefined;
         try {
             await client1.login();
             await client2.login();
@@ -339,8 +347,7 @@ describe("broadcast-advanced", () => {
             expect(networkKey).toBeTruthy();
 
             // Down the stack on client1
-            const downResp = await client1.sendAndReceive("downStack", "test-stack");
-            expect(downResp.ok).toBe(true);
+            actionPromise = client1.sendAction("downStack", "test-stack");
 
             // Read networks broadcasts, find one where the stack network key is null
             for (let i = 0; i < 10; i++) {
@@ -351,6 +358,7 @@ describe("broadcast-advanced", () => {
             }
             expect.fail("Expected network to be null in post-down broadcast after 10 attempts");
         } finally {
+            if (actionPromise) await actionPromise.catch(() => {});
             client1.close();
             client2.close();
         }

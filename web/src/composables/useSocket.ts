@@ -1,4 +1,4 @@
-import { reactive, ref, computed, watch } from "vue";
+import { reactive, ref, computed, watch, nextTick } from "vue";
 import jwtDecode from "jwt-decode";
 import { router } from "../router";
 import { i18n } from "../i18n";
@@ -212,6 +212,33 @@ const username = ref<string | null>(null);
 const composeTemplate = ref("");
 const envTemplate = ref("");
 
+// Track initial data load — all 6 data channels + a complete updates payload.
+// The "updates" event includes a "complete" flag: false while the background
+// checker is still running, true once it has finished. If the checker already
+// ran before this connection was established, the afterLogin "updates" message
+// arrives with complete=true immediately.
+const INIT_CHANNELS = ["stacks", "containers", "networks", "images", "volumes", "updates", "updatesComplete"] as const;
+const receivedChannels = new Set<string>();
+const dataReady = ref(false);
+
+function markChannel(ch: string) {
+    if (dataReady.value) return;
+    receivedChannels.add(ch);
+    if (receivedChannels.size >= INIT_CHANNELS.length) {
+        dataReady.value = true;
+        nextTick(() => {
+            document.body.setAttribute("data-ready", "true");
+        });
+    }
+}
+
+// Reset on disconnect so reconnects re-track.
+function resetDataReady() {
+    receivedChannels.clear();
+    dataReady.value = false;
+    document.body.removeAttribute("data-ready");
+}
+
 const usernameFirstChar = computed(() => {
     if (typeof username.value === "string" && username.value.length >= 1) {
         return username.value.charAt(0).toUpperCase();
@@ -390,6 +417,7 @@ export function initWebSocket() {
         console.debug("disconnect");
         socketIO.connectionErrorMsg = `${t("Lost connection to the socket server. Reconnecting...")}`;
         socketIO.connected = false;
+        resetDataReady();
     });
 
     socket.on("connect_error", (err: any) => {
@@ -407,10 +435,14 @@ export function initWebSocket() {
         info.value = infoData;
     });
 
-    socket.on("autoLogin", () => {
+    socket.on("autoLogin", (...args: unknown[]) => {
+        const user = typeof args[0] === "string" ? args[0] : undefined;
         loggedIn.value = true;
         storage().token = "autoLogin";
         socketIO.token = "autoLogin";
+        if (user) {
+            username.value = user;
+        }
         allowLoginDialog.value = false;
         afterLogin();
     });
@@ -430,30 +462,51 @@ export function initWebSocket() {
     socket.on("stacks", (data: any) => {
         const broadcast = data?.items ?? data;
         useStackStore().mergeStacks(broadcast as Record<string, any>);
+        markChannel("stacks");
     });
 
     socket.on("containers", (data: any) => {
         const broadcast = data?.items ?? data;
         useContainerStore().mergeContainers(broadcast as Record<string, any>);
+        markChannel("containers");
     });
 
     socket.on("networks", (data: any) => {
         const broadcast = data?.items ?? data;
         useNetworkStore().mergeNetworks(broadcast as Record<string, any>);
+        markChannel("networks");
     });
 
     socket.on("images", (data: any) => {
         const broadcast = data?.items ?? data;
         useImageStore().mergeImages(broadcast as Record<string, any>);
+        markChannel("images");
     });
 
     socket.on("volumes", (data: any) => {
         const broadcast = data?.items ?? data;
         useVolumeStore().mergeVolumes(broadcast as Record<string, any>);
+        markChannel("volumes");
     });
 
     socket.on("updates", (data: unknown) => {
-        useUpdateStore().setUpdates(data as string[]);
+        const payload = data as { keys?: string[]; complete?: boolean } | string[];
+        if (Array.isArray(payload)) {
+            // Legacy format: plain string[]
+            useUpdateStore().setUpdates(payload);
+        } else {
+            useUpdateStore().setUpdates(payload.keys ?? []);
+            if (payload.complete) {
+                markChannel("updatesComplete");
+            }
+        }
+        markChannel("updates");
+    });
+
+    socket.on("updateCheckComplete", (...args: unknown[]) => {
+        const data = (typeof args[0] === "object" && args[0] !== null) ? args[0] as Record<string, unknown> : {};
+        console.debug(`Image update check complete: ${data.servicesWithUpdates ?? 0} services with updates (${data.durationMs ?? 0}ms)`);
+        markChannel("updateCheckComplete");
     });
 
     // --- Dedicated resource event channel ---

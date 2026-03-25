@@ -7,7 +7,7 @@
                 <router-link :to="sh" class="btn btn-normal me-2">{{ $t("Switch to sh") }}</router-link>
             </div>
 
-            <Terminal class="terminal" :rows="20" mode="interactive" :name="terminalName"
+            <Terminal class="terminal" :rows="20" mode="interactive" aria-label="Shell" :name="terminalName"
                 channel="terminal" terminal-type="exec"
                 :terminal-params="{ stack: stackName, service: serviceName, shell: shell }" />
         </div>

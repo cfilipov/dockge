@@ -1,4 +1,4 @@
-import { Page, expect } from "@playwright/test";
+import { type Locator, Page, expect } from "@playwright/test";
 
 /**
  * Takes a screenshot in light mode by toggling Playwright's emulated color scheme.
@@ -7,10 +7,10 @@ import { Page, expect } from "@playwright/test";
  *
  * After the screenshot, restores dark mode so subsequent assertions are unaffected.
  */
-export async function takeLightScreenshot(page: Page, name: string) {
+export async function takeLightScreenshot(page: Page, name: string, opts?: { mask?: Locator[] }) {
     await page.emulateMedia({ colorScheme: "light" });
     await page.waitForFunction(() => document.body.classList.contains("light"));
-    await expect(page).toHaveScreenshot(name);
+    await expect(page).toHaveScreenshot(name, opts);
     await page.emulateMedia({ colorScheme: "dark" });
     await page.waitForFunction(() => document.body.classList.contains("dark"));
 }

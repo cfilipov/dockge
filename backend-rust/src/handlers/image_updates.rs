@@ -67,9 +67,7 @@ pub fn spawn_checker(state: Arc<AppState>, cancel: CancellationToken) {
         }
 
         if is_check_enabled(&state) {
-            check_all_image_updates(&state).await;
-            set_last_check_time(&state);
-            trigger_updates_broadcast(&state);
+            run_check_and_broadcast(&state).await;
         }
 
         // Periodic loop
@@ -81,12 +79,37 @@ pub fn spawn_checker(state: Arc<AppState>, cancel: CancellationToken) {
             }
 
             if is_check_enabled(&state) {
-                check_all_image_updates(&state).await;
-                set_last_check_time(&state);
-                trigger_updates_broadcast(&state);
+                run_check_and_broadcast(&state).await;
             }
         }
     });
+}
+
+async fn run_check_and_broadcast(state: &AppState) {
+    let start = std::time::Instant::now();
+    check_all_image_updates(state).await;
+    set_last_check_time(state);
+    state.image_check_complete.store(true, std::sync::atomic::Ordering::Release);
+    trigger_updates_broadcast(state);
+
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let updates = collect_update_keys(state);
+    let services_with_updates = updates.len();
+
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct UpdateCheckComplete {
+        duration_ms: u64,
+        services_with_updates: usize,
+    }
+
+    state.broadcaster.send_event(
+        "updateCheckComplete",
+        &UpdateCheckComplete {
+            duration_ms,
+            services_with_updates,
+        },
+    );
 }
 
 /// Check all stacks for image updates.
@@ -303,12 +326,18 @@ pub(crate) fn parse_service_images(yaml: &str) -> Vec<(String, String)> {
     results
 }
 
+/// Payload for the "updates" WebSocket event.
+#[derive(serde::Serialize)]
+pub(crate) struct UpdatesBroadcast {
+    pub keys: Vec<String>,
+    pub complete: bool,
+}
+
 /// Broadcast image update results to all clients.
-/// Sends a string[] of "stackName/serviceName" keys that have updates,
-/// matching what the frontend updateStore expects.
 fn trigger_updates_broadcast(state: &AppState) {
-    let updates = collect_update_keys(state);
-    state.broadcaster.send_event("updates", &updates);
+    let keys = collect_update_keys(state);
+    let complete = state.image_check_complete.load(std::sync::atomic::Ordering::Acquire);
+    state.broadcaster.send_event("updates", &UpdatesBroadcast { keys, complete });
 }
 
 /// Read the redb image updates cache and return keys with hasUpdate=true.

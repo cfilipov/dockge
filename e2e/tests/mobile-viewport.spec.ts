@@ -7,10 +7,6 @@ test.use({ viewport: { width: 375, height: 667 } });
 // Instead wait for the main content to load via specific page elements.
 
 test.describe("Mobile Viewport", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("dashboard hides sidebar and header nav on mobile", async ({ page }) => {
         await page.goto("/");
         // Wait for the main content area to load

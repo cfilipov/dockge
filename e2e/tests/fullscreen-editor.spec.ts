@@ -7,10 +7,6 @@ function clickEdit(page: import("@playwright/test").Page) {
 }
 
 test.describe("Fullscreen Editor Modals", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);

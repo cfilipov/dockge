@@ -17,7 +17,7 @@ use futures_util::StreamExt;
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
+use tracing::{info, warn};
 
 use crate::docker;
 use crate::handlers::auth::containers_to_map;
@@ -165,8 +165,14 @@ async fn consume_events(
                     Some(Ok(event)) => {
                         handle_event(state, event).await;
                     }
-                    Some(Err(e)) => return Some(e),
-                    None => return None,
+                    Some(Err(e)) => {
+                        warn!("docker event stream error: {e}");
+                        return Some(e);
+                    }
+                    None => {
+                        warn!("docker event stream ended");
+                        return None;
+                    }
                 }
             }
         }
@@ -202,7 +208,7 @@ async fn handle_event(
         }
     }
 
-    debug!(event_type = %event_type, action = %action, name = %name, "docker event");
+    info!(event_type = %event_type, action = %action, name = %name, "docker event");
 
     let stack_name = attributes
         .get("com.docker.compose.project")

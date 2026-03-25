@@ -265,8 +265,7 @@ describe("terminal", () => {
             }
 
             // Trigger stopStack to produce a CONTAINER STOP banner
-            const stopResp = await client.sendAndReceive("stopStack", "test-stack");
-            expect(stopResp.ok).toBe(true);
+            const actionPromise = client.sendAction("stopStack", "test-stack");
 
             // Collect binary frames looking for the banner
             let bannerOutput = "";
@@ -293,6 +292,8 @@ describe("terminal", () => {
             // Must NOT use foreground-only codes like \x1b[1;33m or \x1b[1;34m immediately before CONTAINER
             const fgOnlyPattern = /\x1b\[1;3[34]m[^]*?CONTAINER/;
             expect(fgOnlyPattern.test(bannerOutput)).toBe(false);
+
+            await actionPromise;
         } finally {
             client.close();
         }
@@ -322,9 +323,8 @@ describe("terminal", () => {
                 }
             }
 
-            // Trigger stopContainer
-            const stopResp = await client.sendAndReceive("stopContainer", containerName);
-            expect(stopResp.ok).toBe(true);
+            // Trigger stopContainer (fire as promise — we'll read terminal output during the action)
+            const actionPromise = client.sendAction("stopContainer", containerName);
 
             // Collect binary frames until [Done] or [Error] appears
             let output = "";
@@ -354,6 +354,8 @@ describe("terminal", () => {
             const cmdIdx = output.indexOf("$ docker stop");
             const doneIdx = output.indexOf("[Done]") >= 0 ? output.indexOf("[Done]") : output.indexOf("[Error]");
             expect(cmdIdx).toBeLessThan(doneIdx);
+
+            await actionPromise;
         } finally {
             client.close();
         }
@@ -372,9 +374,8 @@ describe("terminal", () => {
             expect(joinResp.ok).toBe(true);
             const sessionId = joinResp.sessionId as number;
 
-            // Trigger stopStack
-            const stopResp = await client.sendAndReceive("stopStack", "test-stack");
-            expect(stopResp.ok).toBe(true);
+            // Trigger stopStack (fire as promise — we'll read terminal output during the action)
+            const actionPromise = client.sendAction("stopStack", "test-stack");
 
             // Collect binary frames until [Done] or [Error] appears
             let output = "";
@@ -406,6 +407,8 @@ describe("terminal", () => {
             // Should have actual compose output between command and marker (not just empty)
             const between = output.substring(cmdIdx, doneIdx);
             expect(between.length).toBeGreaterThan(30);
+
+            await actionPromise;
         } finally {
             client.close();
         }

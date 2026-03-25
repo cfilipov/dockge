@@ -3,9 +3,8 @@ use std::time::Duration;
 
 use tracing::{info, warn};
 
-use crate::terminal::TerminalType;
 use crate::ws::conn::Conn;
-use crate::ws::protocol::{ClientMessage, ErrorResponse, OkResponse};
+use crate::ws::protocol::{ActionCompleteEvent, ClientMessage, ErrorResponse, OkResponse};
 use crate::ws::WsServer;
 
 use super::stack::is_stack_managed;
@@ -97,7 +96,8 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 }
 
                 // Ack immediately
-                if let Some(id) = msg.id {
+                let request_id = msg.id;
+                if let Some(id) = request_id {
                     conn.send_ack(id, OkResponse::simple());
                 }
 
@@ -140,6 +140,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         )
                         .await;
                     }
+                    conn.send_event("actionComplete", ActionCompleteEvent { request_id, ok: true, msg: None });
                 });
             }
         });
@@ -173,9 +174,10 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
 
                 // Create the terminal before ack so it exists when terminalJoin arrives
                 let term_name = format!("container-{container_name}");
-                state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+                state.terminal_manager.get_or_create(&term_name, true).await;
 
-                if let Some(id) = msg.id {
+                let request_id = msg.id;
+                if let Some(id) = request_id {
                     conn.send_ack(id, OkResponse::simple());
                 }
 
@@ -183,6 +185,7 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                 let state = state.clone();
                 tokio::spawn(async move {
                     run_container_action(&state, &container_name, &action).await;
+                    conn.send_event("actionComplete", ActionCompleteEvent { request_id, ok: true, msg: None });
                 });
             }
         });
@@ -206,7 +209,7 @@ async fn run_service_compose_action(
 
     let cmd_display = format!("$ docker {}\r\n", args.join(" "));
 
-    state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+    state.terminal_manager.get_or_create(&term_name, true).await;
     state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
 
     match run_pty_to_terminal(&state.terminal_manager, &term_name, "docker", &args, Some(&stack_dir)).await {
@@ -228,7 +231,7 @@ async fn run_container_action_for_stack(
     let term_name = format!("compose-{stack_name}");
     let cmd_display = format!("$ docker {action} {container_name}\r\n");
 
-    state.terminal_manager.recreate(&term_name, TerminalType::Pty).await;
+    state.terminal_manager.get_or_create(&term_name, true).await;
     state.terminal_manager.write_data(&term_name, cmd_display.into_bytes());
 
     match run_pty_to_terminal(&state.terminal_manager, &term_name, "docker", &[action, container_name], None).await {

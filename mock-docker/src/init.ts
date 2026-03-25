@@ -1,12 +1,13 @@
 import { readFileSync, readdirSync, statSync, cpSync, rmSync, existsSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { MockState } from "./state.js";
+import { MockState, appendLog } from "./state.js";
 import { parseCompose, findComposeFile } from "./compose-parser.js";
 import { parseStackMockConfig, parseGlobalMockConfig } from "./mock-config.js";
 import type { MockGlobalConfig, MockStandaloneContainer } from "./mock-config.js";
 import { generateStack } from "./generator.js";
 import { loadLogTemplates } from "./log-templates.js";
+import { generateStartupLogs } from "./logs.js";
 import type { Clock } from "./clock.js";
 import type {
     ContainerInspect, ContainerState, NetworkInspect, VolumeInspect, ImageInspect,
@@ -212,6 +213,19 @@ export async function initState(opts: InitOptions): Promise<MockState> {
             rmSync(dir, { recursive: true, force: true });
         } catch {
             // ignore
+        }
+    }
+
+    // Step 6: Populate log buffers for running containers
+    // Use StartedAt-based timestamps so containers started at the same time
+    // produce overlapping log timestamps (enabling proper interleaved merge-sort).
+    for (const container of state.containers.values()) {
+        if (container.State.Running) {
+            const startupLines = generateStartupLogs(container, clock, state.logTemplates);
+            const startedAt = new Date(container.State.StartedAt).getTime();
+            for (let i = 0; i < startupLines.length; i++) {
+                appendLog(state, container.Id, startedAt + i * 100, startupLines[i]);
+            }
         }
     }
 

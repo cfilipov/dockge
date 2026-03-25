@@ -86,6 +86,7 @@ export async function setup(): Promise<void> {
             "--stacks-source", stacksSource,
             "--stacks-dir", STACKS_DIR,
             "--images-json", imagesJSON,
+            "--e2e",
         ],
         {
             stdio: ["ignore", "pipe", "pipe"],

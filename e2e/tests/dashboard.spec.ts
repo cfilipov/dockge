@@ -3,10 +3,6 @@ import { waitForApp } from "../helpers/wait-for-app";
 import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Dashboard Home", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
         await waitForApp(page);
@@ -30,10 +26,6 @@ test.describe("Dashboard Home", () => {
 });
 
 test.describe("Header Navigation", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
         await waitForApp(page);

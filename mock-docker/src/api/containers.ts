@@ -17,7 +17,8 @@ import { parseFilters, applyContainerFilters } from "../filters.js";
 import { projectToContainerListEntry } from "../projections.js";
 import { resolveByIdOrName } from "../name-resolution.js";
 import type { ContainerInspect } from "../types.js";
-import { getHistoricalLogs, generatePeriodicLogLine, generateShutdownLogs, generateStartupLogs, formatTimestamp } from "../logs.js";
+import { formatTimestamp } from "../logs.js";
+import type { LogEntry } from "../state.js";
 import { generateStats } from "../stats.js";
 import { generateTop } from "../top.js";
 import { frameOutput } from "../stream.js";
@@ -160,7 +161,7 @@ export const containerRoutes: Route[] = [
         method: "GET",
         pattern: "/containers/:id/logs",
         handler: async (ctx) => {
-            const { req, res, params, query, state, clock } = ctx;
+            const { req, res, params, query, state } = ctx;
             const r = resolveByIdOrName(
                 state.containers,
                 params.id,
@@ -181,22 +182,40 @@ export const containerRoutes: Route[] = [
             const timestamps = query.timestamps === "1" || query.timestamps === "true";
             const isTty = container.Config.Tty || false;
 
-            // Get historical logs (returns {ts, line}[])
-            const tsLines = getHistoricalLogs(container, clock, { tail, since, until }, state.logTemplates);
+            // Read from the per-container log buffer
+            const buf = state.logBuffers.get(container.Id) || [];
+
+            // Filter by since/until
+            let filtered: LogEntry[] = buf;
+            if (since !== undefined) {
+                const sinceMs = since * 1000;
+                filtered = filtered.filter((e) => e.ts >= sinceMs);
+            }
+            if (until !== undefined) {
+                const untilMs = until * 1000;
+                filtered = filtered.filter((e) => e.ts <= untilMs);
+            }
+
+            // Apply tail
+            if (tail !== undefined) {
+                if (tail <= 0) {
+                    filtered = [];
+                } else {
+                    filtered = filtered.slice(-tail);
+                }
+            }
 
             // Format lines: optionally prepend timestamps
             const lines = timestamps
-                ? tsLines.map((l) => formatTimestamp(new Date(l.ts)) + " " + l.line)
-                : tsLines.map((l) => l.line);
+                ? filtered.map((e) => formatTimestamp(new Date(e.ts)) + " " + e.line)
+                : filtered.map((e) => e.line);
 
             if (isTty) {
-                // Raw mode for TTY containers
                 res.writeHead(200, { "Content-Type": "application/vnd.docker.raw-stream" });
                 for (const line of lines) {
                     res.write(line + "\n");
                 }
             } else {
-                // Multiplexed framing
                 res.writeHead(200, { "Content-Type": "application/vnd.docker.multiplexed-stream" });
                 for (const line of lines) {
                     res.write(frameOutput(line));
@@ -208,6 +227,11 @@ export const containerRoutes: Route[] = [
                 return;
             }
 
+            // Follow mode: subscribe to logEmitter for new lines from this container.
+            // Track cursor position in the buffer to only send new lines.
+            let cursor = (state.logBuffers.get(container.Id) || []).length;
+            let stopped = false;
+
             const write = (line: string) => {
                 if (isTty) {
                     res.write(line + "\n");
@@ -216,32 +240,34 @@ export const containerRoutes: Route[] = [
                 }
             };
 
-            // Emit startup logs for freshly-started containers
-            const startupLines = generateStartupLogs(container, clock, state.logTemplates);
-            for (const line of startupLines) {
-                write(line);
-            }
+            const onLog = (containerId: string) => {
+                if (stopped || containerId !== container.Id) return;
+                const currentBuf = state.logBuffers.get(container.Id) || [];
+                while (cursor < currentBuf.length) {
+                    const entry = currentBuf[cursor++];
+                    const line = timestamps
+                        ? formatTimestamp(new Date(entry.ts)) + " " + entry.line
+                        : entry.line;
+                    write(line);
+                }
+            };
+            state.logEmitter.on("log", onLog);
 
-            // Follow mode: stream periodic lines, stop when container dies
-            let lineCounter = 0;
-            let stopped = false;
-            const interval = setInterval(() => {
-                if (stopped) return;
-                const line = generatePeriodicLogLine(container, lineCounter++, clock, state.logTemplates);
-                write(line);
-            }, ctx.logInterval);
-
-            // Subscribe to events so we detect stop synchronously (same
-            // emitter.emit() call that fires the die event to /events).
-            // This ensures shutdown logs are written to the log stream
-            // before the Go backend receives the die event.
+            // Subscribe to Docker events to detect die (stream ends on container stop).
+            // Shutdown logs are already appended to the buffer by containerStop,
+            // and will be delivered via the onLog listener above.
             const onEvent = (event: import("../list-types.js").DockerEvent) => {
                 if (event.Action !== "die" || event.Actor.ID !== container.Id) return;
                 stopped = true;
-                clearInterval(interval);
                 ctx.emitter.unsubscribe(onEvent);
-                const shutdownLines = generateShutdownLogs(container, clock, state.logTemplates);
-                for (const line of shutdownLines) {
+                state.logEmitter.off("log", onLog);
+                // Flush any remaining buffered lines
+                const currentBuf = state.logBuffers.get(container.Id) || [];
+                while (cursor < currentBuf.length) {
+                    const entry = currentBuf[cursor++];
+                    const line = timestamps
+                        ? formatTimestamp(new Date(entry.ts)) + " " + entry.line
+                        : entry.line;
                     write(line);
                 }
                 res.end();
@@ -249,8 +275,9 @@ export const containerRoutes: Route[] = [
             ctx.emitter.subscribe(onEvent);
 
             req.on("close", () => {
-                clearInterval(interval);
+                stopped = true;
                 ctx.emitter.unsubscribe(onEvent);
+                state.logEmitter.off("log", onLog);
             });
         },
     },

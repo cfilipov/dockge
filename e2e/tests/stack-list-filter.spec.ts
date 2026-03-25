@@ -2,10 +2,6 @@ import { test, expect } from "../fixtures/auth.fixture";
 import { waitForApp } from "../helpers/wait-for-app";
 
 test.describe("Stack List — Search", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
         await waitForApp(page);
@@ -49,10 +45,6 @@ test.describe("Stack List — Search", () => {
 });
 
 test.describe("Stack List — Filter by Status", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
         await waitForApp(page);
@@ -126,10 +118,6 @@ test.describe("Stack List — Filter by Status", () => {
 });
 
 test.describe("Stack List — Filter by Attributes", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
         await waitForApp(page);
@@ -157,10 +145,6 @@ test.describe("Stack List — Filter by Attributes", () => {
 });
 
 test.describe("Stack List — URL Query Sync", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("navigating with query params pre-fills search and filter", async ({ page }) => {
         await page.goto("/?q=web-app&status=active");
         await waitForApp(page);

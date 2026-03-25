@@ -198,6 +198,7 @@
                         <Terminal
                             ref="combinedTerminal"
                             class="mb-3 terminal"
+                            aria-label="Logs"
                             :name="combinedTerminalName"
                             :rows="combinedTerminalRows"
                             :cols="combinedTerminalCols"

@@ -11,10 +11,6 @@ function clickEdit(page: import("@playwright/test").Page) {
 }
 
 test.describe("Compose View — Running Stack", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);
@@ -34,16 +30,13 @@ test.describe("Compose View — Running Stack", () => {
 
     test("screenshot: compose view running stack", async ({ page }) => {
         await expect(page.locator(".cm-editor").first()).toBeVisible();
-        await expect(page).toHaveScreenshot("compose-view-running.png");
-        await takeLightScreenshot(page, "compose-view-running-light.png");
+        const mask = [page.getByRole("region", { name: "Logs" })];
+        await expect(page).toHaveScreenshot("compose-view-running.png", { mask });
+        await takeLightScreenshot(page, "compose-view-running-light.png", { mask });
     });
 });
 
 test.describe("Compose Edit Mode", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test.beforeEach(async ({ page }) => {
         await page.goto("/stacks/01-web-app");
         await waitForApp(page);

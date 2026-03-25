@@ -3,10 +3,6 @@ import { waitForApp } from "../helpers/wait-for-app";
 import { takeLightScreenshot } from "../helpers/light-mode";
 
 test.describe("Compose — Unmanaged Stack Banner", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("shows unmanaged banner on 10-unmanaged", async ({ page }) => {
         await page.goto("/stacks/10-unmanaged");
         await waitForApp(page);
@@ -30,18 +26,13 @@ test.describe("Compose — Unmanaged Stack Banner", () => {
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /10-unmanaged/, level: 1 })).toBeVisible({ timeout: 15000 });
         await expect(page.getByText("This stack is not managed by Dockge.")).toBeVisible({ timeout: 10000 });
-        // Scroll to top to keep the dynamic log terminal (with varying timestamps) out of the viewport
-        await page.evaluate(() => window.scrollTo(0, 0));
-        await expect(page).toHaveScreenshot("compose-unmanaged.png");
-        await takeLightScreenshot(page, "compose-unmanaged-light.png");
+        const mask = [page.getByRole("region", { name: "Logs" })];
+        await expect(page).toHaveScreenshot("compose-unmanaged.png", { mask });
+        await takeLightScreenshot(page, "compose-unmanaged-light.png", { mask });
     });
 });
 
 test.describe("Compose — URL Display", () => {
-    test.beforeAll(async ({ request }) => {
-        await request.post("/api/mock/reset");
-    });
-
     test("shows URL badges on stack with URL labels", async ({ page }) => {
         await page.goto("/stacks/07-full-features");
         await waitForApp(page);
@@ -64,7 +55,8 @@ test.describe("Compose — URL Display", () => {
         await waitForApp(page);
         await expect(page.getByRole("heading", { name: /07-full-features/, level: 1 })).toBeVisible({ timeout: 15000 });
         await expect(page.locator(".cm-editor").first()).toBeVisible({ timeout: 10000 });
-        await expect(page).toHaveScreenshot("compose-urls.png");
-        await takeLightScreenshot(page, "compose-urls-light.png");
+        const mask = [page.getByRole("region", { name: "Logs" })];
+        await expect(page).toHaveScreenshot("compose-urls.png", { mask });
+        await takeLightScreenshot(page, "compose-urls-light.png", { mask });
     });
 });
