@@ -8,5 +8,6 @@
     "workbench.hover.delay": 0,
     "workbench.hover.reducedDelay": 0,
     "editor.hover.delay": 0,
-    "editor.hover.hidingDelay": 0
+    "editor.hover.hidingDelay": 0,
+    "terminal.integrated.macOptionIsMeta": true
 }
