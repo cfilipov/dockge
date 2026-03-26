@@ -134,6 +134,30 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
 
     const eventStore = useEventStore();
 
+    // ── Banner helpers ────────────────────────────────────────────────────
+
+    function makeBanner(event: DockerResourceEvent): BannerEntry {
+        return {
+            type: "banner",
+            nanos: event.timeNano,
+            action: event.action as "start" | "die",
+            name: event.serviceName || event.name,
+        };
+    }
+
+    function isRelevantEvent(event: DockerResourceEvent): boolean {
+        if (event.type !== "container") {
+            return false;
+        }
+        if (event.action !== "start" && event.action !== "die") {
+            return false;
+        }
+        if (terminalType === "combined") {
+            return event.stackName === stackName;
+        }
+        return event.name === containerName || event.serviceName === containerName;
+    }
+
     // ── Batch insert ────────────────────────────────────────────────────
 
     function scheduleBatchInsert() {
@@ -142,8 +166,64 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
         }
     }
 
+    let historicalBannersLoaded = false;
+
     function flushPending() {
         rafId = null;
+        if (pending.length === 0 && historicalBannersLoaded) {
+            return;
+        }
+
+        const arr = [...entries.value];
+
+        // On first flush that contains logs, load historical banners
+        // that fall within the log time range. This runs once — after
+        // feed() has populated entries, so there's no race with async data.
+        if (!historicalBannersLoaded && arr.length + pending.length > 0) {
+            historicalBannersLoaded = true;
+
+            let earliest = Infinity;
+            let latest = -Infinity;
+            for (const e of arr) {
+                if (e.type === "log") {
+                    if (e.nanos < earliest) {
+                        earliest = e.nanos;
+                    }
+                    if (e.nanos > latest) {
+                        latest = e.nanos;
+                    }
+                }
+            }
+            for (const e of pending) {
+                if (e.type === "log") {
+                    if (e.nanos < earliest) {
+                        earliest = e.nanos;
+                    }
+                    if (e.nanos > latest) {
+                        latest = e.nanos;
+                    }
+                }
+            }
+
+            if (earliest !== Infinity) {
+                const historical = (terminalType === "combined" && stackName)
+                    ? eventStore.forStack(stackName)
+                    : containerName
+                        ? eventStore.forContainer(containerName)
+                        : { events: [], endIndex: 0 };
+
+                for (const event of historical.events) {
+                    if (!isRelevantEvent(event)) {
+                        continue;
+                    }
+                    if (event.timeNano < earliest || event.timeNano > latest) {
+                        continue;
+                    }
+                    pending.push(makeBanner(event));
+                }
+            }
+        }
+
         if (pending.length === 0) {
             return;
         }
@@ -151,10 +231,6 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
         const batch = pending;
         pending = [];
 
-        // Copy-on-write: create a new array so Vue's reactivity (and VList's
-        // data prop comparison) detects the change. The copy is O(n) but only
-        // happens once per animation frame.
-        const arr = [...entries.value];
         for (const entry of batch) {
             const idx = findInsertIndex(arr, entry.nanos);
             arr.splice(idx, 0, entry);
@@ -162,95 +238,14 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
         entries.value = arr;
     }
 
-    // ── Event store subscription ────────────────────────────────────────
+    // ── Event store subscription (live events) ──────────────────────────
 
     const unsubscribe = eventStore.onInsert((event: DockerResourceEvent) => {
-        if (destroyed) {
+        if (destroyed || !isRelevantEvent(event)) {
             return;
         }
-        if (event.type !== "container") {
-            return;
-        }
-        if (event.action !== "start" && event.action !== "die") {
-            return;
-        }
-        if (terminalType === "combined") {
-            if (event.stackName !== stackName) {
-                return;
-            }
-        } else {
-            if (event.name !== containerName && event.serviceName !== containerName) {
-                return;
-            }
-        }
-
-        // Live events are always allowed — they're happening now
-        const banner: BannerEntry = {
-            type: "banner",
-            nanos: event.timeNano,
-            action: event.action as "start" | "die",
-            name: event.serviceName || event.name,
-        };
-        pending.push(banner);
+        pending.push(makeBanner(event));
         scheduleBatchInsert();
-    });
-
-    // Check for historical events in the store that fall within the visible
-    // log range. Use a microtask so the first feed() has a chance to populate logs.
-    queueMicrotask(() => {
-        if (destroyed) {
-            return;
-        }
-
-        // Find earliest and latest log timestamps
-        let earliest = Infinity;
-        let latest = -Infinity;
-        for (const e of entries.value) {
-            if (e.type === "log") {
-                if (e.nanos < earliest) {
-                    earliest = e.nanos;
-                }
-                if (e.nanos > latest) {
-                    latest = e.nanos;
-                }
-            }
-        }
-        if (earliest === Infinity) {
-            return; // No logs yet — live events will handle banners
-        }
-
-        const lo = earliest - 5_000_000_000; // 5s before earliest log
-        const hi = latest + 5_000_000_000;   // 5s after latest log
-
-        const result = terminalType === "combined" && stackName
-            ? eventStore.forStack(stackName)
-            : containerName
-                ? eventStore.forContainer(containerName)
-                : { events: [], endIndex: 0 };
-
-        for (const event of result.events) {
-            if (event.action !== "start" && event.action !== "die") {
-                continue;
-            }
-            if (event.timeNano < lo || event.timeNano > hi) {
-                continue;
-            }
-            const exists = entries.value.some(
-                e => e.type === "banner" && e.nanos === event.timeNano && e.action === event.action
-            );
-            if (exists) {
-                continue;
-            }
-            pending.push({
-                type: "banner",
-                nanos: event.timeNano,
-                action: event.action as "start" | "die",
-                name: event.serviceName || event.name,
-            });
-        }
-        if (pending.length > 0) {
-            scheduleBatchInsert();
-        }
     });
 
     // ── Feed ────────────────────────────────────────────────────────────
