@@ -20,7 +20,6 @@
             <template #default="{ item }">
                 <div v-if="item.type === 'banner'" class="log-banner" :class="item.action">
                     <span class="log-banner-label">
-                        {{ item.action === 'start' ? '\u25b6' : '\u25fc' }}
                         {{ item.action === 'start' ? 'CONTAINER START' : 'CONTAINER STOP' }}
                         &mdash; {{ item.name }}
                     </span>
