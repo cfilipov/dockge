@@ -235,7 +235,7 @@ export async function initState(opts: InitOptions): Promise<MockState> {
                 const interval = setInterval(() => {
                     const line = generatePeriodicLogLine(container, lineCounter++, clock, state.logTemplates);
                     appendLog(state, container.Id, clock.now().getTime(), line);
-                }, 5000);
+                }, 180_000);
                 state.heartbeatIntervals.set(container.Id, interval);
             }
         }

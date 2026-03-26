@@ -175,7 +175,7 @@ export function containerStart(
         const interval = setInterval(() => {
             const line = generatePeriodicLogLine(c, lineCounter++, clock, state.logTemplates);
             appendLog(state, c.Id, clock.now().getTime(), line);
-        }, 2000);
+        }, 180_000);
         state.heartbeatIntervals.set(c.Id, interval);
     }
 
