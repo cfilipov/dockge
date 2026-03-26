@@ -2,6 +2,12 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import type { DockerResourceEvent } from "./containerStore";
 
+export interface EventQueryResult {
+    events: DockerResourceEvent[];
+    /** Index past the last visited element — pass as startIndex on next call. */
+    endIndex: number;
+}
+
 /**
  * Pinia store for Docker events — a sorted array by timeNano.
  * Used by the frontend to insert banners into log terminals.
@@ -61,38 +67,58 @@ export const useEventStore = defineStore("events", () => {
      * Get events for a specific container within a time range.
      * `since` is exclusive (timeNano > since), `until` is inclusive (timeNano <= until).
      * When `until` is undefined, no upper bound.
+     * `startIndex` skips entries before that index (for efficient repeated queries).
      */
     function forContainer(
         containerName: string,
         since?: number,
         until?: number,
-    ): DockerResourceEvent[] {
-        return events.value.filter((e) => {
-            if (e.type !== "container") return false;
-            if (e.name !== containerName && e.serviceName !== containerName) return false;
-            if (since !== undefined && e.timeNano <= since) return false;
-            if (until !== undefined && e.timeNano > until) return false;
-            return true;
-        });
+        startIndex: number = 0,
+    ): EventQueryResult {
+        const result: DockerResourceEvent[] = [];
+        const arr = events.value;
+        let endIndex = startIndex;
+        for (let i = startIndex; i < arr.length; i++) {
+            const e = arr[i];
+            if (since !== undefined && e.timeNano <= since) continue;
+            if (until !== undefined && e.timeNano > until) break; // sorted — no more matches
+            endIndex = i + 1;
+            if (e.type !== "container") continue;
+            if (e.name !== containerName && e.serviceName !== containerName) continue;
+            result.push(e);
+        }
+        // If no until bound, we scanned to the end
+        if (until === undefined) endIndex = arr.length;
+        return { events: result, endIndex };
     }
 
     /**
      * Get events for any container in a stack within a time range.
      * `since` is exclusive (timeNano > since), `until` is inclusive (timeNano <= until).
      * When `until` is undefined, no upper bound.
+     * `startIndex` skips entries before that index (for efficient repeated queries).
      */
     function forStack(
         stackName: string,
         since?: number,
         until?: number,
-    ): DockerResourceEvent[] {
-        return events.value.filter((e) => {
-            if (e.type !== "container") return false;
-            if (e.stackName !== stackName) return false;
-            if (since !== undefined && e.timeNano <= since) return false;
-            if (until !== undefined && e.timeNano > until) return false;
-            return true;
-        });
+        startIndex: number = 0,
+    ): EventQueryResult {
+        const result: DockerResourceEvent[] = [];
+        const arr = events.value;
+        let endIndex = startIndex;
+        for (let i = startIndex; i < arr.length; i++) {
+            const e = arr[i];
+            if (since !== undefined && e.timeNano <= since) continue;
+            if (until !== undefined && e.timeNano > until) break; // sorted — no more matches
+            endIndex = i + 1;
+            if (e.type !== "container") continue;
+            if (e.stackName !== stackName) continue;
+            result.push(e);
+        }
+        // If no until bound, we scanned to the end
+        if (until === undefined) endIndex = arr.length;
+        return { events: result, endIndex };
     }
 
     /** Register a callback for every insert. Returns an unsubscribe function. */

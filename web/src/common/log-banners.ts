@@ -13,6 +13,7 @@
 import type { Terminal } from "@xterm/xterm";
 import { useEventStore } from "../stores/eventStore";
 import type { DockerResourceEvent } from "../stores/containerStore";
+import type { EventQueryResult } from "../stores/eventStore";
 import type { DockgeWebSocket } from "../composables/useSocket";
 
 // ── ANSI banner formatting ──────────────────────────────────────────────────
@@ -114,7 +115,7 @@ export interface LogBufferOptions {
 
 /**
  * Create a log buffer that receives raw Docker log data (text with timestamps),
- * buffers over a 200ms window, parses timestamps, strips them from the display,
+ * buffers over a 200ms window, parses timestamps, strips them for display,
  * merges start/die banners from the event store, and flushes to xterm.js.
  */
 export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
@@ -124,6 +125,7 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
     let rawBuffer: Uint8Array[] = [];
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
     let lastFlushedNano = 0;
+    let lastEventIndex = 0;
     let destroyed = false;
 
     const eventStore = useEventStore();
@@ -132,6 +134,16 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
         if (flushTimer === null && !destroyed) {
             flushTimer = setTimeout(flush, 200);
         }
+    }
+
+    /** Query events from the store using the tracked index for efficient scanning. */
+    function queryEvents(since: number, until?: number): EventQueryResult {
+        if (terminalType === "combined" && stackName) {
+            return eventStore.forStack(stackName, since, until, lastEventIndex);
+        } else if (containerName) {
+            return eventStore.forContainer(containerName, since, until, lastEventIndex);
+        }
+        return { events: [], endIndex: lastEventIndex };
     }
 
     function flush() {
@@ -153,17 +165,11 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
         const maxNano = hasLines ? lines[lines.length - 1].nanos : undefined;
 
         // Query events since last flush
-        let matchingEvents: DockerResourceEvent[];
-        if (terminalType === "combined" && stackName) {
-            matchingEvents = eventStore.forStack(stackName, lastFlushedNano, maxNano);
-        } else if (containerName) {
-            matchingEvents = eventStore.forContainer(containerName, lastFlushedNano, maxNano);
-        } else {
-            matchingEvents = [];
-        }
+        const queryResult = queryEvents(lastFlushedNano, maxNano);
+        lastEventIndex = queryResult.endIndex;
 
         // Convert start/die events to banner lines
-        const banners: TimestampedLine[] = matchingEvents
+        const banners: TimestampedLine[] = queryResult.events
             .filter(e => e.action === "start" || e.action === "die")
             .map(e => ({
                 nanos: e.timeNano,
@@ -192,6 +198,16 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
             if (maxTs > lastFlushedNano) {
                 lastFlushedNano = maxTs;
             }
+        }
+
+        // Post-flush: check if there are still start/die events beyond the watermark.
+        // This handles the case where a die event's timestamp slightly exceeds the
+        // last log line's timestamp within the same flush window.
+        // Do NOT advance lastEventIndex here — the follow-up flush needs to find
+        // these events via its own main query.
+        const remaining = queryEvents(lastFlushedNano);
+        if (remaining.events.some(e => e.action === "start" || e.action === "die")) {
+            ensureTimer();
         }
     }
 

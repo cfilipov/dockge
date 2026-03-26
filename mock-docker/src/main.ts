@@ -51,7 +51,7 @@ const clock = createClock({
     base: values["clock-base"],
 });
 
-const initOpts: InitOptions = { stacksSource, stacksDir, clock, imagesJsonPath: values["images-json"] };
+const initOpts: InitOptions = { stacksSource, stacksDir, clock, imagesJsonPath: values["images-json"], e2eMode: values["e2e"] };
 const state = await initState(initOpts);
 const emitter = new EventEmitter();
 emitter.bind(state);

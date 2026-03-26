@@ -7,7 +7,7 @@ import { parseStackMockConfig, parseGlobalMockConfig } from "./mock-config.js";
 import type { MockGlobalConfig, MockStandaloneContainer } from "./mock-config.js";
 import { generateStack } from "./generator.js";
 import { loadLogTemplates } from "./log-templates.js";
-import { generateStartupLogs } from "./logs.js";
+import { generateStartupLogs, generatePeriodicLogLine } from "./logs.js";
 import { makeEvent, makeEventAt } from "./events.js";
 import type { Clock } from "./clock.js";
 import type {
@@ -31,6 +31,7 @@ export interface InitOptions {
     stacksDir: string;
     clock: Clock;
     imagesJsonPath?: string;
+    e2eMode?: boolean;
 }
 
 export async function initState(opts: InitOptions): Promise<MockState> {
@@ -217,15 +218,25 @@ export async function initState(opts: InitOptions): Promise<MockState> {
         }
     }
 
-    // Step 6: Populate log buffers for running containers
+    // Step 6: Populate log buffers and start heartbeat intervals for running containers.
     // Use StartedAt-based timestamps so containers started at the same time
     // produce overlapping log timestamps (enabling proper interleaved merge-sort).
+    const e2e = opts.e2eMode ?? false;
     for (const container of state.containers.values()) {
         if (container.State.Running) {
             const startupLines = generateStartupLogs(container, new Date(container.State.StartedAt), state.logTemplates);
             const startedAt = new Date(container.State.StartedAt).getTime();
             for (let i = 0; i < startupLines.length; i++) {
                 appendLog(state, container.Id, startedAt + i * 100, startupLines[i]);
+            }
+            // Start heartbeat interval (matches containerStart mutation behavior)
+            if (!e2e) {
+                let lineCounter = 0;
+                const interval = setInterval(() => {
+                    const line = generatePeriodicLogLine(container, lineCounter++, clock, state.logTemplates);
+                    appendLog(state, container.Id, clock.now().getTime(), line);
+                }, 5000);
+                state.heartbeatIntervals.set(container.Id, interval);
             }
         }
     }
@@ -254,17 +265,18 @@ export async function initState(opts: InitOptions): Promise<MockState> {
             attrs["com.docker.compose.service"] = labels["com.docker.compose.service"];
         }
         const startedAt = new Date(c.State.StartedAt);
-        state.eventHistory.push(makeEventAt(startedAt, "container", "create", c.Id, { ...attrs }));
+        state.eventHistory.push(makeEventAt(new Date(startedAt.getTime() - 2), "container", "create", c.Id, { ...attrs }));
         if (c.State.Running) {
-            // +1ms so create < start in sort order
-            state.eventHistory.push(makeEventAt(new Date(startedAt.getTime() + 1), "container", "start", c.Id, { ...attrs }));
+            // -1ms so start event sorts before the first log line (which is at startedAt),
+            // matching real Docker where the start event fires before the process produces output.
+            state.eventHistory.push(makeEventAt(new Date(startedAt.getTime() - 1), "container", "start", c.Id, { ...attrs }));
             // Network connect events for each attached network
             const networks = c.NetworkSettings.Networks;
             if (networks) {
                 for (const [netName, endpoint] of Object.entries(networks)) {
                     const net = state.networks.get(endpoint.NetworkID);
                     if (net) {
-                        state.eventHistory.push(makeEventAt(new Date(startedAt.getTime() + 2), "network", "connect", net.Id, {
+                        state.eventHistory.push(makeEventAt(startedAt, "network", "connect", net.Id, {
                             name: netName,
                             container: c.Id,
                             type: net.Driver,

@@ -159,6 +159,10 @@ export function containerStart(
 
     addContainerToNetworks(state, c);
 
+    // Emit start event BEFORE logs — matches real Docker where the start event
+    // fires when the container process begins, before it produces any output.
+    emitter.emit(makeEvent(clock, "container", "start", c.Id, containerAttrs(c)));
+
     // Append startup logs to the per-container buffer
     const startupLines = generateStartupLogs(c, new Date(c.State.StartedAt), state.logTemplates);
     for (const line of startupLines) {
@@ -174,8 +178,6 @@ export function containerStart(
         }, 2000);
         state.heartbeatIntervals.set(c.Id, interval);
     }
-
-    emitter.emit(makeEvent(clock, "container", "start", c.Id, containerAttrs(c)));
 
     return ok();
 }
