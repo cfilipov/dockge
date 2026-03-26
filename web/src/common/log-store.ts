@@ -164,18 +164,24 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
                     historicalBannersLoaded = true;
                 }
 
+                let lastStartBeforeLogs: DockerResourceEvent | null = null;
+
                 for (const event of historical.events) {
-                    if (!isRelevantEvent(event)) {
-                        continue;
+                    if (!isRelevantEvent(event)) continue;
+
+                    if (event.timeNano >= earliest && event.timeNano <= latest) {
+                        // Within log range — always include
+                        pending.push(makeBanner(event));
+                    } else if (event.action === "start" && event.timeNano < earliest) {
+                        // Before logs — track the latest start event only
+                        if (!lastStartBeforeLogs || event.timeNano > lastStartBeforeLogs.timeNano) {
+                            lastStartBeforeLogs = event;
+                        }
                     }
-                    // 60s lower pad: the start event fires before the container
-                    // emits its first log, so it's always before `earliest`.
-                    // Old-cycle banners from hours/days ago are still filtered.
-                    const lo = earliest - 60_000_000_000;
-                    if (event.timeNano < lo || event.timeNano > latest) {
-                        continue;
-                    }
-                    pending.push(makeBanner(event));
+                }
+
+                if (lastStartBeforeLogs) {
+                    pending.push(makeBanner(lastStartBeforeLogs));
                 }
             }
         }

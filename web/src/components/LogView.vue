@@ -13,7 +13,6 @@
         <VList
             ref="vlistRef"
             :data="logEntries"
-            :shift="stickToBottom"
             class="log-vlist"
             @scroll="onScroll"
         >
@@ -31,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { VList } from "virtua/vue";
 import { useTheme } from "../composables/useTheme";
 import { useSocket } from "../composables/useSocket";
@@ -135,6 +134,14 @@ function onScroll() {
     const atBottom = vl.scrollOffset + vl.viewportSize >= vl.scrollSize - 20;
     stickToBottom.value = atBottom;
 }
+
+watch(logEntries, () => {
+    if (stickToBottom.value && vlistRef.value) {
+        nextTick(() => {
+            vlistRef.value!.scrollToIndex(logEntries.value.length - 1);
+        });
+    }
+});
 
 onMounted(() => {
     connectLogs();
