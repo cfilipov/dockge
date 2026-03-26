@@ -164,26 +164,36 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
 
     // ── Stale banner check ──────────────────────────────────────────────
 
-    /** Check if a banner's timestamp falls within (or just before) the log range. */
+    /**
+     * Check if a banner's timestamp falls within the log range.
+     * Only allow banners between (earliest log - 5s) and (latest log + 5s).
+     * This prevents historical events from past stop/start cycles
+     * (whose logs are no longer in the tail window) from showing as banners.
+     */
     function isBannerInRange(nanos: number): boolean {
         const arr = entries.value;
         if (arr.length === 0) {
             // No logs yet — allow the banner (it's a live event, logs will follow)
             return true;
         }
-        // Find the earliest log entry's nanos
+        // Find earliest and latest log entry nanos
         let earliest = Infinity;
+        let latest = -Infinity;
         for (const e of arr) {
-            if (e.type === "log" && e.nanos < earliest) {
-                earliest = e.nanos;
-                break; // Array is sorted, first log is earliest
+            if (e.type === "log") {
+                if (e.nanos < earliest) {
+                    earliest = e.nanos;
+                }
+                if (e.nanos > latest) {
+                    latest = e.nanos;
+                }
             }
         }
         if (earliest === Infinity) {
             return true; // No log entries, only banners — allow
         }
-        // Allow banners within 5s before the earliest log
-        return nanos >= earliest - 5_000_000_000;
+        // Allow banners within 5s of the log range
+        return nanos >= earliest - 5_000_000_000 && nanos <= latest + 5_000_000_000;
     }
 
     // ── Event store subscription ────────────────────────────────────────
@@ -208,11 +218,7 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
             }
         }
 
-        // Check stale banner filtering
-        if (!isBannerInRange(event.timeNano)) {
-            return;
-        }
-
+        // Live events are always allowed — they're happening now
         const banner: BannerEntry = {
             type: "banner",
             nanos: event.timeNano,
@@ -285,8 +291,8 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
             if (nanos !== null) {
                 // Strip Docker timestamp prefix, convert ANSI to HTML
                 const spaceIdx = clean.indexOf(" ");
-                const content = spaceIdx !== -1 ? clean.substring(spaceIdx + 1) : clean;
-                const html = ansi.ansi_to_html(content);
+                const raw = spaceIdx !== -1 ? clean.substring(spaceIdx + 1) : clean;
+                const html = ansi.ansi_to_html(raw);
                 pending.push({ type: "log", nanos, html });
             }
             // Non-timestamped data (e.g. cursor-show) is ignored in the

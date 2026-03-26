@@ -209,6 +209,12 @@ onUnmounted(() => {
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
+    overflow: hidden; // prevent <pre> default overflow:auto from capturing scroll events
+}
+
+// VList item wrappers — remove any extra spacing
+:deep(.log-vlist > div > div) {
+    min-height: 0 !important;
 }
 
 // Banner — horizontal rule with centered label
