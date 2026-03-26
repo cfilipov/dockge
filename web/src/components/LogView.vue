@@ -11,7 +11,6 @@
         </div>
 
         <VList
-            v-show="hasData"
             ref="vlistRef"
             :data="logEntries"
             :shift="stickToBottom"
