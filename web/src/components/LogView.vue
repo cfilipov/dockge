@@ -16,6 +16,7 @@
             :data="logEntries"
             :shift="stickToBottom"
             class="log-vlist"
+            @scroll="onScroll"
         >
             <template #default="{ item }">
                 <div v-if="item.type === 'banner'" class="log-banner" :class="item.action">
