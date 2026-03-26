@@ -128,8 +128,6 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
         // that fall within the log time range. This runs once — after
         // feed() has populated entries, so there's no race with async data.
         if (!historicalBannersLoaded && arr.length + pending.length > 0) {
-            historicalBannersLoaded = true;
-
             let earliest = Infinity;
             let latest = -Infinity;
             for (const e of arr) {
@@ -159,6 +157,12 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
                     : containerName
                         ? eventStore.forContainer(containerName)
                         : { events: [], endIndex: 0 };
+
+                // Only lock once the event store actually had events to check.
+                // If bulkLoad hasn't populated it yet, retry on the next flush.
+                if (historical.events.length > 0) {
+                    historicalBannersLoaded = true;
+                }
 
                 for (const event of historical.events) {
                     if (!isRelevantEvent(event)) {
