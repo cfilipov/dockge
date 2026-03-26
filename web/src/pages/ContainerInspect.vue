@@ -369,8 +369,9 @@
             </div>
 
             <!-- Logs View -->
-            <Terminal v-if="viewMode === 'logs'" class="terminal flex-grow-1" :rows="20" mode="displayOnly"
-                aria-label="Logs" :name="logTerminalName" channel="terminal" terminal-type="container-log-by-name"
+            <LogView v-if="viewMode === 'logs'" class="terminal flex-grow-1"
+                aria-label="Logs" :name="logTerminalName"
+                terminal-type="container-log-by-name"
                 :terminal-params="{ container: containerName }" />
 
             <!-- Shell View -->

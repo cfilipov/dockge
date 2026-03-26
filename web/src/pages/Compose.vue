@@ -195,18 +195,15 @@
                     <!-- Combined Terminal Output -->
                     <div v-show="!isEditMode">
                         <h4 class="mb-3">{{ $t("logs") }}</h4>
-                        <Terminal
+                        <LogView
                             ref="combinedTerminal"
                             class="mb-3 terminal"
                             aria-label="Logs"
                             :name="combinedTerminalName"
-                            :rows="combinedTerminalRows"
-                            :cols="combinedTerminalCols"
                             style="height: 315px;"
-                            channel="terminal"
                             terminal-type="combined"
                             :terminal-params="{ stack: stack.name }"
-                        ></Terminal>
+                        />
                     </div>
                 </div>
                 <div v-if="isManaged || isAdd" :class="viewMode === 'raw' && !isAdd ? 'col-12' : 'col-lg-6'">

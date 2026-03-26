@@ -13,12 +13,14 @@
         "@codemirror/lang-json": "^6.0.2",
         "@codemirror/language": "^6.12.1",
         "@inventage/envsubst": "^0.16.0",
+        "ansi_up": "^6.0.6",
         "compare-versions": "~6.1.1",
         "composerize": "~1.7.5",
         "dayjs": "~1.11.13",
         "jwt-decode": "~3.1.2",
         "pinia": "^3.0.4",
         "timezones-list": "~3.0.3",
+        "virtua": "^0.48.8",
         "yaml": "~2.3.4"
     },
     "devDependencies": {

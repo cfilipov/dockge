@@ -1,0 +1,255 @@
+<template>
+    <div
+        class="log-view shadow-box"
+        :class="{ dark: isDark }"
+        role="region"
+        :aria-label="ariaLabel || 'Log view'"
+    >
+        <!-- Spinner shown until first data arrives -->
+        <div v-if="!hasData" class="log-spinner">
+            <span class="spinner-icon">{{ spinnerFrame }}</span> Connecting...
+        </div>
+
+        <VList
+            v-show="hasData"
+            ref="vlistRef"
+            :data="logEntries"
+            :shift="stickToBottom"
+            class="log-vlist"
+        >
+            <template #default="{ item }">
+                <div v-if="item.type === 'banner'" class="log-banner" :class="item.action">
+                    <span class="log-banner-label">
+                        {{ item.action === 'start' ? '\u25b6' : '\u25fc' }}
+                        {{ item.action === 'start' ? 'CONTAINER START' : 'CONTAINER STOP' }}
+                        &mdash; {{ item.name }}
+                    </span>
+                </div>
+                <pre v-else class="log-line" v-html="item.html" />
+            </template>
+        </VList>
+    </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { VList } from "virtua/vue";
+import { useTheme } from "../composables/useTheme";
+import { useTerminalMux, type TerminalSession } from "../composables/useTerminalMux";
+import { useSocket } from "../composables/useSocket";
+import { useAppToast } from "../composables/useAppToast";
+import { createLogStore, type LogStore } from "../common/log-store";
+
+const { isDark } = useTheme();
+
+const props = withDefaults(defineProps<{
+    name: string;
+    ariaLabel?: string;
+    terminalType: string;
+    terminalParams?: Record<string, string>;
+}>(), {
+    ariaLabel: undefined,
+    terminalParams: undefined,
+});
+
+const emit = defineEmits<{
+    (e: "has-data"): void;
+}>();
+
+const vlistRef = ref<InstanceType<typeof VList> | null>(null);
+const hasData = ref(false);
+const stickToBottom = ref(true);
+
+// Spinner animation
+const SPINNER_FRAMES = ["\u280b", "\u2819", "\u2839", "\u2838", "\u283c", "\u2834", "\u2826", "\u2827", "\u2807", "\u280f"];
+const spinnerFrame = ref(SPINNER_FRAMES[0]);
+let spinnerInterval: ReturnType<typeof setInterval> | null = null;
+let spinnerTimer: ReturnType<typeof setTimeout> | null = null;
+
+function startSpinnerDebounce() {
+    let frameIdx = 0;
+    spinnerTimer = setTimeout(() => {
+        spinnerInterval = setInterval(() => {
+            frameIdx = (frameIdx + 1) % SPINNER_FRAMES.length;
+            spinnerFrame.value = SPINNER_FRAMES[frameIdx];
+        }, 80);
+    }, 150);
+}
+
+function stopSpinner() {
+    if (spinnerTimer) {
+        clearTimeout(spinnerTimer);
+        spinnerTimer = null;
+    }
+    if (spinnerInterval) {
+        clearInterval(spinnerInterval);
+        spinnerInterval = null;
+    }
+}
+
+// Log store — initialized eagerly so the template can bind to entries
+const { emit: socketEmit } = useSocket();
+const { toastWarning } = useAppToast();
+
+const store = createLogStore({
+    terminalType: props.terminalType as "container-log" | "container-log-by-name" | "combined",
+    containerName: props.terminalParams?.container || props.terminalParams?.service,
+    stackName: props.terminalParams?.stack,
+    onWarning: (message) => {
+        socketEmit("clientWarning", message);
+        toastWarning(message);
+    },
+});
+
+// Expose entries as a top-level computed so Vue tracks the shallowRef reactivity
+const logEntries = computed(() => store.entries.value);
+
+let termSession: TerminalSession | null = null;
+
+function connectTerminal() {
+    startSpinnerDebounce();
+
+    const mux = useTerminalMux();
+    termSession = mux.join({
+        type: props.terminalType,
+        stack: props.terminalParams?.stack,
+        service: props.terminalParams?.service,
+        container: props.terminalParams?.container,
+        shell: props.terminalParams?.shell,
+    });
+
+    let firstMessage = true;
+    termSession.onData((data: Uint8Array) => {
+        if (firstMessage) {
+            stopSpinner();
+            hasData.value = true;
+            firstMessage = false;
+            emit("has-data");
+        }
+        store.feed(data);
+    });
+
+    termSession.onExited(() => {
+        // Terminal process exited
+    });
+}
+
+// Stick-to-bottom: track scroll position via the VList's scroll event.
+// If user scrolls up, disable stick-to-bottom. If they scroll back to
+// the bottom, re-enable it.
+function onScroll() {
+    if (!vlistRef.value) {
+        return;
+    }
+    const vl = vlistRef.value;
+    const atBottom = vl.scrollOffset + vl.viewportSize >= vl.scrollSize - 20;
+    stickToBottom.value = atBottom;
+}
+
+onMounted(() => {
+    connectTerminal();
+});
+
+onUnmounted(() => {
+    stopSpinner();
+    if (store) {
+        store.destroy();
+    }
+    if (termSession) {
+        termSession.leave();
+        termSession = null;
+    }
+});
+</script>
+
+<style scoped lang="scss">
+.log-view {
+    height: 100%;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.3;
+    overflow: hidden;
+    position: relative;
+
+    // Dark theme (default terminal look)
+    background-color: #000000;
+    color: #cccccc;
+
+    &.dark {
+        background-color: #000000;
+        color: #cccccc;
+    }
+
+    &:not(.dark) {
+        background-color: #ffffff;
+        color: #333333;
+    }
+}
+
+.log-vlist {
+    height: 100%;
+}
+
+.log-spinner {
+    padding: 8px 12px;
+    color: #888;
+}
+
+.spinner-icon {
+    display: inline-block;
+    width: 1em;
+}
+
+// Log lines — monospace pre-formatted
+.log-line {
+    margin: 0;
+    padding: 0 8px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+}
+
+// Banner — horizontal rule with centered label
+.log-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 8px;
+    margin: 2px 0;
+
+    &::before,
+    &::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+    }
+
+    &.start::before,
+    &.start::after {
+        background-color: #74c2ff;
+    }
+
+    &.die::before,
+    &.die::after {
+        background-color: #f8a306;
+    }
+}
+
+.log-banner-label {
+    font-weight: bold;
+    font-size: 12px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.log-banner.start .log-banner-label {
+    color: #74c2ff;
+}
+
+.log-banner.die .log-banner-label {
+    color: #f8a306;
+}
+</style>
