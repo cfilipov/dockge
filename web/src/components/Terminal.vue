@@ -12,6 +12,8 @@ import { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_COLS, TERMINAL_ROWS } from "../common/util-common";
 import { useTheme } from "../composables/useTheme";
 import { useTerminalMux, type TerminalSession } from "../composables/useTerminalMux";
+import { useSocket } from "../composables/useSocket";
+import { useAppToast } from "../composables/useAppToast";
 import { createLogBuffer, type LogBuffer } from "../common/log-banners";
 
 const { isDark } = useTheme();
@@ -154,11 +156,17 @@ function connectTerminal() {
 
     // Create log buffer for log terminal types
     if (isLogTerminal() && terminal.value) {
+        const { emit } = useSocket();
+        const { toastWarning } = useAppToast();
         logBuffer = createLogBuffer({
             terminal: terminal.value,
             terminalType: props.terminalType as "container-log" | "container-log-by-name" | "combined",
             containerName: props.terminalParams?.container || props.terminalParams?.service,
             stackName: props.terminalParams?.stack,
+            onWarning: (message) => {
+                emit("clientWarning", message);
+                toastWarning(message);
+            },
         });
     }
 

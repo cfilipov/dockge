@@ -14,7 +14,6 @@ import type { Terminal } from "@xterm/xterm";
 import { useEventStore } from "../stores/eventStore";
 import type { DockerResourceEvent } from "../stores/containerStore";
 import type { EventQueryResult } from "../stores/eventStore";
-import type { DockgeWebSocket } from "../composables/useSocket";
 
 // ── ANSI banner formatting ──────────────────────────────────────────────────
 
@@ -109,8 +108,8 @@ export interface LogBufferOptions {
     containerName?: string;
     /** Stack name (for combined type) */
     stackName?: string;
-    /** WebSocket for sending clientWarning messages */
-    socket?: DockgeWebSocket;
+    /** Called when the buffer detects an anomaly (e.g. late-arriving log line). */
+    onWarning?: (message: string) => void;
 }
 
 /**
@@ -119,7 +118,7 @@ export interface LogBufferOptions {
  * merges start/die banners from the event store, and flushes to xterm.js.
  */
 export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
-    const { terminal, terminalType, containerName, stackName, socket } = opts;
+    const { terminal, terminalType, containerName, stackName, onWarning } = opts;
     const decoder = new TextDecoder();
     let buffer: TimestampedLine[] = [];
     let rawBuffer: Uint8Array[] = [];
@@ -191,9 +190,9 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
 
         // Late-arrival detection
         for (const line of merged) {
-            if (line.nanos < lastFlushedNano && socket) {
+            if (line.nanos < lastFlushedNano && onWarning) {
                 const gap = lastFlushedNano - line.nanos;
-                socket.emit("clientWarning", `late log line: ts=${line.nanos}, lastFlushed=${lastFlushedNano}, gap=${gap}ns`);
+                onWarning(`Late log line: ts=${line.nanos}, lastFlushed=${lastFlushedNano}, gap=${gap}ns`);
             }
         }
 

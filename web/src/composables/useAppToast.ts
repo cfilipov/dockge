@@ -53,10 +53,17 @@ function toastError(msg: string) {
     id = toast.error(content, { onClick: () => pinOnClick(id, content)() });
 }
 
+function toastWarning(msg: string) {
+    const content = { component: ToastBody, props: { message: msg } };
+    let id: ToastID;
+    id = toast.warning(content, { onClick: () => pinOnClick(id, content)() });
+}
+
 export function useAppToast() {
     return {
         toastRes,
         toastSuccess,
         toastError,
+        toastWarning,
     };
 }
