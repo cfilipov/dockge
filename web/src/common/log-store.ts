@@ -216,7 +216,11 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
                     if (!isRelevantEvent(event)) {
                         continue;
                     }
-                    if (event.timeNano < earliest || event.timeNano > latest) {
+                    // 60s lower pad: the start event fires before the container
+                    // emits its first log, so it's always before `earliest`.
+                    // Old-cycle banners from hours/days ago are still filtered.
+                    const lo = earliest - 60_000_000_000;
+                    if (event.timeNano < lo || event.timeNano > latest) {
                         continue;
                     }
                     pending.push(makeBanner(event));
