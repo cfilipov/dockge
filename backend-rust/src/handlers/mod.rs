@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod docker;
 pub mod image_updates;
+pub mod logs;
 pub mod service;
 pub mod settings;
 pub mod stack;

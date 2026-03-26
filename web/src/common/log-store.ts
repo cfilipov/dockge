@@ -35,56 +35,6 @@ export type LogEntry = LogLineEntry | BannerEntry;
 
 // ── Timestamp parsing ───────────────────────────────────────────────────────
 
-/**
- * Parse an RFC3339Nano timestamp from the beginning of a log line.
- * Returns nanoseconds since epoch, or null if not parseable.
- */
-export function parseTimestampNanos(line: string): number | null {
-    const spaceIdx = line.indexOf(" ", 0);
-    if (spaceIdx === -1 || spaceIdx > 35) {
-        return null;
-    }
-
-    const ts = line.substring(0, spaceIdx);
-    if (ts.length < 19 || !/^\d{4}-/.test(ts)) {
-        return null;
-    }
-
-    const year = parseInt(ts.substring(0, 4), 10);
-    const month = parseInt(ts.substring(5, 7), 10);
-    const day = parseInt(ts.substring(8, 10), 10);
-    const hour = parseInt(ts.substring(11, 13), 10);
-    const min = parseInt(ts.substring(14, 16), 10);
-    const sec = parseInt(ts.substring(17, 19), 10);
-
-    if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(min) || isNaN(sec)) {
-        return null;
-    }
-
-    const y = month <= 2 ? year - 1 : year;
-    const era = Math.floor(y >= 0 ? y : y - 399) / 400 | 0;
-    const yoe = y - era * 400;
-    const m = month;
-    const doy = Math.floor((153 * (m > 2 ? m - 3 : m + 9) + 2) / 5) + day - 1;
-    const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
-    const days = era * 146097 + doe - 719468;
-    const secs = days * 86400 + hour * 3600 + min * 60 + sec;
-
-    let nanos = 0;
-    if (ts.length > 19 && ts[19] === ".") {
-        let fracEnd = 20;
-        while (fracEnd < ts.length && ts[fracEnd] >= "0" && ts[fracEnd] <= "9") {
-            fracEnd++;
-        }
-        const fracStr = ts.substring(20, Math.min(fracEnd, 29));
-        if (fracStr.length > 0) {
-            nanos = parseInt(fracStr.padEnd(9, "0"), 10);
-        }
-    }
-
-    return secs * 1_000_000_000 + nanos;
-}
-
 // ── Binary search ───────────────────────────────────────────────────────────
 
 /** Find insertion index for nanos in a sorted array. */
@@ -108,22 +58,20 @@ export interface LogStoreOptions {
     terminalType: "container-log" | "container-log-by-name" | "combined";
     containerName?: string;
     stackName?: string;
-    onWarning?: (message: string) => void;
 }
 
 export interface LogStore {
     /** Reactive sorted array of log entries. */
     entries: ShallowRef<LogEntry[]>;
-    /** Feed raw Docker log data (Uint8Array with timestamps). */
-    feed(data: Uint8Array): void;
+    /** Add a single log line (already parsed by the server). */
+    addLine(ts: number, line: string): void;
     /** Clean up event store subscription and pending rAF. */
     destroy(): void;
 }
 
 export function createLogStore(opts: LogStoreOptions): LogStore {
-    const { terminalType, containerName, stackName, onWarning } = opts;
+    const { terminalType, containerName, stackName } = opts;
     const entries: ShallowRef<LogEntry[]> = shallowRef([]);
-    const decoder = new TextDecoder();
     const ansi = new AnsiUp();
     ansi.use_classes = false; // inline styles using default palette
     ansi.escape_html = true;
@@ -252,39 +200,14 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
         scheduleBatchInsert();
     });
 
-    // ── Feed ────────────────────────────────────────────────────────────
+    // ── Add line (from server JSON) ─────────────────────────────────────
 
-    function feed(data: Uint8Array) {
+    function addLine(ts: number, line: string) {
         if (destroyed) {
             return;
         }
-
-        const text = decoder.decode(data, { stream: true });
-        const lineTexts = text.split("\n");
-
-        for (const lineText of lineTexts) {
-            if (lineText.length === 0) {
-                continue;
-            }
-            // Strip trailing \r (from normalize_newlines \r\n conversion)
-            const clean = lineText.endsWith("\r") ? lineText.slice(0, -1) : lineText;
-            if (clean.length === 0) {
-                continue;
-            }
-
-            const nanos = parseTimestampNanos(clean);
-            if (nanos !== null) {
-                // Strip Docker timestamp prefix, convert ANSI to HTML
-                const spaceIdx = clean.indexOf(" ");
-                const raw = spaceIdx !== -1 ? clean.substring(spaceIdx + 1) : clean;
-                const html = ansi.ansi_to_html(raw);
-                pending.push({ type: "log", nanos, html });
-            }
-            // Non-timestamped data (e.g. cursor-show) is ignored in the
-            // component model — xterm.js handled these as raw terminal
-            // commands, but the Vue component doesn't need them.
-        }
-
+        const html = ansi.ansi_to_html(line);
+        pending.push({ type: "log", nanos: ts, html });
         scheduleBatchInsert();
     }
 
@@ -299,5 +222,5 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
         }
     }
 
-    return { entries, feed, destroy };
+    return { entries, addLine, destroy };
 }

@@ -175,6 +175,7 @@ async fn main() {
     handlers::service::register(&mut ws_builder, state.clone());
     handlers::terminal::register(&mut ws_builder, state.clone());
     handlers::terminal::register_binary_handler(&mut ws_builder, state.clone());
+    handlers::logs::register(&mut ws_builder, state.clone());
     handlers::image_updates::register(&mut ws_builder, state.clone());
 
     let ws_server = Arc::new(ws_builder);

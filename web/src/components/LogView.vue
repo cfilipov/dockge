@@ -35,10 +35,8 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { VList } from "virtua/vue";
 import { useTheme } from "../composables/useTheme";
-import { useTerminalMux, type TerminalSession } from "../composables/useTerminalMux";
 import { useSocket } from "../composables/useSocket";
-import { useAppToast } from "../composables/useAppToast";
-import { createLogStore, type LogStore } from "../common/log-store";
+import { createLogStore } from "../common/log-store";
 
 const { isDark } = useTheme();
 
@@ -88,49 +86,42 @@ function stopSpinner() {
 }
 
 // Log store — initialized eagerly so the template can bind to entries
-const { emit: socketEmit } = useSocket();
-const { toastWarning } = useAppToast();
+const { getSocket, emit: socketEmit } = useSocket();
 
 const store = createLogStore({
     terminalType: props.terminalType as "container-log" | "container-log-by-name" | "combined",
     containerName: props.terminalParams?.container || props.terminalParams?.service,
     stackName: props.terminalParams?.stack,
-    onWarning: (message) => {
-        socketEmit("clientWarning", message);
-        toastWarning(message);
-    },
 });
 
 // Expose entries as a top-level computed so Vue tracks the shallowRef reactivity
 const logEntries = computed(() => store.entries.value);
 
-let termSession: TerminalSession | null = null;
+// Socket event listener — stored for cleanup
+let offLogData: (() => void) | null = null;
 
-function connectTerminal() {
+function connectLogs() {
     startSpinnerDebounce();
 
-    const mux = useTerminalMux();
-    termSession = mux.join({
+    // Listen for logData events from the server
+    const handler = (data: { ts: number; line: string }) => {
+        if (!hasData.value) {
+            stopSpinner();
+            hasData.value = true;
+            emit("has-data");
+        }
+        store.addLine(data.ts, data.line);
+    };
+    const socket = getSocket();
+    socket.on("logData", handler);
+    offLogData = () => socket.off("logData", handler);
+
+    // Subscribe to log stream
+    socketEmit("subscribeLogs", {
         type: props.terminalType,
         stack: props.terminalParams?.stack,
         service: props.terminalParams?.service,
         container: props.terminalParams?.container,
-        shell: props.terminalParams?.shell,
-    });
-
-    let firstMessage = true;
-    termSession.onData((data: Uint8Array) => {
-        if (firstMessage) {
-            stopSpinner();
-            hasData.value = true;
-            firstMessage = false;
-            emit("has-data");
-        }
-        store.feed(data);
-    });
-
-    termSession.onExited(() => {
-        // Terminal process exited
     });
 }
 
@@ -147,18 +138,19 @@ function onScroll() {
 }
 
 onMounted(() => {
-    connectTerminal();
+    connectLogs();
 });
 
 onUnmounted(() => {
     stopSpinner();
-    if (store) {
-        store.destroy();
+    // Unregister socket listener to prevent leaks on remount
+    if (offLogData) {
+        offLogData();
+        offLogData = null;
     }
-    if (termSession) {
-        termSession.leave();
-        termSession = null;
-    }
+    // Unsubscribe from server log stream
+    socketEmit("unsubscribeLogs");
+    store.destroy();
 });
 </script>
 
