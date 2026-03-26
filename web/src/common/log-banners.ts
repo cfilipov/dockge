@@ -188,11 +188,22 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
         // Merge and sort (log lines may be out of order for combined logs)
         const merged = [...lines, ...banners].sort((a, b) => a.nanos - b.nanos);
 
-        // Late-arrival detection
-        for (const line of merged) {
-            if (line.nanos < lastFlushedNano && onWarning) {
-                const gap = lastFlushedNano - line.nanos;
-                onWarning(`Late log line: ts=${line.nanos}, lastFlushed=${lastFlushedNano}, gap=${gap}ns`);
+        // Late-arrival detection — aggregate per flush to avoid toast spam
+        if (onWarning) {
+            let lateCount = 0;
+            let maxGap = 0;
+            for (const line of merged) {
+                if (line.nanos < lastFlushedNano) {
+                    lateCount++;
+                    const gap = lastFlushedNano - line.nanos;
+                    if (gap > maxGap) {
+                        maxGap = gap;
+                    }
+                }
+            }
+            if (lateCount > 0) {
+                const gapSec = (maxGap / 1_000_000_000).toFixed(1);
+                onWarning(`${lateCount} late log line${lateCount > 1 ? "s" : ""} (max gap: ${gapSec}s)`);
             }
         }
 
