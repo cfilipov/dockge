@@ -160,8 +160,16 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
             terminal.write(chunk);
         }
 
-        // Determine query range
+        // On the first flush with log lines, initialize the watermark to just
+        // before the oldest log line. This prevents historical events (whose
+        // corresponding logs were pushed out by Docker's tail limit) from
+        // generating banners with no surrounding log context.
         const hasLines = lines.length > 0;
+        if (lastFlushedNano === 0 && hasLines) {
+            lastFlushedNano = lines[0].nanos - 5_000_000_000; // 5s before first log
+        }
+
+        // Determine query range
         const maxNano = hasLines ? lines[lines.length - 1].nanos : undefined;
 
         // Query events since last flush
