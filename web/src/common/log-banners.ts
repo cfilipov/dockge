@@ -25,11 +25,11 @@ const ANSI_BG_YELLOW = "\x1b[1;38;2;0;0;0;48;2;248;163;6m";
 const ANSI_RESET = "\x1b[0m";
 
 function startBanner(name: string): string {
-    return `\t${ANSI_BG_BLUE} \u25b6 CONTAINER START \u2014 ${name} ${ANSI_RESET}\r\n\r\n`;
+    return `${ANSI_BG_BLUE}[CONTAINER START] ${name}${ANSI_RESET}\r\n`;
 }
 
 function stopBanner(name: string): string {
-    return `\t${ANSI_BG_YELLOW} \u25fc CONTAINER STOP \u2014 ${name} ${ANSI_RESET}\r\n\r\n`;
+    return `${ANSI_BG_YELLOW}[CONTAINER STOP] ${name}${ANSI_RESET}\r\n`;
 }
 
 // ── Timestamp parsing ───────────────────────────────────────────────────────
