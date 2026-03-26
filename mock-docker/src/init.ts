@@ -8,7 +8,7 @@ import type { MockGlobalConfig, MockStandaloneContainer } from "./mock-config.js
 import { generateStack } from "./generator.js";
 import { loadLogTemplates } from "./log-templates.js";
 import { generateStartupLogs } from "./logs.js";
-import { makeEvent } from "./events.js";
+import { makeEvent, makeEventAt } from "./events.js";
 import type { Clock } from "./clock.js";
 import type {
     ContainerInspect, ContainerState, NetworkInspect, VolumeInspect, ImageInspect,
@@ -238,6 +238,8 @@ export async function initState(opts: InitOptions): Promise<MockState> {
         state.eventHistory.push(makeEvent(clock, "network", "create", net.Id, attrs));
     }
     // Then containers: create + start events for running containers.
+    // Use StartedAt-based timestamps so events align with the log timeline
+    // (clock.now() tick counter is far ahead of StartedAt at this point).
     for (const c of state.containers.values()) {
         const name = c.Name.replace(/^\//, "");
         const attrs: Record<string, string> = {
@@ -251,16 +253,18 @@ export async function initState(opts: InitOptions): Promise<MockState> {
         if (labels["com.docker.compose.service"]) {
             attrs["com.docker.compose.service"] = labels["com.docker.compose.service"];
         }
-        state.eventHistory.push(makeEvent(clock, "container", "create", c.Id, { ...attrs }));
+        const startedAt = new Date(c.State.StartedAt);
+        state.eventHistory.push(makeEventAt(startedAt, "container", "create", c.Id, { ...attrs }));
         if (c.State.Running) {
-            state.eventHistory.push(makeEvent(clock, "container", "start", c.Id, { ...attrs }));
+            // +1ms so create < start in sort order
+            state.eventHistory.push(makeEventAt(new Date(startedAt.getTime() + 1), "container", "start", c.Id, { ...attrs }));
             // Network connect events for each attached network
             const networks = c.NetworkSettings.Networks;
             if (networks) {
                 for (const [netName, endpoint] of Object.entries(networks)) {
                     const net = state.networks.get(endpoint.NetworkID);
                     if (net) {
-                        state.eventHistory.push(makeEvent(clock, "network", "connect", net.Id, {
+                        state.eventHistory.push(makeEventAt(new Date(startedAt.getTime() + 2), "network", "connect", net.Id, {
                             name: netName,
                             container: c.Id,
                             type: net.Driver,

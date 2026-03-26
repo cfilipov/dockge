@@ -1,9 +1,13 @@
 /**
  * Client-side log buffer for Docker log terminals.
  *
- * Receives binary-framed log entries from the backend, buffers them over a
- * 200ms window, merges start/die banners from the event store, and flushes
- * sorted output to xterm.js.
+ * Buffers incoming log text over a 200ms window, parses Docker timestamps,
+ * merges start/die banners from the event store, and flushes to xterm.js.
+ *
+ * The backend sends raw Docker log data with timestamps prepended
+ * (e.g., "2025-01-15T00:00:00.000Z alpine container started\r\n").
+ * This module parses and strips those timestamps for banner interleaving,
+ * displaying only the service's own log message.
  */
 
 import type { Terminal } from "@xterm/xterm";
@@ -27,6 +31,60 @@ function stopBanner(name: string): string {
     return `\t${ANSI_BG_YELLOW} \u25fc CONTAINER STOP \u2014 ${name} ${ANSI_RESET}\r\n\r\n`;
 }
 
+// ── Timestamp parsing ───────────────────────────────────────────────────────
+
+/**
+ * Parse an RFC3339Nano timestamp from the beginning of a log line.
+ * Docker log lines with timestamps=true start with: "2025-01-15T00:00:05.300000000Z rest"
+ * Returns nanoseconds since epoch, or null if not parseable.
+ */
+export function parseTimestampNanos(line: string): number | null {
+    // Timestamps are at most ~35 chars, look for the first space
+    const spaceIdx = line.indexOf(" ", 0);
+    if (spaceIdx === -1 || spaceIdx > 35) return null;
+
+    const ts = line.substring(0, spaceIdx);
+    if (ts.length < 19 || !/^\d{4}-/.test(ts)) return null;
+
+    const year = parseInt(ts.substring(0, 4), 10);
+    const month = parseInt(ts.substring(5, 7), 10);
+    const day = parseInt(ts.substring(8, 10), 10);
+    const hour = parseInt(ts.substring(11, 13), 10);
+    const min = parseInt(ts.substring(14, 16), 10);
+    const sec = parseInt(ts.substring(17, 19), 10);
+
+    if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(min) || isNaN(sec)) {
+        return null;
+    }
+
+    // Convert to Unix seconds using the same algorithm as the backend
+    const y = month <= 2 ? year - 1 : year;
+    const era = Math.floor(y >= 0 ? y : y - 399) / 400 | 0;
+    const yoe = y - era * 400;
+    const m = month;
+    const doy = Math.floor((153 * (m > 2 ? m - 3 : m + 9) + 2) / 5) + day - 1;
+    const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+    const days = era * 146097 + doe - 719468;
+    const secs = days * 86400 + hour * 3600 + min * 60 + sec;
+
+    // Parse fractional seconds
+    let nanos = 0;
+    if (ts.length > 19 && ts[19] === ".") {
+        let fracEnd = 20;
+        while (fracEnd < ts.length && ts[fracEnd] >= "0" && ts[fracEnd] <= "9") {
+            fracEnd++;
+        }
+        const fracStr = ts.substring(20, Math.min(fracEnd, 29)); // up to 9 digits
+        if (fracStr.length > 0) {
+            nanos = parseInt(fracStr.padEnd(9, "0"), 10);
+        }
+    }
+
+    // JavaScript can represent integers up to 2^53, which is enough for
+    // nanosecond timestamps through year 2255.
+    return secs * 1_000_000_000 + nanos;
+}
+
 // ── Log buffer ──────────────────────────────────────────────────────────────
 
 interface TimestampedLine {
@@ -35,7 +93,7 @@ interface TimestampedLine {
 }
 
 export interface LogBuffer {
-    /** Feed raw binary log data into the buffer. */
+    /** Feed raw log data (binary) into the buffer. */
     feed(data: Uint8Array): void;
     /** Stop the buffer and flush remaining data. */
     destroy(): void;
@@ -55,17 +113,15 @@ export interface LogBufferOptions {
 }
 
 /**
- * Create a log buffer that receives binary-framed log entries, buffers them
- * over a 200ms window, merges start/die banners from the event store by
- * timestamp, and flushes to xterm.js.
- *
- * Binary entry format (per entry within the data payload):
- *   [timestamp_nanos: i64 BE, 8 bytes][message_length: u32 BE, 4 bytes][message: message_length bytes]
+ * Create a log buffer that receives raw Docker log data (text with timestamps),
+ * buffers over a 200ms window, parses timestamps, strips them from the display,
+ * merges start/die banners from the event store, and flushes to xterm.js.
  */
 export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
     const { terminal, terminalType, containerName, stackName, socket } = opts;
+    const decoder = new TextDecoder();
     let buffer: TimestampedLine[] = [];
-    let pendingBytes = new Uint8Array(0);
+    let rawBuffer: Uint8Array[] = [];
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
     let lastFlushedNano = 0;
     let destroyed = false;
@@ -84,6 +140,13 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
 
         const lines = buffer;
         buffer = [];
+        const raw = rawBuffer;
+        rawBuffer = [];
+
+        // Write non-timestamped data directly (e.g. cursor-show sequences)
+        for (const chunk of raw) {
+            terminal.write(chunk);
+        }
 
         // Determine query range
         const hasLines = lines.length > 0;
@@ -135,23 +198,26 @@ export function createLogBuffer(opts: LogBufferOptions): LogBuffer {
     function feed(data: Uint8Array) {
         if (destroyed) return;
 
-        // Append to pending buffer
-        const combined = new Uint8Array(pendingBytes.length + data.length);
-        combined.set(pendingBytes);
-        combined.set(data, pendingBytes.length);
-        pendingBytes = combined;
+        // Decode text and split into lines, parsing Docker timestamps
+        const text = decoder.decode(data, { stream: true });
+        const lineTexts = text.split("\n");
 
-        // Parse complete entries: [ts: i64 BE, 8][len: u32 BE, 4][msg: len bytes]
-        while (pendingBytes.length >= 12) {
-            const view = new DataView(pendingBytes.buffer, pendingBytes.byteOffset);
-            const nanos = Number(view.getBigInt64(0));
-            const msgLen = view.getUint32(8);
-            if (pendingBytes.length < 12 + msgLen) break; // incomplete entry
-            const msgBytes = pendingBytes.slice(12, 12 + msgLen);
-            pendingBytes = pendingBytes.slice(12 + msgLen);
+        for (const lineText of lineTexts) {
+            if (lineText.length === 0) continue;
+            // Strip trailing \r (from normalize_newlines \r\n conversion)
+            const clean = lineText.endsWith("\r") ? lineText.slice(0, -1) : lineText;
+            if (clean.length === 0) continue;
 
-            const text = new TextDecoder().decode(msgBytes);
-            buffer.push({ nanos, text });
+            const nanos = parseTimestampNanos(clean);
+            if (nanos !== null) {
+                // Strip Docker timestamp prefix, keep the rest as display text
+                const spaceIdx = clean.indexOf(" ");
+                const content = spaceIdx !== -1 ? clean.substring(spaceIdx + 1) : clean;
+                buffer.push({ nanos, text: content + "\r\n" });
+            } else {
+                // Non-timestamped data (e.g. cursor-show) — buffer as raw
+                rawBuffer.push(new TextEncoder().encode(clean));
+            }
         }
 
         ensureTimer();

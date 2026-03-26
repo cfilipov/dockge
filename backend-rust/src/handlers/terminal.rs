@@ -668,18 +668,6 @@ async fn handle_container_action_terminal(
     alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
-// ── Binary log entry framing ────────────────────────────────────────────────
-
-/// Write a binary log entry: [timestamp_nanos: i64 BE, 8][message_length: u32 BE, 4][message bytes].
-/// The frontend parses this structured format to get timestamps without text parsing.
-fn write_log_entry(handle: &TerminalHandle, term_name: &str, nanos: i64, message: &[u8]) {
-    let mut entry = Vec::with_capacity(12 + message.len());
-    entry.extend_from_slice(&nanos.to_be_bytes());
-    entry.extend_from_slice(&(message.len() as u32).to_be_bytes());
-    entry.extend_from_slice(message);
-    handle.write_data(term_name, entry);
-}
-
 // ── Combined log streaming (Phase 2) ───────────────────────────────────────
 
 /// A log line with its original timestamp for sorting.
@@ -687,9 +675,8 @@ struct TsLine {
     /// RFC3339Nano timestamp string (sorts lexicographically for UTC —
     /// Docker always uses UTC timestamps so this is valid).
     ts: String,
-    /// Nanoseconds since epoch (for binary framing).
-    nanos: i64,
-    /// Formatted display line with colored service prefix.
+    /// Formatted display line: "{docker_ts} {prefix}{content}\n".
+    /// The frontend parses and strips the Docker timestamp for banner interleaving.
     display: String,
 }
 
@@ -758,11 +745,9 @@ async fn run_combined_logs(
                         let text = String::from_utf8_lossy(&raw);
                         for line in text.lines() {
                             let (ts, content) = split_timestamp(line);
-                            let nanos = parse_timestamp_nanos(ts).unwrap_or(0);
                             all_lines.push(TsLine {
                                 ts: ts.to_string(),
-                                nanos,
-                                display: format!("{prefix}{content}\n"),
+                                display: format!("{ts} {prefix}{content}\n"),
                             });
                         }
                     }
@@ -777,18 +762,18 @@ async fn run_combined_logs(
         // Sort by timestamp — RFC3339Nano with UTC sorts lexicographically
         all_lines.sort_by(|a, b| a.ts.cmp(&b.ts));
 
-        // Write sorted lines to terminal buffer as binary-framed entries
+        // Write sorted lines to terminal buffer
         for line in &all_lines {
             if cancel.is_cancelled() {
                 return;
             }
-            write_log_entry(handle, term_name, line.nanos, line.display.as_bytes());
+            handle.write_data(term_name, line.display.as_bytes().to_vec());
         }
     }
 
     // ── Phase 2: Live follow with EventBus-driven reconnection ──────────
     {
-        let (line_tx, mut line_rx) = tokio::sync::mpsc::channel::<FollowLine>(256);
+        let (line_tx, mut line_rx) = tokio::sync::mpsc::channel::<String>(256);
         let mut tasks = JoinSet::new();
 
         // Spawn a follower for each running container
@@ -815,8 +800,8 @@ async fn run_combined_logs(
                 () = cancel.cancelled() => return,
                 line = line_rx.recv() => {
                     match line {
-                        Some(fl) => {
-                            write_log_entry(handle, term_name, fl.nanos, fl.display.as_bytes());
+                        Some(text) => {
+                            handle.write_data(term_name, text.into_bytes());
                         }
                         None => break, // All senders dropped
                     }
@@ -864,18 +849,13 @@ async fn run_combined_logs(
     }
 }
 
-/// A line from the live follow phase, with timestamp and display text.
-struct FollowLine {
-    nanos: i64,
-    display: String,
-}
-
 /// Follow a single container's logs (live), sending prefixed lines to `tx`.
+/// Lines include the Docker timestamp for client-side banner interleaving.
 async fn follow_container_logs(
     docker: &docker::DockerClient,
     container_name: &str,
     prefix: &str,
-    tx: &tokio::sync::mpsc::Sender<FollowLine>,
+    tx: &tokio::sync::mpsc::Sender<String>,
     cancel: &CancellationToken,
     since: Option<i32>,
 ) {
@@ -900,9 +880,8 @@ async fn follow_container_logs(
                         let text = String::from_utf8_lossy(&raw);
                         for line in text.lines() {
                             let (ts, content) = split_timestamp(line);
-                            let nanos = parse_timestamp_nanos(ts).unwrap_or(0);
-                            let display = format!("{prefix}{content}\n");
-                            if tx.send(FollowLine { nanos, display }).await.is_err() {
+                            let formatted = format!("{ts} {prefix}{content}\n");
+                            if tx.send(formatted).await.is_err() {
                                 return;
                             }
                         }
@@ -1134,9 +1113,9 @@ async fn stream_single_container_to_terminal(opts: StreamLogOpts<'_>) -> Option<
                     Some(Ok(output)) => {
                         let data = output.into_bytes();
                         if !data.is_empty() {
-                            // Parse timestamp from the line for nano-precision tracking.
+                            // Parse timestamp for nano-precision dedup on reconnect.
                             let text = String::from_utf8_lossy(&data);
-                            let (ts_str, content) = split_timestamp(&text);
+                            let (ts_str, _) = split_timestamp(&text);
                             if !ts_str.is_empty()
                                 && let Some(nanos) = parse_timestamp_nanos(ts_str)
                             {
@@ -1147,13 +1126,10 @@ async fn stream_single_container_to_terminal(opts: StreamLogOpts<'_>) -> Option<
                                     continue;
                                 }
                                 last_seen_nano = Some(nanos);
-                                // Send as binary-framed entry (timestamp in binary, message without Docker timestamp)
-                                let msg = format!("{content}\n");
-                                write_log_entry(opts.handle, opts.term_name, nanos, msg.as_bytes());
-                            } else {
-                                // No parseable timestamp — send with nanos=0
-                                write_log_entry(opts.handle, opts.term_name, 0, &data);
                             }
+                            // Send raw Docker bytes (with timestamp prefix) — frontend
+                            // parses timestamps client-side for banner interleaving.
+                            opts.handle.write_data(opts.term_name, data.to_vec());
                         }
                     }
                     Some(Err(e)) => {

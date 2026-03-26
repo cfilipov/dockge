@@ -42,8 +42,22 @@ export function makeEvent(
     id: string,
     attributes: Record<string, string> = {},
 ): DockerEvent {
-    const now = clock.now();
-    const epochMs = now.getTime();
+    return makeEventAt(clock.now(), type, action, id, attributes);
+}
+
+/**
+ * Build a DockerEvent with an explicit timestamp (no clock tick).
+ * Use this when the event time must align with a known timestamp
+ * (e.g. container StartedAt) rather than the clock's tick counter.
+ */
+export function makeEventAt(
+    time: Date,
+    type: string,
+    action: string,
+    id: string,
+    attributes: Record<string, string> = {},
+): DockerEvent {
+    const epochMs = time.getTime();
     const epochSec = Math.floor(epochMs / 1000);
     const epochNano = epochMs * 1_000_000; // ms → ns
 
