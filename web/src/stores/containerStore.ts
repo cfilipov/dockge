@@ -10,6 +10,7 @@ export interface DockerResourceEvent {
     stackName: string;
     serviceName: string;
     containerId: string;
+    timeNano: number;
 }
 
 /** Matches the Go ContainerBroadcast type. */

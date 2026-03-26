@@ -90,7 +90,7 @@ beforeAll(async () => {
     const stacksDir = join(tmpDir, "stacks");
     mkdirSync(stacksDir, { recursive: true });
 
-    const clock = createClock({ fixed: true, base: "2025-01-15T00:00:00Z" });
+    const clock = createClock({ base: "2025-01-15T00:00:00Z" });
     initOpts = { stacksSource: FIXTURES, stacksDir, clock };
     const state = await initState(initOpts);
     const emitter = new EventEmitter();
@@ -679,7 +679,7 @@ describe("e2e mode", () => {
         const stacksDir = join(tmpDir, "stacks");
         mkdirSync(stacksDir, { recursive: true });
 
-        const clock = createClock({ fixed: true, base: "2025-01-15T00:00:00Z" });
+        const clock = createClock({ base: "2025-01-15T00:00:00Z" });
         const e2eInitOpts: InitOptions = { stacksSource: FIXTURES, stacksDir, clock };
         const state = await initState(e2eInitOpts);
         const emitter = new EventEmitter();

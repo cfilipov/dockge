@@ -12,6 +12,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_COLS, TERMINAL_ROWS } from "../common/util-common";
 import { useTheme } from "../composables/useTheme";
 import { useTerminalMux, type TerminalSession } from "../composables/useTerminalMux";
+import { createLogBuffer, type LogBuffer } from "../common/log-banners";
 
 const { isDark } = useTheme();
 
@@ -91,6 +92,7 @@ let stopDarkWatcher: (() => void) | null = null;
 let termSession: TerminalSession | null = null;
 let spinnerTimer: ReturnType<typeof setTimeout> | null = null;
 let spinnerInterval: ReturnType<typeof setInterval> | null = null;
+let logBuffer: LogBuffer | null = null;
 
 function interactiveTerminalConfig() {
     terminal.value!.onKey(e => {
@@ -131,6 +133,13 @@ function stopSpinner() {
     }
 }
 
+/** Check if this terminal type should use banner interleaving. */
+function isLogTerminal(): boolean {
+    return props.terminalType === "container-log"
+        || props.terminalType === "container-log-by-name"
+        || props.terminalType === "combined";
+}
+
 function connectTerminal() {
     startSpinnerDebounce();
 
@@ -143,6 +152,16 @@ function connectTerminal() {
         shell: props.terminalParams?.shell,
     });
 
+    // Create log buffer for log terminal types
+    if (isLogTerminal() && terminal.value) {
+        logBuffer = createLogBuffer({
+            terminal: terminal.value,
+            terminalType: props.terminalType as "container-log" | "container-log-by-name" | "combined",
+            containerName: props.terminalParams?.container || props.terminalParams?.service,
+            stackName: props.terminalParams?.stack,
+        });
+    }
+
     let firstMessage = true;
     termSession.onData((data: Uint8Array) => {
         if (!terminal.value) return;
@@ -152,7 +171,13 @@ function connectTerminal() {
             terminal.value.write("\x1b[?25h");
             firstMessage = false;
         }
-        terminal.value.write(data);
+
+        // Route log data through the log buffer, other terminals write directly
+        if (logBuffer) {
+            logBuffer.feed(data);
+        } else {
+            terminal.value.write(data);
+        }
 
         if (first) {
             emit("has-data");
@@ -288,6 +313,10 @@ onMounted(() => {
 onUnmounted(() => {
     stopSpinner();
     stopDarkWatcher?.();
+    if (logBuffer) {
+        logBuffer.destroy();
+        logBuffer = null;
+    }
     window.removeEventListener("resize", onResizeEvent);
     if (terminalEl.value) {
         terminalEl.value.removeEventListener("contextmenu", handleContextMenu);

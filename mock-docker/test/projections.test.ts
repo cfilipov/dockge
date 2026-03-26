@@ -140,8 +140,9 @@ describe("computeStatusString", () => {
     });
 
     it("created container shows Created", () => {
+        const clock = new FixedClock(new Date(BASE_TIME));
         const s = st({ Status: "created", Running: false, Paused: false, Restarting: false, OOMKilled: false, Dead: false, Pid: 0, ExitCode: 0, StartedAt: ZERO_TIME, FinishedAt: ZERO_TIME });
-        expect(computeStatusString(s)).toBe("Created");
+        expect(computeStatusString(s, clock)).toBe("Created");
     });
 
     it("formats 1 second singular", () => {
@@ -178,24 +179,28 @@ describe("projectToContainerListEntry", () => {
     });
 
     it("concatenates Path and Args into Command", () => {
+        const clock = new FixedClock(new Date(BASE_TIME));
         const c = makeContainer({ State: RUNNING, Path: "/bin/sh", Args: ["-c", "echo hello"] });
-        const entry = projectToContainerListEntry(c);
+        const entry = projectToContainerListEntry(c, clock);
         expect(entry.Command).toBe("/bin/sh -c echo hello");
     });
 
     it("handles empty Args in Command", () => {
+        const clock = new FixedClock(new Date(BASE_TIME));
         const c = makeContainer({ State: RUNNING, Path: "/bin/sh", Args: [] });
-        const entry = projectToContainerListEntry(c);
+        const entry = projectToContainerListEntry(c, clock);
         expect(entry.Command).toBe("/bin/sh");
     });
 
     it("converts Created ISO to unix epoch", () => {
+        const clock = new FixedClock(new Date(BASE_TIME));
         const c = makeContainer({ State: RUNNING, Created: "2025-06-15T12:30:00Z" });
-        const entry = projectToContainerListEntry(c);
+        const entry = projectToContainerListEntry(c, clock);
         expect(entry.Created).toBe(Math.floor(new Date("2025-06-15T12:30:00Z").getTime() / 1000));
     });
 
     it("flattens published ports", () => {
+        const clock = new FixedClock(new Date(BASE_TIME));
         const c = makeContainer({
             State: RUNNING,
             NetworkSettings: {
@@ -207,7 +212,7 @@ describe("projectToContainerListEntry", () => {
                 Networks: {},
             },
         });
-        const entry = projectToContainerListEntry(c);
+        const entry = projectToContainerListEntry(c, clock);
         expect(entry.Ports).toHaveLength(3);
         expect(entry.Ports[0]).toEqual({ PrivatePort: 80, PublicPort: 8080, Type: "tcp", IP: "0.0.0.0" });
         expect(entry.Ports[1]).toEqual({ PrivatePort: 443, PublicPort: 8443, Type: "tcp", IP: "0.0.0.0" });
@@ -215,6 +220,7 @@ describe("projectToContainerListEntry", () => {
     });
 
     it("flattens exposed-only ports (null bindings)", () => {
+        const clock = new FixedClock(new Date(BASE_TIME));
         const c = makeContainer({
             State: RUNNING,
             NetworkSettings: {
@@ -223,20 +229,22 @@ describe("projectToContainerListEntry", () => {
                 Networks: {},
             },
         });
-        const entry = projectToContainerListEntry(c);
+        const entry = projectToContainerListEntry(c, clock);
         expect(entry.Ports).toEqual([{ PrivatePort: 3306, Type: "tcp" }]);
     });
 
     it("includes Health when healthcheck exists", () => {
+        const clock = new FixedClock(new Date(BASE_TIME));
         const s = st({ ...RUNNING, Health: { Status: "healthy", FailingStreak: 0, Log: [] } });
         const c = makeContainer({ State: s });
-        const entry = projectToContainerListEntry(c);
+        const entry = projectToContainerListEntry(c, clock);
         expect(entry.Health).toEqual({ Status: "healthy", FailingStreak: 0 });
     });
 
     it("omits Health when no healthcheck", () => {
+        const clock = new FixedClock(new Date(BASE_TIME));
         const c = makeContainer({ State: RUNNING });
-        const entry = projectToContainerListEntry(c);
+        const entry = projectToContainerListEntry(c, clock);
         expect(entry.Health).toBeUndefined();
     });
 });

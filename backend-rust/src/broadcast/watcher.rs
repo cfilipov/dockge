@@ -46,6 +46,7 @@ pub struct ResourceEvent {
     pub service_name: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub container_id: String,
+    pub time_nano: i64,
 }
 
 /// Pending batch of events for the coalescer.
@@ -186,7 +187,8 @@ async fn handle_event(
     state: &AppState,
     event: EventMessage,
 ) {
-    let EventMessage { typ, action, actor, .. } = event;
+    let EventMessage { typ, action, actor, time_nano, .. } = event;
+    let time_nano = time_nano.unwrap_or(0);
     let action = action.unwrap_or_default();
     let (actor_id, attributes) = match actor {
         Some(a) => (
@@ -234,6 +236,7 @@ async fn handle_event(
         service: service_name.clone(),
         container_id: container_id.clone(),
         name: name.clone(),
+        time_nano,
     });
 
     // Skip broadcasts if no authenticated clients
@@ -250,6 +253,7 @@ async fn handle_event(
         stack_name,
         service_name,
         container_id,
+        time_nano,
     };
     state.broadcaster.send_event("resourceEvent", &resource_event);
 

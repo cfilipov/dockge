@@ -15,6 +15,10 @@ pub struct DockerEvent {
     pub service: String,
     pub container_id: String,
     pub name: String,
+    /// Nanosecond-precision timestamp from Docker. Available for internal subscribers
+    /// that need temporal ordering (e.g. the frontend event store uses it for banners).
+    #[allow(dead_code)]
+    pub time_nano: i64,
 }
 
 /// Broadcast channel for internal Docker event subscribers.

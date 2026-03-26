@@ -27,31 +27,30 @@ services:
 describe("generateStartupLogs", () => {
     it("returns 5-8 lines", () => {
         const container = makeContainer();
-        const clock = new FixedClock(new Date("2025-01-15T00:00:00Z"));
-        const lines = generateStartupLogs(container, clock);
+        const baseTime = new Date(container.State.StartedAt);
+        const lines = generateStartupLogs(container, baseTime);
         expect(lines.length).toBeGreaterThanOrEqual(5);
         expect(lines.length).toBeLessThanOrEqual(8);
     });
 
     it("includes Listening on port with first exposed port", () => {
         const container = makeContainer();
-        const clock = new FixedClock(new Date("2025-01-15T00:00:00Z"));
-        const lines = generateStartupLogs(container, clock);
+        const baseTime = new Date(container.State.StartedAt);
+        const lines = generateStartupLogs(container, baseTime);
         const hasPort = lines.some((l) => l.includes("Listening on port 80"));
         expect(hasPort).toBe(true);
     });
 
     it("is deterministic", () => {
         const container = makeContainer();
-        const clock1 = new FixedClock(new Date("2025-01-15T00:00:00Z"));
-        const clock2 = new FixedClock(new Date("2025-01-15T00:00:00Z"));
-        expect(generateStartupLogs(container, clock1)).toEqual(generateStartupLogs(container, clock2));
+        const baseTime = new Date(container.State.StartedAt);
+        expect(generateStartupLogs(container, baseTime)).toEqual(generateStartupLogs(container, baseTime));
     });
 
     it("each line has timestamp format", () => {
         const container = makeContainer();
-        const clock = new FixedClock(new Date("2025-01-15T00:00:00Z"));
-        const lines = generateStartupLogs(container, clock);
+        const baseTime = new Date(container.State.StartedAt);
+        const lines = generateStartupLogs(container, baseTime);
         for (const line of lines) {
             // ISO 8601 timestamp at start
             expect(line).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
@@ -90,9 +89,10 @@ describe("generatePeriodicLogLine", () => {
 
     it("is deterministic for same line number", () => {
         const container = makeContainer();
-        const clock = new FixedClock(new Date("2025-01-15T01:00:00Z"));
-        const line1 = generatePeriodicLogLine(container, 42, clock);
-        const line2 = generatePeriodicLogLine(container, 42, clock);
+        const clock1 = new FixedClock(new Date("2025-01-15T01:00:00Z"));
+        const clock2 = new FixedClock(new Date("2025-01-15T01:00:00Z"));
+        const line1 = generatePeriodicLogLine(container, 42, clock1);
+        const line2 = generatePeriodicLogLine(container, 42, clock2);
         expect(line1).toBe(line2);
     });
 

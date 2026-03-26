@@ -108,13 +108,13 @@ describe("deterministicTimestamp", () => {
         expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     });
 
-    it("is within 24h of base", () => {
+    it("is within 1h before base", () => {
         const base = "2025-01-01T00:00:00Z";
         const ts = deterministicTimestamp("seed", base);
         const baseMs = new Date(base).getTime();
         const tsMs = new Date(ts).getTime();
-        expect(tsMs).toBeGreaterThanOrEqual(baseMs);
-        expect(tsMs).toBeLessThan(baseMs + 86400 * 1000);
+        expect(tsMs).toBeLessThanOrEqual(baseMs);
+        expect(tsMs).toBeGreaterThan(baseMs - 3600 * 1000);
     });
 
     it("is idempotent", () => {

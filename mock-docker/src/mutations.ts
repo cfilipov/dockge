@@ -160,7 +160,7 @@ export function containerStart(
     addContainerToNetworks(state, c);
 
     // Append startup logs to the per-container buffer
-    const startupLines = generateStartupLogs(c, clock, state.logTemplates);
+    const startupLines = generateStartupLogs(c, new Date(c.State.StartedAt), state.logTemplates);
     for (const line of startupLines) {
         appendLog(state, c.Id, clock.now().getTime(), line);
     }

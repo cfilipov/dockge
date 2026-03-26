@@ -26,7 +26,6 @@ const { values } = parseArgs({
         "stacks-dir": { type: "string" },
         "stacks-source": { type: "string" },
         "e2e": { type: "boolean", default: false },
-        "clock-fixed": { type: "boolean", default: false },
         "clock-base": { type: "string", default: "2025-01-15T00:00:00Z" },
         "images-json": { type: "string" },
         "log-interval": { type: "string", default: "5000" },
@@ -49,13 +48,13 @@ if (!socketPath || !stacksDir || !stacksSource) {
 // ---------------------------------------------------------------------------
 
 const clock = createClock({
-    fixed: values["clock-fixed"] || values["e2e"],
     base: values["clock-base"],
 });
 
 const initOpts: InitOptions = { stacksSource, stacksDir, clock, imagesJsonPath: values["images-json"] };
 const state = await initState(initOpts);
 const emitter = new EventEmitter();
+emitter.bind(state);
 
 // Collect all routes (order matters — most-specific first)
 const routes: Route[] = [

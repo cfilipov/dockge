@@ -1,10 +1,17 @@
 import type { DockerEvent } from "./list-types.js";
+import type { MockState } from "./state.js";
 import type { Clock } from "./clock.js";
 
 export type EventListener = (event: DockerEvent) => void;
 
 export class EventEmitter {
     private listeners = new Set<EventListener>();
+    private state: MockState | null = null;
+
+    /** Bind to a MockState so emit() also records to eventHistory. */
+    bind(state: MockState): void {
+        this.state = state;
+    }
 
     subscribe(listener: EventListener): void {
         this.listeners.add(listener);
@@ -15,6 +22,10 @@ export class EventEmitter {
     }
 
     emit(event: DockerEvent): void {
+        // Record to event history for /events?since= queries
+        if (this.state) {
+            this.state.eventHistory.push(event);
+        }
         for (const listener of this.listeners) {
             listener(event);
         }

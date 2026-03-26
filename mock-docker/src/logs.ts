@@ -34,7 +34,7 @@ function getImageRef(container: ContainerInspect): string {
 
 export function generateStartupLogs(
     container: ContainerInspect,
-    clock: Clock,
+    baseTime: Date,
     templates?: LogTemplates | null,
 ): string[] {
     const imageRef = getImageRef(container);
@@ -42,9 +42,9 @@ export function generateStartupLogs(
 
     if (tmpl) {
         const lines: string[] = [];
-        const baseTime = new Date(clock.now().getTime() - tmpl.startup.length * 100);
+        const startMs = baseTime.getTime();
         for (let i = 0; i < tmpl.startup.length; i++) {
-            const ts = formatTimestamp(new Date(baseTime.getTime() + i * 100));
+            const ts = formatTimestamp(new Date(startMs + i * 100));
             lines.push(expandPlaceholders(tmpl.startup[i], {
                 timestamp: ts,
                 image: extractBaseImageName(imageRef),
@@ -55,7 +55,7 @@ export function generateStartupLogs(
     }
 
     // Fallback: generic logs (legacy behavior)
-    return generateGenericStartupLogs(container, clock);
+    return generateGenericStartupLogs(container, baseTime);
 }
 
 export function generateShutdownLogs(
@@ -244,15 +244,15 @@ function fillGenericTemplate(template: string, seed: string): string {
         .replace("{memory}", String(deterministicInt(seed + "mem", 32, 512)));
 }
 
-function generateGenericStartupLogs(container: ContainerInspect, clock: Clock): string[] {
+function generateGenericStartupLogs(container: ContainerInspect, baseTime: Date): string[] {
     const seed = containerSeed(container);
     const count = deterministicInt(seed + "startup-count", 5, 8);
     const port = getFirstExposedPort(container);
     const lines: string[] = [];
-    const baseTime = new Date(clock.now().getTime() - count * 100);
+    const startMs = baseTime.getTime();
 
     for (let i = 0; i < count; i++) {
-        const ts = formatTimestamp(new Date(baseTime.getTime() + i * 100));
+        const ts = formatTimestamp(new Date(startMs + i * 100));
         let msg = GENERIC_STARTUP_TEMPLATES[i % GENERIC_STARTUP_TEMPLATES.length];
         msg = msg.replace("{port}", String(port));
         lines.push(`${ts} INFO [server] ${msg}`);

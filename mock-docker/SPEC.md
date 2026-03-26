@@ -1664,8 +1664,7 @@ The mock daemon accepts configuration via CLI flags:
 | `--stacks-dir` | `./stacks` | Runtime stacks directory (read/write) |
 | `--stacks-source` | `./test-data/stacks` | Source directory of test fixture stacks (read-only) |
 | `--e2e` | `false` | Enables e2e mode (see §16.2) |
-| `--clock-fixed` | `false` | If true, clock returns a fixed time (fully deterministic timestamps for mutations) |
-| `--clock-base` | `2025-01-15T00:00:00Z` | Base time for deterministic timestamp generation |
+| `--clock-base` | `2025-01-15T00:00:00Z` | Base time for deterministic timestamp generation (clock is always fixed) |
 | `--log-interval` | `5000` | Milliseconds between periodic log lines (ignored in e2e mode) |
 | `--stats-interval` | `1000` | Milliseconds between stats updates (ignored in e2e mode) |
 

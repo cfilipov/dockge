@@ -32,6 +32,9 @@ export const test = base.extend<
         const testName = testInfo.titlePath.join(" > ");
         perfCollector.beginTest(testName);
 
+        // Track clientWarning frames — any occurrence fails the test
+        const clientWarnings: string[] = [];
+
         // Intercept WebSocket frames for socket tracking
         page.on("websocket", (ws) => {
             perfCollector.recordNewConnection(testName);
@@ -44,11 +47,20 @@ export const test = base.extend<
             ws.on("framesent", (frame) => {
                 if (typeof frame.payload === "string") {
                     perfCollector.recordClientFrame(testName, frame.payload);
+                    if (frame.payload.includes('"clientWarning"')) {
+                        clientWarnings.push(frame.payload);
+                    }
                 }
             });
         });
 
         await use(page);
+
+        // Fail the test if any clientWarning was sent
+        if (clientWarnings.length > 0) {
+            throw new Error(`clientWarning during "${testName}": ${clientWarnings[0]}`);
+        }
+
         perfCollector.endTest(testName);
     },
 });

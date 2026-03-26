@@ -8,6 +8,7 @@ import type { MockGlobalConfig, MockStandaloneContainer } from "./mock-config.js
 import { generateStack } from "./generator.js";
 import { loadLogTemplates } from "./log-templates.js";
 import { generateStartupLogs } from "./logs.js";
+import { makeEvent } from "./events.js";
 import type { Clock } from "./clock.js";
 import type {
     ContainerInspect, ContainerState, NetworkInspect, VolumeInspect, ImageInspect,
@@ -221,13 +222,56 @@ export async function initState(opts: InitOptions): Promise<MockState> {
     // produce overlapping log timestamps (enabling proper interleaved merge-sort).
     for (const container of state.containers.values()) {
         if (container.State.Running) {
-            const startupLines = generateStartupLogs(container, clock, state.logTemplates);
+            const startupLines = generateStartupLogs(container, new Date(container.State.StartedAt), state.logTemplates);
             const startedAt = new Date(container.State.StartedAt).getTime();
             for (let i = 0; i < startupLines.length; i++) {
                 appendLog(state, container.Id, startedAt + i * 100, startupLines[i]);
             }
         }
     }
+
+    // Step 7: Build deterministic event history for existing resources.
+    // These events reflect the "would have happened" sequence during daemon init.
+    // Networks first (they must exist before containers connect to them).
+    for (const net of state.networks.values()) {
+        const attrs: Record<string, string> = { name: net.Name, type: net.Driver };
+        state.eventHistory.push(makeEvent(clock, "network", "create", net.Id, attrs));
+    }
+    // Then containers: create + start events for running containers.
+    for (const c of state.containers.values()) {
+        const name = c.Name.replace(/^\//, "");
+        const attrs: Record<string, string> = {
+            name,
+            image: c.Config.Image || "",
+        };
+        const labels = c.Config.Labels ?? {};
+        if (labels["com.docker.compose.project"]) {
+            attrs["com.docker.compose.project"] = labels["com.docker.compose.project"];
+        }
+        if (labels["com.docker.compose.service"]) {
+            attrs["com.docker.compose.service"] = labels["com.docker.compose.service"];
+        }
+        state.eventHistory.push(makeEvent(clock, "container", "create", c.Id, { ...attrs }));
+        if (c.State.Running) {
+            state.eventHistory.push(makeEvent(clock, "container", "start", c.Id, { ...attrs }));
+            // Network connect events for each attached network
+            const networks = c.NetworkSettings.Networks;
+            if (networks) {
+                for (const [netName, endpoint] of Object.entries(networks)) {
+                    const net = state.networks.get(endpoint.NetworkID);
+                    if (net) {
+                        state.eventHistory.push(makeEvent(clock, "network", "connect", net.Id, {
+                            name: netName,
+                            container: c.Id,
+                            type: net.Driver,
+                        }));
+                    }
+                }
+            }
+        }
+    }
+    // Sort by timeNano for deterministic ordering.
+    state.eventHistory.sort((a, b) => a.timeNano - b.timeNano);
 
     return state;
 }

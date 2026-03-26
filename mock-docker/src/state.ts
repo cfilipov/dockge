@@ -6,6 +6,7 @@ import type {
     ImageInspect,
     ExecInspect,
 } from "./types.js";
+import type { DockerEvent } from "./list-types.js";
 import type { LogTemplates } from "./log-templates.js";
 
 export interface LogEntry {
@@ -31,6 +32,8 @@ export class MockState {
     logEmitter: NodeEventEmitter;
     /** Active heartbeat intervals per container ID. */
     heartbeatIntervals: Map<string, ReturnType<typeof setInterval>>;
+    /** Deterministic event history — built during init, appended on mutations. */
+    eventHistory: DockerEvent[];
 
     constructor() {
         this.containers = new Map();
@@ -45,6 +48,7 @@ export class MockState {
         this.logEmitter = new NodeEventEmitter();
         this.logEmitter.setMaxListeners(200);
         this.heartbeatIntervals = new Map();
+        this.eventHistory = [];
     }
 
     /** Returns the next stats counter for a container, incrementing it for future calls. */
@@ -67,6 +71,7 @@ export class MockState {
             clearInterval(interval);
         }
         this.heartbeatIntervals.clear();
+        this.eventHistory = [];
         // logTemplates is intentionally NOT cleared — it's loaded from source, not runtime state
     }
 }

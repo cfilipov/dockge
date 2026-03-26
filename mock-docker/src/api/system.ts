@@ -80,7 +80,7 @@ export const systemRoutes: Route[] = [
     {
         method: "GET",
         pattern: "/events",
-        handler: async ({ req, res, query, emitter, clock }) => {
+        handler: async ({ req, res, query, state, emitter, clock }) => {
             const filters = parseFilters(query.filters);
             const since = query.since ? parseFloat(query.since) : undefined;
             const until = query.until ? parseFloat(query.until) : undefined;
@@ -90,7 +90,18 @@ export const systemRoutes: Route[] = [
                 "Transfer-Encoding": "chunked",
             });
 
-            // If until is in the past, close immediately
+            // Replay historical events from eventHistory (for since= queries)
+            if (since !== undefined) {
+                for (const event of state.eventHistory) {
+                    if (event.time < since) continue;
+                    if (until !== undefined && event.time > until) continue;
+                    if (applyEventFilters(event, filters)) {
+                        res.write(JSON.stringify(event) + "\n");
+                    }
+                }
+            }
+
+            // If until is in the past (or now), close after replaying history
             if (until !== undefined && until <= clock.now().getTime() / 1000) {
                 res.end();
                 return;

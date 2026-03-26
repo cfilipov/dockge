@@ -9,10 +9,11 @@ import { useNetworkStore } from "../stores/networkStore";
 import { useImageStore } from "../stores/imageStore";
 import { useVolumeStore } from "../stores/volumeStore";
 import { useUpdateStore } from "../stores/updateStore";
+import { useEventStore } from "../stores/eventStore";
 
 // --- Plain WebSocket wrapper (replaces socket.io-client) ---
 
-class DockgeWebSocket {
+export class DockgeWebSocket {
     private ws: WebSocket | null = null;
     private nextId = 1;
     private callbacks = new Map<number, (...args: unknown[]) => void>();
@@ -509,11 +510,23 @@ export function initWebSocket() {
         markChannel("updateCheckComplete");
     });
 
+    // --- Event history channel (afterLogin) ---
+    socket.on("events", (data: any) => {
+        const items = data?.items ?? data;
+        if (Array.isArray(items)) {
+            useEventStore().bulkLoad(items);
+        }
+    });
+
     // --- Dedicated resource event channel ---
     // Docker events are sent individually on this channel, decoupled from list broadcasts.
     socket.on("resourceEvent", (data: any) => {
         const evt = data;
         if (!evt?.type) return;
+
+        // Insert into event store (for banner interleaving in log terminals)
+        useEventStore().insert(evt);
+
         switch (evt.type) {
             case "container":
                 useContainerStore().setLastEvent(evt);

@@ -1,11 +1,14 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+use bollard::models::EventMessageTypeEnum;
+use futures_util::StreamExt;
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
 use crate::auth;
+use crate::broadcast::watcher::ResourceEvent;
 use crate::db::users;
 use crate::docker;
 use crate::ws::conn::Conn;
@@ -492,6 +495,105 @@ pub(crate) fn after_login(state: &Arc<AppState>, conn: &Arc<Conn>) {
             });
         });
     }
+
+    // Docker event history (one-shot query — independent of the long-lived watcher stream)
+    {
+        let docker = state.docker.clone();
+        let conn = conn.clone();
+        tokio::spawn(async move {
+            let now_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+
+            let mut filters = HashMap::new();
+            filters.insert("type".to_string(), vec![
+                "container".to_string(),
+                "network".to_string(),
+                "image".to_string(),
+                "volume".to_string(),
+            ]);
+
+            let opts = bollard::query_parameters::EventsOptionsBuilder::default()
+                .since("0")
+                .until(&now_secs.to_string())
+                .filters(&filters)
+                .build();
+
+            let mut stream = docker.events(Some(opts));
+            let mut events: Vec<ResourceEvent> = Vec::new();
+
+            while let Some(item) = stream.next().await {
+                match item {
+                    Ok(event) => {
+                        if let Some(re) = event_message_to_resource_event(event) {
+                            events.push(re);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("afterLogin: events history: {e}");
+                        break;
+                    }
+                }
+            }
+
+            events.sort_by_key(|e| e.time_nano);
+            conn.send_event("events", ItemsEvent { items: events });
+        });
+    }
+}
+
+/// Convert a bollard EventMessage to our ResourceEvent format.
+/// Returns None for events that should be filtered out.
+fn event_message_to_resource_event(event: bollard::models::EventMessage) -> Option<ResourceEvent> {
+    let bollard::models::EventMessage { typ, action, actor, time_nano, .. } = event;
+    let action = action.unwrap_or_default();
+    let (actor_id, attributes) = match actor {
+        Some(a) => (
+            a.id.unwrap_or_default(),
+            a.attributes.unwrap_or_default(),
+        ),
+        None => (String::new(), HashMap::new()),
+    };
+    let event_type = typ.as_ref().map(|t| t.as_ref()).unwrap_or("").to_string();
+    let name = attributes.get("name").cloned().unwrap_or_default();
+
+    // Filter container events to relevant actions (same as watcher)
+    if typ == Some(EventMessageTypeEnum::CONTAINER) {
+        match action.as_str() {
+            "start" | "stop" | "die" | "pause" | "unpause" | "destroy" | "create" => {}
+            a if a.starts_with("health_status") => {}
+            _ => return None,
+        }
+    }
+
+    let stack_name = attributes
+        .get("com.docker.compose.project")
+        .cloned()
+        .unwrap_or_default();
+    let service_name = attributes
+        .get("com.docker.compose.service")
+        .cloned()
+        .unwrap_or_default();
+    let container_id = match typ {
+        Some(EventMessageTypeEnum::CONTAINER) => actor_id.clone(),
+        Some(EventMessageTypeEnum::NETWORK | EventMessageTypeEnum::VOLUME) => {
+            attributes.get("container").cloned().unwrap_or_default()
+        }
+        _ => String::new(),
+    };
+    let time_nano = time_nano.unwrap_or(0);
+
+    Some(ResourceEvent {
+        event_type,
+        action,
+        id: actor_id,
+        name,
+        stack_name,
+        service_name,
+        container_id,
+        time_nano,
+    })
 }
 
 /// Stack metadata for the "stacks" broadcast event.

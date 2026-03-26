@@ -78,7 +78,7 @@ describe("CLI integration tests", () => {
         // Use the built CLI bundle (must run `npm run build:cli` first)
         cliEntryPoint = join(import.meta.dirname!, "..", "dist", "cli.js");
 
-        const clock = createClock({ fixed: true, base: "2025-01-15T00:00:00Z" });
+        const clock = createClock({ base: "2025-01-15T00:00:00Z" });
         const initOpts: InitOptions = {
             stacksSource: FIXTURES,
             stacksDir,

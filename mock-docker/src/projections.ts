@@ -3,7 +3,6 @@
 import type { ContainerInspect, ContainerState, ImageInspect } from "./types.js";
 import type { ContainerListEntry, ImageListEntry, PortInfo } from "./list-types.js";
 import type { Clock } from "./clock.js";
-import { RealClock } from "./clock.js";
 
 /**
  * Format a millisecond duration as a human-readable relative time string.
@@ -30,7 +29,7 @@ function formatDuration(ms: number): string {
 /**
  * Compute the human-readable Status string (e.g. "Up 2 hours (healthy)").
  */
-export function computeStatusString(state: ContainerState, clock: Clock = new RealClock()): string {
+export function computeStatusString(state: ContainerState, clock: Clock): string {
     const now = clock.now().getTime();
 
     if (state.Status === "running" || state.Status === "paused") {
@@ -97,7 +96,7 @@ function flattenPorts(ports: Record<string, Array<{ HostIp: string; HostPort: st
 /**
  * Project a full ContainerInspect into a ContainerListEntry.
  */
-export function projectToContainerListEntry(container: ContainerInspect, clock: Clock = new RealClock(), includeSize: boolean = false): ContainerListEntry {
+export function projectToContainerListEntry(container: ContainerInspect, clock: Clock, includeSize: boolean = false): ContainerListEntry {
     const command = container.Path + (container.Args.length > 0 ? " " + container.Args.join(" ") : "");
 
     const entry: ContainerListEntry = {

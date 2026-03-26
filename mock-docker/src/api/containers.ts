@@ -222,7 +222,7 @@ export const containerRoutes: Route[] = [
                 }
             }
 
-            if (!follow || !container.State.Running) {
+            if (!follow || !container.State.Running || ctx.e2eMode) {
                 res.end();
                 return;
             }

@@ -47,13 +47,14 @@ export function deterministicIp(seed: string, subnet: string): string {
 }
 
 /**
- * Deterministic ISO 8601 timestamp: base date + deterministic offset (0–86400s).
+ * Deterministic ISO 8601 timestamp: base date - deterministic offset (0–3600s).
+ * Subtracts the offset so generated timestamps are always in the past relative to base.
  */
 export function deterministicTimestamp(seed: string, base: string): string {
     const hash = createHash("sha256").update(seed).digest();
-    const offsetSeconds = hash.readUInt32BE(0) % 86400;
+    const offsetSeconds = hash.readUInt32BE(0) % 3600;
     const date = new Date(base);
-    date.setSeconds(date.getSeconds() + offsetSeconds);
+    date.setSeconds(date.getSeconds() - offsetSeconds);
     return date.toISOString();
 }
 

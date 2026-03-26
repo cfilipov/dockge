@@ -33,6 +33,7 @@ export const mockRoutes: Route[] = [
                 state.execSessions = fresh.execSessions;
                 state.logTemplates = fresh.logTemplates;
                 state.logBuffers = fresh.logBuffers;
+                state.eventHistory = fresh.eventHistory;
                 // Clear heartbeat intervals from old state
                 for (const interval of state.heartbeatIntervals.values()) {
                     clearInterval(interval);

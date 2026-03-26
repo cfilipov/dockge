@@ -242,63 +242,6 @@ describe("terminal", () => {
 
     // Mutation tests last — these stop containers/stacks
 
-    test("bannerUsesBackgroundColor — stop banner uses background ANSI codes", async () => {
-        const client = await connectClient();
-        try {
-            await client.login();
-
-            // Join combined log terminal
-            const joinResp = await client.sendAndReceive("terminalJoin", {
-                type: "combined",
-                stack: "test-stack",
-            });
-            expect(joinResp.ok).toBe(true);
-            const sessionId = joinResp.sessionId as number;
-
-            // Drain initial historical log output
-            for (let i = 0; i < 10; i++) {
-                try {
-                    await client.waitForBinary(3000);
-                } catch {
-                    break;
-                }
-            }
-
-            // Trigger stopStack to produce a CONTAINER STOP banner
-            const actionPromise = client.sendAction("stopStack", "test-stack");
-
-            // Collect binary frames looking for the banner
-            let bannerOutput = "";
-            for (let i = 0; i < 50; i++) {
-                try {
-                    const data = await client.waitForBinary(15000);
-                    if (((data[0] << 8) | data[1]) !== sessionId) continue;
-                    bannerOutput += data.subarray(2).toString("utf-8");
-
-                    if (bannerOutput.includes("CONTAINER STOP")) {
-                        break;
-                    }
-                } catch {
-                    break;
-                }
-            }
-
-            // Banner must have been emitted
-            expect(bannerOutput).toContain("CONTAINER STOP");
-
-            // Must use background RGB color codes (48;2;R;G;B)
-            expect(bannerOutput).toContain("48;2;");
-
-            // Must NOT use foreground-only codes like \x1b[1;33m or \x1b[1;34m immediately before CONTAINER
-            const fgOnlyPattern = /\x1b\[1;3[34]m[^]*?CONTAINER/;
-            expect(fgOnlyPattern.test(bannerOutput)).toBe(false);
-
-            await actionPromise;
-        } finally {
-            client.close();
-        }
-    });
-
     test("containerActionTerminal — stopContainer writes to container-action terminal", async () => {
         const client = await connectClient();
         try {

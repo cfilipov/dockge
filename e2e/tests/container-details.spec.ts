@@ -83,6 +83,8 @@ test.describe("Container Log Lifecycle Banners", () => {
         // Verify shutdown log appears (from log-templates.yaml alpine.shutdown)
         await expect(logTerminal).toContainText("Received SIGTERM, exiting", { timeout: 10000 });
 
+        await page.screenshot({ path: 'ContainerStart-DEBUG.png' });
+
         // Verify stop banner appears
         await expect(logTerminal).toContainText("CONTAINER STOP", { timeout: 10000 });
 

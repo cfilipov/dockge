@@ -39,23 +39,10 @@ const SERVICE_COLORS: &[&str] = &[
     "\x1b[31m", // red
 ];
 const ANSI_RESET: &str = "\x1b[0m";
-/// Bold, black text on blue background (#74c2ff) — matches Go backend
-const ANSI_BG_BLUE: &str = "\x1b[1;38;2;0;0;0;48;2;116;194;255m";
-/// Bold, black text on yellow background (#f8a306) — matches Go backend
-const ANSI_BG_YELLOW: &str = "\x1b[1;38;2;0;0;0;48;2;248;163;6m";
-
 fn colored_prefix(service: &str, max_len: usize, color_idx: usize) -> String {
     let color = SERVICE_COLORS[color_idx % SERVICE_COLORS.len()];
     let padded = format!("{:width$}", service, width = max_len);
     format!("{color}{padded} | {ANSI_RESET}")
-}
-
-fn run_banner(service: &str) -> String {
-    format!("\n{ANSI_BG_BLUE} \u{25b6} CONTAINER START \u{2014} {service} {ANSI_RESET}\n\n")
-}
-
-fn stop_banner(service: &str) -> String {
-    format!("\n{ANSI_BG_YELLOW} \u{25fc} CONTAINER STOP \u{2014} {service} {ANSI_RESET}\n\n")
 }
 
 /// Split a Docker log line with timestamp prefix into (timestamp, rest).
@@ -288,6 +275,17 @@ pub fn register(ws: &mut WsServer, state: Arc<AppState>) {
                         )),
                     );
                 }
+            }
+        }
+    });
+
+    // clientWarning — frontend reports late log delivery or other anomalies
+    ws.handle("clientWarning", move |_conn: Arc<Conn>, msg: ClientMessage| {
+        async move {
+            let args = parse_args(&msg);
+            let warning = super::arg_string(&args, 0);
+            if !warning.is_empty() {
+                warn!("client warning: {warning}");
             }
         }
     });
@@ -670,6 +668,18 @@ async fn handle_container_action_terminal(
     alloc_join_ack_replay(conn, &state.terminal_manager, &term_name, msg).await;
 }
 
+// ── Binary log entry framing ────────────────────────────────────────────────
+
+/// Write a binary log entry: [timestamp_nanos: i64 BE, 8][message_length: u32 BE, 4][message bytes].
+/// The frontend parses this structured format to get timestamps without text parsing.
+fn write_log_entry(handle: &TerminalHandle, term_name: &str, nanos: i64, message: &[u8]) {
+    let mut entry = Vec::with_capacity(12 + message.len());
+    entry.extend_from_slice(&nanos.to_be_bytes());
+    entry.extend_from_slice(&(message.len() as u32).to_be_bytes());
+    entry.extend_from_slice(message);
+    handle.write_data(term_name, entry);
+}
+
 // ── Combined log streaming (Phase 2) ───────────────────────────────────────
 
 /// A log line with its original timestamp for sorting.
@@ -677,6 +687,8 @@ struct TsLine {
     /// RFC3339Nano timestamp string (sorts lexicographically for UTC —
     /// Docker always uses UTC timestamps so this is valid).
     ts: String,
+    /// Nanoseconds since epoch (for binary framing).
+    nanos: i64,
     /// Formatted display line with colored service prefix.
     display: String,
 }
@@ -746,8 +758,10 @@ async fn run_combined_logs(
                         let text = String::from_utf8_lossy(&raw);
                         for line in text.lines() {
                             let (ts, content) = split_timestamp(line);
+                            let nanos = parse_timestamp_nanos(ts).unwrap_or(0);
                             all_lines.push(TsLine {
                                 ts: ts.to_string(),
+                                nanos,
                                 display: format!("{prefix}{content}\n"),
                             });
                         }
@@ -763,18 +777,18 @@ async fn run_combined_logs(
         // Sort by timestamp — RFC3339Nano with UTC sorts lexicographically
         all_lines.sort_by(|a, b| a.ts.cmp(&b.ts));
 
-        // Write sorted lines to terminal buffer
+        // Write sorted lines to terminal buffer as binary-framed entries
         for line in &all_lines {
             if cancel.is_cancelled() {
                 return;
             }
-            handle.write_data(term_name, line.display.as_bytes().to_vec());
+            write_log_entry(handle, term_name, line.nanos, line.display.as_bytes());
         }
     }
 
     // ── Phase 2: Live follow with EventBus-driven reconnection ──────────
     {
-        let (line_tx, mut line_rx) = tokio::sync::mpsc::channel::<String>(256);
+        let (line_tx, mut line_rx) = tokio::sync::mpsc::channel::<FollowLine>(256);
         let mut tasks = JoinSet::new();
 
         // Spawn a follower for each running container
@@ -801,8 +815,8 @@ async fn run_combined_logs(
                 () = cancel.cancelled() => return,
                 line = line_rx.recv() => {
                     match line {
-                        Some(text) => {
-                            handle.write_data(term_name, text.into_bytes());
+                        Some(fl) => {
+                            write_log_entry(handle, term_name, fl.nanos, fl.display.as_bytes());
                         }
                         None => break, // All senders dropped
                     }
@@ -810,39 +824,30 @@ async fn run_combined_logs(
                 event = event_rx.recv() => {
                     match event {
                         Ok(evt) if evt.project == stack_owned && evt.event_type == "container" => {
-                            match evt.action.as_str() {
-                                "start" => {
-                                    // Register new service if not yet in color_map
-                                    let ci = if let Some(&idx) = color_map.get(&evt.service) {
-                                        idx
-                                    } else {
-                                        let idx = color_map.len();
-                                        color_map.insert(evt.service.clone(), idx);
-                                        if evt.service.len() > max_len {
-                                            max_len = evt.service.len();
-                                        }
-                                        idx
-                                    };
-                                    let prefix = colored_prefix(&evt.service, max_len, ci);
-                                    let banner = run_banner(&evt.service);
-                                    handle.write_data(term_name, banner.into_bytes());
+                            if evt.action == "start" {
+                                // Register new service if not yet in color_map
+                                let ci = if let Some(&idx) = color_map.get(&evt.service) {
+                                    idx
+                                } else {
+                                    let idx = color_map.len();
+                                    color_map.insert(evt.service.clone(), idx);
+                                    if evt.service.len() > max_len {
+                                        max_len = evt.service.len();
+                                    }
+                                    idx
+                                };
+                                let prefix = colored_prefix(&evt.service, max_len, ci);
 
-                                    let docker = docker.clone();
-                                    let cname = evt.name.clone();
-                                    let tx = line_tx.clone();
-                                    let cancel = cancel.clone();
-                                    tasks.spawn(async move {
-                                        follow_container_logs(
-                                            &docker, &cname, &prefix, &tx, &cancel, None,
-                                        )
-                                        .await;
-                                    });
-                                }
-                                "die" | "stop" => {
-                                    let banner = stop_banner(&evt.service);
-                                    handle.write_data(term_name, banner.into_bytes());
-                                }
-                                _ => {}
+                                let docker = docker.clone();
+                                let cname = evt.name.clone();
+                                let tx = line_tx.clone();
+                                let cancel = cancel.clone();
+                                tasks.spawn(async move {
+                                    follow_container_logs(
+                                        &docker, &cname, &prefix, &tx, &cancel, None,
+                                    )
+                                    .await;
+                                });
                             }
                         }
                         Err(RecvError::Lagged(_)) => {
@@ -859,12 +864,18 @@ async fn run_combined_logs(
     }
 }
 
+/// A line from the live follow phase, with timestamp and display text.
+struct FollowLine {
+    nanos: i64,
+    display: String,
+}
+
 /// Follow a single container's logs (live), sending prefixed lines to `tx`.
 async fn follow_container_logs(
     docker: &docker::DockerClient,
     container_name: &str,
     prefix: &str,
-    tx: &tokio::sync::mpsc::Sender<String>,
+    tx: &tokio::sync::mpsc::Sender<FollowLine>,
     cancel: &CancellationToken,
     since: Option<i32>,
 ) {
@@ -872,9 +883,9 @@ async fn follow_container_logs(
         follow: true,
         stdout: true,
         stderr: true,
+        timestamps: true,
         tail: if since.is_some() { String::new() } else { "0".to_string() },
         since,
-        ..Default::default()
     };
 
     let mut stream = std::pin::pin!(docker::container_logs(docker, container_name, opts));
@@ -888,8 +899,10 @@ async fn follow_container_logs(
                         let raw = output.into_bytes();
                         let text = String::from_utf8_lossy(&raw);
                         for line in text.lines() {
-                            let formatted = format!("{prefix}{line}\n");
-                            if tx.send(formatted).await.is_err() {
+                            let (ts, content) = split_timestamp(line);
+                            let nanos = parse_timestamp_nanos(ts).unwrap_or(0);
+                            let display = format!("{prefix}{content}\n");
+                            if tx.send(FollowLine { nanos, display }).await.is_err() {
                                 return;
                             }
                         }
@@ -949,7 +962,7 @@ async fn run_container_log_loop(
     cancel: CancellationToken,
 ) {
     let mut container_name = initial_container.to_string();
-    let mut last_ts: Option<i32> = None;
+    let mut last_seen_nano: Option<i64> = None;
     let mut first = true;
 
     loop {
@@ -957,20 +970,27 @@ async fn run_container_log_loop(
             return;
         }
 
-        // First connect: tail=100. Reconnect: since=<last_ts> to get exactly the gap.
-        let (tail, since) = if first {
-            ("100".to_string(), None)
+        // First connect: tail=100, no filter. Reconnect: since=<seconds> + nano filter.
+        let (tail, since, filter_nano) = if first {
+            ("100".to_string(), None, None)
         } else {
-            (String::new(), last_ts)
+            let since_secs = last_seen_nano.map(|n| (n / 1_000_000_000) as i32);
+            (String::new(), since_secs, last_seen_nano)
         };
         first = false;
 
-        let ts = stream_single_container_to_terminal(
-            ctx.docker, &container_name, ctx.handle, ctx.term_name,
-            cancel.clone(), &tail, since,
-        ).await;
-        if let Some(t) = ts {
-            last_ts = Some(t);
+        let nanos = stream_single_container_to_terminal(StreamLogOpts {
+            docker: ctx.docker,
+            container_name: &container_name,
+            handle: ctx.handle,
+            term_name: ctx.term_name,
+            cancel: cancel.clone(),
+            tail: &tail,
+            since,
+            filter_nano,
+        }).await;
+        if let Some(n) = nanos {
+            last_seen_nano = Some(n);
         }
 
         if cancel.is_cancelled() {
@@ -978,9 +998,6 @@ async fn run_container_log_loop(
         }
 
         // Log stream ended — subscribe to EventBus and wait for restart
-        let banner = stop_banner(ctx.service);
-        ctx.handle.write_data(ctx.term_name, banner.into_bytes());
-
         let mut event_rx = ctx.event_bus.subscribe();
         let stack_owned = ctx.stack.to_string();
         let service_owned = ctx.service.to_string();
@@ -995,9 +1012,6 @@ async fn run_container_log_loop(
                             && evt.event_type == "container"
                             && evt.action == "start" =>
                         {
-                            let banner = run_banner(ctx.service);
-                            ctx.handle.write_data(ctx.term_name, banner.into_bytes());
-
                             // Update container name (may have changed after recreate)
                             if let Some(name) = find_container_id(ctx.docker, ctx.stack, ctx.service).await {
                                 container_name = name;
@@ -1023,7 +1037,7 @@ async fn run_container_log_by_name_loop(
     event_bus: &EventBus,
     cancel: CancellationToken,
 ) {
-    let mut last_ts: Option<i32> = None;
+    let mut last_seen_nano: Option<i64> = None;
     let mut first = true;
 
     loop {
@@ -1031,30 +1045,34 @@ async fn run_container_log_by_name_loop(
             return;
         }
 
-        // First connect: tail=100. Reconnect: since=<last_ts> to get exactly the gap.
-        let (tail, since) = if first {
-            ("100".to_string(), None)
+        // First connect: tail=100, no filter. Reconnect: since=<seconds> + nano filter.
+        let (tail, since, filter_nano) = if first {
+            ("100".to_string(), None, None)
         } else {
-            (String::new(), last_ts)
+            let since_secs = last_seen_nano.map(|n| (n / 1_000_000_000) as i32);
+            (String::new(), since_secs, last_seen_nano)
         };
         first = false;
 
-        let ts = stream_single_container_to_terminal(
-            docker, container_name, handle, term_name, cancel.clone(),
-            &tail, since,
-        ).await;
-        if let Some(t) = ts {
-            last_ts = Some(t);
+        let nanos = stream_single_container_to_terminal(StreamLogOpts {
+            docker,
+            container_name,
+            handle,
+            term_name,
+            cancel: cancel.clone(),
+            tail: &tail,
+            since,
+            filter_nano,
+        }).await;
+        if let Some(n) = nanos {
+            last_seen_nano = Some(n);
         }
 
         if cancel.is_cancelled() {
             return;
         }
 
-        // Log stream ended
-        let banner = stop_banner(container_name);
-        handle.write_data(term_name, banner.into_bytes());
-
+        // Log stream ended — wait for restart
         let mut event_rx = event_bus.subscribe();
         let cname = container_name.to_string();
 
@@ -1067,8 +1085,6 @@ async fn run_container_log_by_name_loop(
                             && (evt.name == cname || evt.container_id == cname) =>
                         {
                             if evt.action == "start" {
-                                let banner = run_banner(container_name);
-                                handle.write_data(term_name, banner.into_bytes());
                                 break; // Reconnect
                             }
                         }
@@ -1082,51 +1098,66 @@ async fn run_container_log_by_name_loop(
     }
 }
 
-/// Stream logs from a single container into a terminal buffer via the actor.
-/// Returns the last timestamp seen (Unix seconds), or `None` if no log lines were received.
-async fn stream_single_container_to_terminal(
-    docker: &docker::DockerClient,
-    container_name: &str,
-    handle: &TerminalHandle,
-    term_name: &str,
+/// Options for streaming a single container's logs.
+struct StreamLogOpts<'a> {
+    docker: &'a docker::DockerClient,
+    container_name: &'a str,
+    handle: &'a TerminalHandle,
+    term_name: &'a str,
     cancel: CancellationToken,
-    tail: &str,
+    tail: &'a str,
     since: Option<i32>,
-) -> Option<i32> {
-    let opts = docker::ContainerLogsOpts {
+    /// Skip lines with timestamps <= this value (dedup on reconnect).
+    filter_nano: Option<i64>,
+}
+
+/// Stream logs from a single container into a terminal buffer via the actor.
+/// Returns the last timestamp seen (nanoseconds since epoch), or `None` if no log lines were received.
+async fn stream_single_container_to_terminal(opts: StreamLogOpts<'_>) -> Option<i64> {
+    let log_opts = docker::ContainerLogsOpts {
         follow: true,
         stdout: true,
         stderr: true,
         timestamps: true,
-        tail: tail.to_string(),
-        since,
+        tail: opts.tail.to_string(),
+        since: opts.since,
     };
 
-    let mut stream = std::pin::pin!(docker::container_logs(docker, container_name, opts));
-    let mut last_ts: Option<i32> = None;
+    let mut stream = std::pin::pin!(docker::container_logs(opts.docker, opts.container_name, log_opts));
+    let mut last_seen_nano: Option<i64> = None;
 
     loop {
         tokio::select! {
-            () = cancel.cancelled() => return last_ts,
+            () = opts.cancel.cancelled() => return last_seen_nano,
             item = stream.next() => {
                 match item {
                     Some(Ok(output)) => {
                         let data = output.into_bytes();
                         if !data.is_empty() {
-                            // Parse timestamp from the line for since-based reconnection.
-                            // Docker timestamps are RFC3339Nano: "2024-01-15T10:30:00.123456789Z rest"
+                            // Parse timestamp from the line for nano-precision tracking.
                             let text = String::from_utf8_lossy(&data);
-                            let (ts_str, _) = split_timestamp(&text);
+                            let (ts_str, content) = split_timestamp(&text);
                             if !ts_str.is_empty()
-                                && let Some(secs) = parse_unix_seconds(ts_str)
+                                && let Some(nanos) = parse_timestamp_nanos(ts_str)
                             {
-                                last_ts = Some(secs);
+                                // Nano filter: skip lines within the already-seen window
+                                if let Some(boundary) = opts.filter_nano
+                                    && nanos <= boundary
+                                {
+                                    continue;
+                                }
+                                last_seen_nano = Some(nanos);
+                                // Send as binary-framed entry (timestamp in binary, message without Docker timestamp)
+                                let msg = format!("{content}\n");
+                                write_log_entry(opts.handle, opts.term_name, nanos, msg.as_bytes());
+                            } else {
+                                // No parseable timestamp — send with nanos=0
+                                write_log_entry(opts.handle, opts.term_name, 0, &data);
                             }
-                            handle.write_data(term_name, data.to_vec());
                         }
                     }
                     Some(Err(e)) => {
-                        debug!(container = %container_name, "log stream error: {e}");
+                        debug!(container = %opts.container_name, "log stream error: {e}");
                         break;
                     }
                     None => break,
@@ -1135,13 +1166,12 @@ async fn stream_single_container_to_terminal(
         }
     }
 
-    last_ts
+    last_seen_nano
 }
 
-/// Parse an RFC3339 timestamp string into Unix seconds.
-/// Handles "2025-01-15T00:00:09.800Z" and similar formats.
-fn parse_unix_seconds(ts: &str) -> Option<i32> {
-    // Fast path: parse YYYY-MM-DDTHH:MM:SS and ignore fractional seconds
+/// Parse an RFC3339Nano timestamp string into nanoseconds since epoch.
+/// Handles "2025-01-15T00:00:09.800000000Z" and similar formats.
+fn parse_timestamp_nanos(ts: &str) -> Option<i64> {
     if ts.len() < 19 { return None; }
     let year: i32 = ts[0..4].parse().ok()?;
     let month: u32 = ts[5..7].parse().ok()?;
@@ -1150,9 +1180,31 @@ fn parse_unix_seconds(ts: &str) -> Option<i32> {
     let min: u32 = ts[14..16].parse().ok()?;
     let sec: u32 = ts[17..19].parse().ok()?;
 
-    // Days from 1970-01-01 (simplified — assumes UTC, no leap seconds)
     let days = days_from_civil(year, month, day);
-    Some((days as i32) * 86400 + (hour * 3600 + min * 60 + sec) as i32)
+    let secs = days * 86400 + (hour * 3600 + min * 60 + sec) as i64;
+
+    // Parse fractional seconds (nanoseconds)
+    let mut nanos: i64 = 0;
+    let bytes = ts.as_bytes();
+    if bytes.len() > 19 && bytes[19] == b'.' {
+        let frac_start = 20;
+        // Find end of fractional digits (before 'Z', '+', '-', or end)
+        let mut frac_end = frac_start;
+        while frac_end < bytes.len() && bytes[frac_end].is_ascii_digit() {
+            frac_end += 1;
+        }
+        let frac_len = frac_end - frac_start;
+        if frac_len > 0 {
+            // Parse up to 9 digits, pad with zeros
+            let digits = frac_len.min(9);
+            let frac_val: i64 = ts[frac_start..frac_start + digits].parse().unwrap_or(0);
+            // Scale to nanoseconds (multiply by 10^(9-digits))
+            let scale = [1_000_000_000, 100_000_000, 10_000_000, 1_000_000, 100_000, 10_000, 1_000, 100, 10, 1];
+            nanos = frac_val * scale[digits];
+        }
+    }
+
+    Some(secs * 1_000_000_000 + nanos)
 }
 
 /// Convert a civil date to days since epoch (1970-01-01).
