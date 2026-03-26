@@ -5,7 +5,7 @@ export interface Clock {
 export class FixedClock implements Clock {
     private base: number;
     private tick = 0;
-    private static readonly TICK_MS = 100;
+    private static readonly TICK_MS = 1;
 
     constructor(time: Date) {
         this.base = time.getTime();

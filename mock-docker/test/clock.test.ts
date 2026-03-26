@@ -12,7 +12,7 @@ describe("FixedClock", () => {
         const clock = new FixedClock(new Date("2025-01-01T00:00:00Z"));
         const a = clock.now();
         const b = clock.now();
-        expect(b.getTime() - a.getTime()).toBe(100);
+        expect(b.getTime() - a.getTime()).toBe(1);
     });
 
     it("advance moves time forward", () => {

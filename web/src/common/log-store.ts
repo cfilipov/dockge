@@ -162,40 +162,6 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
         entries.value = arr;
     }
 
-    // ── Stale banner check ──────────────────────────────────────────────
-
-    /**
-     * Check if a banner's timestamp falls within the log range.
-     * Only allow banners between (earliest log - 5s) and (latest log + 5s).
-     * This prevents historical events from past stop/start cycles
-     * (whose logs are no longer in the tail window) from showing as banners.
-     */
-    function isBannerInRange(nanos: number): boolean {
-        const arr = entries.value;
-        if (arr.length === 0) {
-            // No logs yet — allow the banner (it's a live event, logs will follow)
-            return true;
-        }
-        // Find earliest and latest log entry nanos
-        let earliest = Infinity;
-        let latest = -Infinity;
-        for (const e of arr) {
-            if (e.type === "log") {
-                if (e.nanos < earliest) {
-                    earliest = e.nanos;
-                }
-                if (e.nanos > latest) {
-                    latest = e.nanos;
-                }
-            }
-        }
-        if (earliest === Infinity) {
-            return true; // No log entries, only banners — allow
-        }
-        // Allow banners within 5s of the log range
-        return nanos >= earliest - 5_000_000_000 && nanos <= latest + 5_000_000_000;
-    }
-
     // ── Event store subscription ────────────────────────────────────────
 
     const unsubscribe = eventStore.onInsert((event: DockerResourceEvent) => {
@@ -229,12 +195,33 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
         scheduleBatchInsert();
     });
 
-    // Also check for historical events already in the store on creation.
-    // Use a microtask so the first feed() has a chance to set the log range.
+    // Check for historical events in the store that fall within the visible
+    // log range. Use a microtask so the first feed() has a chance to populate logs.
     queueMicrotask(() => {
         if (destroyed) {
             return;
         }
+
+        // Find earliest and latest log timestamps
+        let earliest = Infinity;
+        let latest = -Infinity;
+        for (const e of entries.value) {
+            if (e.type === "log") {
+                if (e.nanos < earliest) {
+                    earliest = e.nanos;
+                }
+                if (e.nanos > latest) {
+                    latest = e.nanos;
+                }
+            }
+        }
+        if (earliest === Infinity) {
+            return; // No logs yet — live events will handle banners
+        }
+
+        const lo = earliest - 5_000_000_000; // 5s before earliest log
+        const hi = latest + 5_000_000_000;   // 5s after latest log
+
         const result = terminalType === "combined" && stackName
             ? eventStore.forStack(stackName)
             : containerName
@@ -245,10 +232,9 @@ export function createLogStore(opts: LogStoreOptions): LogStore {
             if (event.action !== "start" && event.action !== "die") {
                 continue;
             }
-            if (!isBannerInRange(event.timeNano)) {
+            if (event.timeNano < lo || event.timeNano > hi) {
                 continue;
             }
-            // Check if this banner already exists (from onInsert)
             const exists = entries.value.some(
                 e => e.type === "banner" && e.nanos === event.timeNano && e.action === event.action
             );
