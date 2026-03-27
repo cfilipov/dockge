@@ -2,6 +2,9 @@
 // individual variants are unavoidably large, so boxing each would add noise for no benefit.
 #![allow(clippy::result_large_err)]
 
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod auth;
 mod broadcast;
 mod compose;
